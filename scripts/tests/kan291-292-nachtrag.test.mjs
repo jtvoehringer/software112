@@ -43,7 +43,8 @@ describe('Pressung', () => {
 })
 
 describe('Platzhalter mit Dezimalkomma (KAN-292)', () => {
-  const zeilen = t => pruefeText(t).funde.map(f => f.zeile)
+  // nur die Platzhalter-Regel (Sweep 121 meldet an denselben Beispielen zusätzlich fehlendes inputMode)
+  const zeilen = t => pruefeText(t).funde.filter(f => f.text.startsWith('Platzhalter')).map(f => f.zeile)
   test('Erkennung', () => {
     assert.deepEqual(zeilen('<input placeholder="0.00" />'), [1])
     assert.deepEqual(zeilen('<input placeholder="z.B. 12.90" />'), [1])

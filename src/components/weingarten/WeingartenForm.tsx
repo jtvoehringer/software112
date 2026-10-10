@@ -86,7 +86,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">AMA-Feldstücknr.</label>
-            <input aria-label="AMA-Feldstücknr."
+            <input inputMode="numeric" aria-label="AMA-Feldstücknr."
               name="ama_feldnummer"
               type="text"
               maxLength={3}

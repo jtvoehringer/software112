@@ -275,7 +275,7 @@ export function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">BKI-Betriebsnummer</label>
-          <input aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr')} placeholder="z.B. 4285221" className={inputCls()} />
+          <input inputMode="numeric" aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr')} placeholder="z.B. 4285221" className={inputCls()} />
           <p className="text-[11px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
         </div>
         <div className="flex items-center gap-2 pt-5">

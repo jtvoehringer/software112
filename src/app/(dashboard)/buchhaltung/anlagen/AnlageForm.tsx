@@ -159,7 +159,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
             </div>
             <div>
               <label htmlFor="an-konto" className={lbl}>Konto (Klasse 0)</label>
-              <input id="an-konto" className={`${inp} font-mono`} value={form.konto_nr} onChange={e => set('konto_nr', e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="0400" disabled={ro} />
+              <input inputMode="numeric" id="an-konto" className={`${inp} font-mono`} value={form.konto_nr} onChange={e => set('konto_nr', e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="0400" disabled={ro} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

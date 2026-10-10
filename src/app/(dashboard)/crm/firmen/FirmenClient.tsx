@@ -184,12 +184,12 @@ export function FirmaForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">BKI-Betriebsnummer</label>
-          <input aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof FirmaRow)} placeholder="z.B. 905721" className={inputCls()} />
+          <input inputMode="numeric" aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof FirmaRow)} placeholder="z.B. 905721" className={inputCls()} />
           <p className="text-[11px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">DebitorNr.</label>
-          <input aria-label="DebitorNr." name="debitor_nr" defaultValue={v('debitor_nr' as keyof FirmaRow)} placeholder="z.B. 227002" className={inputCls()} />
+          <input inputMode="numeric" aria-label="DebitorNr." name="debitor_nr" defaultValue={v('debitor_nr' as keyof FirmaRow)} placeholder="z.B. 227002" className={inputCls()} />
           <p className="text-[11px] text-s112-tertiary mt-0.5">Kontonummer im BMD-Kontenplan (Buchhaltung), falls dort bereits angelegt</p>
         </div>
         <div>
