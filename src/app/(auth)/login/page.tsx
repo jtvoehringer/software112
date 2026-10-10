@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { mitWeiter } from '@/lib/tenant/waechter'
 import { abmeldeHinweis } from '@/lib/auth/sitzung'
+import { sitzungsCookieSchreiben } from '@/lib/auth/sitzungCookie'
+import { passkeyFehlerText, passkeyMoeglich } from '@/lib/auth/passkey'
+import { subdomainAusHost, subdomainUrl } from '@/lib/tenant/subdomain'
 
 // Hinweis: metadata muss in Server Components definiert werden.
 // Login-Page-Titel wird über das Root-Layout gesetzt.
@@ -21,6 +24,33 @@ export default function LoginPage() {
   const [hinweis, setHinweis]   = useState<string | null>(null)
   // eslint-disable-next-line react-hooks/set-state-in-effect -- Grund aus der Adresse nach dem Laden übernehmen
   useEffect(() => { setHinweis(abmeldeHinweis(new URLSearchParams(window.location.search).get('grund'))) }, [])
+  // KAN-287: Passkey-Anmeldung nur auf der Basis-Adresse (eine Origin je Hauptdomain in Supabase, nicht je Betrieb);
+  // auf einer Betriebs-Subdomain führt der Knopf zur Anmeldung auf der Basis – das Anmelde-Cookie gilt dort für alle
+  // Subdomains (KAN-31)
+  const [passkey, setPasskey]   = useState<{ moeglich: boolean; basisLogin: string | null }>({ moeglich: false, basisLogin: null })
+  useEffect(() => {
+    const sub = subdomainAusHost(window.location.host)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Fähigkeit und Adresse erst nach dem Laden prüfen
+    setPasskey({ moeglich: passkeyMoeglich(), basisLogin: sub ? subdomainUrl(null, '/login') : null })
+  }, [])
+
+  /** Nach erfolgreicher Anmeldung (Passwort oder Passkey): Sitzungs-Cookie (KAN-286) und weiter (KAN-78) */
+  const angemeldet = () => {
+    sitzungsCookieSchreiben()
+    router.push(mitWeiter('/betrieb-waehlen', new URLSearchParams(window.location.search).get('weiter')))
+    router.refresh()
+  }
+
+  const mitPasskey = async () => {
+    if (passkey.basisLogin) { window.location.href = passkey.basisLogin; return }
+    setLoading(true); setError(null)
+    try {
+      const { error } = await supabase.auth.signInWithPasskey()
+      if (error) { setError(passkeyFehlerText(error)); return }
+      angemeldet()
+    } catch (e) { setError(passkeyFehlerText(e)) }
+    finally { setLoading(false) }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,8 +69,7 @@ export default function LoginPage() {
         setLoading(false)
       } else {
         // KAN-78: Ziel aus dem Link (weiter) über Zwei-Faktor und Betriebswahl mitnehmen
-        router.push(mitWeiter('/betrieb-waehlen', new URLSearchParams(window.location.search).get('weiter')))
-        router.refresh()
+        angemeldet()
       }
     } finally {
       setLoading(false)
@@ -120,6 +149,15 @@ export default function LoginPage() {
             </a>
           </div>
         </form>
+        {/* KAN-287: Anmeldung per Passkey (Fingerabdruck, Gesicht, Windows Hello) – eingerichtet im Profil */}
+        {passkey.moeglich && (
+          <div className="mt-4 pt-4 border-t border-s112-line">
+            <button type="button" onClick={mitPasskey} disabled={loading}
+              className="w-full py-2 rounded-lg text-sm font-semibold border border-s112-line-str text-s112-text-1 hover:bg-s112-bg disabled:opacity-40">
+              Mit Passkey anmelden (Fingerabdruck, Gesicht, Windows Hello)
+            </button>
+          </div>
+        )}
       </div>
 
       <p className="text-center text-xs text-s112-muted mt-6">

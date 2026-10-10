@@ -1,23 +1,13 @@
-// ── Zwei-Faktor per Passkey (Fingerabdruck, Gesicht, Windows Hello) – KAN-287, 10.10.2026 ─────────────────────────
+// ── Anmeldung per Passkey (Fingerabdruck, Gesicht, Windows Hello) – KAN-287, 10.10.2026 ─────────────────────────────
 //
-// Supabase Auth MFA kennt neben TOTP den Faktor „webauthn“ (auth-js ≥ 2.7x, bei Supabase noch experimentell).
-// Ein bestätigter Passkey ergibt wie der Code die Stufe aal2 – Proxy, API-Routen und die Datenbank (s112_aal_ok)
-// prüfen weiter nur die Stufe im signierten Token. Voraussetzung: WebAuthn ist im Supabase-Projekt eingeschaltet
-// (Authentication → Multi-Factor → WebAuthn). Ohne das scheitert das Einrichten mit einer verständlichen Meldung.
+// Supabase Auth „Passkeys“ (Beta, im Projekt unter Authentication → Passkeys eingeschaltet; WebAuthn als zweiter Faktor
+// ist im Dashboard nicht freischaltbar): Ein Passkey ersetzt Passwort und – sofern die Sitzung die Stufe aal2 erreicht –
+// den Code. Eingerichtet wird er im Profil (Zwei-Faktor-Seite), angemeldet auf der Login-Seite.
+// API (auth-js ≥ 2.116, Client mit auth.experimental.passkey): auth.registerPasskey(), auth.signInWithPasskey(),
+// auth.passkey.list()/delete().
 // Isomorph (node:test).
 
-export type Faktor = { id: string; status: string; factor_type?: string; friendly_name?: string | null; created_at?: string }
-
-type Faktorenliste = { all?: Faktor[] | null; totp?: Faktor[] | null; webauthn?: Faktor[] | null } | null | undefined
-
-/** Bestätigte Faktoren nach Art: der Code (TOTP) und die Passkeys */
-export function faktorenAufteilen(fl: Faktorenliste): { totp: Faktor | null; passkeys: Faktor[]; bestaetigt: Faktor[] } {
-  const alle = (fl?.all ?? []).filter(f => f.status === 'verified')
-  const totp = alle.find(f => f.factor_type === 'totp') ?? (fl?.totp ?? []).find(f => f.status === 'verified') ?? null
-  const passkeys = alle.filter(f => f.factor_type === 'webauthn')
-  for (const p of fl?.webauthn ?? []) if (p.status === 'verified' && !passkeys.some(x => x.id === p.id)) passkeys.push(p)
-  return { totp, passkeys, bestaetigt: alle.length ? alle : [...(totp ? [totp] : []), ...passkeys] }
-}
+export type PasskeyEintrag = { id: string; friendly_name?: string | null; created_at: string; last_used_at?: string | null }
 
 /** Kann dieser Browser Passkeys (WebAuthn)? */
 export function passkeyMoeglich(w: unknown = typeof window === 'undefined' ? undefined : window): boolean {
@@ -32,14 +22,13 @@ export function passkeyName(userAgent: string, datum: string): string {
   return `Passkey ${geraet} ${datum}`
 }
 
-/** Fehler beim Einrichten bzw. Bestätigen in Klartext */
+/** Fehler beim Einrichten bzw. Anmelden in Klartext */
 export function passkeyFehlerText(e: unknown): string {
   const name = (e as { name?: string } | null)?.name ?? ''
   const msg = (e as { message?: string } | null)?.message ?? String(e ?? '')
-  if (name === 'NotAllowedError' || /not allowed|abort|cancel/i.test(msg)) return 'Abgebrochen oder Zeit abgelaufen – bitte erneut versuchen.'
-  if (/webauthn.*(disabled|not enabled|not supported)|mfa.*webauthn.*disabled|factor type.*not.*enabled/i.test(msg)) {
-    return 'Passkeys sind für software:112 noch nicht freigeschaltet – bitte vorerst den Code aus der Authenticator-App verwenden.'
-  }
-  if (name === 'InvalidStateError') return 'Für dieses Gerät ist bereits ein Passkey eingerichtet.'
+  if (name === 'NotAllowedError' || /not allowed|abort|cancel|timed out/i.test(msg)) return 'Abgebrochen oder Zeit abgelaufen – bitte erneut versuchen.'
+  if (/passkey.*(disabled|not enabled)|feature.*disabled/i.test(msg)) return 'Passkeys sind für software:112 noch nicht freigeschaltet – bitte mit Passwort anmelden.'
+  if (name === 'InvalidStateError' || /already registered|excluded/i.test(msg)) return 'Für dieses Gerät ist bereits ein Passkey eingerichtet.'
+  if (/no.*credential|not found|unknown credential/i.test(msg)) return 'Für dieses Konto ist auf diesem Gerät kein Passkey eingerichtet – bitte mit Passwort anmelden und den Passkey im Profil einrichten.'
   return msg || 'Passkey konnte nicht verwendet werden.'
 }
