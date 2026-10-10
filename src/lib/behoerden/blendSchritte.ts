@@ -23,6 +23,8 @@ import {
 import { ladeBehaelterNamen, UMZUG_GEBINDE_SELECT } from '../kellerbuch/quellGebinde'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 type R = Record<string, any>
 
 export type SchrittVorgang = 'Umzug' | 'Filtration' | 'Verschnitt'
@@ -167,7 +169,7 @@ export function schrittStelleText(s: SchrittStelle): string {
 
 async function liste(query: any, was: string): Promise<R[]> {
   const { data, error } = await alle<R>(query)
-  if (error) throw new Error(`Blend-Protokoll: ${was} konnte nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
+  if (error) throw new AktionsFehler(`Blend-Protokoll: ${was} konnte nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
   return data
 }
 

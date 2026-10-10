@@ -129,7 +129,7 @@ export async function ladeAssistentKontext(
       .eq('tenant_id', tenantId)
       .order('erstellt_am', { ascending: false }).limit(200),
   ])
-  if ((weingaertenRawErr ?? grundstueckeRawErr ?? psmRawErr ?? duengemittelRawErr ?? kontakteRawErr ?? firmenRawErr ?? mitgliederRawErr ?? fuellungenRawErr ?? weinausbauRawErr ?? einstellungenRawErr ?? jahrgaengeRawErr ?? behandlungstypenRawErr ?? korrekturenRawErr)) throw new Error(`Daten konnten nicht geladen werden: ${(weingaertenRawErr ?? grundstueckeRawErr ?? psmRawErr ?? duengemittelRawErr ?? kontakteRawErr ?? firmenRawErr ?? mitgliederRawErr ?? fuellungenRawErr ?? weinausbauRawErr ?? einstellungenRawErr ?? jahrgaengeRawErr ?? behandlungstypenRawErr ?? korrekturenRawErr).message}`)
+  if ((weingaertenRawErr ?? grundstueckeRawErr ?? psmRawErr ?? duengemittelRawErr ?? kontakteRawErr ?? firmenRawErr ?? mitgliederRawErr ?? fuellungenRawErr ?? weinausbauRawErr ?? einstellungenRawErr ?? jahrgaengeRawErr ?? behandlungstypenRawErr ?? korrekturenRawErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(weingaertenRawErr ?? grundstueckeRawErr ?? psmRawErr ?? duengemittelRawErr ?? kontakteRawErr ?? firmenRawErr ?? mitgliederRawErr ?? fuellungenRawErr ?? weinausbauRawErr ?? einstellungenRawErr ?? jahrgaengeRawErr ?? behandlungstypenRawErr ?? korrekturenRawErr).message}`)
 
   return {
     weingaerten: ((weingaertenRaw ?? []) as R[]).map(w => ({
@@ -197,6 +197,7 @@ export const FLASCHEN_LABEL: Record<number, string> = {
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { leseTitel, leseZeitraumText } from '@/lib/wein/lesen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export function formatiereKontextFuerPrompt(k: AssistentKontext): string {
   const zeile = (id: string, label: string, extra?: string | null) =>

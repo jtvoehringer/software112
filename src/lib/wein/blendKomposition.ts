@@ -19,6 +19,7 @@ import {
   zusammensetzung, zusammensetzungEntnahme, type Ereignis, type Herkunftsanteil, type HerkunftInfo, type HerkunftLiter,
   type Zusammensetzung,
 } from './mischungsrechnung'
+import { AktionsFehler } from '@/lib/fehler'
 
 type R = Record<string, any>
 
@@ -45,7 +46,7 @@ function ts(v: unknown): string | null {
 
 async function liste(query: any, was: string): Promise<R[]> {
   const { data, error } = await alle<R>(query)
-  if (error) throw new Error(`Blend-Protokoll: ${was} konnte nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
+  if (error) throw new AktionsFehler(`Blend-Protokoll: ${was} konnte nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
   return data
 }
 

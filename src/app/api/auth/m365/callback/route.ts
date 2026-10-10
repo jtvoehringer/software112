@@ -5,6 +5,7 @@ import { pruefeState, loescheNonceCookie, NONCE_COOKIE } from '@/lib/m365/state'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { schreibSperre } from '@/lib/auth/sperren'
 import type { UserRole } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
       m365_user_email:        userEmail,
     }).eq('tenant_id', tenantId).select('tenant_id')
     if (speicherFehler || !((gespeichert ?? []) as unknown[]).length) {
-      throw new Error(`Die Verbindung konnte nicht gespeichert werden${speicherFehler ? `: ${speicherFehler.message}` : ' (keine Einstellungen für den Betrieb)'}`)
+      throw new AktionsFehler(`Die Verbindung konnte nicht gespeichert werden${speicherFehler ? `: ${speicherFehler.message}` : ' (keine Einstellungen für den Betrieb)'}`)
     }
 
     return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_ok=1`, req.url)))

@@ -14,6 +14,8 @@
 //
 // Isomorph und ohne '@/'-Importe – geprüft in scripts/tests/kan42-eroeffnung.test.mjs.
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 const TAG_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 
 /** Kennzeichen (fuellungen.import_quelle) einer Füllung, die als Flaschen-Eröffnungsbestand angelegt wurde */
@@ -74,7 +76,7 @@ export function eroeffnungsStichtagFehler(stichtag: unknown, heute: string): str
  */
 export function eroeffnungsZeitpunkt(stichtag: string): string {
   const m = TAG_RE.exec(stichtag)
-  if (!m || !istKalendertag(stichtag)) throw new Error(`Ungültiger Stichtag: ${stichtag}`)
+  if (!m || !istKalendertag(stichtag)) throw new AktionsFehler(`Ungültiger Stichtag: ${stichtag}`)
   const mitternachtUtc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   let t = mitternachtUtc - wienVersatz(mitternachtUtc)
   const v2 = wienVersatz(t)

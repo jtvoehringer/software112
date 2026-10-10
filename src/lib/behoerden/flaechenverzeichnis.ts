@@ -3,6 +3,7 @@ import { alle } from '@/lib/supabase/alle'
 import { NUTZART_OPTIONS } from '@/lib/wein/nutzart'
 import type { LadeErgebnis } from './typen'
 import { flaechenZeilen, hektar, type FlaechenZeile, type GstStamm, type RiedStamm } from './flaechenverzeichnis-zeilen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // ── Flächenverzeichnis: EINE Ladefunktion für die Rieden-Übersicht und die CSV (24.09.2026) ──
 //
@@ -102,8 +103,8 @@ export async function ladeRiedenStammdaten(supabase: any, tenantId: string): Pro
       .order('gst_nr')
       .order('id')),
   ])
-  if (w.error) throw new Error(`Rieden konnten nicht geladen werden: ${w.error.message}`)
-  if (g.error) throw new Error(`Grundstücke konnten nicht geladen werden: ${g.error.message}`)
+  if (w.error) throw new AktionsFehler(`Rieden konnten nicht geladen werden: ${w.error.message}`)
+  if (g.error) throw new AktionsFehler(`Grundstücke konnten nicht geladen werden: ${g.error.message}`)
   return { weingaerten: w.data.map(riedAus), grundstuecke: g.data.map(gstAus) }
 }
 

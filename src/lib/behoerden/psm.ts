@@ -35,6 +35,7 @@ import type { LadeErgebnis } from './typen'
 import { verteileMassnahme, WARNUNG_GLEICH, type GstAnteil, type WiGst } from '@/lib/wein/massnahmeAnteile'
 import { gstAktiv, gstImJahr } from '@/lib/wein/grundstueckAktiv'
 import { anwenderText, ART_VERWENDUNG_LABEL, istArtVerwendung } from '@/lib/behandlungen/erfassungsfrist'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -641,7 +642,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
   const nurIds = (f as { nurIds?: string[] }).nurIds
   if (nurIds) q = q.in('id', nurIds.length > 0 ? nurIds : ['00000000-0000-0000-0000-000000000000'])
   const { data, error } = await alle<R>(q.order('datum').order('id'))
-  if (error) throw new Error(`Maßnahmen konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Maßnahmen konnten nicht geladen werden: ${error.message}`)
 
   // Anwender und erfassender Benutzer (→ auth.users): Namen aus profiles, nur wenn überhaupt gesetzt
   const warnungen: string[] = []
@@ -676,7 +677,7 @@ export async function ladeWeingaerten(supabase: any, tenantId: string, opt: { ja
     .select('id, name, ried, flaeche_ha, aktiv, lage_id, lagen:lage_id(name), grundstuecke(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, nutzart, aktiv, deaktiviert_am)')
     .eq('tenant_id', tenantId)
     .order('name').order('id'))
-  if (error) throw new Error(`Weingärten konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Weingärten konnten nicht geladen werden: ${error.message}`)
   return data.map(w => {
     const wi = ((w.grundstuecke ?? []) as R[]).filter(g => g.nutzart === 'WI')
     return {

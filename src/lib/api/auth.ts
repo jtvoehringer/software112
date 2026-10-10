@@ -4,6 +4,7 @@
  */
 import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -51,7 +52,7 @@ export async function getM365Token(
       .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
   ])
   // KAN-254: ein Lesefehler ist nicht „nicht verbunden“
-  if (ucErr || tcErr) throw new Error(`Postfach-Verbindung konnte nicht geladen werden: ${(ucErr ?? tcErr).message}`)
+  if (ucErr || tcErr) throw new AktionsFehler(`Postfach-Verbindung konnte nicht geladen werden: ${(ucErr ?? tcErr).message}`)
   if (!(uc as R | null)?.m365_aktiv || !(uc as R | null)?.m365_access_token_enc)
     return { uc: uc as R | null, token: null }
   try {

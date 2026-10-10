@@ -15,6 +15,7 @@ import { STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { betrag, KONTOART_LABEL, sachkonto, text, zahl } from './buchhaltung-gemeinsam'
 import { parameterFehler, type ParameterFehler } from './typen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -186,7 +187,7 @@ export async function ladeEaJournal(supabase: any, tenantId: string, p: EaJourna
   if (p.typ) q = q.eq('typ', p.typ)
   if (p.q) q = q.ilike('beschreibung', `%${p.q}%`)
   const { data, error } = await alle<R>(q.order('datum').order('erstellt_am').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (ea_transaktionen): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (ea_transaktionen): ${error.message}`)
 
   // KAN-150 F1c: Kategorie, Firma und Käufer wie beim Buchen
   for (const r of data) {

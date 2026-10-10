@@ -10,6 +10,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 export type JournalBestand = 'offen' | 'flasche'
 
 /** Eine Zeile aus kellerbuch_buchungen */
@@ -87,7 +89,7 @@ export async function ladeJournalBeginn(supabase: any, tenantId: string): Promis
     .select('journal_ab')
     .eq('tenant_id', tenantId)
     .maybeSingle()
-  if (error) throw new Error(`Journalbeginn konnte nicht geladen werden (${error.message})`)
+  if (error) throw new AktionsFehler(`Journalbeginn konnte nicht geladen werden (${error.message})`)
   return (data?.journal_ab as string | null | undefined) ?? null
 }
 
@@ -99,14 +101,14 @@ export async function ladeJournalZeilen(supabase: any, tenantId: string, anzahl 
     .order('beleg_nr', { ascending: false })
     .order('pos', { ascending: true })
     .limit(Math.min(Math.max(anzahl, 1), 1000))
-  if (error) throw new Error(`Bewegungsjournal konnte nicht geladen werden (${error.message})`)
+  if (error) throw new AktionsFehler(`Bewegungsjournal konnte nicht geladen werden (${error.message})`)
   return ((data ?? []) as any[]).map(z => ({ ...z, menge_liter: zahl(z.menge_liter), menge_stk: zahl(z.menge_stk) })) as JournalBuchung[]
 }
 
 /** Abweichungen Ist ↔ Journal (leer = konsistent bzw. Journal aus) */
 export async function ladeJournalAbweichungen(supabase: any, tenantId: string): Promise<JournalAbweichung[]> {
   const { data, error } = await (supabase.rpc as any)('journal_konsistenz', { p_tenant_id: tenantId })
-  if (error) throw new Error(`Journal-Konsistenz konnte nicht geprüft werden (${error.message})`)
+  if (error) throw new AktionsFehler(`Journal-Konsistenz konnte nicht geprüft werden (${error.message})`)
   return ((data ?? []) as any[]).map(z => ({
     ...z, ist: zahl(z.ist), journal: zahl(z.journal), differenz: zahl(z.differenz),
   })) as JournalAbweichung[]
@@ -170,7 +172,7 @@ export async function ladeKellerbuchAbschluesse(supabase: any, tenantId: string)
     .select('id, abgeschlossen_bis, abgeschlossen_am, bemerkung')
     .eq('tenant_id', tenantId)
     .order('abgeschlossen_bis', { ascending: false })
-  if (error) throw new Error(`Kellerbuch-Abschlüsse konnten nicht geladen werden (${error.message})`)
+  if (error) throw new AktionsFehler(`Kellerbuch-Abschlüsse konnten nicht geladen werden (${error.message})`)
   return (data ?? []) as KellerbuchAbschluss[]
 }
 

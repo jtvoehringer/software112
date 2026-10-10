@@ -10,6 +10,7 @@
 // Nachrichtenliste (Markierung „neu“) gemeinsam genutzt.
 
 import { alle } from '@/lib/supabase/alle'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -109,7 +110,7 @@ export async function ladeAbsenderIndex(client: any, tenantId: string, eigeneAdr
     ])
     // KAN-254: sonst würde ein leerer Index 60 s zwischengespeichert – jeder Absender „unbekannt“, Lead-Vorschläge für Kunden
     const ladeFehler = kErr ?? fErr ?? iErr
-    if (ladeFehler) throw new Error(`Kontakte/Firmen für die Absender-Erkennung konnten nicht geladen werden: ${ladeFehler.message}`)
+    if (ladeFehler) throw new AktionsFehler(`Kontakte/Firmen für die Absender-Erkennung konnten nicht geladen werden: ${ladeFehler.message}`)
     roh = { stamp: Date.now(), kRaw: (kRaw ?? []) as R[], fRaw: (fRaw ?? []) as R[], iRaw: (iRaw ?? []) as R[] }
     rohCache.set(tenantId, roh)
   }

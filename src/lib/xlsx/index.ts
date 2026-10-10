@@ -8,6 +8,8 @@
 // LibreOffice und openpyxl; die Dateien sind klein genug.
 // Isomorph und ohne Imports (node:test lädt die Datei direkt).
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 export type XlsxZelle =
   | null
   | { t: 's'; v: string }
@@ -186,7 +188,7 @@ export function zipStored(dateien: readonly (readonly [string, Uint8Array])[]): 
 
 /** Arbeitsmappe aus Blättern → XLSX-Bytes */
 export function xlsxMappe(blaetter: readonly XlsxBlatt[]): Uint8Array {
-  if (blaetter.length === 0) throw new Error('XLSX: mindestens ein Blatt nötig')
+  if (blaetter.length === 0) throw new AktionsFehler('XLSX: mindestens ein Blatt nötig')
   const enc = new TextEncoder()
   const vergeben = new Set<string>()
   const namen = blaetter.map(b => blattName(b.name, vergeben))

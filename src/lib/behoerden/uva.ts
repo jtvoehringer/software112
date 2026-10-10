@@ -12,6 +12,7 @@ import { STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { betrag, summe, text } from './buchhaltung-gemeinsam'
 import { parameterFehler, type ParameterFehler } from './typen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -123,7 +124,7 @@ export async function ladeUva(supabase: any, tenantId: string, p: UvaParameter, 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: e, error: eErr } = await (supabase.from('tenant_einstellungen') as any)
       .select('buchhaltungsart').eq('tenant_id', tenantId).maybeSingle()
-    if (eErr) throw new Error(`Laden fehlgeschlagen (tenant_einstellungen): ${eErr.message}`)
+    if (eErr) throw new AktionsFehler(`Laden fehlgeschlagen (tenant_einstellungen): ${eErr.message}`)
     doppik = (e as R | null)?.buchhaltungsart === 'doppik'
   }
 
@@ -134,7 +135,7 @@ export async function ladeUva(supabase: any, tenantId: string, p: UvaParameter, 
     .eq('jahr', p.jahr)
   if (p.zeitraum) q = q.eq('zeitraum', p.zeitraum)
   const { data, error } = await alle<R>(q.order('zeitraum').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (ea_uva): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (ea_uva): ${error.message}`)
 
   const meldungen: UvaMeldung[] = data.map(u => ({
     id: String(u.id), jahr: Number(u.jahr), zeitraum: String(u.zeitraum),

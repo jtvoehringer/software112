@@ -9,6 +9,8 @@ import { bkiKontoZeilen, istStoffArt, kontoauszug, KONTO_ART_LABEL, KONZENTRAT_A
 import { katalogQualitaet } from '@/lib/katalog/bki'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 type R = Record<string, any>
 
 export type Stoff = { id: string; name: string; einheit: string; aktiv: boolean; art: StoffArt }
@@ -16,7 +18,7 @@ export type Stoff = { id: string; name: string; einheit: string; aktiv: boolean;
 /** Alle Stoffe des Betriebs (alphabetisch) */
 export async function ladeStoffe(supabase: any, tenantId: string): Promise<Stoff[]> {
   const { data, error } = await alle<R>((supabase.from('kellermittel') as any).select('id, name, einheit, aktiv, art').eq('tenant_id', tenantId).order('name').order('id'))
-  if (error) throw new Error(`Stoffe konnten nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
+  if (error) throw new AktionsFehler(`Stoffe konnten nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
   return data.map(s => ({ id: String(s.id), name: String(s.name), einheit: String(s.einheit), aktiv: !!s.aktiv, art: istStoffArt(s.art) ? s.art : 'sonstiges' }))
 }
 
@@ -27,7 +29,7 @@ export async function ladeKontoBuchungen(supabase: any, tenantId: string, keller
     .eq('tenant_id', tenantId)
   if (kellermittelId) q = q.eq('kellermittel_id', kellermittelId)
   const { data, error } = await alle<R>(q.order('datum').order('id'))
-  if (error) throw new Error(`Buchungen konnten nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
+  if (error) throw new AktionsFehler(`Buchungen konnten nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
   return data.map(b => ({
     id: String(b.id), kellermittel_id: String(b.kellermittel_id), datum: String(b.datum).slice(0, 10), art: b.art as KontoArt,
     menge: Number(b.menge), erstellt_am: b.erstellt_am ?? null, lieferant: b.lieferant ?? null, beleg: b.beleg ?? null, los: b.los ?? null,

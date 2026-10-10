@@ -34,6 +34,7 @@ import { ladeBewegungenBetrieb, type BetriebsBewegungen } from './bewegungsbuch'
 import { bestandAmStichtag, fruehesterTag, standardStichtag, type MengenBuchung, type StichtagsBestand } from './bestandZum'
 import { istTag, tag } from './kellerbuch-hilfen'
 import { parameterFehler, type ParameterFehler } from './typen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -176,8 +177,8 @@ export async function ladeBestandsGrundlage(supabase: Client, tenantId: string):
         .order('id'),
     ),
   ])
-  if (fbRes.error) throw new Error(`Laden fehlgeschlagen (fuellung_bewegungen): ${fbRes.error.message}`)
-  if (vpRes.error) throw new Error(`Laden fehlgeschlagen (verkauf_positionen): ${vpRes.error.message}`)
+  if (fbRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (fuellung_bewegungen): ${fbRes.error.message}`)
+  if (vpRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (verkauf_positionen): ${vpRes.error.message}`)
 
   // Chargen: Buchungen aus den Bewegungen (Kellerbehandlungen ohne Menge zählen nicht)
   const buchungenJeCharge = new Map<string, MengenBuchung[]>()

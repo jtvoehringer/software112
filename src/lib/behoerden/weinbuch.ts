@@ -12,6 +12,7 @@ import { buildWeinbuch, type EventTyp, type Weinbuch } from '@/lib/wein/weinbuch
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { text, type R } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const WEINBUCH_TYP_LABEL: Record<EventTyp, string> = {
   feldbehandlung:   'Feldbehandlung',
@@ -118,7 +119,7 @@ export async function ladeWeinbuchSammlung(
   if (f.sorte) q = q.eq('rebsorte', f.sorte)
   if (f.bezeichnung) q = q.eq('name', f.bezeichnung)
   const { data, error } = await alle<R>(q.order('jahrgang', { ascending: false }).order('name').order('id'))
-  if (error) throw new Error(`Chargen konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Chargen konnten nicht geladen werden: ${error.message}`)
 
   // Nacheinander (nicht parallel) – jedes Weinbuch stößt selbst ~10 parallele Abfragen an; Journalbeginn einmal (KAN-44)
   const journalBeginn = await ladeJournalBeginn(supabase, tenantId)
@@ -141,7 +142,7 @@ export async function ladeWeinbuchFilter(supabase: any, tenantId: string): Promi
     .select('id, jahrgang, rebsorte, name')
     .eq('tenant_id', tenantId)
     .order('id'))
-  if (error) throw new Error(`Chargen konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Chargen konnten nicht geladen werden: ${error.message}`)
   const jahrgaenge = [...new Set(data.map(c => c.jahrgang).filter((j): j is number => typeof j === 'number'))].sort((a, b) => b - a)
   const sorten = [...new Set(data.map(c => text(c.rebsorte)).filter((s): s is string => !!s))].sort((a, b) => a.localeCompare(b, 'de'))
   const bezeichnungen = [...new Set(data.map(c => text(c.name)).filter((s): s is string => !!s))].sort((a, b) => a.localeCompare(b, 'de'))

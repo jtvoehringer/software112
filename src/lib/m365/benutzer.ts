@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { getValidUserAccessToken, hatKalenderSchreibrecht } from '@/lib/m365/graph'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -40,7 +41,7 @@ export async function ladeOutlookVerbindung(): Promise<{ ok: true; v: OutlookVer
       .select('m365_tenant_id, m365_client_id, m365_client_secret_enc, m365_kalender_schreiben')
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
-  if ((cfgErr ?? tenantCfgErr)) throw new Error(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
+  if ((cfgErr ?? tenantCfgErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
   const c = cfg as R | null
   if (!c?.m365_aktiv || !c?.m365_access_token_enc) return { ok: false, grund: 'nicht_verbunden' }
   try {
@@ -72,7 +73,7 @@ export async function ladeOutlookStatus(tenantId: string, userId: string): Promi
     (admin.from('tenant_einstellungen') as any).select('m365_kalender_schreiben').eq('tenant_id', tenantId).maybeSingle(),
     ladeOutlookKollegen(tenantId, userId),
   ])
-  if ((cfgErr ?? tenantCfgErr)) throw new Error(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
+  if ((cfgErr ?? tenantCfgErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
   const c = cfg as R | null
   return {
     verbunden: !!c?.m365_aktiv,
@@ -90,7 +91,7 @@ export async function ladeOutlookKollegen(tenantId: string, ohneUserId?: string 
   const { data, error: dataErr } = await (admin.from('user_email_connections') as any)
     .select('user_id, email_address, anzeigename')
     .eq('tenant_id', tenantId).eq('m365_aktiv', true)
-  if (dataErr) throw new Error(`Daten konnten nicht geladen werden: ${dataErr.message}`)
+  if (dataErr) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${dataErr.message}`)
   return ((data ?? []) as R[])
     .filter(r => r.email_address && r.user_id !== ohneUserId)
     .map(r => ({ id: r.user_id as string, email: r.email_address as string, name: (r.anzeigename as string) || (r.email_address as string) }))

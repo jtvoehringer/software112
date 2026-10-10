@@ -11,6 +11,7 @@ import { mitHoechstens } from '@/lib/utils/parallel'
 import { holePrognose, holeRueckblick, type WetterStunde } from './geosphere'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { rund } from '@/lib/zahl/runden'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -67,7 +68,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
       // ── Rückblick (INCA) ──
       const { data: letzte, error: letzteErr } = await (admin.from('wetter_stunden') as any).select('zeit')
         .eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'inca').order('zeit', { ascending: false }).limit(1).maybeSingle()
-      if (letzteErr) throw new Error(letzteErr.message)   // zählt unten als Abruffehler dieses Punkts
+      if (letzteErr) throw new AktionsFehler(letzteErr.message)   // zählt unten als Abruffehler dieses Punkts
       const letzteZeit = letzte?.zeit ? new Date(letzte.zeit) : null
       const alterMin = letzteZeit ? (jetzt.getTime() - letzteZeit.getTime()) / 60000 : Infinity
       if (opts.erzwingen || alterMin >= 90) {
@@ -80,7 +81,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
           }))
           for (let i = 0; i < zeilen.length; i += 500) {
             const { error } = await (admin.from('wetter_stunden') as any).upsert(zeilen.slice(i, i + 500), { onConflict: 'tenant_id,lat,lon,quelle,zeit' })
-            if (error) throw new Error(error.message)
+            if (error) throw new AktionsFehler(error.message)
           }
           aktualisiert++
         }
@@ -88,7 +89,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
       // ── Prognose (NWP) ──
       const { data: prog, error: progErr } = await (admin.from('wetter_stunden') as any).select('abgerufen_am')
         .eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp').order('abgerufen_am', { ascending: false }).limit(1).maybeSingle()
-      if (progErr) throw new Error(progErr.message)
+      if (progErr) throw new AktionsFehler(progErr.message)
       const progAlterMin = prog?.abgerufen_am ? (jetzt.getTime() - new Date(prog.abgerufen_am).getTime()) / 60000 : Infinity
       if (opts.erzwingen || progAlterMin >= 180) {
         const { stunden } = await holePrognose(p.lat, p.lon, signal)
@@ -100,7 +101,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
             tenant_id: tenantId, lat: p.lat, lon: p.lon, quelle: 'nwp', zeit: w.zeit, rr: w.rr, t2m: w.t2m, rh2m: w.rh2m, wind_ms: w.wind_ms, boe_ms: w.boe_ms, abgerufen_am: jetzt.toISOString(),
           }))
           const { error } = await (admin.from('wetter_stunden') as any).insert(zeilen)
-          if (error) throw new Error(error.message)
+          if (error) throw new AktionsFehler(error.message)
           aktualisiert++
         }
       }
@@ -130,7 +131,7 @@ export async function ladeWetterdaten(client: any, tenantId: string, punkte: Wet
   const { data, error } = await alle<R>((client.from('wetter_stunden') as any).select('lat, lon, quelle, zeit, rr, t2m, rh2m, wind_ms, boe_ms, abgerufen_am')
     .eq('tenant_id', tenantId).gte('zeit', seit).order('zeit').order('quelle').order('lat').order('lon'))
   // KAN-254: sonst „keine Wetterdaten“ – Spritzwarnungen und Regen-Auswertung fehlten still
-  if (error) throw new Error(`Wetterdaten konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Wetterdaten konnten nicht geladen werden: ${error.message}`)
   const rows = (data ?? []) as R[]
   return punkte.map(p => {
     const eigene = rows.filter(r => Number(r.lat) === p.lat && Number(r.lon) === p.lon)

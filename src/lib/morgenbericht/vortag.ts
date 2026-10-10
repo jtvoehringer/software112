@@ -8,6 +8,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { aboStandBerechnen, DEMO_TENANT_ID } from '@/lib/abo/regeln'
 import { betriebeOhneVortagsbericht, vortagVon, type VortagBetrieb } from './zeitplan'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -24,7 +25,7 @@ export async function betriebeOhneMorgenberichtAmVortag(heute: Date): Promise<Vo
     (admin.from('morgenberichte') as any).select('tenant_id').eq('datum', vortag),
   ])
   const fehler = e1 ?? e2 ?? e3
-  if (fehler) throw new Error(fehler.message)
+  if (fehler) throw new AktionsFehler(fehler.message)
   const aktiv = new Map(((einst ?? []) as R[]).map(e => [e.tenant_id, e.morgenbericht_aktiv !== false]))
   const betriebe: VortagBetrieb[] = ((tenants ?? []) as R[]).map(t => ({
     id: t.id, name: t.name ?? '?', createdAt: t.created_at ?? null, aktiv: t.active !== false,

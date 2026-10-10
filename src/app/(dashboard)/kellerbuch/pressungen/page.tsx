@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation'
 import PressungSection from '@/app/(dashboard)/erntemeldung/[id]/PressungSection'
 import { ladeLeseKontext } from '@/app/(dashboard)/erntemeldung/[id]/leseKontext'
 import { leseTitel } from '@/lib/wein/lesen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const metadata: Metadata = { title: 'Pressungen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -36,7 +37,7 @@ export default async function PressungenPage({ searchParams }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawJg, error } = await (supabase.from('weinjahrgaenge') as any)
     .select('id, jahrgang').eq('tenant_id', membership.tenantId).order('jahrgang', { ascending: false })
-  if (error) throw new Error(`Jahrgänge konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Jahrgänge konnten nicht geladen werden: ${error.message}`)
   const jahrgaenge = (rawJg ?? []) as { id: string; jahrgang: number }[]
 
   if (jahrgaenge.length === 0) {

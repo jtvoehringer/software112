@@ -13,6 +13,7 @@ import {
   ertragJeRied, kgJeHa, lesefortschritt, mostgewichtJeSorte, vorjahresvergleich, type LeseDaten, type RiedFlaeche,
 } from '@/lib/wein/leseAuswertung'
 import LeseAuswertungCsv from './LeseAuswertungCsv'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const metadata: Metadata = { title: 'Lese-Auswertung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -56,8 +57,8 @@ export default async function LeseAuswertungPage({ params }: { params: Promise<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinjahrgaenge') as any).select('id, jahrgang').lt('jahrgang', jahr).order('jahrgang', { ascending: false }).limit(VORJAHRE)),
   ])
-  if (wgRes.error) throw new Error(`Rieden konnten nicht geladen werden (${wgRes.error.message})`)
-  if (gstRes.error) throw new Error(`Grundstücke konnten nicht geladen werden (${gstRes.error.message})`)
+  if (wgRes.error) throw new AktionsFehler(`Rieden konnten nicht geladen werden (${wgRes.error.message})`)
+  if (gstRes.error) throw new AktionsFehler(`Grundstücke konnten nicht geladen werden (${gstRes.error.message})`)
   const vorjahre = await Promise.all(((vjRes.data ?? []) as AR[]).map(async v => ({
     jahrgang: Number(v.jahrgang), zeilen: (await ladeLesedaten(supabase, v.id)).zeilen.map(ld),
   })))

@@ -16,6 +16,7 @@ import { wienHeute } from '@/lib/csv'
 import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 import { rund } from '@/lib/zahl/runden'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -251,7 +252,7 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
   const { data: roh, error: rohErr } = await alle<R>(q.order('datum').order('id'))
-  if (rohErr) throw new Error(`Verkäufe konnten nicht geladen werden: ${rohErr.message}`)
+  if (rohErr) throw new AktionsFehler(`Verkäufe konnten nicht geladen werden: ${rohErr.message}`)
   const posten = roh.map(alsBeleg)
 
   for (const p of posten) {
@@ -311,7 +312,7 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) qe = qe.is('bmd_export_id', null)
   const { data: einnahmen, error: einnahmenErr } = await alle<R>(qe.order('datum').order('id'))
-  if (einnahmenErr) throw new Error(`E&A-Einnahmen konnten nicht geladen werden: ${einnahmenErr.message}`)
+  if (einnahmenErr) throw new AktionsFehler(`E&A-Einnahmen konnten nicht geladen werden: ${einnahmenErr.message}`)
   const eaBelegnr = await belegnrMitStorno(supabase, tenantId, einnahmen)
 
   for (const t of einnahmen) {
@@ -350,7 +351,7 @@ async function belegnrMitStorno(supabase: any, tenantId: string, zeilen: R[]): P
     // inBloecken: viele Stornos in einem Exportzeitraum sprengten sonst die URL (≈ 350 IDs)
     // storno-sichtbar: Originale der Gegenbuchungen (bank_ref) für die BMD-Stornozeile
     const { data, error } = await inBloecken<R>(ids, b => alle<R>(supabase.from('ea_transaktionen').select('id, bank_ref').eq('tenant_id', tenantId).in('id', b).order('id')))
-    if (error) throw new Error(`Stornierte Buchungen konnten nicht geladen werden: ${error.message}`)
+    if (error) throw new AktionsFehler(`Stornierte Buchungen konnten nicht geladen werden: ${error.message}`)
     for (const o of data) original.set(o.id, o)
   }
   return t => {
@@ -376,7 +377,7 @@ async function eingangsbelege(supabase: any, tenantId: string, m: Mapping, konte
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
   const { data: ausgaben, error: ausgabenErr } = await alle<R>(q.order('datum').order('id'))
-  if (ausgabenErr) throw new Error(`E&A-Ausgaben konnten nicht geladen werden: ${ausgabenErr.message}`)
+  if (ausgabenErr) throw new AktionsFehler(`E&A-Ausgaben konnten nicht geladen werden: ${ausgabenErr.message}`)
   const eaBelegnr = await belegnrMitStorno(supabase, tenantId, ausgaben)
 
   for (const t of ausgaben) {
@@ -414,7 +415,7 @@ async function stammdaten(supabase: any, tenantId: string) { // eslint-disable-l
     .select('id, name, strasse, plz, ort, land, uid_nummer, email, telefon_vorwahl, telefon, zahlungsziel_tage, skonto_pct, skonto_tage, accountnummer, debitor_nr, kreditor_nr')
     .eq('tenant_id', tenantId).or('debitor_nr.not.is.null,kreditor_nr.not.is.null')
     .order('name').order('id'))
-  if (firmenErr) throw new Error(`Firmen konnten nicht geladen werden: ${firmenErr.message}`)
+  if (firmenErr) throw new AktionsFehler(`Firmen konnten nicht geladen werden: ${firmenErr.message}`)
   for (const f of firmen) {
     const basis = {
       name: f.name ?? '', strasse: f.strasse ?? '', plz: f.plz ?? '', ort: f.ort ?? '', land: f.land ?? 'AT',
@@ -430,7 +431,7 @@ async function stammdaten(supabase: any, tenantId: string) { // eslint-disable-l
     .select('id, vorname, nachname, strasse, plz, ort, land, email, telefon_vorwahl, telefon, zahlungsziel_tage, skonto_pct, skonto_tage, accountnummer, debitor_nr')
     .eq('tenant_id', tenantId).not('debitor_nr', 'is', null)
     .order('nachname').order('id'))
-  if (kontakteErr) throw new Error(`Kontakte konnten nicht geladen werden: ${kontakteErr.message}`)
+  if (kontakteErr) throw new AktionsFehler(`Kontakte konnten nicht geladen werden: ${kontakteErr.message}`)
   for (const k of kontakte) {
     zeilen.push({
       kontonummer: String(k.debitor_nr), kontoart: 'D',

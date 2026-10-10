@@ -7,6 +7,7 @@
 import { aktualisiereWetter, ladeWetterdaten, wetterPunkte, type WetterRied } from './daten'
 import { werteWetterAus, type RegelRied, type WetterAuswertung } from './regeln'
 import { BEHANDLUNG_RIEDEN_SELECT, riedIdsDerMassnahme } from '@/lib/behandlungen/rieden'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -28,7 +29,7 @@ export async function ladeWetterAuswertung(
     (client.from('behandlungen') as any).select(`id, datum, art, ernte_fruehesteins, psm:pflanzenschutzmittel!psm_id(name, handelsname, wartezeit_tage), ${BEHANDLUNG_RIEDEN_SELECT}`)
       .eq('tenant_id', tenantId).eq('art', 'spritzung').is('storniert_am', null).gte('datum', seit).order('datum', { ascending: false }),
   ])
-  if ((wgRawErr ?? bhRawErr)) throw new Error(`Daten konnten nicht geladen werden: ${(wgRawErr ?? bhRawErr).message}`)
+  if ((wgRawErr ?? bhRawErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(wgRawErr ?? bhRawErr).message}`)
   const rieden: WetterRied[] = ((wgRaw ?? []) as R[]).map(w => ({
     id: w.id, name: w.name, ried: w.ried ?? null,
     lat: w.zentrum_lat === null || w.zentrum_lat === undefined ? null : Number(w.zentrum_lat),

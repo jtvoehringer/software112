@@ -40,6 +40,7 @@ import {
   type LeseMassnahme, type LeseMassnahmen, type LesezeileEingabe,
 } from './rueckverfolgung'
 import { kalendertag, leseWarnungen, type Zeitfenster } from './rueckverfolgungFenster'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type RvEinstieg = {
   lese: string | null
@@ -159,7 +160,7 @@ function leseOrtKey(leseId: unknown, jahrgangId: unknown, gstId: unknown, wgId: 
 }
 
 function pruefen<T>(res: { data: T; error: { message?: string } | null }, was: string): T {
-  if (res.error) throw new Error(`Rückverfolgung Weingarten: ${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
+  if (res.error) throw new AktionsFehler(`Rückverfolgung Weingarten: ${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
   return res.data
 }
 
@@ -226,7 +227,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
     const { data: lese, error } = await (supabase.from('lesen') as any)
       .select('id, lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
       .eq('tenant_id', tenantId).eq('id', e.lese).maybeSingle()
-    if (error) throw new Error(`Rückverfolgung Weingarten: Lese konnte nicht geladen werden (${error.message})`)
+    if (error) throw new AktionsFehler(`Rückverfolgung Weingarten: Lese konnte nicht geladen werden (${error.message})`)
     if (!lese) return null
     titel = leseText(numOderNull(((lese as R).jahrgang as R | null)?.jahrgang), lese as R)
     const [a, b, c] = await Promise.all([

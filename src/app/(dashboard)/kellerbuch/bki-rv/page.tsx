@@ -11,6 +11,7 @@ import { ladeRvAusgang, ladeRvEingang, type RvAusgangZeile, type RvEingangZeile 
 import { alle } from '@/lib/supabase/alle'
 import { fmtNum } from '@/lib/format'
 import LagerTabs from '../_behoerden/LagerTabs'
+import { AktionsFehler } from '@/lib/fehler'
 
 // KAN-46 Etappe 1: BKI-Blätter „RV zum Eingang“ (Charge oder Grundstück) und „RV zum Ausgang“ (Charge oder Füllung)
 // mit Zeitraum. Dieselben Ladefunktionen liefern die CSV (/meldungen/bki-rv-eingang/csv bzw. bki-rv-ausgang).
@@ -39,7 +40,7 @@ export default async function BkiRvPage({ searchParams }: { searchParams: Promis
     alle<{ id: string; name: string | null; chargennummer: string | null }>((supabase.from('fuellungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
       .select('id, name, chargennummer').eq('tenant_id', tenantId).order('name').order('id')),
   ])
-  for (const [n, r] of [['Chargen', ch], ['Grundstücke', gs], ['Füllungen', fu]] as const) if (r.error) throw new Error(`${n} konnten nicht geladen werden: ${r.error.message}`)
+  for (const [n, r] of [['Chargen', ch], ['Grundstücke', gs], ['Füllungen', fu]] as const) if (r.error) throw new AktionsFehler(`${n} konnten nicht geladen werden: ${r.error.message}`)
 
   const von = tag(sp.von), bis = tag(sp.bis)
   const ein = { charge: id(sp.e_charge), gst: id(sp.e_gst) }

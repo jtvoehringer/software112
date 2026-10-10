@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { premiumSupportAktiv } from '@/lib/abo/premiumSupport'
 import { supportOrganisation } from '@/lib/support/anfrage'
+import { AktionsFehler } from '@/lib/fehler'
 
 // Gemeinsamer Kontext der Support-Routen (/api/support/anfragen …): angemeldeter Benutzer mit E-Mail, aktiver Betrieb,
 // Premium-Support, Namen für JSM. Ohne Anmeldung bzw. Betrieb eine fertige Fehlerantwort.
@@ -29,7 +30,7 @@ export async function supportKontext() {
     (supabase.from('tenants') as R).select('name, premium_support_seit, premium_support_bis, abrechnung_ueber').eq('id', membership.tenantId).maybeSingle(),
     (supabase.from('profiles') as R).select('full_name').eq('id', user.id).maybeSingle(),
   ])
-  if ((tErr ?? pErr)) throw new Error(`Daten konnten nicht geladen werden: ${(tErr ?? pErr).message}`)
+  if ((tErr ?? pErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(tErr ?? pErr).message}`)
   const hauptId = ((t as R | null)?.abrechnung_ueber as string | null | undefined) ?? null
   const { data: h } = hauptId
     ? await (createSupabaseAdminClient().from('tenants') as R).select('name, premium_support_seit, premium_support_bis').eq('id', hauptId).maybeSingle()

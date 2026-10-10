@@ -8,6 +8,7 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -38,7 +39,7 @@ export async function ladeMailAusPostfach(
     (admin.from('tenant_einstellungen') as any)
       .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
   ])
-  if ((cfgErr ?? tenantCfgErr)) throw new Error(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
+  if ((cfgErr ?? tenantCfgErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
   const c = cfg as R | null
   if (!c?.m365_aktiv || !c.m365_access_token_enc || !tenantCfg) return null
 

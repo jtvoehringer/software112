@@ -1,6 +1,8 @@
 // ── Brevo REST API Helper ─────────────────────────────────────────────────────
 // Docs: https://developers.brevo.com/reference
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 const BREVO_BASE = 'https://api.brevo.com/v3'
 
 /** Brevo-Zugang eines Betriebs (Newsletter je Betrieb, 23.9.2026). Ohne Angabe: Systemkonto aus der Umgebung
@@ -9,7 +11,7 @@ export type BrevoZugang = { apiKey: string; senderMail: string; senderName: stri
 
 function headers(zugang?: BrevoZugang) {
   const key = zugang?.apiKey ?? process.env.BREVO_API_KEY
-  if (!key) throw new Error('BREVO_API_KEY nicht konfiguriert')
+  if (!key) throw new AktionsFehler('BREVO_API_KEY nicht konfiguriert')
   return {
     'accept':       'application/json',
     'content-type': 'application/json',
@@ -22,7 +24,7 @@ function headers(zugang?: BrevoZugang) {
 /** Absender der System-Mails (Vercel BREVO_SENDER_EMAIL, IC&P) – kein Rückfall auf die Adresse eines Betriebs (KAN-27) */
 function systemAbsender(): string {
   const mail = process.env.BREVO_SENDER_EMAIL?.trim()
-  if (!mail) throw new Error('BREVO_SENDER_EMAIL nicht konfiguriert')
+  if (!mail) throw new AktionsFehler('BREVO_SENDER_EMAIL nicht konfiguriert')
   return mail
 }
 
@@ -53,7 +55,7 @@ export async function sendEmail({
   })
   if (!res.ok) {
     const err = await res.text()
-    throw new Error(`Brevo E-Mail-Fehler: ${err}`)
+    throw new AktionsFehler(`Brevo E-Mail-Fehler: ${err}`)
   }
   return res.json()
 }
@@ -87,7 +89,7 @@ export async function upsertContact({
   // 204 = already exists and updated — both OK
   if (!res.ok && res.status !== 204) {
     const err = await res.text()
-    throw new Error(`Brevo Kontakt-Fehler: ${err}`)
+    throw new AktionsFehler(`Brevo Kontakt-Fehler: ${err}`)
   }
 }
 
@@ -101,6 +103,6 @@ export async function removeFromList(email: string, listId: number, zugang?: Bre
   })
   if (!res.ok) {
     const err = await res.text()
-    throw new Error(`Brevo Opt-out-Fehler: ${err}`)
+    throw new AktionsFehler(`Brevo Opt-out-Fehler: ${err}`)
   }
 }

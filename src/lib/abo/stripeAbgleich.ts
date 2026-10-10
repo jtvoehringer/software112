@@ -18,6 +18,7 @@
 
 import { paketAusPlan, type PaketKey } from '@/lib/pakete'
 import { aboZuordnung, paketEntscheidung, ABO_BEENDET_STATUS, type AboEreignis, type AboZuordnung } from '@/lib/abo/regeln'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -63,7 +64,7 @@ export async function aboEreignisAbgleichen(
   const log = deps.log ?? console
   const { data: zeilen, error } = await (deps.admin.from('tenants') as R)
     .select('id, stripe_subscription_id, stripe_plan').eq('stripe_customer_id', e.kundeId)
-  if (error) throw new Error(`Betriebe zu Stripe-Kunde ${e.kundeId} nicht lesbar: ${error.message}`)
+  if (error) throw new AktionsFehler(`Betriebe zu Stripe-Kunde ${e.kundeId} nicht lesbar: ${error.message}`)
   const ergebnisse: AbgleichErgebnis[] = []
 
   for (const t of (zeilen ?? []) as R[]) {
@@ -98,7 +99,7 @@ export async function aboEreignisAbgleichen(
           stripe_trial_ends_at: iso(e.abo.testphaseEnde),
         }
     const { data: geschrieben, error: ue } = await mitAboId((deps.admin.from('tenants') as R).update(daten).eq('id', tenantId), gespeichert).select('id')
-    if (ue) throw new Error(`Abo-Stand von ${tenantId} nicht gespeichert: ${ue.message}`)
+    if (ue) throw new AktionsFehler(`Abo-Stand von ${tenantId} nicht gespeichert: ${ue.message}`)
     deps.invalidieren(tenantId)
     if (((geschrieben ?? []) as R[]).length === 0) {
       // Abo-ID hat sich seit dem Lesen geändert (paralleles Ereignis) – das andere Ereignis gewinnt
@@ -116,11 +117,11 @@ export async function aboEreignisAbgleichen(
     })
     if (p.planSetzen) {
       const { error: pe } = await (deps.admin.from('tenants') as R).update({ stripe_plan: p.plan }).eq('id', tenantId)
-      if (pe) throw new Error(`stripe_plan von ${tenantId} nicht gesetzt: ${pe.message}`)
+      if (pe) throw new AktionsFehler(`stripe_plan von ${tenantId} nicht gesetzt: ${pe.message}`)
     }
     if (p.moduleAnwenden) {
       const fehler = await deps.paketAnwenden(tenantId, p.plan)
-      if (fehler) throw new Error(`Paket-Vorgaben für ${tenantId}: ${fehler}`)
+      if (fehler) throw new AktionsFehler(`Paket-Vorgaben für ${tenantId}: ${fehler}`)
     } else {
       log.info(`[Stripe-Abgleich] Paket-Vorgaben für ${tenantId} unverändert: ${p.grund}`)
     }

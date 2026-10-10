@@ -15,6 +15,7 @@
 
 import type { UserRole } from '@/lib/auth/roles'
 import { heuteWien } from '@/lib/datum/wien'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const MFA_PFLICHT_AB = '2026-10-15'
 export const MFA_PFLICHT_ROLLEN: UserRole[] = ['system_admin', 'tenant_admin']
@@ -31,7 +32,7 @@ export async function ladeMfaStand(supabase: R, role: UserRole): Promise<MfaStan
     supabase.auth.mfa.listFactors(),
   ])
   // KAN-254: den Zwei-Faktor-Stand nie raten – sonst „kein Faktor“ bzw. „keine Stufe“
-  if (aalErr || faktorErr) throw new Error(`Zwei-Faktor-Stand konnte nicht geladen werden: ${(aalErr ?? faktorErr).message}`)
+  if (aalErr || faktorErr) throw new AktionsFehler(`Zwei-Faktor-Stand konnte nicht geladen werden: ${(aalErr ?? faktorErr).message}`)
   const hatFaktor = ((faktoren?.totp ?? []) as R[]).some(f => f.status === 'verified')
   const pflicht = MFA_PFLICHT_ROLLEN.includes(role)
   // KAN-287: Passkey-Anmeldung gilt als Zwei-Faktor (Stufe wie aal2)

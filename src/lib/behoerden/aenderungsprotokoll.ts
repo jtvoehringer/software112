@@ -29,6 +29,7 @@ import type { Membership } from '@/lib/auth/roles'
 import { VERWALTUNG_ROLLEN } from '@/lib/auth/pflichtmeldung'
 import { MeldungsFehler } from './typen'
 import { folgetag, kuerzen, text, wienTagesbeginnUtc, type R, type Zeitraum } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 /** Rollen, die das Protokoll lesen dürfen – Katalog-Zugriff 'verwaltung'; hier als zweite Linie geprüft */
 export const PROTOKOLL_ROLLEN = VERWALTUNG_ROLLEN
@@ -221,8 +222,8 @@ export async function ladeAenderungsprotokoll(
       .eq('tenant_id', tenantId)
       .order('user_id')),
   ])
-  if (prot.error) throw new Error(`Änderungsprotokoll konnte nicht geladen werden: ${prot.error.message}`)
-  if (mitglieder.error) throw new Error(`Mitglieder konnten nicht geladen werden: ${mitglieder.error.message}`)
+  if (prot.error) throw new AktionsFehler(`Änderungsprotokoll konnte nicht geladen werden: ${prot.error.message}`)
+  if (mitglieder.error) throw new AktionsFehler(`Mitglieder konnten nicht geladen werden: ${mitglieder.error.message}`)
 
   const rollen = new Map<string, string>(mitglieder.data.map(m => [m.user_id as string, m.role as string]))
   const benutzer = [...new Set(prot.data.map(p => text(p.benutzer_id)).filter((b): b is string => !!b))]

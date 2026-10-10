@@ -4,6 +4,7 @@
 // ohne Service-Role-Key, nur id + Name + Rolle (keine E-Mail).
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -14,7 +15,7 @@ export async function ladeMandantMitglieder(tenantId: string): Promise<MitgliedO
   const supabase = await createSupabaseServerClient()
   const { data, error } = await (supabase as any).rpc('s112_mandant_mitglieder', { p_tenant_id: tenantId })
   // KAN-254: sonst „keine Mitglieder“ – Auswahl leer, „für alle“ ginge an niemanden
-  if (error) throw new Error(`Mitglieder des Betriebs konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Mitglieder des Betriebs konnten nicht geladen werden: ${error.message}`)
   return ((data ?? []) as R[])
     .map(r => ({ id: r.user_id as string, name: (r.name as string) || 'Unbekannt', role: r.role as string }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))

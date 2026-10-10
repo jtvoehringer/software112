@@ -7,6 +7,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { alle, inBloecken } from '@/lib/supabase/alle'
+import { AktionsFehler } from '@/lib/fehler'
 
 /** Grund der Sperre – wie im Trigger (Meldung „Gesperrt: …“) */
 export const MASSNAHME_ERNTE_GRUND = 'Ried nach der Maßnahme geerntet'
@@ -39,16 +40,16 @@ export async function ladeErnteSperren(supabase: any, tenantId: string, massnahm
   const direkt = await inBloecken<{ weingarten_id: string; ernte_datum: string }>(rieden, b =>
     alle(q('ernte_parzellen').select('id, weingarten_id, ernte_datum, jahrgang:jahrgang_id!inner(tenant_id)').eq('jahrgang.tenant_id', tenantId)
       .is('storniert_am', null).in('weingarten_id', b).order('id')))
-  if (direkt.error) throw new Error(`Lesen konnten nicht geladen werden (${direkt.error.message ?? 'unbekannter Fehler'})`)
+  if (direkt.error) throw new AktionsFehler(`Lesen konnten nicht geladen werden (${direkt.error.message ?? 'unbekannter Fehler'})`)
   const gst = await inBloecken<{ id: string; weingarten_id: string }>(rieden, b =>
     alle(q('grundstuecke').select('id, weingarten_id').eq('tenant_id', tenantId).in('weingarten_id', b).order('id')))
-  if (gst.error) throw new Error(`Grundstücke konnten nicht geladen werden (${gst.error.message ?? 'unbekannter Fehler'})`)
+  if (gst.error) throw new AktionsFehler(`Grundstücke konnten nicht geladen werden (${gst.error.message ?? 'unbekannter Fehler'})`)
   const riedVonGst = new Map(gst.data.map(g => [g.id, g.weingarten_id]))
   // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang (!inner)
   const ueberGst = await inBloecken<{ grundstueck_id: string; ernte_datum: string }>([...riedVonGst.keys()], b =>
     alle(q('ernte_parzellen').select('id, grundstueck_id, ernte_datum, jahrgang:jahrgang_id!inner(tenant_id)').eq('jahrgang.tenant_id', tenantId)
       .is('storniert_am', null).is('weingarten_id', null).in('grundstueck_id', b).order('id')))
-  if (ueberGst.error) throw new Error(`Lesen konnten nicht geladen werden (${ueberGst.error.message ?? 'unbekannter Fehler'})`)
+  if (ueberGst.error) throw new AktionsFehler(`Lesen konnten nicht geladen werden (${ueberGst.error.message ?? 'unbekannter Fehler'})`)
   const lesen: Lese[] = [
     ...direkt.data.filter(e => e.ernte_datum).map(e => ({ ried: e.weingarten_id, datum: String(e.ernte_datum).slice(0, 10) })),
     ...ueberGst.data.filter(e => e.ernte_datum && riedVonGst.has(e.grundstueck_id))

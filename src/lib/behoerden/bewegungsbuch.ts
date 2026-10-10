@@ -37,6 +37,7 @@ import { KAT_ERZEUGNIS } from '@/lib/katalog/bki'
 
 const ZUGANGSKORREKTUR_SPALTEN = 'id, datum, erstellt_am, menge_liter, art, grund, weinausbau_id, storniert_am, storno_grund, storniert_von_name'
 import { GEBINDE_REKONSTRUIERT, quellGebindeAusDaten, quellGebindeDesVerschnitts, quellGebindeSchluessel, type Quellgebinde, type UmzugGebinde, type VerschnittGebinde } from '@/lib/kellerbuch/quellGebinde'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type BewegungsArt =
   | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
@@ -120,7 +121,7 @@ type Roh = {
 }
 
 function fehler(tabelle: string, e: { message?: string } | null): never {
-  throw new Error(`Bewegungsbuch: ${tabelle} konnte nicht geladen werden (${e?.message ?? 'unbekannter Fehler'})`)
+  throw new AktionsFehler(`Bewegungsbuch: ${tabelle} konnte nicht geladen werden (${e?.message ?? 'unbekannter Fehler'})`)
 }
 
 async function liste(query: any, tabelle: string): Promise<R[]> {

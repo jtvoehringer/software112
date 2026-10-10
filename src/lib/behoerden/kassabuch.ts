@@ -15,6 +15,7 @@ import { alle } from '@/lib/supabase/alle'
 import { betrag, datumText, text } from './buchhaltung-gemeinsam'
 import { MeldungsFehler } from './typen'
 import { mitStornoGegenzeile } from '@/lib/finanzen/stornoGegenzeile'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -124,7 +125,7 @@ export async function ladeKassaKonten(supabase: any, tenantId: string): Promise<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('konten') as any)
     .select('id, name, aktiv').eq('tenant_id', tenantId).eq('typ', 'kassa').order('sortierung').order('name').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (konten): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (konten): ${error.message}`)
   return data.map(k => ({ id: String(k.id), name: String(k.name ?? ''), aktiv: k.aktiv !== false }))
 }
 
@@ -134,7 +135,7 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
   const { data: kRaw, error: kErr } = await (supabase.from('konten') as any)
     .select('id, name, typ, eroeffnungsdatum, eroeffnungssaldo')
     .eq('tenant_id', tenantId).eq('id', p.konto).maybeSingle()
-  if (kErr) throw new Error(`Laden fehlgeschlagen (konten): ${kErr.message}`)
+  if (kErr) throw new AktionsFehler(`Laden fehlgeschlagen (konten): ${kErr.message}`)
   if (!kRaw) throw new MeldungsFehler(404, 'Dieses Konto gibt es in diesem Betrieb nicht.')
   const k = kRaw as R
   if (k.typ !== 'kassa') throw new MeldungsFehler(422, `„${k.name}“ ist kein Kassa-Konto – das Kassabuch gibt es nur für Konten vom Typ „Kassa“.`)
@@ -166,7 +167,7 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
       .eq('tenant_id', tenantId).eq('nach_konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
   ])
   for (const [r, tabelle] of [[zRes, 'zahlungen'], [tRes, 'ea_transaktionen'], [vonRes, 'konto_umbuchungen'], [nachRes, 'konto_umbuchungen']] as const) {
-    if (r.error) throw new Error(`Laden fehlgeschlagen (${tabelle}): ${r.error.message}`)
+    if (r.error) throw new AktionsFehler(`Laden fehlgeschlagen (${tabelle}): ${r.error.message}`)
   }
 
   const s = (v: unknown) => String(v ?? '')

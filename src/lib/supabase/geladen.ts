@@ -2,6 +2,8 @@
 // werfen, damit die Fehlergrenze (error.tsx) eine Meldung zeigt, statt still eine leere Liste bzw. „nicht vorhanden“
 // anzuzeigen (z. B. E-Label ohne Zutaten und Allergene, Erntemeldung ohne Lesedaten). Wächter: check-einzelabfrage.
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 type Ergebnis = { data: unknown; error: { message?: string } | null }
 
 /**
@@ -9,12 +11,12 @@ type Ergebnis = { data: unknown; error: { message?: string } | null }
  * (Sweep 88: bei untypisierten Abfragen `any` wie bei `const { data } = …`, nicht `unknown`).
  */
 export function geladen<E extends Ergebnis>(res: E, was: string): E['data'] {
-  if (res.error) throw new Error(`${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
+  if (res.error) throw new AktionsFehler(`${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
   return res.data
 }
 
 /** Sweep 90 (KAN-282): Anzahl einer Zählabfrage ({ count: 'exact', head: true }); wirft bei error statt 0 zu melden */
 export function gezaehlt(res: { count?: number | null; error: { message?: string } | null }, was: string): number {
-  if (res.error) throw new Error(`${was} konnte nicht gezählt werden (${res.error.message ?? 'unbekannter Fehler'})`)
+  if (res.error) throw new AktionsFehler(`${was} konnte nicht gezählt werden (${res.error.message ?? 'unbekannter Fehler'})`)
   return res.count ?? 0
 }

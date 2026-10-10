@@ -1,6 +1,7 @@
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
+import { AktionsFehler } from '@/lib/fehler'
 
 // Layout-Cache (Performance, 17.9.2026): Branding, Module und Abo-Status eines
 // Betriebs werden bei JEDER Seitennavigation vom Dashboard-Layout gebraucht
@@ -50,7 +51,7 @@ async function ladeKopfDirekt(tenantId: string): Promise<TenantKopf> {
     (admin.from('tenant_einstellungen') as any).select(KOPF_SPALTEN).eq('tenant_id', tenantId).maybeSingle(),
     (admin.from('tenants') as any).select('name, stripe_status, stripe_trial_ends_at, stripe_subscription_id').eq('id', tenantId).maybeSingle(),
   ])
-  if (ee || te) throw new Error(`Tenant-Kopf ${tenantId} nicht ladbar: ${(ee ?? te)?.message ?? 'unbekannter Fehler'}`)
+  if (ee || te) throw new AktionsFehler(`Tenant-Kopf ${tenantId} nicht ladbar: ${(ee ?? te)?.message ?? 'unbekannter Fehler'}`)
   return { einstellungen: (e as R | null) ?? null, tenant: (t as R | null) as TenantKopf['tenant'] }
 }
 

@@ -47,7 +47,7 @@ function zahl(v: unknown): number | null {
 }
 
 function fehler(tabelle: string, e: R): never {
-  throw new Error(`Prüfnummer: ${tabelle} konnte nicht geladen werden (${e?.message ?? 'unbekannter Fehler'})`)
+  throw new AktionsFehler(`Prüfnummer: ${tabelle} konnte nicht geladen werden (${e?.message ?? 'unbekannter Fehler'})`)
 }
 
 /**

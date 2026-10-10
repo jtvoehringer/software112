@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { ModulFlag } from '@/lib/auth/modul'
 import type { Betriebsdaten, KatalogEintrag } from './typen'
 import { KATALOG_LISTE } from './katalog'
+import { AktionsFehler } from '@/lib/fehler'
 
 // ── Zugriff auf Behördenmeldungen (server-only, 24.09.2026) ──────────────────
 //
@@ -66,7 +67,7 @@ export async function betriebUndModuleLaden(supabase: any, tenantId: string): Pr
     .select('betrieb_name, betrieb_betriebsnummer, modul_ea, modul_sumup, modul_export, modul_controlling')
     .eq('tenant_id', tenantId)
     .maybeSingle()
-  if (error) throw new Error(`Betriebseinstellungen konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Betriebseinstellungen konnten nicht geladen werden: ${error.message}`)
   const d = (data ?? {}) as Record<string, unknown>
   const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
   return {

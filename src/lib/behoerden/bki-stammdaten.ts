@@ -22,6 +22,7 @@ import { strasseHausnummer } from '@/lib/adresse/strasse'
 import { gebindeTypLabel } from './gebindeverzeichnis'
 import { text } from './kellerbuch-hilfen'
 import { istRechtsform } from '@/lib/betrieb/rechtsform'
+import { AktionsFehler } from '@/lib/fehler'
 
 /** A4: Bio-Status des Betriebs → BKI „Bio Betrieb Ja/Nein“ */
 export function bioBetrieb(bioStatus: string | null | undefined): boolean {
@@ -82,8 +83,8 @@ export async function ladeBetriebsdaten(supabase: any, tenantId: string): Promis
       .eq('tenant_id', tenantId).maybeSingle(),
     (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
   ])
-  if (eRes.error) throw new Error(`Betriebsdaten konnten nicht geladen werden: ${eRes.error.message}`)
-  if (tRes.error) throw new Error(`Bio-Status konnte nicht geladen werden: ${tRes.error.message}`)
+  if (eRes.error) throw new AktionsFehler(`Betriebsdaten konnten nicht geladen werden: ${eRes.error.message}`)
+  if (tRes.error) throw new AktionsFehler(`Bio-Status konnte nicht geladen werden: ${tRes.error.message}`)
   if (!eRes.data) return { zeilen: [], warnungen: ['Für den Betrieb sind noch keine Betriebsdaten erfasst.'] }
   const { zeile, warnungen } = betriebsdatenZeile(eRes.data, tRes.data?.bio_status ?? null)
   return { zeilen: [zeile], warnungen }

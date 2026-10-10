@@ -27,7 +27,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
-import { dbFehlerText } from '@/lib/fehler'
+import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
       const { data: neu, error: neuErr } = await (supabase.from('assistent_unterhaltungen') as any)
         .insert({ tenant_id: membership.tenantId, user_id: user.id })
         .select('id').single()
-      if (neuErr) throw new Error(neuErr.message)
+      if (neuErr) throw new AktionsFehler(neuErr.message)
       unterhaltungId = (neu as R).id
     }
 

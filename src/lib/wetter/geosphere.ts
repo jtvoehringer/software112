@@ -24,6 +24,7 @@
 
 import { startTakt } from '@/lib/utils/parallel'
 import { rund as rundKfm } from '@/lib/zahl/runden'
+import { AktionsFehler } from '@/lib/fehler'
 
 const BASIS = 'https://dataset.api.hub.geosphere.at/v1'
 const ABRUF_TIMEOUT_MS = 25_000
@@ -48,7 +49,7 @@ async function hole(url: string, signal?: AbortSignal): Promise<R> {
   await takt(signal)
   const zeitlimit = AbortSignal.timeout(ABRUF_TIMEOUT_MS)
   const res = await fetch(url, { headers: { accept: 'application/json' }, next: { revalidate: 0 }, signal: signal ? AbortSignal.any([signal, zeitlimit]) : zeitlimit })
-  if (!res.ok) throw new Error(`GeoSphere ${res.status}: ${await res.text().catch(() => '')}`.slice(0, 300))
+  if (!res.ok) throw new AktionsFehler(`GeoSphere ${res.status}: ${await res.text().catch(() => '')}`.slice(0, 300))
   return res.json()
 }
 

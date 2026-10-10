@@ -14,6 +14,7 @@ import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const metadata: Metadata = { title: 'AMA Erntemeldung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -55,8 +56,8 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url, modul_controlling')
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
-  if (jgFehler) throw new Error(`Jahrgänge konnten nicht geladen werden: ${jgFehler.message}`)
-  if (stFehler) throw new Error(`Betriebsdaten konnten nicht geladen werden: ${stFehler.message}`)
+  if (jgFehler) throw new AktionsFehler(`Jahrgänge konnten nicht geladen werden: ${jgFehler.message}`)
+  if (stFehler) throw new AktionsFehler(`Betriebsdaten konnten nicht geladen werden: ${stFehler.message}`)
 
   const jahrgaenge = (jahrgaengeRaw ?? []) as R[]
   const s = (settingsRaw as R | null) ?? {}

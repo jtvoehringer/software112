@@ -21,6 +21,7 @@ import { erstelleMorgenbericht } from './erstellen'
 import { aboStandBerechnen, DEMO_TENANT_ID } from '@/lib/abo/regeln'
 import { mitHoechstens } from '@/lib/utils/parallel'
 import { BETRIEB_NACHLAUF_MS, BETRIEBE_PARALLEL, GRUND, ZeitgrenzeFehler, ausgangNachZeitgrenze, betriebsDeadline, fairReihenfolge, letzteBerichtstage, mitZeitgrenze, type LaufErgebnis } from './zeitplan'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type { LaufErgebnis }
 
@@ -47,7 +48,7 @@ export async function laufMorgenberichte(budgetMs: number): Promise<{ betriebe: 
   ])
   // KAN-254: sonst „keine Betriebe“ – der Lauf endete still ohne Berichte (bzw. ohne Schalter/faire Reihenfolge)
   const ladeFehler = tenantsErr ?? einstErr ?? letzteErr
-  if (ladeFehler) throw new Error(`Morgenberichte: Betriebe konnten nicht geladen werden: ${ladeFehler.message}`)
+  if (ladeFehler) throw new AktionsFehler(`Morgenberichte: Betriebe konnten nicht geladen werden: ${ladeFehler.message}`)
   const aktiv = new Map(((einstRaw ?? []) as R[]).map(e => [e.tenant_id, e.morgenbericht_aktiv !== false]))
   const berichte = (letzteRaw ?? []) as { tenant_id: string; datum: string; ausloeser: string }[]
   const reihe = fairReihenfolge((tenants ?? []) as Betrieb[], letzteBerichtstage(berichte.filter(b => b.ausloeser === 'cron')), letzteBerichtstage(berichte))

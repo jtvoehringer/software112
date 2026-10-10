@@ -18,6 +18,7 @@ import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { ladeKonzentratBestaende } from '@/lib/behoerden/besondereKonten'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const metadata: Metadata = { title: 'Bestandsmeldung (BSM) – software:112' }
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,7 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
     // KAN-45: § 29 Abs. 3 WG – Bestände an KTM/RTK zum Stichtag aus dem Stoffkonto (nachrichtlich)
     ladeKonzentratBestaende(supabase, tenantId, p.bis),
   ])
-  if (stFehler) throw new Error(`Betriebsdaten konnten nicht geladen werden: ${stFehler.message}`)
+  if (stFehler) throw new AktionsFehler(`Betriebsdaten konnten nicht geladen werden: ${stFehler.message}`)
   const s = (settingsRaw as R | null) ?? {}
   const journal = bsmJournal(daten, p.arten)
   const spalten: SpalteSchluessel[] = daten.spalten

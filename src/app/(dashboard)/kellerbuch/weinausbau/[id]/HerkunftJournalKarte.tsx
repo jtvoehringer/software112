@@ -9,6 +9,7 @@ import {
 } from '@/lib/kellerbuch/herkunft'
 import { ladeBewegungsgraph } from '@/lib/wein/blendKomposition'
 import { alle } from '@/lib/supabase/alle'
+import { AktionsFehler } from '@/lib/fehler'
 
 // KAN-192 Etappe B: Herkunft laut Bewegungsjournal (Sicht charge_herkunft) und Abgleich mit der Mischungsrechnung.
 // Nur bei eröffnetem Journal; ohne Journal rendert die Karte nichts.
@@ -23,7 +24,7 @@ async function ladeHerkunftZeilen(supabase: any, tenantId: string, chargeId: str
       .order('beleg_nr')
       .order('buchung_id'),
   )
-  if (error) throw new Error(`Herkunft laut Journal konnte nicht geladen werden (${error.message})`)
+  if (error) throw new AktionsFehler(`Herkunft laut Journal konnte nicht geladen werden (${error.message})`)
   return data
 }
 

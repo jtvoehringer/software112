@@ -11,6 +11,7 @@ import { alle } from '@/lib/supabase/alle'
 import {
   letzterUmzugIn, quellGebindeAusDaten, type Quellgebinde, type UmzugGebinde, type VerschnittGebinde,
 } from './quellGebindeKern'
+import { AktionsFehler } from '@/lib/fehler'
 
 export {
   gebindeAmTag, gebindeText, GEBINDE_REKONSTRUIERT, quellGebindeAusDaten, quellGebindeId, quellGebindeSchluessel, verschnittQuelleText,
@@ -23,7 +24,7 @@ export const UMZUG_GEBINDE_SELECT = 'id, datum, erstellt_am, von_weinausbau_id, 
 
 async function liste(query: any, was: string): Promise<R[]> {
   const { data, error } = await alle<R>(query)
-  if (error) throw new Error(`Quellgebinde: ${was} konnte nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
+  if (error) throw new AktionsFehler(`Quellgebinde: ${was} konnte nicht geladen werden (${error.message ?? 'unbekannter Fehler'})`)
   return data
 }
 

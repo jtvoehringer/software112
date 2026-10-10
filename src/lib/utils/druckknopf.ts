@@ -8,6 +8,8 @@
 //
 // Nur serverseitig (node:crypto), ohne '@/'-Importe, damit scripts/tests/kan141-druckknopf.test.mjs die Datei laden kann.
 import { createHash } from 'node:crypto'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 
 /** Das einzige freigegebene Skript – jede Änderung ändert den Hash automatisch mit */
 export const DRUCK_SKRIPT =
@@ -19,7 +21,7 @@ const DRUCK_SKRIPT_HASH = `'sha256-${createHash('sha256').update(DRUCK_SKRIPT, '
  *  Als Funktion, damit diese Datei ohne Import auskommt (node:test lädt sie direkt). */
 export function druckCsp(basis: string): string {
   if (!/^sandbox /.test(basis) || !basis.includes("default-src 'none';") || /allow-scripts|script-src/.test(basis))
-    throw new Error('druckCsp: unerwartete Basis-CSP')
+    throw new AktionsFehler('druckCsp: unerwartete Basis-CSP')
   return basis
     .replace(/^sandbox /, 'sandbox allow-scripts ')
     .replace("default-src 'none';", `default-src 'none'; script-src ${DRUCK_SKRIPT_HASH};`)

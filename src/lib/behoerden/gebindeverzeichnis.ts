@@ -16,6 +16,7 @@ import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { num, text, type R } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const GEBINDE_TYP_LABEL: Record<string, string> = {
   amphore: 'Amphore', barrique: 'Barrique', betonei: 'Betonei', bottich: 'Bottich',
@@ -74,7 +75,7 @@ export async function ladeGebindeverzeichnis(
       .order('name')
       .order('id')),
   ])
-  if (chargenRes.error) throw new Error(`Chargen konnten nicht geladen werden: ${chargenRes.error.message}`)
+  if (chargenRes.error) throw new AktionsFehler(`Chargen konnten nicht geladen werden: ${chargenRes.error.message}`)
   const chargen = chargenRes.data
 
   const eintraege: GebindeEintrag[] = gebinde.map(g => {

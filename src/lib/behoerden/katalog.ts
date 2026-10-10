@@ -13,6 +13,8 @@ import { KATALOG_VERKEHR } from './katalog/verkehr'
 import { KATALOG_KELLERBUCH } from './katalog/kellerbuch'
 import { KATALOG_BUCHHALTUNG } from './katalog/buchhaltung'
 import { KATALOG_FLAECHEN } from './katalog/flaechen'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 
 export type { KatalogEintrag, MeldungsGruppe, Zugriff } from './typen'
 
@@ -27,7 +29,7 @@ const GRUPPEN_KATALOGE: Record<string, KatalogEintrag>[] = [
   for (const k of GRUPPEN_KATALOGE) {
     for (const e of Object.values(k)) {
       const vorher = gesehen.get(e.id)
-      if (vorher) throw new Error(`Behördenmeldung „${e.id}“ ist doppelt registriert (${vorher} und ${e.gruppe})`)
+      if (vorher) throw new AktionsFehler(`Behördenmeldung „${e.id}“ ist doppelt registriert (${vorher} und ${e.gruppe})`)
       gesehen.set(e.id, e.gruppe)
     }
   }

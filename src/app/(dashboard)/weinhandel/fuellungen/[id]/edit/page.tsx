@@ -33,6 +33,7 @@ import { istSektStufe } from '@/lib/wein/sekt'
 import DatenblattKarte from '@/components/handel/DatenblattKarte'
 import { ladeBilder } from '@/lib/handel/datenblattLaden'
 import { schreibSperre } from '@/lib/auth/sperren'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -120,8 +121,8 @@ export default async function EditFuellungPage({
           .eq('weinausbau_id', f.weinausbau_id))
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (bewErr) throw new Error(`Bestandsbuchungen konnten nicht geladen werden: ${(bewErr as R).message}`)
-  if (fcErr) throw new Error(`Chargen-Verknüpfung konnte nicht geladen werden: ${(fcErr as R).message}`)
+  if (bewErr) throw new AktionsFehler(`Bestandsbuchungen konnten nicht geladen werden: ${(bewErr as R).message}`)
+  if (fcErr) throw new AktionsFehler(`Chargen-Verknüpfung konnte nicht geladen werden: ${(fcErr as R).message}`)
   const abgebucht = ((fcRaw ?? []) as R[]).length > 0
   const bewegungen = (bewRaw ?? []) as R[]
   const summeBewegungen = bewegungen.reduce((s, b) => s + (Number(b.menge_stk) || 0), 0)
@@ -148,7 +149,7 @@ export default async function EditFuellungPage({
       .eq('fuellung_id', id)
       .order('datum', { ascending: false })
       .order('id'))
-    if (etErr) throw new Error(`Etikettierungen konnten nicht geladen werden: ${(etErr as R).message}`)
+    if (etErr) throw new AktionsFehler(`Etikettierungen konnten nicht geladen werden: ${(etErr as R).message}`)
     etikettierungen = (etRaw ?? []) as R[]
   }
   const fuellmenge = f.menge_liter_gefuellt != null

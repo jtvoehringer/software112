@@ -8,7 +8,7 @@ import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
 import { mitgliedEinladen, alleKonten, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
-import { dbFehlerText } from '@/lib/fehler'
+import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 import { authFehlerText } from '@/lib/auth/authFehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,7 +49,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
     .eq('tenant_id', membership.tenantId)
     .order('created_at')
   // KAN-253: sonst sähe die Verwaltung „keine Benutzer“
-  if (membershipsErr) throw new Error(dbFehlerText(membershipsErr, 'Benutzer konnten nicht geladen werden'))
+  if (membershipsErr) throw new AktionsFehler(dbFehlerText(membershipsErr, 'Benutzer konnten nicht geladen werden'))
 
   if (!memberships || memberships.length === 0) return []
 

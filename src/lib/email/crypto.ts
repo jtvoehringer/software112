@@ -13,6 +13,8 @@
 // Schlüssel werden erst beim ersten Gebrauch abgeleitet (nicht beim Import), damit der
 // Build ohne die Variablen durchläuft.
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync } from 'crypto'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 
 const V2 = 'v2:'
 let KEY_V1: Buffer | null = null
@@ -20,13 +22,13 @@ let KEY_V2: Buffer | null = null
 
 function secretV1(): string {
   const s = process.env.EMAIL_CRYPT_SECRET
-  if (!s || s.length < 16) throw new Error('EMAIL_CRYPT_SECRET fehlt oder ist zu kurz – alte Zugangsdaten (v1) können nicht entschlüsselt werden.')
+  if (!s || s.length < 16) throw new AktionsFehler('EMAIL_CRYPT_SECRET fehlt oder ist zu kurz – alte Zugangsdaten (v1) können nicht entschlüsselt werden.')
   return s
 }
 function secretV2(): string | null {
   const s = process.env.EMAIL_CRYPT_SECRET_V2
   if (!s) return null
-  if (s.length < 32) throw new Error('EMAIL_CRYPT_SECRET_V2 ist zu kurz (mind. 32 Zeichen).')
+  if (s.length < 32) throw new AktionsFehler('EMAIL_CRYPT_SECRET_V2 ist zu kurz (mind. 32 Zeichen).')
   return s
 }
 function schluesselV1(): Buffer {
@@ -35,7 +37,7 @@ function schluesselV1(): Buffer {
 }
 function schluesselV2(): Buffer {
   const s = secretV2()
-  if (!s) throw new Error('EMAIL_CRYPT_SECRET_V2 fehlt – Zugangsdaten im Format v2 können nicht entschlüsselt werden.')
+  if (!s) throw new AktionsFehler('EMAIL_CRYPT_SECRET_V2 fehlt – Zugangsdaten im Format v2 können nicht entschlüsselt werden.')
   if (!KEY_V2) KEY_V2 = scryptSync(s, 's112-aes-256-gcm-v2', 32)
   return KEY_V2
 }

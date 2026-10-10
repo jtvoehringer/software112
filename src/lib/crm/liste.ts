@@ -6,6 +6,8 @@
 // (Migration 207). Aktivitäten/Pipeline/Ansprechpersonen nur für die
 // geladenen Zeilen.
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -157,7 +159,7 @@ export async function ladeZaehler(client: any, tenantId: string | null, art: 'ko
   const z: Zaehler = { gesamt: 0, segment: {}, lead: 0, kunde: 0, istKunde: 0, istLieferant: 0 }
   if (!tenantId) return z
   const { data, error } = await (client.rpc as any)('crm_zaehler', { p_tenant_id: tenantId })
-  if (error) throw new Error(`Zähler konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Zähler konnten nicht geladen werden: ${error.message}`)
   for (const r of ((data ?? []) as R[]).filter(r => r.art === art)) {
     const n = Number(r.anzahl) || 0
     z.gesamt += n
@@ -185,7 +187,7 @@ export async function ladeKontakteSeite(client: any, tenantId: string | null, f:
   for (const filter of suchFilter(KONTAKT_SUCHSPALTEN, f.q)) q = q.or(filter)
   q = f.sort === 'vorname' ? q.order('vorname', { nullsFirst: false }).order('nachname') : q.order('nachname').order('vorname', { nullsFirst: false })
   const { data, count, error } = await q.order('id').range(0, f.n - 1)
-  if (error) throw new Error(error.message)
+  if (error) throw new AktionsFehler(error.message)
   return { rows: (data ?? []) as R[], gesamt: count ?? 0 }
 }
 
@@ -227,6 +229,6 @@ export async function ladeFirmenSeite(client: any, tenantId: string | null, f: L
   if (f.lieferant) q = q.eq('ist_lieferant', true)
   for (const filter of suchFilter(FIRMA_SUCHSPALTEN, f.q)) q = q.or(filter)
   const { data, count, error } = await q.order('name').order('id').range(0, f.n - 1)
-  if (error) throw new Error(error.message)
+  if (error) throw new AktionsFehler(error.message)
   return { rows: (data ?? []) as R[], gesamt: count ?? 0 }
 }

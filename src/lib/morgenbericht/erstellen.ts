@@ -19,6 +19,7 @@ import type { WetterAuswertung, Befund } from '@/lib/wetter/regeln'
 import { pruefeBetrieb, sortiere, zaehle } from './pruefungen'
 import { fasseZusammen, fallbackText } from './ki'
 import { berichtDatum, wetterDeadline } from './zeitplan'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type Morgenbericht = {
   id: string
@@ -102,7 +103,7 @@ export async function erstelleMorgenbericht(tenant: { id: string; name: string |
     dauer_ms: Date.now() - start,
   }
   const { data, error } = await (admin.from('morgenberichte') as any).upsert(zeile, { onConflict: 'tenant_id,datum' }).select('id').single()
-  if (error) throw new Error(error.message)
+  if (error) throw new AktionsFehler(error.message)
   return { id: (data as R).id, datum, erstelltAm: zeile.erstellt_am, ausloeser, befunde, wetter, zusammenfassung, kiModell: ki.modell, anzahl, ...(gekuerzt.length ? { zeitgrenze: gekuerzt.join(', ') } : {}), ...(wetterFehler ? { wetterFehler } : {}) }
 }
 
@@ -110,7 +111,7 @@ export async function erstelleMorgenbericht(tenant: { id: string; name: string |
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeMorgenbericht(client: any, tenantId: string): Promise<Morgenbericht | null> {
   const { data, error: dataErr } = await (client.from('morgenberichte') as any).select('*').eq('tenant_id', tenantId).order('datum', { ascending: false }).limit(1).maybeSingle()
-  if (dataErr) throw new Error(`Daten konnten nicht geladen werden: ${dataErr.message}`)
+  if (dataErr) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${dataErr.message}`)
   const r = data as R | null
   if (!r) return null
   return {

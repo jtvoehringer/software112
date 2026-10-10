@@ -36,6 +36,7 @@ import {
   kalendertag, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
   type ErnteEintrag, type ErnteErsatz, type FruehereLese, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
 } from './rueckverfolgungFenster'
+import { AktionsFehler } from '@/lib/fehler'
 
 /** Maßnahmenarten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden) */
 export const BEHANDLUNG_ART_LABEL: Readonly<Record<string, string>> = MASSNAHMEN_ART_LABEL
@@ -86,7 +87,7 @@ export type Kette = {
 }
 
 function pruefen<T>(res: { data: T; error: { message?: string } | null }, was: string): T {
-  if (res.error) throw new Error(`Rückverfolgung: ${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
+  if (res.error) throw new AktionsFehler(`Rückverfolgung: ${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
   return res.data
 }
 
@@ -557,7 +558,7 @@ export async function ladeFuellungKette(
       .eq('tenant_id', tenantId)
       .eq('id', fuellung.zukauf_posten_id)
       .maybeSingle()
-    if (error) throw new Error(`Rückverfolgung: Flaschenzukauf konnte nicht geladen werden (${error.message})`)
+    if (error) throw new AktionsFehler(`Rückverfolgung: Flaschenzukauf konnte nicht geladen werden (${error.message})`)
     const zr = (z ?? null) as R | null
     const kontakt = zr?.lieferant_kontakt as R | null
     zukauf = {
@@ -575,7 +576,7 @@ export async function ladeFuellungKette(
       .ilike('rebsorte', fuellung.rebsorte ?? '%')
       .eq('jahrgang', fuellung.jahrgang ?? 0)
       .limit(2)
-    if (error) throw new Error(`Rückverfolgung: Chargen-Zuordnung konnte nicht geladen werden (${error.message})`)
+    if (error) throw new AktionsFehler(`Rückverfolgung: Chargen-Zuordnung konnte nicht geladen werden (${error.message})`)
     const treffer = (auto ?? []) as R[]
     ids = treffer.length === 1 ? [{ id: treffer[0].id, anteil: null }] : []
     zuordnung = ids.length > 0 ? 'automatisch' : 'keine'
@@ -610,7 +611,7 @@ export async function ladeFuellung(supabase: any, tenantId: string, fuellungId: 
     .eq('tenant_id', tenantId)
     .eq('id', fuellungId)
     .maybeSingle()
-  if (error) throw new Error(`Rückverfolgung: Füllung konnte nicht geladen werden (${error.message})`)
+  if (error) throw new AktionsFehler(`Rückverfolgung: Füllung konnte nicht geladen werden (${error.message})`)
   return (data as R | null) ?? null
 }
 
