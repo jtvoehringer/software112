@@ -218,7 +218,7 @@ export default async function GebindePage({
               <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
                 + Neues Gebinde anlegen
               </summary>
-              <form action={createBehaelter} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <form data-ungespeichert action={createBehaelter} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Bezeichnung *</label>
                   <input aria-label="Bezeichnung" name="name" required placeholder="z.B. Tanknummer" className={inputCls} />
@@ -412,7 +412,7 @@ export default async function GebindePage({
               <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
                 + Eröffnungsbestand erfassen
               </summary>
-              <form action={createEroeffnungsbestand} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <form data-ungespeichert action={createEroeffnungsbestand} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   {/* KAN-42: Stichtag wählbar (gespeichert 00:00 Uhr Wiener Zeit) */}
                   <label className={labelCls}>Stichtag *</label>

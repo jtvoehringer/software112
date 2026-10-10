@@ -443,7 +443,7 @@ export default function NeuerVerkaufPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
 
         {/* Kopfdaten */}
         <div className="card p-5 space-y-4">

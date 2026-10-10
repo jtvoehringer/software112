@@ -104,7 +104,7 @@ export default function ProduktionForm({ chargen, gebinde, mittel, heute, quelle
   )
 
   return (
-    <form onSubmit={senden} className="card p-4 space-y-4">
+    <form data-ungespeichert onSubmit={senden} className="card p-4 space-y-4">
       {/* Schrittanzeige */}
       <ol className="flex flex-wrap gap-2 text-xs" aria-label="Schritte">
         {SCHRITTE.map(s => (

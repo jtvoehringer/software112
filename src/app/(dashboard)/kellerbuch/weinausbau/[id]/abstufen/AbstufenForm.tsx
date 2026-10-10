@@ -72,7 +72,7 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
   }
 
   return (
-    <form onSubmit={absenden} className="card p-5 space-y-4">
+    <form data-ungespeichert onSubmit={absenden} className="card p-5 space-y-4">
       <p className="text-xs text-s112-text-2">
         Bisher: <span className="font-medium">{qualitaetAnzeige(alt)}</span>
         {alt.herkunft && <> · {HERKUNFT_LABEL[alt.herkunft] ?? alt.herkunft}</>} · Bestand {fmtNum(bestand)} L

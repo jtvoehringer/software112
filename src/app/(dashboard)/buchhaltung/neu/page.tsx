@@ -69,7 +69,7 @@ export default async function BuchhaltungNeuPage() {
         <h1 className="text-2xl font-semibold text-s112-text">Neue Buchung</h1>
       </div>
 
-      <form action={handleSubmit} className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
+      <form data-ungespeichert action={handleSubmit} className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
         <ZurueckFeld standard="/buchhaltung" />
         {/* Typ */}
         <div>

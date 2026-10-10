@@ -132,7 +132,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-5 max-w-lg">
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Anzeigename</label>
         <input aria-label="Anzeigename" name="anzeigename" defaultValue={settings.anzeigename ?? tenant.name}
@@ -788,7 +788,7 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6 max-w-lg">
       <div>
         <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Betriebsdaten (Briefkopf)</p>
         <div className="grid grid-cols-1 gap-3">
@@ -1158,7 +1158,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
         </span>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-5">
+      <form data-ungespeichert onSubmit={handleSave} className="space-y-5">
         {/* SMTP Ausgehend */}
         <div>
           <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider mb-3">SMTP – Ausgehende E-Mails</p>

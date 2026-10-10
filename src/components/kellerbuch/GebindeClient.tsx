@@ -44,7 +44,7 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
           <div {...dialog} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md"
             onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-s112-text mb-4">Gebinde bearbeiten</h3>
-            <form action={handleSubmit} className="space-y-3">
+            <form data-ungespeichert action={handleSubmit} className="space-y-3">
               <div>
                 <label className={labelCls}>Bezeichnung *</label>
                 <input aria-label="Bezeichnung" name="name" required defaultValue={gebinde.name} className={inputCls} />

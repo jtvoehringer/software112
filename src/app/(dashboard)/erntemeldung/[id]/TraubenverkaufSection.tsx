@@ -210,7 +210,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, onDone }
   const inp = 'w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <h3 className="text-sm font-semibold text-s112-text">{tv ? 'Traubenverkauf bearbeiten' : 'Traubenverkauf erfassen'}</h3>
 
       {/* Quelle */}

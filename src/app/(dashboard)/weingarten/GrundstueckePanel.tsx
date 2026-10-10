@@ -248,7 +248,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
       <h3 className="text-sm font-semibold text-s112-text">
         {gst ? 'Grundstück bearbeiten' : 'Grundstück hinzufügen'}
       </h3>

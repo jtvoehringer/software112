@@ -342,7 +342,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form data-ungespeichert onSubmit={handleSubmit} className="space-y-4">
             {editRow && <input type="hidden" name="existing_id" value={editRow.id} />}
             <input type="hidden" name="weingarten_id" value={wgId} />
             <input type="hidden" name="zukauf_posten_id" value={zukaufId} />

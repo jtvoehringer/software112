@@ -378,7 +378,7 @@ export default function BehandlungEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
 
       {/* Ried(en) – seit 30.09.2026 änderbar (Rückmeldung Jörgen); dieselbe Auswahl wie „Neue Maßnahme“ */}
       <div className="card">

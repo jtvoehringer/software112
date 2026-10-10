@@ -352,7 +352,7 @@ export default function ImportClient({
             <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
               + Anfangsbestand erfassen
             </summary>
-            <form action={createEroeffnungsbestandVonImport} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <form data-ungespeichert action={createEroeffnungsbestandVonImport} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 {/* KAN-42: Stichtag wählbar (gespeichert 00:00 Uhr Wiener Zeit) */}
                 <label className={ebLabelCls}>Stichtag *</label>

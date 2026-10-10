@@ -86,7 +86,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         <h1 className="text-2xl font-semibold text-s112-text">Neuer Exportauftrag</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
         {/* Importeur */}
         <div className="bg-white rounded-xl border border-s112-border p-6">
           <h2 className="font-semibold text-s112-text mb-4">Importeur / Empfänger</h2>

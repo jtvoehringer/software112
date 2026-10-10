@@ -19,6 +19,7 @@ import '@fontsource/ibm-plex-mono/latin-500.css'
 import './globals.css'
 import ServiceWorker from '@/components/pwa/ServiceWorker'
 import ZahlenfeldMausrad from '@/components/ZahlenfeldMausrad'
+import UngespeichertSchutz from '@/components/UngespeichertSchutz'
 
 export const metadata: Metadata = {
   title: {
@@ -62,6 +63,8 @@ export default function RootLayout({
         <ServiceWorker />
         {/* Sweep 117: Mausrad ändert keine Zahlenfelder mehr (Wert bleibt, Seite scrollt) */}
         <ZahlenfeldMausrad />
+        {/* Sweep 119: Rückfrage vor dem Verlassen geänderter Formulare (data-ungespeichert) */}
+        <UngespeichertSchutz />
       </body>
     </html>
   )

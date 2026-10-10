@@ -115,7 +115,9 @@ describe('Sweep 5: Verdrahtung', () => {
     const kb = quelle(`${D}/kellerbuch/behaelter/[id]/behandlungen/page.tsx`)
     assert.match(kb, /korrekturErlaubt\(\)\.then\(setBetriebsleitung\)/)
     assert.match(kb, /betriebsleitung && editId && /)
-    assert.ok(kb.indexOf('<FreezeKorrektur') < kb.indexOf('<form onSubmit={handleSubmit}'))
+    // Sweep 119: das Formular trägt data-ungespeichert
+    const formStart = kb.search(/<form( data-ungespeichert)? onSubmit=\{handleSubmit\}/)
+    assert.ok(formStart > 0 && kb.indexOf('<FreezeKorrektur') < formStart)
     const ch = quelle(`${D}/kellerbuch/weinausbau/[id]/page.tsx`)
     assert.match(ch, /pnSperre === 'eingereicht' && role && canAdmin\(role\) && \(/)
     const ak = quelle(`${D}/freeze-korrektur-actions.ts`)

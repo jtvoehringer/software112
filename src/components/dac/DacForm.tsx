@@ -114,7 +114,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
       {sperre && (
         <GesperrtHinweis grund={sperre.grund} seit={datumDe(sperre.seit)}
           erlaubt={aenderbar.map(f => PN_FELD_LABEL[f] ?? f)} betriebsleitung={betriebsleitung} />

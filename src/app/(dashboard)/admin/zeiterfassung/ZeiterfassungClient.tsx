@@ -66,7 +66,7 @@ function ZeitForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>

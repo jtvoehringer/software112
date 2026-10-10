@@ -211,7 +211,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
   if (editMode) {
     return (
       <div className="card p-4 border-s112-teal/30">
-        <form onSubmit={handleSave} className="space-y-3">
+        <form data-ungespeichert onSubmit={handleSave} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Art</label>
