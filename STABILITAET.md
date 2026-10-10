@@ -110,7 +110,7 @@ Abgeschaltet sind nur `@typescript-eslint/no-require-imports` für die CommonJS-
    - ~~Finanzübersicht: Überfälligkeit am Zeitpunkt statt am Kalendertag~~ – erledigt mit KAN-157 (volle Kalendertage in Wien).
    - Entscheidung Jörgen 08.10.2026 (KAN-237): Die App bildet das Datum grundsätzlich nach Europe/Vienna. Alle 54 Stellen mit „heute“ aus `new Date().toISOString()` (Formular-Vorbelegungen, Standarddaten in Server Actions, MFA-Pflicht ab) nutzen `heuteWien()`, das E-Mail-Datum aus Microsoft Graph `wienTag()`; `kan237-datum-wien.test.mjs` verhindert neue UTC-„heute“ im Code.
    - Finanzübersicht: `afaGebuchtVj` wird berechnet, aber nie ausgegeben (`void afaGebuchtVj`) – toter Zweig
-   - Finanzübersicht: Datenbankfehler werden verschluckt, es erscheint 0
+   - ~~Finanzübersicht: Datenbankfehler werden verschluckt, es erscheint 0~~ – erledigt: `ladeFinanzen` (`src/lib/finanzen/uebersicht.ts`) sammelt die Fehler aller Abfragen und meldet sie (geprüft 10.10.2026, Sweep 105)
    - Finanzübersicht: Forderungen nur aus Rechnungen ab 1.1. des Vorjahres
    - ~~Finanzübersicht, abgelaufenes Jahr: als letzte UVA erscheint Nov bzw. Q3 statt Dez bzw. Q4~~ – erledigt mit KAN-247 (09.10.2026): Stand am 1.1. des Folgejahres, Dez bzw. Q4 fällig am 15.02.
    - Finanzübersicht, Doppik-Übergabe: offene Rechnungen und Belege werden über beide Jahre gezählt (ab 1.1. des Vorjahres), auch nach dem Stichtag
