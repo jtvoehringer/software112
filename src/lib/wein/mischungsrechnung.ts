@@ -1,7 +1,7 @@
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
-import { ZAHL_LOCALE } from '../format.ts'
+import { zahlLokal } from '../format.ts'
 // ── Mischungsrechnung (KAN-76, 29.09.2026): Herkunftsanteile einer Charge zeitrichtig ─────────────────────────
 //
 // Reiner Rechenkern ohne Datenbank (isomorph, node:test). Alle Bewegungen der beteiligten Chargen werden
@@ -244,7 +244,7 @@ export function jahrgangsAnteile(a: readonly Herkunftsanteil[]): GruppenAnteil[]
 export type Zusammensetzung = { anteile: Herkunftsanteil[]; warnungen: string[]; saldoLiter: number }
 
 function lt(n: number): string {
-  return `${(rund(n, 2)).toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 2 })} L`
+  return `${zahlLokal((rund(n, 2)), { maximumFractionDigits: 2 })} L`
 }
 
 /**

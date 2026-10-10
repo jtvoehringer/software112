@@ -8,7 +8,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowDown, ArrowUp, Lock, X } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
-import { zahlAus, ZAHL_LOCALE } from '@/lib/format'
+import { zahlAus, zahlLokal } from '@/lib/format'
 import { berechneNaehrwerte, etikettEnergie, geringfuegigeMengen, naehrwertFehler, type Naehrwerte } from '@/lib/elabel/naehrwerte'
 import { ALLERGEN_LABEL, ELABEL_KATEGORIEN, KATEGORIE_LABEL, allergeneDerListe, zutatenText, type KatalogEintrag } from '@/lib/elabel/katalog'
 import type { ElabelEingabe } from '@/lib/elabel/eingabe'
@@ -36,7 +36,7 @@ const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 const zahlText = (x: number | null | undefined) => (x == null ? '' : String(x).replace('.', ','))
 const fmt = (x: number | null | undefined, stellen = 1) =>
-  x == null ? '–' : x.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: stellen })
+  x == null ? '–' : zahlLokal(x, { minimumFractionDigits: 0, maximumFractionDigits: stellen })
 
 export default function ElabelFormular({ fuellungId, katalog, analysen, typen, stand, schreiben, typenSchreiben, speichern, freigeben, zuordnen }: {
   fuellungId: string

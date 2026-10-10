@@ -10,7 +10,7 @@
 //
 // Ohne '@/'-Importe und ohne JSX, damit node:test sie prüfen kann (Formular und Server nutzen dieselben Regeln).
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
-import { ZAHL_LOCALE } from '../format.ts'
+import { zahlLokal } from '../format.ts'
 
 /** Eintrag der Erntemeldung (ernte_parzellen), soweit für die Pressung nötig */
 export type LeseEintrag = {
@@ -120,7 +120,7 @@ export type BehaelterZeileFuerPruefung = {
   alt: { behaelter_id: string | null; menge_liter: number | null } | null
 }
 
-const liter = (n: number) => `${n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} L`
+const liter = (n: number) => `${zahlLokal(n, { maximumFractionDigits: 1 })} L`
 
 /** null = in Ordnung, sonst die Meldung (Behälterzeile n bzw. Behältername) */
 export function behaelterPruefung(o: {

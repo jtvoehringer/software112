@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { fmtEur } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import Link from '@/components/ui/Link'
-import { ZAHL_LOCALE } from '@/lib/format'
+import { zahlLokal } from '@/lib/format'
 import { PRODUKT_ART_LABEL, istProduktArt } from '@/lib/warenwirtschaft/sonstigeProdukte'
 
 interface Artikel {
@@ -123,7 +123,7 @@ function ArtikelRow({ artikel, onRefresh, lager }: { artikel: Artikel; onRefresh
       </td>
       <td className="px-3 py-2.5 text-sm text-right tabular-nums">
         {artikel.bestand_fuehren
-          ? <span className={(lager ?? 0) < 0 ? 'text-s112-err-fg font-semibold' : ''}>{(lager ?? 0).toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 3 })} {artikel.einheit}</span>
+          ? <span className={(lager ?? 0) < 0 ? 'text-s112-err-fg font-semibold' : ''}>{zahlLokal((lager ?? 0), { maximumFractionDigits: 3 })} {artikel.einheit}</span>
           : <span className="text-s112-muted">–</span>}
       </td>
       <td className="px-3 py-2.5 text-right">

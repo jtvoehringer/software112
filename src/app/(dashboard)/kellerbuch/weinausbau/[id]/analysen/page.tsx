@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { ZAHL_LOCALE } from '@/lib/format'
+import { zahlLokal } from '@/lib/format'
 import AnalyseStorno from './AnalyseStorno'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
@@ -22,7 +22,7 @@ function fmtDate(d: string | null | undefined) {
 
 function fmtNum(v: number | null | undefined, dec = 2): string {
   if (v == null) return '–'
-  return parseFloat(String(v)).toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: dec, maximumFractionDigits: dec })
+  return zahlLokal(parseFloat(String(v)), { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
 
 type Analyse = {

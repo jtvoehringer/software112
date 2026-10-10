@@ -15,7 +15,7 @@ import { alle, inBloecken } from '../supabase/alle.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
-import { ZAHL_LOCALE } from '../format.ts'
+import { zahlLokal } from '../format.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { AktionsFehler } from '../fehler.ts'
 export const KG_TOLERANZ = 0.01
@@ -111,7 +111,7 @@ export function verfuegbarJeLese(
 }
 
 function kgText(n: number): string {
-  return `${(rund(n, 1)).toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} kg`
+  return `${zahlLokal((rund(n, 1)), { maximumFractionDigits: 1 })} kg`
 }
 
 /** Klartext der ersten Überdeckung, z. B. für eine Pressung oder einen Traubenverkauf */

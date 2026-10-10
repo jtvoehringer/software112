@@ -10,7 +10,7 @@ import { Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
 import { VerbrauchTr, zeilenChronologisch } from './Verbrauchszeilen'
 import LagerHinweise from './LagerHinweise'
-import { fmtNum, zahlAus, ZAHL_LOCALE } from '@/lib/format'
+import { fmtNum, zahlAus, zahlLokal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import AnfangsbestandHinweis from './AnfangsbestandHinweis'
 import { BM_EINHEITEN, BM_EINHEIT_LABEL, GRUPPE_LABEL, bmBrutto, type BetriebsmittelGruppe } from '@/lib/behandlungen/betriebsmittel'
@@ -39,7 +39,7 @@ const feld = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm fo
 const lbl = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 function fmtDate(d: string) { const [y, m, dd] = d.split('-'); return `${dd}.${m}.${y}` }
-function euro(n: number) { return n.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function euro(n: number) { return zahlLokal(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
 type Ctx = {
   alle: BmOption[]; kategorien: Auswahl[]; lieferanten: Auswahl[]
