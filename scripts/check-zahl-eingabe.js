@@ -8,7 +8,7 @@
  * Nachkommastellen an. Damit die Frage „ganze Zahl oder Kommastellen?“ bei jedem Feld beantwortet ist, verlangt der Wächter
  * ein ausdrückliches step: step="1" für ganze Zahlen (Jahrgang, Tage, Anzahl), step="0.01" bzw. "any" für Beträge und Mengen.
  * Gemeldet: <input … type="number" …> (auch type={'number'}) ohne step-Attribut in src/**.tsx, seit KAN-292 auch
- * Platzhalter mit Dezimalpunkt („0.00“ statt „0,00“).
+ * Platzhalter mit Dezimalpunkt („0.00“ statt „0,00“); seit Sweep 121 Textfelder für Zahlen ohne inputMode (Handy).
  *
  * Aufruf: node scripts/check-zahl-eingabe.js   (Exit 1 bei Funden)
  * Für Tests: require('./check-zahl-eingabe.js') → { pruefeText, pruefeWurzel } ohne Seiteneffekte.
@@ -50,6 +50,21 @@ function pruefeText(text) {
     if (/(^|[^\d.])(0\.\d+|\d+\.(?:\d{1,2}|\d{4,}))(?![\d.])/.test(m[1]))
       funde.push({ zeile: text.slice(0, m.index).split('\n').length, text: `Platzhalter „${m[1]}“ mit Dezimalpunkt – Dezimalkomma verwenden („0,00“)` })
   }
+  // Sweep 121: Textfelder für Zahlen ohne inputMode – am Handy erscheint die Buchstabentastatur statt des Ziffernblocks.
+  // Erkannt an einem rein numerischen Platzhalter („z.B. 4489781“, „0,00“, „28.500“; nicht Versionen „2.2.0“) oder einer
+  // Beschriftung für Mengen/Beträge. Abhilfe: inputMode="decimal" (Kommastellen) bzw. "numeric" (Ziffern-Codes).
+  const re2 = /<input\b/g
+  while ((m = re2.exec(text))) {
+    const tag = text.slice(m.index, tagEnde(text, m.index + 6) + 1)
+    if (/\btype=(?:"|'|\{\s*['"])(?!text\b)/.test(tag)) continue          // nur Textfelder (ohne type bzw. type="text")
+    if (/\binputMode=/.test(tag) || /\{\s*\.\.\./.test(tag)) continue
+    const platz = /placeholder="([^"]*)"/.exec(tag)?.[1] ?? ''
+    const zahlPlatz = /^(z\.\s?B\.\s?)?(\d{1,3}(\.\d{3})+(,\d+)?|\d+(,\d+)?)\s*(L|kg|€|%|ha)?$/.test(platz.trim())
+    const beschriftung = /aria-label=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(tag)
+    const zahlName = /\b(Menge|Alkoholgehalt|Betrag|Preis|Liter|Einkünfte)\b/.test(beschriftung?.[1] ?? beschriftung?.[2] ?? '')
+    if (zahlPlatz || zahlName)
+      funde.push({ zeile: text.slice(0, m.index).split('\n').length, text: `Textfeld für Zahlen ohne inputMode – am Handy Buchstabentastatur; inputMode="decimal" bzw. "numeric" ergänzen` })
+  }
   return { funde, felder }
 }
 
@@ -81,9 +96,9 @@ if (require.main === module) {
   const ROOT = process.env.S112_GUARD_ROOT ? path.resolve(process.env.S112_GUARD_ROOT) : path.resolve(__dirname, '..')
   const e = pruefeWurzel(ROOT)
   if (e.funde.length) {
-    console.error(`\n✖ check-zahl-eingabe: ${e.funde.length} Zahlenfeld(er) ohne step:\n`)
+    console.error(`\n✖ check-zahl-eingabe: ${e.funde.length} Fund(e) an Zahlen-Eingaben:\n`)
     for (const x of e.funde) console.error('  ' + x)
-    console.error('\nstep="1" für ganze Zahlen, step="0.01" bzw. step="any" für Beträge und Mengen mit Kommastellen.\n')
+    console.error('\nstep="1" für ganze Zahlen, step="0.01" bzw. step="any" für Kommastellen; Textfelder für Zahlen mit inputMode="decimal" bzw. "numeric".\n')
     process.exit(1)
   }
   console.log(`✓ check-zahl-eingabe: ${e.dateien} Dateien, ${e.felder} Zahlenfelder, alle mit ausdrücklichem step.`)

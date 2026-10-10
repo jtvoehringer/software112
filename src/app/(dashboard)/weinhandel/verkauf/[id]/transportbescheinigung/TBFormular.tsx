@@ -400,7 +400,7 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
                 <tr className="border border-s112-line-str">
                   <td className="border border-s112-line-str p-0.5">
                     <div className="flex gap-0.5">
-                      <input className={inputCls} aria-label={`Menge Position ${i + 1}`} value={pos.menge_liter} onChange={e => setPos(i, 'menge_liter', e.target.value)} />
+                      <input inputMode="decimal" className={inputCls} aria-label={`Menge Position ${i + 1}`} value={pos.menge_liter} onChange={e => setPos(i, 'menge_liter', e.target.value)} />
                       <select className={`${inputCls} w-auto!`} aria-label={`Einheit Position ${i + 1}`} value={pos.einheit ?? ''} onChange={e => setPos(i, 'einheit', e.target.value)}>
                         <option value="">–</option>
                         <option value="l">l</option>
@@ -443,7 +443,7 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
                     </select>
                   </td>
                   <td className="border border-s112-line-str p-0.5">
-                    <input className={inputCls} aria-label={`Alkoholgehalt Position ${i + 1}`} value={pos.alkohol_pct} placeholder="% vol" onChange={e => setPos(i, 'alkohol_pct', e.target.value)} />
+                    <input inputMode="decimal" className={inputCls} aria-label={`Alkoholgehalt Position ${i + 1}`} value={pos.alkohol_pct} placeholder="% vol" onChange={e => setPos(i, 'alkohol_pct', e.target.value)} />
                   </td>
                   {/* KAN-131: °KMW aus dem Mostgewicht unten, NN,N (1 Stelle abgerundet) – auf dem Formblatt nur °KMW */}
                   <td className="border border-s112-line-str px-1 py-0.5 tabular-nums whitespace-nowrap">{tbKmwFormblatt(pos)}</td>

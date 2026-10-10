@@ -135,7 +135,7 @@ function BeitraegeTab({ v, p, opt, setOpt, einkuenfteVorjahr, einkuenfte, darfOp
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Einkünfte aus Land- und Forstwirtschaft lt. Einkommensteuerbescheid {einkuenfteVorjahr.jahr} (Jahr)</label>
-            <input value={manuell} onChange={e => setManuell(e.target.value)} disabled={!darfOption}
+            <input inputMode="decimal" aria-label="Einkünfte aus Land- und Forstwirtschaft (Jahr)" value={manuell} onChange={e => setManuell(e.target.value)} disabled={!darfOption}
               placeholder={einkuenfteVorjahr.buchungen && !doppik ? `Vorschlag aus E&A ${einkuenfteVorjahr.jahr}: ${eur(einkuenfteVorjahr.betrag, 0)}` : 'z. B. 28.500'}
               className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden disabled:bg-s112-bg" />
             <p className="text-[11px] text-s112-muted mt-1">

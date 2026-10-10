@@ -382,7 +382,7 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
-              <input aria-label="PLZ" name="betrieb_plz" defaultValue={daten.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
+              <input inputMode="numeric" aria-label="PLZ" name="betrieb_plz" defaultValue={daten.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
             </div>
           </div>
           <div>
@@ -587,7 +587,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Kennung (Betriebsnummer)</label>
-            <input aria-label="Kennung (Betriebsnummer)"
+            <input inputMode="numeric" aria-label="Kennung (Betriebsnummer)"
               type="text"
               value={kennung}
               onChange={e => { setKennung(e.target.value); setStatus('idle') }}

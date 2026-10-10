@@ -287,7 +287,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         )}
         <div>
           <label className={labelCls}>KGNr.</label>
-          <input aria-label="KGNr."
+          <input inputMode="numeric" aria-label="KGNr."
             name="katastralgemeinde"
             value={kgnr}
             onChange={handleKgnrChange}
@@ -420,7 +420,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
             wurden in der Rieden-Übersicht in derselben Spalte angezeigt) */}
         <div>
           <label className={labelCls}>AMA-Schlagnr.</label>
-          <input aria-label="AMA-Schlagnr." name="ama_feldnummer" maxLength={3} pattern="[0-9]{1,3}" defaultValue={gst?.ama_feldnummer ?? ''} placeholder="z.B. 12" className={inputCls} />
+          <input inputMode="numeric" aria-label="AMA-Schlagnr." name="ama_feldnummer" maxLength={3} pattern="[0-9]{1,3}" defaultValue={gst?.ama_feldnummer ?? ''} placeholder="z.B. 12" className={inputCls} />
           <p className="text-xs text-s112-muted mt-1">Max. 3-stellig numerisch</p>
         </div>
 

@@ -1109,12 +1109,12 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ von</label>
-                <input aria-label="PLZ von" value={vsPlzVon} onChange={e => setVsPlzVon(e.target.value)} placeholder="z.B. 1000"
+                <input inputMode="numeric" aria-label="PLZ von" value={vsPlzVon} onChange={e => setVsPlzVon(e.target.value)} placeholder="z.B. 1000"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ bis</label>
-                <input aria-label="PLZ bis" value={vsPlzBis} onChange={e => setVsPlzBis(e.target.value)} placeholder="z.B. 3500"
+                <input inputMode="numeric" aria-label="PLZ bis" value={vsPlzBis} onChange={e => setVsPlzBis(e.target.value)} placeholder="z.B. 3500"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
