@@ -47,7 +47,10 @@ describe('Wächter check-null-vorgabe', () => {
       "const g = Number.isFinite(n) || h",
       "const h = Number(a) || Number(b) || 0",
       "const i = Number(x)  ||  0.5",
-    ].join('\n')), [1, 2, 3, 8, 9])
+      "if (a !== Number(m[1]) || b) {}",   // KAN-50: Vergleich, keine Vorgabe
+      "if (a >= Number(m[1]) || b) {}",
+      "const j = a + Number(z) || 3",
+    ].join('\n')), [1, 2, 3, 8, 9, 12])
   })
 
   test('Ausnahme nur mit Begründung (≥ 15 Zeichen), auch als Block-Kommentar in JSX', () => {

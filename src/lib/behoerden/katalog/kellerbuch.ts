@@ -152,6 +152,31 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     rechtsgrundlage: KELLERBUCH_RECHT,
     beschreibung: 'Eine Zeile je Grundstück: KG, Feldstück, Nutzungsart, Eigen/Pacht, Sorte mit Fläche und Pflanzjahr, Bundesland, Gemeinde, g.U. und DAC-Gebiet; Großlage und Lagen folgen mit den amtlichen Katalogen.',
   },
+  // KAN-50 AP13: Katalogblätter der BKI-Schnittstelle (Kürzel von software:112, KAN-38 E2)
+  'bki-qualitaetsstufen': {
+    titel: 'Qualitätsstufen (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-schnittstelle',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Qualitätsstufen mit dem Kürzel, das software:112 in allen Blättern verwendet (amtliche BKI-Kürzel, eigene Vorschläge gekennzeichnet).',
+  },
+  'bki-erzeugnisse': {
+    titel: 'Erzeugnisse (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-schnittstelle',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Erzeugnisse laut Schnittstelle mit dem Kürzel von software:112 (vorläufig, die BKI kennt keine Liste).',
+  },
+  'bki-buchungsarten': {
+    titel: 'Buchungsarten (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-schnittstelle',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Die Buchungsarten der Bestandsmeldung mit Kürzel, Richtung und Einheit.',
+  },
   'keller-auswertungen': {
     titel: 'Keller-Auswertungen: Umzüge, Filtrationen und Schwund',
     behoerde: 'BKI (Kellerbuchführung)',

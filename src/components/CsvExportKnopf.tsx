@@ -28,6 +28,8 @@ type Gemeinsam = {
   ariaLabel?: string
   /** Tooltip statt des Excel-Hinweises (z. B. BKI-Datenblatt: Maschinen-Upload) */
   hinweis?: string
+  /** KAN-50: 'xlsx' für Server-Routen, die eine Arbeitsmappe liefern (BKI-Schnittstelle) – Standard 'csv' */
+  format?: 'csv' | 'xlsx'
 }
 export type CsvExportKnopfProps =
   // KAN-120: methode 'POST' für Exporte mit Protokoll (Seiteneffekt nur per POST); nachErfolg z. B. router.refresh()
@@ -37,6 +39,7 @@ export type CsvExportKnopfProps =
 type Meldung = { typ: 'ok' | 'hinweis' | 'fehler'; text: string; details?: string[] }
 
 const KNOPF = 'text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-wait'
+const XLSX_TYP = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const EXCEL_TIPP = 'CSV für Excel (Semikolon, UTF-8). Codes mit führenden Nullen (KG-Nr., BBCH) exakt übernehmen: in Excel „Daten › Aus Text/CSV“ und die Spalte als Text importieren.'
 
 function dekodieren(wert: string | null): string {
@@ -58,13 +61,13 @@ function herunterladen(blob: Blob, dateiname: string) {
 }
 
 /** meldung = Behördenmeldung über die zentrale Route (dort heißt eine leere Datei „Leermeldung“) */
-function ergebnisMeldung(dateiname: string, zeilen: number | null, warnungen: string[], anzahlWarnungen: number, meldung: boolean): Meldung {
+function ergebnisMeldung(dateiname: string, zeilen: number | null, warnungen: string[], anzahlWarnungen: number, meldung: boolean, format: 'csv' | 'xlsx' = 'csv'): Meldung {
   const leer = zeilen === 0
   const basis = leer
     ? (meldung
       ? `Leermeldung erstellt: ${dateiname} – keine Datensätze, die Datei enthält nur die Kopfzeile.`
       : `Keine Datensätze – ${dateiname} enthält nur die Spaltenköpfe.`)
-    : `CSV erstellt: ${dateiname}${zeilen !== null ? ` (${zeilen} ${zeilen === 1 ? 'Zeile' : 'Zeilen'})` : ''}.`
+    : `${format === 'xlsx' ? 'XLSX' : 'CSV'} erstellt: ${dateiname}${zeilen !== null ? ` (${zeilen} ${zeilen === 1 ? 'Zeile' : 'Zeilen'})` : ''}.`
   if (anzahlWarnungen === 0) return { typ: leer ? 'hinweis' : 'ok', text: basis }
   const mehr = anzahlWarnungen - warnungen.length
   return {
@@ -81,12 +84,13 @@ export default function CsvExportKnopf(props: CsvExportKnopfProps) {
   useEffect(() => () => { aktiv.current = false }, [])
 
   async function vomServer(href: string): Promise<Meldung> {
-    const res = await fetch(href, { method: (props.href !== undefined && props.methode) || 'GET', cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'text/csv, application/json' } })
+    const xlsx = props.format === 'xlsx'
+    const res = await fetch(href, { method: (props.href !== undefined && props.methode) || 'GET', cache: 'no-store', credentials: 'same-origin', headers: { Accept: `${xlsx ? XLSX_TYP : 'text/csv'}, application/json` } })
     const typ = res.headers.get('Content-Type') ?? ''
     if (res.redirected && new URL(res.url, window.location.href).pathname === '/zwei-faktor') {
       return { typ: 'fehler', text: 'Bitte zuerst den Zwei-Faktor-Code bestätigen und den Export danach erneut starten.' }
     }
-    if (res.redirected || (res.ok && !typ.startsWith('text/csv'))) {
+    if (res.redirected || (res.ok && !typ.startsWith(xlsx ? XLSX_TYP : 'text/csv'))) {
       return { typ: 'fehler', text: 'Sitzung abgelaufen – bitte neu anmelden und den Export erneut starten.' }
     }
     if (!res.ok) {
@@ -102,7 +106,7 @@ export default function CsvExportKnopf(props: CsvExportKnopfProps) {
     const anzahl = Math.max(Number(res.headers.get('X-Warnungen-Anzahl')) || 0, warnungen.length)
     herunterladen(blob, dateiname)
     if (props.href !== undefined) props.nachErfolg?.()
-    return ergebnisMeldung(dateiname, zeilen, warnungen, anzahl, href.startsWith('/meldungen/'))
+    return ergebnisMeldung(dateiname, zeilen, warnungen, anzahl, href.startsWith('/meldungen/') && !xlsx, xlsx ? 'xlsx' : 'csv')
   }
 
   async function imBrowser(erzeugen: () => CsvErzeugt | Promise<CsvErzeugt>): Promise<Meldung> {
@@ -123,7 +127,7 @@ export default function CsvExportKnopf(props: CsvExportKnopfProps) {
       // fetch() wirft bei Netzwerkfehlern einen TypeError mit englischem Browsertext
       m = props.href !== undefined && e instanceof TypeError
         ? { typ: 'fehler', text: 'Keine Verbindung zum Server – bitte Internetverbindung prüfen und den Export erneut starten.' }
-        : { typ: 'fehler', text: 'Die CSV-Datei konnte nicht erstellt werden – bitte erneut versuchen.' }
+        : { typ: 'fehler', text: `Die ${props.format === 'xlsx' ? 'XLSX' : 'CSV'}-Datei konnte nicht erstellt werden – bitte erneut versuchen.` }
     }
     if (!aktiv.current) return
     setMeldung(m)
@@ -134,7 +138,7 @@ export default function CsvExportKnopf(props: CsvExportKnopfProps) {
 
   return (
     <div className={`inline-flex flex-col items-start gap-1 print:hidden ${props.className ?? ''}`}>
-      <button type="button" onClick={starten} disabled={laedt} aria-busy={laedt} aria-label={props.ariaLabel} title={props.hinweis ?? EXCEL_TIPP} className={KNOPF}>
+      <button type="button" onClick={starten} disabled={laedt} aria-busy={laedt} aria-label={props.ariaLabel} title={props.hinweis ?? (props.format === 'xlsx' ? undefined : EXCEL_TIPP)} className={KNOPF}>
         {laedt ? 'Wird erstellt …' : (props.label ?? 'CSV exportieren')}
       </button>
       <div role="status" aria-live="polite" className={`text-xs max-w-md ${farbe}`}>

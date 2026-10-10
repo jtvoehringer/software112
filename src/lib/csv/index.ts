@@ -184,7 +184,7 @@ export const STELLEN = Object.freeze({
   ganzzahl: 0,
 })
 
-const STANDARD_STELLEN: Record<'ganzzahl' | 'dezimal' | 'betrag' | 'prozent', number> = {
+export const STANDARD_STELLEN: Record<'ganzzahl' | 'dezimal' | 'betrag' | 'prozent', number> = {
   ganzzahl: 0, dezimal: 2, betrag: 2, prozent: 2,
 }
 
@@ -325,7 +325,7 @@ export function wienDatum(wert: unknown): string | null {
 // ── Zellen ──────────────────────────────────────────────────────────────────
 
 /** fehler = Wert ungültig (Feld leer gelassen) · hinweis = Wert verändert ausgegeben */
-type ZellErgebnis = { text: string; fehler?: string; hinweis?: string }
+export type ZellErgebnis = { text: string; fehler?: string; hinweis?: string }
 
 const ZAHL_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/
 
@@ -452,6 +452,12 @@ function zelleRoh(wert: unknown, typ: CsvTyp, profil: CsvProfil, stellen?: numbe
       return { text: textZelle(b ? profil.janein[0] : profil.janein[1], 'code', profil) }
     }
   }
+}
+
+/** Eine Zelle formatiert, aber ohne Quoting, samt Prüfergebnis (fehler/hinweis) – für andere Ausgabeformate
+ *  (KAN-50: XLSX nutzt dieselbe Formatierung und dieselben Prüfungen wie die CSV). */
+export function csvZelleGeprueft(wert: unknown, typ: CsvTyp, profil: CsvProfil = PROFIL_EXCEL_AT, stellen?: number | 'roh'): ZellErgebnis {
+  return zelleRoh(wert, typ, profil, stellen)
 }
 
 /** Eine Zelle fertig formatiert (inkl. Quoting). Ungültige Werte ergeben ein leeres Feld. */
