@@ -83,7 +83,8 @@ describe('KAN-174: Verdrahtung', () => {
   })
   test('E (Abnahme 07.10.2026): Gebindename breit genug, voller Name als Tooltip – belegt und leer', () => {
     const p = quelle(`${D}/kellerbuch/page.tsx`)
-    assert.equal(p.match(/<span title=\{b\.name\} className="font-(semibold|medium) text-s112-text w-32 sm:w-56 shrink-0 truncate">\{b\.name\}<\/span>/g)?.length, 2)
+    // KAN-285: der Name ist seit 10.10.2026 ein Link auf die Bewegungen – Breite und voller Name im Tooltip bleiben
+    assert.equal(p.match(/<Link href=\{`\/kellerbuch\/behaelter\/\$\{b\.id\}\/bewegungen`\} title=\{`\$\{b\.name\} – Bewegungen`\} className="font-(semibold|medium) text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">\{b\.name\}<\/Link>/g)?.length, 2)
     assert.doesNotMatch(p, /w-24 shrink-0[^"]*">\{b\.name\}/)
   })
   test('B: „Umziehen“ vom Gebinde mit von=<Behälter>, Quelle vorbelegt', () => {
