@@ -1015,8 +1015,10 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
       stoff = { id: String((km as R).id), name: String((km as R).name), einheit: String((km as R).einheit), menge: m }
     } else if (istStoffkontoTyp(typ.name as string)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (supabase.from('kellermittel') as any)
+      const { count, error: kmZErr } = await (supabase.from('kellermittel') as any)
         .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('aktiv', true)
+      // Sweep 90 (KAN-282): Lesefehler hieß „kein Stoff angelegt“ – Behandlung ohne Pflichtstoff gespeichert
+      if (kmZErr) throw new AktionsFehler(dbFehlerText(kmZErr, 'Stoffe konnten nicht geprüft werden'))
       if ((count ?? 0) > 0) throw new AktionsFehler(`Bei „${typ.name}“ bitte den verwendeten Stoff aus dem Stoffkonto (Besondere Konten) wählen.`)
     }
   }

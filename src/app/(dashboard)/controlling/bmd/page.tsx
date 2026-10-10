@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { geladen } from '@/lib/supabase/geladen'
+import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { hatModul } from '@/lib/auth/modul'
@@ -23,7 +23,7 @@ export default async function BmdPage() {
   const tenantId = membership.tenantId
   const supabase = await createSupabaseServerClient()
 
-  const [overridesRes, protokollRes, kategorienRes, { count: offeneRechnungen }] = await Promise.all([
+  const [overridesRes, protokollRes, kategorienRes, offeneRechnungenRes] = await Promise.all([
     (supabase.from('buchhaltung_kontenmapping') as any).select('schluessel, wert').eq('tenant_id', tenantId),
     (supabase.from('buchhaltung_export_protokoll') as any)
       .select('id, art, zeitraum_von, zeitraum_bis, anzahl, summe_brutto, dateiname, nur_neue, erstellt_am')
@@ -43,9 +43,10 @@ export default async function BmdPage() {
   // KAN-5: im Nur-Lesen-Modus wird exportiert, aber nichts protokolliert/markiert (api/export/bmd)
   const nurLesen = (await schreibSperre(membership)) !== null
 
-  const { count: offeneAusgaben } = await (supabase.from('ea_transaktionen') as any)
+  const offeneRechnungen = gezaehlt(offeneRechnungenRes, 'Offene Rechnungen')
+  const offeneAusgaben = gezaehlt(await (supabase.from('ea_transaktionen') as any)
     .select('id', { count: 'exact', head: true })
-    .eq('tenant_id', tenantId).eq('typ', 'ausgabe').is('bmd_export_id', null)
+    .eq('tenant_id', tenantId).eq('typ', 'ausgabe').is('bmd_export_id', null), 'Offene Ausgaben')
 
   return (
     <BmdClient

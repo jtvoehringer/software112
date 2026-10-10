@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { geladen } from '@/lib/supabase/geladen'
+import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -70,10 +70,10 @@ export default async function DashboardPage() {
   const [
     offenePostenRes,
     letzteVerkaeufRes,
-    { count: leadCount },
-    { count: firmaLeadCount },
-    { count: auftraegeWocheCount },
-    { count: auftraegeVorwocheCount },
+    leadRes,
+    firmaLeadRes,
+    auftraegeWocheRes,
+    auftraegeVorwocheRes,
     absatzSeriesRes,
   ] = await Promise.all([
     // Offene Posten (unbezahlt, nicht storniert) — inkl. Datum für Überfällig-/Ø-Tage-Berechnung
@@ -112,6 +112,10 @@ export default async function DashboardPage() {
   const offenePostenRaw = geladen(offenePostenRes, 'Offene Posten')
   const letzteVerkaeufRaw = geladen(letzteVerkaeufRes, 'Verkäufe')
   const absatzSeriesRaw = geladen(absatzSeriesRes, 'Umsatzreihe')
+  const leadCount = gezaehlt(leadRes, 'Leads')
+  const firmaLeadCount = gezaehlt(firmaLeadRes, 'Firmen-Leads')
+  const auftraegeWocheCount = gezaehlt(auftraegeWocheRes, 'Aufträge der Woche')
+  const auftraegeVorwocheCount = gezaehlt(auftraegeVorwocheRes, 'Aufträge der Vorwoche')
 
   const ctx = await getCtx()
   const flaschen = await ladeFlaschenlager(ctx)

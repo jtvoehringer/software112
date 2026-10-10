@@ -31,11 +31,13 @@ describe('check-einzelabfrage: Erkennung', () => {
     assert.deepEqual(zeilen(`${US}\nlet { data } = await s.from('t').select('id').maybeSingle()\n`), [2])
   })
 
-  test('count, getUser und andere Anweisungen schlagen nicht an; Listen seit KAN-253 als „leere Liste“', () => {
+  test('getUser und andere Anweisungen schlagen nicht an; Listen seit KAN-253 als „leere Liste“, count seit KAN-282 als Zählabfrage', () => {
     const liste = pruefeText(`${US}\nconst { data } = await s.from('t').select('id').eq('a', 1)\nconst x = await y.maybeSingle()\n`).funde
     assert.deepEqual(liste.map(f => f.zeile), [2])
     assert.match(liste[0].text, /leere Liste/)
-    assert.deepEqual(zeilen(`${US}\nconst { data: { user } } = await supabase.auth.getUser()\nconst { count } = await s.from('t').select('id', { count: 'exact', head: true })\n`), [])
+    assert.deepEqual(zeilen(`${US}\nconst { data: { user } } = await supabase.auth.getUser()\n`), [])
+    // Sweep 90 (KAN-282): { count } ohne error ist ein Fund (Datenbankfehler hieße 0)
+    assert.deepEqual(zeilen(`${US}\nconst { count } = await s.from('t').select('id', { count: 'exact', head: true })\n`), [2])
     // error nur in einer verschachtelten Destrukturierung zählt nicht
     assert.deepEqual(zeilen(`${US}\nconst { data: { error } } = await s.from('t').select('x').maybeSingle()\n`), [2])
   })

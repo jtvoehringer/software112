@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { geladen } from '@/lib/supabase/geladen'
+import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { Wine, Package, ReceiptText, ListChecks, ShoppingCart, Calendar, Wallet, FlaskConical, Grape } from 'lucide-react'
 import { DashHeader, Tile, Card, Badge, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from './_shared/ui'
@@ -26,7 +26,7 @@ export default async function UebersichtPage() {
   const einst = await ladeEinstellungen(ctx)
   const jahr = ctx.heute.getFullYear()
 
-  const [keller, flaschen, offen, fristen, aufgabenTermine, weingarten, profilRes, { count: checklistOffen }, finanzen, morgenbericht] = await Promise.all([
+  const [keller, flaschen, offen, fristen, aufgabenTermine, weingarten, profilRes, checklistRes, finanzen, morgenbericht] = await Promise.all([
     ladeKeller(ctx, einst.messintervallTage),
     ladeFlaschenlager(ctx),
     ladeOffenePosten(ctx),
@@ -41,6 +41,7 @@ export default async function UebersichtPage() {
     ctx.tenantId ? ladeMorgenbericht(ctx.supabase, ctx.tenantId) : Promise.resolve(null),
   ])
   const profil = geladen(profilRes, 'Benutzer')
+  const checklistOffen = gezaehlt(checklistRes, 'Checklisten-Punkte')
 
   const vorname = ((profil as R | null)?.full_name ?? '').split(/\s+/)[0] || null
   const stunde = ctx.heute.getHours()

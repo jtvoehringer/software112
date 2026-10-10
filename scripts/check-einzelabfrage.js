@@ -30,6 +30,11 @@
  * Die Altfälle stehen je Datei in scripts/einzelabfrage-baseline.json: rot bei einem neuen Fund oder mehr Funden als dem
  * Ausgangswert, ebenso bei weniger (Abbau festschreiben mit --baseline, die JSON-Datei mit committen).
  *
+ * Sweep 90 (KAN-282, 10.10.2026): auch Zählabfragen – `const { count } = await …` bzw. `{ count: x }` in Promise.all ohne
+ * error. Befund: Signup legte bei Lesefehler einen zweiten Betrieb an, E-Mail-Abruf/M365-Webhook legten Duplikate an,
+ * Paketwechsel ignorierte den Abrechnungsverbund, Kellerbehandlung ohne Pflichtstoff, Kacheln zeigten 0.
+ * Seiten: gezaehlt(res, was) aus src/lib/supabase/geladen.ts.
+ *
  * Aufruf: node scripts/check-einzelabfrage.js   (Exit 1 bei Funden; --baseline schreibt die Ausgangswerte der Seiten neu)
  * Für Tests: require('./check-einzelabfrage.js') → { pruefeText, pruefeWurzel, schreibeBaseline } ohne Seiteneffekte;
  * S112_GUARD_ROOT prüft ein anderes Projektverzeichnis (scripts/tests/kan251-einzelabfrage.test.mjs).
@@ -88,7 +93,7 @@ function pruefeText(text, { route = false } = {}) {
   const code = ohneKommentare(text)
   const zeileVon = i => code.slice(0, i).split('\n').length
 
-  /** eine Destrukturierung { … } prüfen; art = 'einzel' | 'liste' */
+  /** eine Destrukturierung { … } prüfen; art = 'einzel' | 'liste' | 'zaehler' (Sweep 90: { count } ohne error) */
   const pruefe = (inhalt, zeile, art) => {
     if (hat(inhalt, 'error')) { geprueft++; return }
     const marker = roh.slice(Math.max(0, zeile - 1 - VORLAUF), zeile).reverse().find(r => AUSNAHME.test(r))
@@ -100,7 +105,9 @@ function pruefeText(text, { route = false } = {}) {
     }
     funde.push({ zeile, text: art === 'einzel'
       ? 'Einzelabfrage (.maybeSingle()/.single()) ohne error – ein Datenbankfehler hieße „nicht vorhanden“'
-      : 'Abfrage ohne error – ein Datenbankfehler hieße „leere Liste“' })
+      : art === 'zaehler'
+        ? 'Zählabfrage ({ count }) ohne error – ein Datenbankfehler hieße 0 (Duplikat-Prüfung, Sperre, Kachel)'
+        : 'Abfrage ohne error – ein Datenbankfehler hieße „leere Liste“' })
   }
 
   // 1) const { … } = await <Abfrage>
@@ -114,8 +121,9 @@ function pruefeText(text, { route = false } = {}) {
     const anweisung = code.slice(start, anweisungsEnde(code, start)).trim()
     if (/\.(maybeSingle|single)\(\s*\)$/.test(anweisung)) { pruefe(inhalt, zeileVon(m.index), 'einzel'); continue }
     // Liste: data auf oberster Ebene, kein Promise.* (eigener Zweig unten), kein Aufruf ohne Supabase-Fehlerobjekt
-    if (!hat(inhalt, 'data') || /^Promise\./.test(anweisung) || KEINE_ABFRAGE.test(anweisung)) continue
-    pruefe(inhalt, zeileVon(m.index), 'liste')
+    const zaehler = !hat(inhalt, 'data') && hat(inhalt, 'count')   // Sweep 90 (KAN-282)
+    if ((!hat(inhalt, 'data') && !zaehler) || /^Promise\./.test(anweisung) || KEINE_ABFRAGE.test(anweisung)) continue
+    pruefe(inhalt, zeileVon(m.index), zaehler ? 'zaehler' : 'liste')
   }
 
   // 2) const [{ data: a }, { data: b }] = await Promise.all([ … ]) – jedes Element mit data braucht error
@@ -134,6 +142,7 @@ function pruefeText(text, { route = false } = {}) {
       const [inhalt, nach] = klammerInhalt(liste, k)
       // data: { user } u. ä. kommt nur aus supabase.auth.* (ohne Supabase-Fehlerobjekt im Sinn dieser Regel)
       if (hat(inhalt, 'data') && !/(^|,)\s*data\s*:\s*\{/.test(inhalt)) pruefe(inhalt, zeileVon(auf + 1 + k), 'liste')
+      else if (!hat(inhalt, 'data') && hat(inhalt, 'count')) pruefe(inhalt, zeileVon(auf + 1 + k), 'zaehler')   // Sweep 90 (KAN-282)
       k = nach - 1
     }
   }
