@@ -12,6 +12,7 @@ import { fehlerText } from '@/lib/fehler'
 import Link from '@/components/ui/Link'
 import { verschnittHinweis, type VerschnittHinweisDaten } from '@/lib/kellerbuch/verschnittHinweis'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null; weinart?: string | null }
@@ -188,7 +189,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">Datum *</label>
-              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm" required />
+              <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm" required />
             </div>
             <div>
               <label className="form-label">Notizen</label>

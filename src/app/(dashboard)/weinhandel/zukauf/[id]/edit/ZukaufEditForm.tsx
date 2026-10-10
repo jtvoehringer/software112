@@ -21,6 +21,7 @@ import { flaschenPruefnummerPflicht, herkunftAnzeige, istFlaschenArt, istTrauben
 import { pruefnummerLabel } from '@/lib/zukauf/pruefnummerLabel'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { rundText } from '@/lib/zahl/runden'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -321,7 +322,7 @@ export default function ZukaufEditForm({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
-              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)}
+              <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)}
                 required className={inputCls + ' w-full'} />
             </div>
             <div>

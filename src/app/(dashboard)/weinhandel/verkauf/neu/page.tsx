@@ -21,6 +21,7 @@ import {
   zeilenBetrag, gesamtBetrag, type KundenKonditionen,
 } from '@/lib/verkauf/rabatt'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -451,7 +452,7 @@ export default function NeuerVerkaufPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
-              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)}
+              <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)}
                 required className={inputCls + ' w-full'} />
             </div>
             <div>

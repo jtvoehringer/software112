@@ -16,6 +16,7 @@ import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -302,7 +303,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required
+          <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} required
             className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-full" />
         </div>
       </div>

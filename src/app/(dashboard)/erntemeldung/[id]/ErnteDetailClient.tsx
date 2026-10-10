@@ -27,6 +27,7 @@ import {
   trefferTeilweise, verteileKg, verteilungsHinweis, type LeseAuswahl, type LeseTreffer, type LeseZiel,
 } from '@/lib/wein/leseErfassung'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 // Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – genau die
 // Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung)
@@ -391,7 +392,7 @@ function NeueParzellenForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
-          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" required defaultValue={heuteWien()} className={inputCls} />
+          <ZukunftsDatum aria-label="Ernte-Datum" name="ernte_datum" required defaultValue={heuteWien()} className={inputCls} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
@@ -632,7 +633,7 @@ function ParzellForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum *</label>
           {/* KAN-205: Lesedatum, Menge und Mostgewicht Pflicht (auch bei Lesegut, das später verkauft wird) */}
-          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" required defaultValue={parzelle?.ernte_datum ?? ''}
+          <ZukunftsDatum aria-label="Ernte-Datum" name="ernte_datum" required defaultValue={parzelle?.ernte_datum ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>

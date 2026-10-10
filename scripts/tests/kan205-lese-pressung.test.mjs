@@ -62,7 +62,8 @@ describe('KAN-205 Datenbank und App gleich', () => {
   })
   test('Formulare: Pflichtkennzeichen für Datum, Menge und Mostgewicht', () => {
     const f = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
-    assert.match(f, /name="ernte_datum" type="date" required defaultValue=\{parzelle\?\.ernte_datum/)
+    // KAN-318: Datumsfeld über ZukunftsDatum (setzt type="date" selbst, Hinweis bei Datum in der Zukunft)
+    assert.match(f, /<ZukunftsDatum aria-label="Ernte-Datum" name="ernte_datum" required defaultValue=\{parzelle\?\.ernte_datum/)
     assert.match(f, /name="menge_kg" type="text" inputMode="decimal" required/)
     assert.match(f, /<MostgewichtEingabe name="mostgewicht" startwert=\{mgStart\} required/)
     assert.match(quelle('src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx'), /label="Mostgewicht" startwert=\{row\.mgStart\} required/)

@@ -9,6 +9,7 @@ import { createEaTransaktion } from '../actions'
 import { heuteWien } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import type { Metadata } from 'next'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 export const metadata: Metadata = { title: 'Neue Buchung' }
 
@@ -91,7 +92,7 @@ export default async function BuchhaltungNeuPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-            <input aria-label="Datum" type="date" name="datum" required
+            <ZukunftsDatum aria-label="Datum" name="datum" required
               defaultValue={heuteWien()}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>

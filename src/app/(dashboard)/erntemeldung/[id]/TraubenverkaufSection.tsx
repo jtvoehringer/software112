@@ -20,6 +20,7 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
   return (
@@ -276,7 +277,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, onDone }
         {/* Datum */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
+          <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
 
         {/* Menge kg */}

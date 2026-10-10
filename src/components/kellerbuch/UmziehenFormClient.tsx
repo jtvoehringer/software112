@@ -6,6 +6,7 @@ import { X, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -102,7 +103,7 @@ export default function UmziehenFormClient({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelCls}>Datum *</label>
-          <input aria-label="Datum" name="datum" type="date" required
+          <ZukunftsDatum aria-label="Datum" name="datum" required
             defaultValue={defaultDatum ?? heuteWien()}
             className={inputCls} />
         </div>

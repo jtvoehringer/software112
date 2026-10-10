@@ -11,6 +11,7 @@ import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { Th, Td, Note } from '@/app/(dashboard)/dashboard/_shared/ui'
 import { speichereAnlage, loescheAnlage } from './actions'
 import type { BuchungsKandidat } from './daten'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 export type AnlageInput = {
   id?: string
@@ -165,7 +166,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="an-datum" className={lbl}>Anschaffung / Inbetriebnahme *</label>
-              <input id="an-datum" type="date" className={inp} value={form.anschaffung_am} onChange={e => set('anschaffung_am', e.target.value)} required disabled={ro} />
+              <ZukunftsDatum id="an-datum" className={inp} value={form.anschaffung_am} onChange={e => set('anschaffung_am', e.target.value)} required disabled={ro} />
             </div>
             <div>
               <label htmlFor="an-kosten" className={lbl}>Anschaffungskosten netto (€) *</label>
@@ -217,7 +218,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="an-abgang" className={lbl}>Abgangsdatum</label>
-              <input id="an-abgang" type="date" className={inp} value={form.abgang_am} onChange={e => set('abgang_am', e.target.value)} disabled={ro} />
+              <ZukunftsDatum id="an-abgang" className={inp} value={form.abgang_am} onChange={e => set('abgang_am', e.target.value)} disabled={ro} />
             </div>
             <div>
               <label htmlFor="an-erloes" className={lbl}>Veräußerungserlös netto (€)</label>

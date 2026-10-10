@@ -19,6 +19,7 @@ import {
   speichereBetriebsmittelBuchung, bucheBetriebsmittelEinkauf, stornoBetriebsmittelBuchung, loescheBetriebsmittelBuchung,
 } from './betriebsmittelActions'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 export type BmBewegung = {
   id: string; datum: string; typ: 'anfangsbestand' | 'einkauf' | 'korrektur'; menge: number; einheit: string
@@ -99,7 +100,7 @@ function BuchungsForm({ ctx, mittelId, edit, onDone }: { ctx: Ctx; mittelId?: st
         </div>
         <div>
           <label className={lbl}>Datum *</label>
-          <input aria-label="Datum" name="datum" type="date" required value={datum} onChange={e => setDatum(e.target.value)} className={feld} />
+          <ZukunftsDatum aria-label="Datum" name="datum" required value={datum} onChange={e => setDatum(e.target.value)} className={feld} />
         </div>
         <AnfangsbestandHinweis typ={typ} datum={datum} />
         {typ === 'korrektur' && (

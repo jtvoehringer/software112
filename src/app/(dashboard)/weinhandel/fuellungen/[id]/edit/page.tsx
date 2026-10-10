@@ -34,6 +34,7 @@ import DatenblattKarte from '@/components/handel/DatenblattKarte'
 import { ladeBilder } from '@/lib/handel/datenblattLaden'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten' }
 export const dynamic = 'force-dynamic'
@@ -440,9 +441,8 @@ export default async function EditFuellungPage({
           <fieldset disabled className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 border-0 p-0 m-0 opacity-80">
             <div>
               <label className={labelCls}>Abfülldatum *</label>
-              <input aria-label="Abfülldatum"
+              <ZukunftsDatum aria-label="Abfülldatum"
                 name="datum"
-                type="date"
                 defaultValue={f.datum ? f.datum.split('T')[0] : ''}
                 required
                 className={inputCls}
