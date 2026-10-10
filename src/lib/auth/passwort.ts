@@ -4,6 +4,7 @@
 //   Prevent use of leaked passwords = an.
 // Supabase prüft das bei updateUser/signUp selbst; admin.auth.admin.createUser (Selbstregistrierung)
 // umgeht die Regeln – dort prüfen wir hier inkl. Abgleich mit Have I Been Pwned.
+import { authFehlerText } from './authFehler'
 
 export const PASSWORT_MIN = 12
 
@@ -23,7 +24,7 @@ export function passwortFehlerText(err: { code?: string; message: string }): str
     return `Das Passwort ist zu schwach: mindestens ${PASSWORT_MIN} Zeichen, Buchstaben und Ziffern.`
   if (/same.*password|different from the old/i.test(m))
     return 'Das neue Passwort muss sich vom bisherigen unterscheiden.'
-  return m
+  return authFehlerText(err)   // Sweep 100: Sitzung abgelaufen, Link abgelaufen, zu viele Versuche …
 }
 
 /**

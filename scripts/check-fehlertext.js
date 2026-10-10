@@ -20,11 +20,15 @@
 const fs = require('fs')
 const path = require('path')
 
-const VAR = '(?:error|err|e|[a-zA-Z]+Err(?:or)?)'
+// Sweep 100: auch error?.message (Einladung gab so die englische Auth-Meldung weiter)
+const VAR = '(?:error|err|e|[a-zA-Z]+Err(?:or)?)\\??'
 const MUSTER = [
   new RegExp(`\\b(?:error|fehler):\\s*${VAR}\\.message\\b`),
   new RegExp(`\\bset[A-Z]\\w*\\(\\s*${VAR}\\.message\\s*\\)`),
   new RegExp(`\\bset[A-Z]\\w*\\([^;]*\\$\\{\\s*${VAR}\\.message\\s*\\}`),
+  // Sweep 100: Vergleich der Rohmeldung („=== 'Invalid login credentials'“, „.includes('Invalid')“) – bricht, sobald
+  // Supabase den Text ändert, und lässt alle übrigen Meldungen englisch; authFehlerText() bzw. error.code verwenden
+  new RegExp(`\\b${VAR}\\.message\\s*(?:===|!==|\\.includes\\(|\\.startsWith\\()`),
 ]
 const AUSNAHME = /fehlertext-ok\s*:\s*(.*)$/i
 const MIN_GRUND = 15

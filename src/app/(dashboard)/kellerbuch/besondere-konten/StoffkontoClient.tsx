@@ -49,7 +49,7 @@ export function StoffArtWahl({ id, art, name }: { id: string; art: StoffArt; nam
   const router = useRouter()
   const [pending, start] = useTransition()
   return (
-    <select aria-label={`Art von ${name}`} value={art} disabled={pending} className="form-input text-xs py-0.5"
+    <select aria-label={`Art von ${name}`} value={art} disabled={pending} className="form-input w-auto! text-xs py-0.5"
       onChange={e => { const neu = e.target.value; start(async () => { try { await stoffArtSetzen(id, neu); router.refresh() } catch (err) { window.alert(fehlerText(err)) } }) }}>
       {STOFF_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
     </select>

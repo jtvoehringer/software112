@@ -9,6 +9,7 @@ import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
 import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { dbFehlerText } from '@/lib/fehler'
+import { authFehlerText } from '@/lib/auth/authFehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -161,7 +162,7 @@ export async function resendInvite(userId: string) {
   const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
     redirectTo: EINLADUNG_REDIRECT,
   })
-  if (error) return { error: dbFehlerText(error) }
+  if (error) return { error: authFehlerText(error) }
 
   revalidatePath('/benutzer')
   revalidatePath('/betrieb/einstellungen')

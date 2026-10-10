@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { PASSWORT_MIN, pruefePasswort, passwortFehlerText } from '@/lib/auth/passwort'
 import { Check, X, KeyRound } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { authFehlerText } from '@/lib/auth/authFehler'
 
 export default function ProfilPage() {
   const router = useRouter()
@@ -75,9 +76,9 @@ export default function ProfilPage() {
       const supabase = createSupabaseBrowserClient()
       const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password: pwAlt })
       if (loginErr) {
-        setPwFehler(/invalid/i.test(loginErr.message)
+        setPwFehler(loginErr.code === 'invalid_credentials' || /invalid login credentials/i.test(loginErr.message)
           ? 'Das aktuelle Passwort ist nicht richtig.'
-          : `Prüfung fehlgeschlagen: ${loginErr.message}`)
+          : `Prüfung fehlgeschlagen: ${authFehlerText(loginErr)}`)
         return
       }
       const { error } = await supabase.auth.updateUser({ password: pwNeu })
