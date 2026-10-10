@@ -16,6 +16,11 @@ import { neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
 import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { fristAus, psmErfassungFrist, PSM_FRIST_STANDARD_H, type PsmErfassungZeile } from '@/lib/behandlungen/erfassungsfrist'
+import { geladen } from '@/lib/supabase/geladen'
+
+// Sweep 87 (KAN-279): jede Abfrage über geladen() – ein Lesefehler zeigt die Fehlergrenze des Dashboards statt falscher
+// Kennzahlen (Bestand, Kapazität, Fläche) oder fehlender Fristen (UVA, AfA, Erntemeldung). Ausnahme: offene Posten melden
+// den Fehler selbst in der Karte (KAN-158).
 
 const fmtEurKurz = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export { STATUS_LABEL } from './types'
@@ -58,7 +63,7 @@ export async function getCtx(): Promise<Ctx> {
   const { data: { user } } = await supabase.auth.getUser()
   let tenantName: string | null = null
   if (tenantId) {
-    const { data: t } = await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle()
+    const t = geladen(await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle(), 'Betrieb')
     tenantName = (t as R | null)?.name ?? null
   }
   // KAN-158: Wiener Wandzeit – Tages-, Monats- und Jahreswechsel sowie die Begrüßung nach Wiener Uhr (Vercel läuft in UTC)
@@ -117,7 +122,7 @@ export async function ladeOffenePosten(ctx: Ctx) {
 export const GAERUNG_MESSINTERVALL_TAGE = 3
 
 export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_MESSINTERVALL_TAGE) {
-  const [{ data: behaelterRaw }, { data: chargenRaw }, { data: fuellstandRaw }] = await Promise.all([
+  const [behaelterRes, chargenRes, fuellstandRes] = await Promise.all([
     ctx.tf(ctx.q('behaelter').select('id, name, typ, volumen_liter, aktiv')),
     ctx.tf(ctx.q('weinausbau')
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand, qualitaetsstufe, zusatzbezeichnung, erzeugnis, notizen')
@@ -125,6 +130,9 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
       .order('jahrgang', { ascending: false }).order('name')),
     ctx.tf(ctx.q('v_behaelter_fuellstand').select('behaelter_id, liter_aktuell')),
   ])
+  const behaelterRaw = geladen(behaelterRes, 'Gebinde')
+  const chargenRaw = geladen(chargenRes, 'Chargen')
+  const fuellstandRaw = geladen(fuellstandRes, 'Füllstände')
   const behaelter = ((behaelterRaw ?? []) as R[])
   const behaelterMap = new Map(behaelter.map(b => [b.id, b]))
   const fuellstand = new Map<string, number>()
@@ -136,10 +144,12 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
 
   // inBloecken (05.10.2026): Gebeshuber hat 172 Behälter – ab ≈ 350 IDs scheitert die URL. Gebraucht wird nur der
   // jeweils neueste Eintrag je Charge bzw. Behälter; alle Zeilen eines Schlüssels liegen im selben Block.
-  const [{ data: analysenRaw }, { data: massnahmenRaw }] = await Promise.all([
+  const [analysenRes, massnahmenRes] = await Promise.all([
     inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl, kmw, oechsle, mostgewicht_einheit').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))),
     inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).order('datum', { ascending: false }).limit(500))),
   ])
+  const analysenRaw = geladen(analysenRes, 'Analysen')
+  const massnahmenRaw = geladen(massnahmenRes, 'Kellerbehandlungen')
   const letzteAnalyse = new Map<string, R>()
   for (const a of (analysenRaw ?? []) as R[]) if (!letzteAnalyse.has(a.weinausbau_id)) letzteAnalyse.set(a.weinausbau_id, a)
   const letzteMassnahme = new Map<string, R>()
@@ -183,7 +193,7 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
 
 export async function ladeFlaschenlager(ctx: Ctx) {
   const wochenStart = toDateStr(startOfWeek(ctx.heute))
-  const { data } = await ctx.tf(ctx.q('fuellungen').select('id, rebsorte, datum, anzahl_flaschen, bestand_flaschen, aktiv').eq('aktiv', true))
+  const data = geladen(await ctx.tf(ctx.q('fuellungen').select('id, rebsorte, datum, anzahl_flaschen, bestand_flaschen, aktiv').eq('aktiv', true)), 'Füllungen')
   const rows = (data ?? []) as R[]
   const bestand = rows.reduce((s, f) => s + (Number(f.bestand_flaschen) || 0), 0)
   const abgefuelltWoche = rows.filter(f => f.datum >= wochenStart).reduce((s, f) => s + (Number(f.anzahl_flaschen) || 0), 0)
@@ -202,16 +212,16 @@ export async function ladeFlaschenlager(ctx: Ctx) {
 
 export async function ladeWeingarten(ctx: Ctx) {
   const jahr = ctx.heute.getFullYear()
-  const [{ data: wRaw }, { data: gRaw }, { data: bRaw }] = await Promise.all([
+  const [wRes, gRes, bRes] = await Promise.all([
     ctx.tf(ctx.q('weingarten').select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon').eq('aktiv', true).order('name')),
     // KAN-150 F1: nur heute bewirtschaftete Grundstücke
     ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer').eq('aktiv', true)),
     // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
     ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
   ])
-  const rieden = ((wRaw ?? []) as R[])
-  const grundstuecke = ((gRaw ?? []) as R[])
-  const behandlungen = ((bRaw ?? []) as R[])
+  const rieden = ((geladen(wRes, 'Rieden') ?? []) as R[])
+  const grundstuecke = ((geladen(gRes, 'Grundstücke') ?? []) as R[])
+  const behandlungen = ((geladen(bRes, 'Maßnahmen') ?? []) as R[])
   const gstProRied = new Map<string, R[]>()
   for (const g of grundstuecke) {
     const arr = gstProRied.get(g.weingarten_id) ?? []; arr.push(g); gstProRied.set(g.weingarten_id, arr)
@@ -292,16 +302,23 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   const vt = opts.vorwarnungTage ?? FAELLIG_TAGE
   const doppik = !!opts.modulEa && !!opts.doppik
   const seit = toDateStr(new Date(ctx.heute.getFullYear() - 1, ctx.heute.getMonth(), 1))
-  const [{ data: eigeneRaw }, { data: uvaRaw }, { data: jgRaw }, { data: dacRaw }, { data: wfRaw }, { data: offenVpRaw }, { data: offenEaRaw }] = await Promise.all([
+  const [eigeneRes, uvaRes, jgRes, dacRes, wfRes, offenVpRes, offenEaRes] = await Promise.all([
     ctx.tf(ctx.q('fristen').select('id, bezeichnung, beschreibung, kategorie, faellig_am, wiederholung, href, status, erledigt_am').order('faellig_am')),
-    opts.modulEa && !doppik ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [] }),
+    opts.modulEa && !doppik ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [], error: null }),
     ctx.tf(ctx.q('weinjahrgaenge').select('id, jahrgang, ama_gemeldet, ama_meldedatum, ama_erntemeldungen(status, eingereicht_am, version)').eq('jahrgang', jahr).limit(1)),
     ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).is('storniert_am', null).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
     ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').is('storniert_am', null).gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
-    doppik ? ctx.tf(ctx.q('verkaufsposten').select('datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [] }),
-    doppik ? ctx.tf(ctx.q('ea_transaktionen').select('datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [] }),
+    doppik ? ctx.tf(ctx.q('verkaufsposten').select('datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [], error: null }),
+    doppik ? ctx.tf(ctx.q('ea_transaktionen').select('datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [], error: null }),
   ])
+  const eigeneRaw = geladen(eigeneRes, 'Fristen')
+  const uvaRaw = geladen(uvaRes, 'UVA-Perioden')
+  const jgRaw = geladen(jgRes, 'Jahrgang')
+  const dacRaw = geladen(dacRes, 'Prüfnummernanträge')
+  const wfRaw = geladen(wfRes, 'Wartefristen')
+  const offenVpRaw = geladen(offenVpRes, 'Verkäufe ohne BMD-Übergabe')
+  const offenEaRaw = geladen(offenEaRes, 'Ausgaben ohne BMD-Übergabe')
 
   const fristen: Frist[] = []
 
@@ -347,10 +364,12 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   // (Stichtag 30.4. – vor der Steuererklärung), bis dahin als offener Punkt.
   if (opts.modulEa && !doppik) {
     const vj = jahr - 1
-    const [{ data: anlRaw }, { data: afaRaw }] = await Promise.all([
+    const [anlRes, afaRes] = await Promise.all([
       ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes').lte('anschaffung_am', `${vj}-12-31`)),
       ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked').not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${vj}-01-01`).lte('datum', `${vj}-12-31`)),
     ])
+    const anlRaw = geladen(anlRes, 'Anlagen')
+    const afaRaw = geladen(afaRes, 'AfA-Buchungen')
     const anl = ((anlRaw ?? []) as R[]).map(a => ({
       id: a.id, name: a.name, gruppe: a.gruppe ?? null, konto_nr: a.konto_nr == null ? null : Number(a.konto_nr),
       anschaffung_am: String(a.anschaffung_am).slice(0, 10), ak_netto: Number(a.ak_netto), nutzungsdauer_jahre: Number(a.nutzungsdauer_jahre),
@@ -451,9 +470,9 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   // KAN-87: Erfassungsfrist der Pflanzenschutz- und Düngeaufzeichnung – Ampel der Saison und Zahl der Nacherfassungen
   {
     // Betriebsfilter (tf) erst nach dem select – vorher hat der Abfrage-Builder kein .eq (Hotfix 05.10.2026)
-    const { data: psmRaw } = await alle<R>(ctx.tf(ctx.q('behandlungen')
+    const psmRaw = geladen(await alle<R>(ctx.tf(ctx.q('behandlungen')
       .select('id, datum, datum_bis, created_at').or('psm_id.not.is.null,art.eq.duengung').is('storniert_am', null))
-      .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`).order('id'))
+      .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`).order('id')), 'Pflanzenschutz-Aufzeichnungen')
     fristen.push({ ...psmErfassungFrist((psmRaw ?? []) as unknown as PsmErfassungZeile[], opts.psmFristH, jahr), href: '/behandlungen', quelle: 'system' })
   }
 
@@ -465,11 +484,11 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
 // ── Termine / Aktivitäten ────────────────────────────────────────────────────
 
 export async function ladeNaechsteTermine(ctx: Ctx, limit = 5) {
-  const { data } = await ctx.tf(ctx.q('aktivitaeten')
+  const data = geladen(await ctx.tf(ctx.q('aktivitaeten')
     .select('id, art, betreff, datum, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
     .eq('erledigt', false).gte('datum', ctx.heuteStr)
     .not('art', 'in', '(verkauf,notiz,email)')
-    .order('datum', { ascending: true }).limit(limit))
+    .order('datum', { ascending: true }).limit(limit)), 'Termine')
   return ((data ?? []) as R[]).map(a => ({
     id: a.id as string, betreff: (a.betreff || a.art) as string, datum: a.datum as string,
     wer: a.kontakt ? [a.kontakt.vorname, a.kontakt.nachname].filter(Boolean).join(' ') : (a.firma?.name ?? '') as string,
@@ -490,7 +509,7 @@ export async function ladeAufgabenTermine(ctx: Ctx, tage = 30, limit = 60): Prom
   if (!ctx.tenantId) return { meine: [], betrieb: [] }
   const bis = new Date(ctx.heute); bis.setDate(bis.getDate() + tage)
   const bisStr = bis.toISOString().slice(0, 10)
-  const [{ data }, mitglieder] = await Promise.all([
+  const [aktRes, mitglieder] = await Promise.all([
     ctx.tf(ctx.q('aktivitaeten')
       .select('id, art, betreff, datum, ganztags, uhrzeit_von, verantwortlich_id, fuer_alle, ist_privat, erstellt_von, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
       .eq('erledigt', false).not('datum', 'is', null).lte('datum', bisStr)
@@ -498,6 +517,7 @@ export async function ladeAufgabenTermine(ctx: Ctx, tage = 30, limit = 60): Prom
       .order('datum', { ascending: true }).limit(limit * 3)),
     ladeMandantMitglieder(ctx.tenantId),
   ])
+  const data = geladen(aktRes, 'Aufgaben und Termine')
   const namen = new Map(mitglieder.map(m => [m.id, m.name]))
   const alle = ((data ?? []) as R[])
     .filter(a => !a.ist_privat || a.erstellt_von === ctx.userId)
@@ -521,9 +541,9 @@ export async function ladeAufgabenTermine(ctx: Ctx, tage = 30, limit = 60): Prom
 
 export async function ladeEinstellungen(ctx: Ctx) {
   if (!ctx.tenantId) return { modulEa: false, doppik: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null, morgenberichtAktiv: false, wetterAktiv: false, wetterAbwaschMm: 25, wetterIntervallTage: 14, modulWeingarten: false, psmFristH: PSM_FRIST_STANDARD_H }
-  const { data } = await ctx.q('tenant_einstellungen')
+  const data = geladen(await ctx.q('tenant_einstellungen')
     .select('modul_ea, buchhaltungsart, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage, modul_weingarten, psm_erfassungsfrist_h')
-    .eq('tenant_id', ctx.tenantId).maybeSingle()
+    .eq('tenant_id', ctx.tenantId).maybeSingle(), 'Einstellungen')
   const d = (data ?? {}) as R
   return {
     modulEa: !!d.modul_ea,
