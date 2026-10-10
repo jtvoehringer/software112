@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
@@ -58,19 +59,19 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: rows },
-    { data: wgRaw },
+    rowsRes,
+    wgRawRes,
     bhRows,
-    { data: umzuegeAusRaw },
-    { data: umzuegeEinRaw },
-    { data: fuellungenRaw },
-    { data: verkaufRaw },
-    { data: pressungenRaw },
-    { data: wawRaw },
-    { data: alleChargenRaw },
-    { data: verschnEinRaw },
-    { data: zukaufRaw },
-    { data: verschnAusRaw },
+    umzuegeAusRawRes,
+    umzuegeEinRawRes,
+    fuellungenRawRes,
+    verkaufRawRes,
+    pressungenRawRes,
+    wawRawRes,
+    alleChargenRawRes,
+    verschnEinRawRes,
+    zukaufRawRes,
+    verschnAusRawRes,
   ] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
@@ -151,6 +152,19 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .select('menge_liter, verschneidung:verschneidung_id(datum, notizen, storniert_am, ziel:ziel_weinausbau_id(name))')
       .eq('quell_weinausbau_id', id),
   ])
+  // Sweep 87 (KAN-279): ein Lesefehler wirft (Fehlergrenze) statt „Charge nicht gefunden“ bzw. fehlender Bewegungen
+  const rows = geladen(rowsRes, 'Charge')
+  const wgRaw = geladen(wgRawRes, 'Rieden')
+  const umzuegeAusRaw = geladen(umzuegeAusRawRes, 'Umzüge')
+  const umzuegeEinRaw = geladen(umzuegeEinRawRes, 'Umzüge')
+  const fuellungenRaw = geladen(fuellungenRawRes, 'Füllungen')
+  const verkaufRaw = geladen(verkaufRawRes, 'Tankverkäufe')
+  const pressungenRaw = geladen(pressungenRawRes, 'Pressungen')
+  const wawRaw = geladen(wawRawRes, 'Rieden der Charge')
+  const alleChargenRaw = geladen(alleChargenRawRes, 'Chargen')
+  const verschnEinRaw = geladen(verschnEinRawRes, 'Verschnitte')
+  const zukaufRaw = geladen(zukaufRawRes, 'Zukäufe')
+  const verschnAusRaw = geladen(verschnAusRawRes, 'Verschnitte')
 
   const ausRecs = (umzuegeAusRaw ?? []) as R[]
   const einRecs = (umzuegeEinRaw ?? []) as R[]
@@ -170,11 +184,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   if (quelleAusBatchIds.length > 0) {
     // alle-ausnahme: Umzüge einer einzelnen Charge, wenige
-    const { data: zielRaw } = await tf((supabase.from('keller_umzuege') as any)
+    const zielRaw = geladen(await tf((supabase.from('keller_umzuege') as any)
       // nach_weinausbau als Fallback wenn nach_behaelter_id NULL ist
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
       .in('umzug_batch_id', quelleAusBatchIds)
-      .eq('zeilen_typ', 'ziel'))
+      .eq('zeilen_typ', 'ziel')), 'Umzugsziele')
     for (const z of ((zielRaw ?? []) as R[])) {
       if (!zielRecsByBatch[z.umzug_batch_id]) zielRecsByBatch[z.umzug_batch_id] = []
       zielRecsByBatch[z.umzug_batch_id].push(z)
@@ -183,11 +197,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   if (zielEinBatchIds.length > 0) {
     // alle-ausnahme: Umzüge einer einzelnen Charge, wenige
-    const { data: quelleRaw } = await tf((supabase.from('keller_umzuege') as any)
+    const quelleRaw = geladen(await tf((supabase.from('keller_umzuege') as any)
       // von_behaelter direkt (einstufig) als Fallback wenn doppelter Join fehlschlägt
       .select('umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), brutto_liter')
       .in('umzug_batch_id', zielEinBatchIds)
-      .eq('zeilen_typ', 'quelle'))
+      .eq('zeilen_typ', 'quelle')), 'Umzugsquellen')
     for (const q of ((quelleRaw ?? []) as R[])) {
       if (!quelleRecsByBatch[q.umzug_batch_id]) quelleRecsByBatch[q.umzug_batch_id] = []
       quelleRecsByBatch[q.umzug_batch_id].push(q)
@@ -232,9 +246,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
   // KAN-232: Charge beim Versekter (offene Lohnversektung) – Hinweis und Rückkehr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lvRaw } = await (supabase.from('lohnversektungen') as any)
+  const lvRaw = geladen(await (supabase.from('lohnversektungen') as any)
     .select('id, datum, firma:firmen!firma_id(name)').eq('tenant_id', tenantId).eq('weinausbau_id', weinausbau.id)
-    .is('storniert_am', null).is('abgeschlossen_am', null).maybeSingle()
+    .is('storniert_am', null).is('abgeschlossen_am', null).maybeSingle(), 'Lohnversektung')
   const lvOffen = lvRaw as R | null
   // Nur bei echten Eröffnungsbestand-Chargen (ist_eroeffnungsbestand=true) als eigene
   // "Anfangsbestand"-Zeile zeigen. Chargen, die per Umzug/Zukauf neu entstanden sind, können
@@ -501,18 +515,18 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
 
   // KAN-98: Prüfnummernanträge der Charge (Badge, offener Antrag statt eines zweiten)
-  const { data: pnRaw } = await tf((supabase.from('dac_antrag') as any)
+  const pnRaw = geladen(await tf((supabase.from('dac_antrag') as any)
     .select('id, bezeichnung, status, pruefnummer, status_seit')
     .eq('weinausbau_id', weinausbau.id).is('storniert_am', null)
-    .order('created_at', { ascending: false }))
+    .order('created_at', { ascending: false })), 'Prüfnummernanträge')
   const pnAntraege = (pnRaw ?? []) as R[]
   const pnOffen = pnAntraege.find(a => (PN_OFFENE_ANTRAGS_STATUS as readonly string[]).includes(a.status)) ?? null
   // KAN-99: Gültigkeit je Charge (auch per Umzug weitergegeben) – „PN … gültig“ bzw. „für Tankbestand erloschen am …“
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pncRaw } = await tf((supabase.from('pruefnummer_chargen') as any)
+  const pncRaw = geladen(await tf((supabase.from('pruefnummer_chargen') as any)
     .select('id, dac_antrag_id, gueltig_ab, gueltig_bis, ende_grund, quelle_vorgang, antrag:dac_antrag_id(pruefnummer, status, storniert_am)')
     .eq('weinausbau_id', weinausbau.id)
-    .order('gueltig_ab', { ascending: false }))
+    .order('gueltig_ab', { ascending: false })), 'Prüfnummern der Charge')
   const pnGueltigkeit = ((pncRaw ?? []) as R[]).filter(g => (g.antrag as R | null)?.pruefnummer && !(g.antrag as R | null)?.storniert_am)
   const pnGilt = pnGueltigkeit.find(g => !g.gueltig_bis && (g.antrag as R).status === 'genehmigt') ?? null
   const pnErloschen = pnGilt ? null : (pnGueltigkeit.find(g => g.gueltig_bis) ?? null)
