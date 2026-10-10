@@ -9,6 +9,7 @@ import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
 import { modulKonflikt } from '@/lib/auth/modul'
 import { wienJetzt } from '@/lib/datum/wien'
+import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -154,7 +155,8 @@ export async function POST(req: NextRequest) {
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt
   if (!membership || !darfKostenSchreiben(membership)) return fehlerAntwort('Keine Berechtigung für die Kostenrechnung – dafür ist die Freigabe Auswertungen, Rieden oder Kellerbuch nötig.', 403)
-  const b = await req.json() as R
+  const b = await jsonBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!b) return ungueltigeAnfrage()
 
   const fields = {
     kostenstelle_id: b.kostenstelle_id ?? null, kostenart_id: b.kostenart_id ?? null,

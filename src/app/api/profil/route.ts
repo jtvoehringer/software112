@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { dbFehlerText } from '@/lib/fehler'
+import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
   const s = await createSupabaseServerClient()
   const { data: { user } } = await s.auth.getUser()
   if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
-  const body = await req.json() as R
+  const body = await jsonBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!body) return ungueltigeAnfrage()
   const now  = new Date().toISOString()
 
   // full_name wird seit 7.8.2026 NICHT mehr hier vom Benutzer selbst

@@ -17,6 +17,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { rund } from '@/lib/zahl/runden'
 import { dbFehlerText } from '@/lib/fehler'
+import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -89,7 +90,8 @@ export async function POST(req: NextRequest) {
   if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${einstErr.message}` }, { status: 500 })
   if (!(einst as R | null)?.modul_ea) return NextResponse.json({ error: 'E&A-Modul für diesen Betrieb nicht aktiv' }, { status: 403 })
 
-  const formData = await req.formData()
+  const formData = await formBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!formData) return ungueltigeAnfrage('error')
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'Keine Datei' }, { status: 400 })
   if (file.size > MAX_BYTES) return NextResponse.json({ error: 'Datei zu groß (max. 15 MB)' }, { status: 413 })

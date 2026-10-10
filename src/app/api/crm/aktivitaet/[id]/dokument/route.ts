@@ -4,6 +4,7 @@ import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { dbFehlerText } from '@/lib/fehler'
+import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
 
 // POST /api/crm/aktivitaet/[id]/dokument – Datei hochladen
 export async function POST(
@@ -34,7 +35,8 @@ export async function POST(
   if (aktErr && aktErr.code !== 'PGRST116') return NextResponse.json({ error: `Aktivität konnte nicht geladen werden: ${aktErr.message}` }, { status: 500 })
   if (!akt) return NextResponse.json({ error: 'Aktivität nicht gefunden' }, { status: 404 })
 
-  const formData = await req.formData()
+  const formData = await formBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!formData) return ungueltigeAnfrage('error')
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'Keine Datei' }, { status: 400 })
 
