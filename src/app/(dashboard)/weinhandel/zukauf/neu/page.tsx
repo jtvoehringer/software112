@@ -494,7 +494,7 @@ export default function ZukaufNeuPage() {
               <div>
                 <label className={labelCls}>Alkoholgehalt (%vol) *</label>
                 <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
-                  step="0.1" min="0.1" max="25" placeholder="z.B. 12.5" required
+                  step="0.1" min="0.1" max="25" placeholder="z.B. 12,5" required
                   className={inputCls + ' w-full'} />
               </div>
             )}
@@ -545,7 +545,7 @@ export default function ZukaufNeuPage() {
             <div>
               <label className={labelCls}>Gesamtpreis (€)</label>
               <input aria-label="Gesamtpreis (€)" type="number" value={preisGesamt} onChange={e => setPreisGesamt(e.target.value)}
-                step="0.01" min="0" placeholder="0.00"
+                step="0.01" min="0" placeholder="0,00"
                 className={inputCls + ' w-full'} />
             </div>
             <div>
@@ -570,7 +570,7 @@ export default function ZukaufNeuPage() {
                   </>
                 ) : (
                   <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
-                    step="0.0001" min="0" placeholder="0.0000"
+                    step="0.0001" min="0" placeholder="0,0000"
                     className={inputCls + ' w-full'} />
                 )}
               </div>
@@ -603,7 +603,7 @@ export default function ZukaufNeuPage() {
               <div>
                 <label className={labelCls}>VK-Preis brutto (€)</label>
                 <input aria-label="VK-Preis brutto (€)" type="number" value={vkPreis} onChange={e => setVkPreis(e.target.value)}
-                  step="0.01" min="0" placeholder="0.00"
+                  step="0.01" min="0" placeholder="0,00"
                   className={inputCls + ' w-full'} />
               </div>
               <div>

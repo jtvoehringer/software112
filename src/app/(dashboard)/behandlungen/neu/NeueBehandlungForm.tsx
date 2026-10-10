@@ -726,7 +726,7 @@ export default function NeueBehandlungForm({
             {felder.temperatur !== 'hidden' && (
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Temperatur (°C)</label>
-                <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18.5"
+                <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18,5"
                   className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
             )}
