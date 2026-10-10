@@ -101,7 +101,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
             <p className="text-sm text-s112-text-2">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-semibold text-s112-text">Kupfer-Bilanz (Cu-Bilanz)</p>
+            <h1 className="text-lg font-semibold text-s112-text">Kupfer-Bilanz (Cu-Bilanz)</h1>
             <p className="text-2xl font-semibold text-s112-blue-700">Jahr {aktJahr}</p>
             <p className="text-xs text-s112-tertiary mt-1">Gem. EU-Bio-VO 2018/848 · Erstellt: {datumDe(heute)}</p>
           </div>

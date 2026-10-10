@@ -5,5 +5,11 @@ export const metadata: Metadata = { title: 'Nachrichten – software:112' }
 export const dynamic = 'force-dynamic'
 
 export default function NachrichtenPage() {
-  return <NachrichtenClient />
+  // Sweep 114: Hauptüberschrift für Screenreader – die Postfach-Ansicht hat keinen sichtbaren Seitentitel
+  return (
+    <>
+      <h1 className="sr-only">Nachrichten</h1>
+      <NachrichtenClient />
+    </>
+  )
 }

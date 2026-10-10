@@ -84,7 +84,7 @@ export default function LoginPage() {
 
       {/* Card */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-s112-text mb-6">Anmelden</h2>
+        <h1 className="text-lg font-semibold text-s112-text mb-6">Anmelden</h1>
 
         {hinweis && <p role="status" className="mb-4 text-sm bg-s112-warn-bg text-s112-warn-fg px-3 py-2 rounded-lg">{hinweis}</p>}
         <form onSubmit={handleLogin} autoComplete="on" className="space-y-4">

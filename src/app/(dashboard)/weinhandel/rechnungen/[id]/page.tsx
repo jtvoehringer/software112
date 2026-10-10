@@ -112,7 +112,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
             {s.betrieb_uid && <p className="mt-1 text-s112-text-2">UID: {s.betrieb_uid}</p>}
           </div>
           <div className="text-right">
-            <p className="text-3xl font-semibold">RECHNUNG</p>
+            <h1 className="text-3xl font-semibold">RECHNUNG</h1>
             <p className="text-base font-semibold mt-1">Nr. {r.rechnungsnummer}</p>
             <p className="text-s112-text-2 mt-0.5">Datum: {d(r.datum)}</p>
             <p className="text-s112-text-2">Lieferzeitraum: {leistung}</p>

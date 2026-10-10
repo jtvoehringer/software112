@@ -94,7 +94,7 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
             <p className="text-sm text-s112-text-2">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-semibold text-s112-text">Nährstoffbilanz (Stickstoff/Phosphor)</p>
+            <h1 className="text-lg font-semibold text-s112-text">Nährstoffbilanz (Stickstoff/Phosphor)</h1>
             <p className="text-2xl font-semibold text-s112-blue-700">Jahr {aktJahr}</p>
             <p className="text-xs text-s112-tertiary mt-1">Gem. Nitrat-Aktionsprogramm-Verordnung (NAPV) · Erstellt: {datumDe(heute)}</p>
           </div>

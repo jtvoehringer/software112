@@ -139,7 +139,7 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
             {s.betrieb_uid && <p className="text-xs text-s112-tertiary">UID: {s.betrieb_uid}</p>}
           </div>
           <div className="text-right">
-            <p className="text-lg font-semibold text-s112-text">Weinbestandsmeldung nach Buchungsarten</p>
+            <h1 className="text-lg font-semibold text-s112-text">Weinbestandsmeldung nach Buchungsarten</h1>
             <p className="text-2xl font-semibold text-s112-blue-700">{bsmKennzeichnung(zeitraum)}</p>
             <p className="text-xs text-s112-text-2 mt-1">{datumAT(p.von)} – {datumAT(p.bis)}</p>
             <p className="text-xs text-s112-tertiary">Erstellt: {datumAT(heute)}</p>
