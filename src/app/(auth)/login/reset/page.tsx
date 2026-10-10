@@ -18,6 +18,7 @@ export default function ResetPage() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password&type=recovery`,
     })
+    // fehlertext-ok: Supabase-Auth-Meldung, kein Datenbankfehler (dbFehlerText passt nicht)
     if (error) { setError(error.message); setLoading(false) }
     else setDone(true)
 

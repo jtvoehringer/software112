@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 
 // schreibsperre-ausnahme: entfernt nur die eigenen gespeicherten Postfach-Zugangsdaten – muss aus Datenschutzgründen immer möglich sein
@@ -23,7 +24,7 @@ export async function POST() {
       .eq('tenant_id', tenantId)
       .eq('user_id', user.id)
       .select('id')
-    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
 
     return NextResponse.json({ ok: true })
   } catch (err) {

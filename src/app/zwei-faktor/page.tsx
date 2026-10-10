@@ -101,6 +101,7 @@ function ZweiFaktor() {
     try { setFehler(null)
     const { error } = await supabase.auth.mfa.unenroll({ factorId: faktor.id })
     setLaeuft(false)
+    // fehlertext-ok: Supabase-Auth-Meldung, kein Datenbankfehler (dbFehlerText passt nicht)
     if (error) { setFehler(error.message); return }
     await supabase.auth.refreshSession()
     await laden()

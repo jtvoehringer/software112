@@ -26,6 +26,7 @@ import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { rechtsformAus } from '@/lib/betrieb/rechtsform'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
+import { dbFehlerText } from '@/lib/fehler'
 
 async function requireOwnTenant(): Promise<{ tenantId: string } | { error: string }> {
   const membership = await getCurrentMembership()
@@ -75,7 +76,7 @@ export async function saveBrandingOwn(formData: FormData) {
       // unangetastet (siehe gleiches Muster in admin/mandanten/[id]/actions.ts).
     }, { onConflict: 'tenant_id' })
 
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
   return { success: true }
@@ -100,7 +101,7 @@ export async function uploadLogoOwn(formData: FormData): Promise<{ url?: string;
   const { error: uploadErr } = await admin.storage
     .from('mandant-logos')
     .upload(path, file, { contentType: file.type, upsert: true })
-  if (uploadErr) return { error: uploadErr.message }
+  if (uploadErr) return { error: dbFehlerText(uploadErr) }
 
   const { data: pub } = admin.storage.from('mandant-logos').getPublicUrl(path)
 
@@ -109,7 +110,7 @@ export async function uploadLogoOwn(formData: FormData): Promise<{ url?: string;
       { tenant_id: auth.tenantId, logo_url: pub.publicUrl, aktualisiert_am: new Date().toISOString() },
       { onConflict: 'tenant_id' }
     )
-  if (dbErr) return { error: dbErr.message }
+  if (dbErr) return { error: dbFehlerText(dbErr) }
 
   tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
@@ -158,7 +159,7 @@ export async function saveBetriebOwn(formData: FormData) {
       aktualisiert_am:           new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
 
   // Bio-Status liegt auf der tenants-Tabelle (nicht tenant_einstellungen) -
   // steuert die Warn-/Sperrlogik bei der Mittelwahl im Maßnahmenformular.
@@ -166,7 +167,7 @@ export async function saveBetriebOwn(formData: FormData) {
   const { error: bioError } = await (admin.from('tenants') as any)
     .update({ bio_status: bioStatus })
     .eq('id', auth.tenantId)
-  if (bioError) return { error: bioError.message }
+  if (bioError) return { error: dbFehlerText(bioError) }
 
   await stripeKundennummerSync(auth.tenantId) // PLZ gespeichert → Kundennummer ggf. neu vergeben
   tenantKopfInvalidieren(auth.tenantId)
@@ -193,7 +194,7 @@ export async function saveKellerwirtschaftOwn(formData: FormData) {
     aktualisiert_am:     new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   tenantKopfInvalidieren(auth.tenantId)   // Layout-Cache: wirkt ab der nächsten Anfrage
   revalidatePath('/betrieb/einstellungen')
   return { success: true }
@@ -214,7 +215,7 @@ export async function saveBawbOwn(formData: FormData) {
     aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
   return { success: true }

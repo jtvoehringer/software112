@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -74,7 +75,7 @@ export async function DELETE(
   // mandantenbezogenen Schreibzugriffen in dieser App (siehe check-tenant-isolation.js).
   const { data: weg, error } = await (supabase.from('aktivitaet_dokumente') as any)
     .delete().eq('id', dok_id).eq('tenant_id', tenantId).select('id')
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: dbFehlerText(error) }, { status: 500 })
   if (((weg ?? []) as unknown[]).length === 0) return NextResponse.json({ error: 'Das Dokument wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }, { status: 403 })
 
   // KAN-243: Datei erst nach der Zeile entfernen – vorher war die Datei weg, auch wenn die RLS das Löschen der Zeile

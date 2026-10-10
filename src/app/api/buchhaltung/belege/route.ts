@@ -16,6 +16,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { rund } from '@/lib/zahl/runden'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
   const { error: uploadErr } = await supabase.storage
     .from('ea-belege')
     .upload(storagePfad, file, { contentType: mimeType, upsert: false })
-  if (uploadErr) return NextResponse.json({ error: uploadErr.message }, { status: 500 })
+  if (uploadErr) return NextResponse.json({ error: dbFehlerText(uploadErr) }, { status: 500 })
 
   // ── KI-Erkennung – darf den Upload nie zum Scheitern bringen ──────────────
   let erkannteDaten: R | null = null
@@ -217,7 +218,7 @@ export async function POST(req: NextRequest) {
   if (dbErr) {
     // Storage-Datei rückgängig machen, wenn der DB-Insert scheitert
     await supabase.storage.from('ea-belege').remove([storagePfad])
-    return NextResponse.json({ error: dbErr.message }, { status: 500 })
+    return NextResponse.json({ error: dbFehlerText(dbErr) }, { status: 500 })
   }
 
   return NextResponse.json(beleg, { status: 201 })

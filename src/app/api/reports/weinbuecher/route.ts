@@ -3,6 +3,7 @@ import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
 
     // alle(): Weinbuch-Sammlung über alle Jahrgänge – PostgREST kappt sonst still bei 1.000 Chargen
     const { data, error } = await alle<R>(query.order('id'))
-    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
 
     const chargen = ((data ?? []) as R[]).map(w => ({
       id: w.id,

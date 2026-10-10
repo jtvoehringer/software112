@@ -993,7 +993,7 @@ export async function kontakteZusammenfuehren(behalten: string, weg: string[]): 
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
     const { data, error } = await (supabase.rpc as any)('kontakte_zusammenfuehren', { p_tenant_id: tenantId, p_behalten: behalten, p_weg: weg })
-    if (error) return { error: error.message }
+    if (error) return { error: dbFehlerText(error) }
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/dubletten')
     revalidatePath('/crm/kontakte')
@@ -1014,7 +1014,7 @@ export async function dubletteIgnorieren(schluessel: string): Promise<{ error?: 
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await (supabase.from('crm_dubletten_ignoriert') as any)
       .upsert({ tenant_id: tenantId, schluessel, erstellt_von: user?.id ?? null }, { onConflict: 'tenant_id,schluessel' })
-    if (error) return { error: error.message }
+    if (error) return { error: dbFehlerText(error) }
     revalidatePath('/crm/dubletten')
     return {}
   } catch (e) {
@@ -1032,7 +1032,7 @@ export async function dublettenIgnorierenViele(schluessel: string[]): Promise<{ 
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await (supabase.from('crm_dubletten_ignoriert') as any)
       .upsert(liste.map(k => ({ tenant_id: tenantId, schluessel: k, erstellt_von: user?.id ?? null })), { onConflict: 'tenant_id,schluessel' })
-    if (error) return { error: error.message }
+    if (error) return { error: dbFehlerText(error) }
     revalidatePath('/crm/dubletten')
     return { anzahl: liste.length }
   } catch (e) {

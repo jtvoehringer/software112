@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { dbFehlerText } from '@/lib/fehler'
 
 // POST /api/crm/aktivitaet/[id]/dokument – Datei hochladen
 export async function POST(
@@ -46,7 +47,7 @@ export async function POST(
   const { error: uploadErr } = await supabase.storage
     .from('aktivitaet-dokumente')
     .upload(storagePfad, file, { contentType: file.type, upsert: false })
-  if (uploadErr) return NextResponse.json({ error: uploadErr.message }, { status: 500 })
+  if (uploadErr) return NextResponse.json({ error: dbFehlerText(uploadErr) }, { status: 500 })
 
   const { data: dok, error: dbErr } = await (supabase.from('aktivitaet_dokumente') as any)
     .insert({
@@ -64,7 +65,7 @@ export async function POST(
   if (dbErr) {
     // Storage-Datei rückgängig machen
     await supabase.storage.from('aktivitaet-dokumente').remove([storagePfad])
-    return NextResponse.json({ error: dbErr.message }, { status: 500 })
+    return NextResponse.json({ error: dbFehlerText(dbErr) }, { status: 500 })
   }
 
   return NextResponse.json(dok, { status: 201 })

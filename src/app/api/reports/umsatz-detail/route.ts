@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 import { umsatzBasis } from '@/lib/verkauf/umsatzBasis'
+import { dbFehlerText } from '@/lib/fehler'
 
 export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
       .gte('datum', von).lte('datum', bis)
       .order('datum', { ascending: false })
       .order('id'))
-    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return NextResponse.json({ posten: ((data ?? []) as any[]).map(r => ({ ...alsBeleg(r), href: `/weinhandel/rechnungen/${r.id}` })) })
   }
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
     .order('datum', { ascending: false })
     .order('id'))
 
-  if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
 
   return NextResponse.json({ posten: data ?? [] })
 }
