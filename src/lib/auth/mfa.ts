@@ -32,7 +32,8 @@ export async function ladeMfaStand(supabase: R, role: UserRole): Promise<MfaStan
   ])
   // KAN-254: den Zwei-Faktor-Stand nie raten – sonst „kein Faktor“ bzw. „keine Stufe“
   if (aalErr || faktorErr) throw new Error(`Zwei-Faktor-Stand konnte nicht geladen werden: ${(aalErr ?? faktorErr).message}`)
-  const hatFaktor = ((faktoren?.totp ?? []) as R[]).some(f => f.status === 'verified')
+  // KAN-287: auch ein Passkey (webauthn) ist ein Faktor
+  const hatFaktor = ((faktoren?.all ?? faktoren?.totp ?? []) as R[]).some(f => f.status === 'verified')
   const pflicht = MFA_PFLICHT_ROLLEN.includes(role)
   return { hatFaktor, stufe: (aal?.currentLevel ?? null) as MfaStand['stufe'], pflicht, pflichtAktiv: mfaPflichtAktiv(role) }
 }

@@ -6,15 +6,17 @@
 //  - kein Faktor → Authenticator-App einrichten (QR-Code scannen, Code bestätigen)
 //  - Faktor vorhanden und bestätigt (aal2) → Status, entfernen
 // Liegt bewusst außerhalb von (dashboard), damit die Pflicht-Weiterleitung keine Schleife bildet.
+// KAN-287 (10.10.2026): zusätzlich Passkey (Fingerabdruck, Gesicht, Windows Hello) – einrichten, bei der Anmeldung
+// bestätigen (Code als Rückfall), einzeln entfernen. Hilfen in src/lib/auth/passkey.ts.
 
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import { mitWeiter } from '@/lib/tenant/waechter'
+import { faktorenAufteilen, passkeyFehlerText, passkeyMoeglich, passkeyName, type Faktor } from '@/lib/auth/passkey'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
-type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
 
 function ZweiFaktor() {
   const router = useRouter()
@@ -31,6 +33,12 @@ function ZweiFaktor() {
   const [laeuft, setLaeuft] = useState(false)
   // KAN-233: Code angenommen – bis die nächste Seite da ist, Rückmeldung statt erneut leerem Eingabefeld
   const [bestaetigt, setBestaetigt] = useState(false)
+  // KAN-287: Passkeys des Benutzers; kann der Browser WebAuthn?
+  const [passkeys, setPasskeys] = useState<Faktor[]>([])
+  const [hatTotp, setHatTotp] = useState(false)
+  const [passkeyOk, setPasskeyOk] = useState(false)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Fähigkeit erst nach dem Laden prüfen (kein Hydration-Unterschied)
+  useEffect(() => { setPasskeyOk(passkeyMoeglich()) }, [])
 
   const laden = useCallback(async () => {
     setFehler(null)
@@ -40,9 +48,13 @@ function ZweiFaktor() {
     ])
     // Sweep 91 (KAN-283): auch die Sicherheitsstufe der Sitzung (aal) auswerten
     if (error || aalErr) { setFehler((error ?? aalErr)?.message ?? 'Zwei-Faktor-Status konnte nicht geladen werden'); return }
-    const verifiziert = (fl?.totp ?? []).find(f => f.status === 'verified') as Faktor | undefined
+    // KAN-287: Code (TOTP) und Passkeys – jeder bestätigte Faktor zählt
+    const f = faktorenAufteilen(fl as Parameters<typeof faktorenAufteilen>[0])
+    setPasskeys(f.passkeys)
+    setHatTotp(!!f.totp)
+    const verifiziert = f.totp ?? f.passkeys[0]
     if (verifiziert) {
-      setFaktor(verifiziert)
+      setFaktor(f.totp)
       setModus(aal?.currentLevel === 'aal2' ? 'aktiv' : 'code')
     } else {
       setFaktor(null)
@@ -92,8 +104,59 @@ function ZweiFaktor() {
     }
   }
 
+  // KAN-287: mit Passkey bestätigen (nach dem Passwort)
+  const mitPasskey = async () => {
+    const p = passkeys[0]
+    if (!p) return
+    setLaeuft(true); setFehler(null)
+    try {
+      const { error } = await supabase.auth.mfa.webauthn.authenticate({ factorId: p.id })
+      if (error) { setFehler(passkeyFehlerText(error)); return }
+      setBestaetigt(true)
+      weiter()
+    } catch (e) { setFehler(passkeyFehlerText(e)) }
+    finally { setLaeuft(false) }
+  }
+
+  // KAN-287: Passkey einrichten (zusätzlich zum Code oder als erster Faktor)
+  const passkeyEinrichten = async () => {
+    setLaeuft(true); setFehler(null)
+    try {
+      const { data: fl } = await supabase.auth.mfa.listFactors()
+      for (const f of (fl?.all ?? []).filter(f => f.status !== 'verified' && f.factor_type === 'webauthn')) await supabase.auth.mfa.unenroll({ factorId: f.id })
+      const { error } = await supabase.auth.mfa.webauthn.register({ friendlyName: passkeyName(navigator.userAgent, new Date().toLocaleDateString('de-AT')) })
+      if (error) { setFehler(passkeyFehlerText(error)); return }
+      await supabase.auth.refreshSession()
+      if (modus === 'einrichten') { setBestaetigt(true); weiter(); return }
+      await laden()
+    } catch (e) { setFehler(passkeyFehlerText(e)) }
+    finally { setLaeuft(false) }
+  }
+
+  // KAN-287: einzelnen Passkey entfernen (der letzte Faktor nur mit Rückfrage wie beim Code)
+  const passkeyEntfernen = async (p: Faktor) => {
+    const letzter = !hatTotp && passkeys.length === 1
+    if (!confirm(letzter ? 'Letzten Faktor entfernen? Das Konto ist dann nur noch durch das Passwort geschützt.' : `Passkey „${p.friendly_name ?? 'Passkey'}“ entfernen?`)) return
+    setLaeuft(true); setFehler(null)
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: p.id })
+      if (error) { setFehler(error.message); return }
+      await supabase.auth.refreshSession()
+      await laden()
+    } finally { setLaeuft(false) }
+  }
+
+  const passkeyKnopf = (text: string, aktion: () => void, primaer = false) => passkeyOk ? (
+    <button type="button" onClick={aktion} disabled={laeuft}
+      className={primaer
+        ? 'w-full bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold disabled:opacity-40'
+        : 'w-full py-2 rounded-lg text-sm font-semibold border border-s112-line-str text-s112-text-1 hover:bg-s112-bg disabled:opacity-40'}>
+      {laeuft ? 'Bitte am Gerät bestätigen …' : text}
+    </button>
+  ) : null
+
   const entfernen = async () => {
-    if (!faktor || !confirm('Zwei-Faktor-Anmeldung wirklich entfernen? Das Konto ist dann nur noch durch das Passwort geschützt.')) return
+    if (!faktor || !confirm(passkeys.length ? 'Authenticator-App entfernen? Die Anmeldung bleibt mit dem Passkey geschützt.' : 'Zwei-Faktor-Anmeldung wirklich entfernen? Das Konto ist dann nur noch durch das Passwort geschützt.')) return
     setLaeuft(true);
     try { setFehler(null)
     const { error } = await supabase.auth.mfa.unenroll({ factorId: faktor.id })
@@ -149,8 +212,19 @@ function ZweiFaktor() {
 
           {!bestaetigt && modus === 'code' && (
             <>
-              <p className="text-sm text-s112-text-1">Öffne deine Authenticator-App (z. B. Microsoft oder Google Authenticator) und gib den aktuellen Code für software:112 ein.</p>
-              {codeFeld}
+              {passkeys.length > 0 && passkeyOk && (
+                <>
+                  <p className="text-sm text-s112-text-1">Mit Fingerabdruck, Gesichtserkennung oder Windows Hello bestätigen:</p>
+                  {passkeyKnopf('Mit Passkey bestätigen', mitPasskey, true)}
+                </>
+              )}
+              {hatTotp && (
+                <>
+                  <p className="text-sm text-s112-text-1">{passkeys.length > 0 && passkeyOk ? 'Oder den aktuellen Code aus der Authenticator-App eingeben:' : 'Öffne deine Authenticator-App (z. B. Microsoft oder Google Authenticator) und gib den aktuellen Code für software:112 ein.'}</p>
+                  {codeFeld}
+                </>
+              )}
+              {!hatTotp && !passkeyOk && <p className="text-sm text-s112-err-fg">Dieser Browser unterstützt keine Passkeys. Bitte mit einem anderen Browser bzw. Gerät anmelden.</p>}
             </>
           )}
 
@@ -173,6 +247,8 @@ function ZweiFaktor() {
                     className="w-full bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
                     {laeuft ? 'Wird vorbereitet …' : 'Einrichten'}
                   </button>
+                  {passkeyOk && <p className="text-xs text-s112-text-2 pt-1">Oder ohne App: mit Fingerabdruck, Gesichtserkennung bzw. Windows Hello dieses Geräts (Passkey).</p>}
+                  {passkeyKnopf('Mit Passkey einrichten', passkeyEinrichten)}
                 </>
               ) : (
                 <>
@@ -191,10 +267,22 @@ function ZweiFaktor() {
           {modus === 'aktiv' && (
             <>
               <p className="text-sm text-s112-ok-fg bg-s112-ok-bg rounded-lg px-3 py-2">Zwei-Faktor-Anmeldung ist aktiv{faktor?.created_at ? ` seit ${new Date(faktor.created_at).toLocaleDateString('de-AT')}` : ''}.</p>
+              {/* KAN-287: Passkeys (Biometrie) */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-s112-text-1">Passkeys (Fingerabdruck, Gesicht, Windows Hello)</p>
+                {passkeys.length === 0 && <p className="text-xs text-s112-text-2">Noch keiner – dann reicht bei der Anmeldung der Fingerabdruck statt des Codes.</p>}
+                {passkeys.map(p => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate">{p.friendly_name ?? 'Passkey'}</span>
+                    <button type="button" onClick={() => passkeyEntfernen(p)} disabled={laeuft} className="text-xs text-s112-err-fg hover:underline disabled:opacity-40">Entfernen</button>
+                  </div>
+                ))}
+                {passkeyKnopf('Passkey hinzufügen', passkeyEinrichten)}
+              </div>
               <p className="text-xs text-s112-text-2">Handy verloren oder neu? Wende dich an deinen Administrator – er kann die Einrichtung zurücksetzen.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => router.push('/profil')} className="flex-1 bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold">Zurück zum Profil</button>
-                <button type="button" onClick={entfernen} disabled={laeuft} className="px-3 py-2 rounded-lg text-sm border border-s112-line-str text-s112-err-fg hover:bg-s112-err-bg disabled:opacity-40">Entfernen</button>
+                {hatTotp && <button type="button" onClick={entfernen} disabled={laeuft} className="px-3 py-2 rounded-lg text-sm border border-s112-line-str text-s112-err-fg hover:bg-s112-err-bg disabled:opacity-40">App entfernen</button>}
               </div>
             </>
           )}
