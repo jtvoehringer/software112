@@ -374,7 +374,7 @@ export default function ImportClient({
               </div>
               <div>
                 <label className={ebLabelCls}>Jahrgang</label>
-                <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100}
+                <input aria-label="Jahrgang" name="jahrgang" type="number" step="1" min={1900} max={2100}
                   defaultValue={new Date().getFullYear() - 1} className={ebInputCls} />
               </div>
               <div>

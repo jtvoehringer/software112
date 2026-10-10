@@ -122,7 +122,7 @@ export default async function DauerauftraegePage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Tag im Monat</label>
-              <input aria-label="Tag im Monat" type="number" name="tag_im_monat" min="1" max="28" defaultValue="1"
+              <input aria-label="Tag im Monat" type="number" step="1" name="tag_im_monat" min="1" max="28" defaultValue="1"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
             </div>
           </div>

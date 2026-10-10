@@ -204,7 +204,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
                     <option value="">– keine –</option>
                     {rabattgruppen.map(r => <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct} %)</option>)}
                   </select></div>
-                <div><label className={labelCls}>Zahlungsziel (Tage)</label><input aria-label="Zahlungsziel (Tage)" type="number" min={0} value={zahlungsziel} onChange={e => setZahlungsziel(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Zahlungsziel (Tage)</label><input aria-label="Zahlungsziel (Tage)" type="number" step="1" min={0} value={zahlungsziel} onChange={e => setZahlungsziel(e.target.value)} className={inputCls} /></div>
               </div>
 
               <div><label className={labelCls}>Notizen</label><textarea aria-label="Notizen" value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} className={inputCls} /></div>

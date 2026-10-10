@@ -428,7 +428,7 @@ export default function ZukaufNeuPage() {
             </div>
             <div>
               <label className={labelCls}>Jahrgang *</label>
-              <input aria-label="Jahrgang" type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
+              <input aria-label="Jahrgang" type="number" step="1" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
                 min="1900" max="2100" placeholder="z.B. 2024"
                 required
                 className={inputCls + ' w-full'} />

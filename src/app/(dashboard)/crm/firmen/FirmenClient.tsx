@@ -263,7 +263,7 @@ export function FirmaForm({
           {/* Bewusst NICHT ueber den v()-Helfer (initial?.[field] ?? '') || '30' -
               das wuerde eine eingetragene 0 stillschweigend durch 30 ersetzen,
               0 ist hier aber ein gueltiger, bewusster Wert ("bei Erhalt"). */}
-          <input aria-label="Zahlungsziel (Tage)" name="zahlungsziel_tage" type="number" required defaultValue={initial?.zahlungsziel_tage ?? 30}
+          <input aria-label="Zahlungsziel (Tage)" name="zahlungsziel_tage" type="number" step="1" required defaultValue={initial?.zahlungsziel_tage ?? 30}
             min="0" max="365" className={inputCls()} />
           <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit „bei Erhalt“ statt Fälligkeitsdatum gedruckt</p>
         </div>

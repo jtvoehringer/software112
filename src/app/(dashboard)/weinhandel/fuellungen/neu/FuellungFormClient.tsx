@@ -289,7 +289,7 @@ export default function FuellungFormClient({
             <label className={labelCls}>Jahrgang</label>
             <input aria-label="Jahrgang"
               name="jahrgang"
-              type="number"
+              type="number" step="1"
               min={1900} max={2100}
               value={jahrgangVal}
               onChange={e => setJahrgangVal(e.target.value)}
@@ -466,7 +466,7 @@ export default function FuellungFormClient({
             <label className={labelCls}>Anzahl Flaschen *</label>
             <input aria-label="Anzahl Flaschen"
               name="anzahl_flaschen"
-              type="number"
+              type="number" step="1"
               min={1}
               value={anzahl}
               onChange={e => setAnzahl(e.target.value)}
@@ -480,7 +480,7 @@ export default function FuellungFormClient({
             <label htmlFor="fuellung-unetikettiert" className={labelCls}>davon unetikettiert</label>
             <input id="fuellung-unetikettiert"
               name="anzahl_unetikettiert"
-              type="number"
+              type="number" step="1"
               min={0}
               placeholder="0 = alle etikettiert"
               className={inputCls}

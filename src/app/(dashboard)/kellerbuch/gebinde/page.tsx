@@ -434,7 +434,7 @@ export default async function GebindePage({
                 </div>
                 <div>
                   <label className={labelCls}>Jahrgang</label>
-                  <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100}
+                  <input aria-label="Jahrgang" name="jahrgang" type="number" step="1" min={1900} max={2100}
                     defaultValue={wienJetzt().getFullYear() - 1} className={inputCls} />
                 </div>
                 <div>

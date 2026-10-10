@@ -115,14 +115,14 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Max. Anwendungen</label>
-          <input aria-label="Max. Anwendungen" name="max_anwendungen" type="number" min="0"
+          <input aria-label="Max. Anwendungen" name="max_anwendungen" type="number" step="1" min="0"
             defaultValue={psm?.max_anwendungen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wartezeit (Tage)</label>
-          <input aria-label="Wartezeit (Tage)" name="wartezeit_tage" type="number" min="0"
+          <input aria-label="Wartezeit (Tage)" name="wartezeit_tage" type="number" step="1" min="0"
             defaultValue={psm?.wartezeit_tage ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>

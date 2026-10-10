@@ -66,7 +66,7 @@ export default async function KategorienPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto-Nr. (EKR)</label>
-            <input aria-label="Konto-Nr. (EKR)" name="konto_nr" type="number" placeholder="z.B. 4000"
+            <input aria-label="Konto-Nr. (EKR)" name="konto_nr" type="number" step="1" placeholder="z.B. 4000"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
           </div>
           <div>

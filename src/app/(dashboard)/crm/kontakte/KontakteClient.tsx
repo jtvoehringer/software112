@@ -437,7 +437,7 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
       </div>
       <div className="grid grid-cols-2 gap-2">
         <input name="wert_euro" type="number" step="0.01" placeholder="Wert € (optional)" className={inputCls()} />
-        <input name="wahrscheinlichkeit" type="number" min="0" max="100" placeholder="Wahrsch. % (optional)" className={inputCls()} />
+        <input name="wahrscheinlichkeit" type="number" step="1" min="0" max="100" placeholder="Wahrsch. % (optional)" className={inputCls()} />
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">

@@ -384,7 +384,7 @@ export default async function EditFuellungPage({
           <fieldset disabled className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 border-0 p-0 m-0 opacity-80">
             <div>
               <label className={labelCls}>Jahrgang</label>
-              <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100} defaultValue={f.jahrgang ?? ''} className={inputCls} />
+              <input aria-label="Jahrgang" name="jahrgang" type="number" step="1" min={1900} max={2100} defaultValue={f.jahrgang ?? ''} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Rebsorte</label>
@@ -466,7 +466,7 @@ export default async function EditFuellungPage({
             </div>
             <div>
               <label className={labelCls}>Anzahl abgefüllt (gesamt)</label>
-              <input aria-label="Anzahl abgefüllt (gesamt)" name="anzahl_flaschen" type="number" min={1} defaultValue={f.anzahl_flaschen} required
+              <input aria-label="Anzahl abgefüllt (gesamt)" name="anzahl_flaschen" type="number" step="1" min={1} defaultValue={f.anzahl_flaschen} required
                 readOnly={anzahlGesperrt}
                 className={anzahlGesperrt ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls} />
               {!anzahlGesperrt && (
