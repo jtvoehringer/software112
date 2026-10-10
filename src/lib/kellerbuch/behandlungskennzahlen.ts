@@ -13,7 +13,9 @@ import { rund } from '../zahl/runden.ts'
 //      entscheidet der Name des Behandlungstyps (Anreicherung/Zucker, Süßung, Konzentrierung/Umkehrosmose/Kryo,
 //      Säuerung, Entsäuerung, Alkohol). „Säurekorrektur“ ohne Stoff ist nicht eindeutig → Hinweis, kein Wert.
 //   B2 Menge: Masse des Mittels je Volumen der Charge bei der Behandlung (Ist-Volumen der Behandlung, sonst Menge der
-//      Charge heute – Hinweis). Liter-Stoffe (RTK flüssig, KTM) mit 1,32 kg/l (≈ 65 °Brix) in kg umgerechnet. Mengen, die
+//      Charge heute – Hinweis). Anreicherung und Süßung als Zucker-Äquivalent (Entscheidung Jörgen 10.10.2026): Zucker und
+//      RTK-Pulver 1:1, RTK flüssig und KTM mit 65 % Zucker (≈ 65 °Brix), in Litern mit 1,32 kg/l, also 0,858 kg Zucker je
+//      Liter. Mengen, die
 //      schon je Volumen erfasst sind (g/l, kg/hl), gehen direkt ein. Konzentrierung und Alkoholkorrektur nur aus Mengen in
 //      % bzw. %vol.
 //   B3 Kumuliert: Summe der Werte aller Behandlungen der Charge bis zum Datum. Behandlungen von Vorgänger-Chargen (vor
@@ -46,6 +48,8 @@ export type KennzahlBehandlung = {
 
 /** B2: Dichte für Liter-Stoffe (RTK flüssig, KTM ≈ 65 °Brix) */
 export const DICHTE_KONZENTRAT_KG_JE_L = 1.32
+/** B2: Zuckergehalt (Masseanteil) je Stoffart für das Zucker-Äquivalent */
+export const ZUCKERGEHALT: Readonly<Record<string, number>> = { zucker: 1, rtk_pulver: 1, rtk_fluessig: 0.65, ktm: 0.65 }
 
 const SUESS = /s(ü|ue)(ß|ss)|dosage/i
 const ZUCKER_ARTEN = new Set(['zucker', 'rtk_fluessig', 'rtk_pulver', 'ktm'])
@@ -83,6 +87,12 @@ function masseKg(menge: number, einheit: string | null | undefined, stoffArt: st
   return null
 }
 
+/** B2: Masse als Zucker-Äquivalent (Anreicherung, Süßung); andere Stoffe unverändert */
+function zuckerAequivalent(kg: number, art: KennzahlArt, stoffArt: string | null | undefined): number {
+  if ((art !== 'anreicherung' && art !== 'suessung') || !stoffArt) return kg
+  return kg * (ZUCKERGEHALT[stoffArt] ?? 1)
+}
+
 /** B2: Wert einer Behandlung in der Einheit ihrer Kennzahl (null = nicht bestimmbar) */
 export function kennzahlWert(b: KennzahlBehandlung, art: KennzahlArt): number | null {
   if (art === 'konzentrierung' || art === 'alkoholkorrektur') {
@@ -99,7 +109,8 @@ export function kennzahlWert(b: KennzahlBehandlung, art: KennzahlArt): number | 
     ? masseKg(b.stoffMenge, b.stoffEinheit, b.stoffArt)
     : b.menge != null ? masseKg(b.menge, b.einheit, b.stoffArt) : null
   if (kg == null || !b.volumenLiter || b.volumenLiter <= 0) return null
-  return art === 'anreicherung' ? kg / (b.volumenLiter / 100) : kg * 1000 / b.volumenLiter
+  const z = zuckerAequivalent(kg, art, b.stoffArt)
+  return art === 'anreicherung' ? z / (b.volumenLiter / 100) : z * 1000 / b.volumenLiter
 }
 
 const LEER: Behandlungskennzahlen = { anreicherung: null, suessung: null, konzentrierung: null, entsaeuerung: null, saeuerung: null, alkoholkorrektur: null }

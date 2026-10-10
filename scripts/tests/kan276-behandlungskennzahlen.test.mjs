@@ -35,10 +35,14 @@ describe('Zuordnung und Wert je Behandlung (B1, B2)', nurMitHooks, () => {
     for (const n of ['Hefegabe', 'Schwefelung', 'Filtration', 'Schönung (Bentonit)']) assert.equal(a({ typName: n }), null, n)
   })
 
-  test('Masse je Volumen; RTK/KTM in Litern mit 1,32 kg/l; schon je Volumen erfasst; % und %vol', () => {
+  test('Masse je Volumen; Zucker-Äquivalent (RTK/KTM 65 %, in Litern 1,32 kg/l); schon je Volumen erfasst; % und %vol', () => {
     const w = x => { const y = b(x); return kz.kennzahlWert(y, kz.kennzahlArt(y)) }
     assert.equal(w({ typName: 'Zuckerung', stoffArt: 'zucker', stoffEinheit: 'kg', stoffMenge: 20 }), 2)              // 20 kg auf 10 hl
-    assert.equal(Math.round(w({ typName: 'Anreicherung', stoffArt: 'rtk_fluessig', stoffEinheit: 'l', stoffMenge: 10 }) * 1000), 1320)   // runden-ok: Testvergleich
+    // 10 l RTK flüssig = 13,2 kg Konzentrat = 8,58 kg Zucker auf 10 hl
+    assert.equal(Math.round(w({ typName: 'Anreicherung', stoffArt: 'rtk_fluessig', stoffEinheit: 'l', stoffMenge: 10 }) * 1000), 858)   // runden-ok: Testvergleich
+    assert.equal(Math.round(w({ typName: 'Anreicherung', stoffArt: 'ktm', stoffEinheit: 'kg', stoffMenge: 20 }) * 1000), 1300)   // runden-ok: Testvergleich
+    assert.equal(w({ typName: 'Anreicherung', stoffArt: 'rtk_pulver', stoffEinheit: 'kg', stoffMenge: 20 }), 2)
+    assert.equal(Math.round(w({ typName: 'Süßreserve', stoffArt: 'rtk_fluessig', stoffEinheit: 'l', stoffMenge: 10 }) * 1000), 8580)   // runden-ok: Testvergleich (g/l)
     assert.equal(w({ typName: 'Süßung', stoffArt: 'zucker', stoffEinheit: 'kg', stoffMenge: 5 }), 5)                 // 5 kg auf 1000 l = 5 g/l
     assert.equal(w({ typName: 'Entsäuerung', stoffArt: 'entsaeuerungsmittel', stoffEinheit: 'g', stoffMenge: 800, volumenLiter: 400 }), 2)
     assert.equal(w({ typName: 'Säuerung', menge: 1.5, einheit: 'g/l' }), 1.5)
