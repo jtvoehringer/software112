@@ -165,7 +165,7 @@ export default function KellerbehandlungenPage() {
     setLoading(false)
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- neu laden genau beim Wechsel des Behälters; loadData liest nur behaelterId
   useEffect(() => { loadData() }, [behaelterId])
 
   // KAN-117: aus der Schnellerfassung (?neu=1) gleich das Formular „Neue Behandlung“ öffnen – einmal, nach dem Laden

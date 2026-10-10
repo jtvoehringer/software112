@@ -11,6 +11,9 @@ import { sitzungsCookieSchreiben } from '@/lib/auth/sitzungCookie'
 
 interface Props { timeoutMinuten?: number | null }
 
+// Sweep 111: Konstante auf Modulebene (vorher im Komponentenkörper – fehlte in den useCallback-Abhängigkeiten)
+const WARN_BEFORE = 2 * 60 * 1000 // 2 Min Vorwarnung
+
 export default function SessionTimeout({ timeoutMinuten: eingestellt }: Props) {
   // KAN-286: ohne Einstellung des Betriebs gilt der Standard (60 Minuten) – vorher lief die Sitzung dann nie ab
   const timeoutMinuten = zeitspanne(eingestellt)
@@ -23,7 +26,6 @@ export default function SessionTimeout({ timeoutMinuten: eingestellt }: Props) {
   // mousedown des Klicks auf „Abmelden“ den Dialog (reset), und der Klick erreichte den Knopf nie. Nur „Aktiv bleiben“
   // (bzw. Escape) setzt den Timer dann zurück.
   const warnungRef = useRef(false)
-  const WARN_BEFORE = 2 * 60 * 1000 // 2 Min Vorwarnung
 
   const abmelden = useCallback(async () => {
     const s = createSupabaseBrowserClient()
