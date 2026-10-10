@@ -69,6 +69,8 @@ export default function KellerbehandlungenPage() {
   // Name der beim Bearbeiten verknüpften Charge, falls sie nicht (mehr) aktiv im Behälter liegt
   const [formWeinausbauName, setFormWeinausbauName] = useState<string | null>(null)
   const [formError, setFormError]         = useState('')
+  // Sweep 91 (KAN-283): Lesefehler sichtbar statt leerer Liste bzw. gesperrter Behandlungen als bearbeitbar
+  const [ladeFehler, setLadeFehler]       = useState<string | null>(null)
   // Zeitraum für Liste, Ausdruck und CSV (Behördenmeldung „keller-behandlungen“) – leer = alles
   const [von, setVon]                     = useState('')
   const [bis, setBis]                     = useState('')
@@ -100,8 +102,8 @@ export default function KellerbehandlungenPage() {
     // Eigenes oder freigegebenes Gebinde (Kellergemeinschaft): über die RPC lade_behaelter,
     // damit auch Partner-Gebinde (Freigabe) sichtbar sind - Behandlungen selbst bleiben tenant-gefiltert.
     const behaelterQuery = activeTenantId
-      ? (supabase.rpc as any)('lade_behaelter', { p_tenant_id: activeTenantId }).then((r: R) => ({ data: ((r.data ?? []) as R[]).find(b => b.id === behaelterId) ?? null }))
-      : Promise.resolve({ data: null })
+      ? (supabase.rpc as any)('lade_behaelter', { p_tenant_id: activeTenantId }).then((r: R) => ({ data: ((r.data ?? []) as R[]).find(b => b.id === behaelterId) ?? null, error: r.error ?? null }))
+      : Promise.resolve({ data: null, error: null })
     let weinausbauQuery = (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true)
     // weinausbau_id mitladen: ohne sie setzte „Bearbeiten“ die Chargen-Zuordnung auf NULL (KAN-35)
     let behandlungenQuery = (supabase.from('keller_behandlungen') as any)
@@ -121,11 +123,11 @@ export default function KellerbehandlungenPage() {
     }
 
     const [
-      { data: bh },
-      { data: bh_data },
-      { data: typenData },
-      { data: behandlungenData },
-      { data: stoffeData },
+      { data: bh, error: bhErr },
+      { data: bh_data, error: bhDataErr },
+      { data: typenData, error: typenErr },
+      { data: behandlungenData, error: behandlungenErr },
+      { data: stoffeData, error: stoffeErr },
     ] = await Promise.all([
       behaelterQuery,
       weinausbauQuery,
@@ -133,6 +135,13 @@ export default function KellerbehandlungenPage() {
       behandlungenQuery,
       stoffeQuery,
     ])
+    const ladeErr = bhErr ?? bhDataErr ?? typenErr ?? behandlungenErr ?? stoffeErr
+    if (ladeErr) {
+      setLadeFehler(fehlerText(ladeErr, 'Daten konnten nicht geladen werden'))
+      setLoading(false)
+      return
+    }
+    setLadeFehler(null)
     setStoffe((stoffeData ?? []) as R[])
     setBehaelter(bh)
     const inhalt = ((bh_data ?? []) as R[]).reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
@@ -145,8 +154,10 @@ export default function KellerbehandlungenPage() {
     if (chargenIds.length > 0 && activeTenantId) {
       // alle-ausnahme: Chargen mit Behandlungen in einem einzelnen Behälter, wenige
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
-      const { data: pn } = await (supabase.from('pruefnummer_chargen') as any)
+      const { data: pn, error: pnErr } = await (supabase.from('pruefnummer_chargen') as any)
         .select('weinausbau_id, gueltig_ab, gueltig_bis').eq('tenant_id', activeTenantId).in('weinausbau_id', chargenIds)
+      // ohne Prüfnummern erschienen gesperrte Behandlungen als bearbeitbar
+      if (pnErr) setLadeFehler(fehlerText(pnErr, 'Prüfnummern der Chargen konnten nicht geladen werden – Bearbeiten ist vorerst gesperrt'))
       setPnZeilen((pn ?? []) as PnGueltigkeit[])
     } else {
       setPnZeilen([])
@@ -200,7 +211,8 @@ export default function KellerbehandlungenPage() {
     setFormWeinausbauName((b.weinausbau as R | null)?.name ?? null)
     setFormError('')
     setShowNeuerTyp(false)
-    setFormGesperrt(behandlungPnGesperrt(b as { weinausbau_id: string | null; datum: string | null; storniert_am: string | null }, pnZeilen))
+    // Sweep 91 (KAN-283): ohne geladene Prüfnummern (Ladefehler) vorsichtshalber gesperrt
+    setFormGesperrt(!!ladeFehler || behandlungPnGesperrt(b as { weinausbau_id: string | null; datum: string | null; storniert_am: string | null }, pnZeilen))
     setShowForm(true)
   }
 
@@ -287,10 +299,12 @@ export default function KellerbehandlungenPage() {
   const angezeigt = zeitraumOk ? behandlungen.filter((b: R) => imZeitraum(String(b.datum ?? ''))) : behandlungen
 
   if (loading) return <div className="p-6 text-s112-muted text-sm">Lade…</div>
+  if (ladeFehler && !behaelter) return <div role="alert" className="p-6 text-sm text-s112-err-fg">{ladeFehler}</div>
   if (!behaelter) return <div className="p-6 text-s112-err text-sm">Behälter nicht gefunden.</div>
 
   return (
     <div className="max-w-4xl space-y-6">
+      {ladeFehler && <p role="alert" className="text-sm text-s112-err-fg print:hidden">{ladeFehler}</p>}
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
         <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>

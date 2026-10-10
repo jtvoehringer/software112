@@ -34,11 +34,12 @@ function ZweiFaktor() {
 
   const laden = useCallback(async () => {
     setFehler(null)
-    const [{ data: aal }, { data: fl, error }] = await Promise.all([
+    const [{ data: aal, error: aalErr }, { data: fl, error }] = await Promise.all([
       supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
       supabase.auth.mfa.listFactors(),
     ])
-    if (error) { setFehler(error.message); return }
+    // Sweep 91 (KAN-283): auch die Sicherheitsstufe der Sitzung (aal) auswerten
+    if (error || aalErr) { setFehler((error ?? aalErr)?.message ?? 'Zwei-Faktor-Status konnte nicht geladen werden'); return }
     const verifiziert = (fl?.totp ?? []).find(f => f.status === 'verified') as Faktor | undefined
     if (verifiziert) {
       setFaktor(verifiziert)

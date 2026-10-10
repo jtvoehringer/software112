@@ -22,7 +22,9 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
   const [meldung, setMeldung] = useState<string | null>(null)
 
   const laden = async () => {
-    const { data } = await (s.from('release_notes') as any).select('*').order('erstellt_am', { ascending: false }).limit(10)
+    const { data, error } = await (s.from('release_notes') as any).select('*').order('erstellt_am', { ascending: false }).limit(10)
+    // Sweep 91 (KAN-283): Lesefehler nicht als „keine Neuerungen“ zeigen
+    if (error) { setMeldung(`Fehler: Neuerungen konnten nicht geladen werden – ${error.message}`); return }
     setNotes(data ?? [])
     if (!readOnly) setGesehen(await releaseNotesGesehenZaehler())
   }

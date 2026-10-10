@@ -20,16 +20,18 @@ const require = createRequire(import.meta.url)
 const { pruefeWurzel } = require(path.join(HIER, '..', 'check-einzelabfrage.js'))
 
 describe('check-einzelabfrage: src/lib wird geprüft', () => {
-  test('Abfrage ohne error in src/lib → Fund; dieselbe Datei außerhalb von src/lib (keine Action/Route) → nicht', () => {
+  test('Abfrage ohne error in src/lib → Fund (seit Sweep 91 auch src/components); außerhalb von lib/app/components → nicht', () => {
     const wurzel = mkdtempSync(path.join(tmpdir(), 's112-kan254-'))
     try {
       const abfrage = `export async function f(s) {\n  const { data } = await s.from('t').select('id').eq('a', 1)\n  return data\n}\n`
       mkdirSync(path.join(wurzel, 'src', 'lib', 'x'), { recursive: true })
       mkdirSync(path.join(wurzel, 'src', 'components'), { recursive: true })
+      mkdirSync(path.join(wurzel, 'src', 'typen'), { recursive: true })
       writeFileSync(path.join(wurzel, 'src', 'lib', 'x', 'laden.ts'), abfrage)
       writeFileSync(path.join(wurzel, 'src', 'components', 'Anzeige.ts'), abfrage)
+      writeFileSync(path.join(wurzel, 'src', 'typen', 'Muster.ts'), abfrage)
       const e = pruefeWurzel(wurzel)
-      assert.deepEqual(e.funde.map(f => f.split('  ')[0]), ['src/lib/x/laden.ts:2'])
+      assert.deepEqual(e.funde.map(f => f.split('  ')[0]).sort(), ['src/components/Anzeige.ts:2', 'src/lib/x/laden.ts:2'])
     } finally { rmSync(wurzel, { recursive: true, force: true }) }
   })
 })

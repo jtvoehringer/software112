@@ -172,8 +172,6 @@ function* dateien(dir) {
 }
 
 const BASELINE = 'scripts/einzelabfrage-baseline.json'
-const istClientDatei = text => /^(['"])use client\1/.test(
-  text.replace(/^﻿/, '').replace(/^(?:\s+|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*/, ''))
 const innerhalb = (basis, f) => path.relative(basis, f).split(path.sep)[0] !== '..'
 
 /** Sweep 86: Ausgangswerte der Seiten (Datei → Anzahl Altfälle); fehlt die Datei: keine */
@@ -192,7 +190,10 @@ function pruefeWurzel(root) {
     // KAN-254: Bibliotheken (src/lib) ebenso – dort liegen Rechte, Benutzerlimit, Rechnungssumme, Meldungs-Lader
     const route = path.basename(f) === 'route.ts' || innerhalb(path.join(root, 'src', 'lib'), f)
     // Sweep 86: Server-Dateien unter src/app (Seiten, Layouts, Lader) – mit Ausgangswert je Datei
-    const seite = !route && !istActionDatei(t) && innerhalb(path.join(root, 'src', 'app'), f) && !istClientDatei(t)
+    // Sweep 91 (KAN-283): auch Client-Komponenten ('use client') und src/components – dort zeigte ein Lesefehler eine
+    // leere Liste bzw. gesperrte Behandlungen als bearbeitbar
+    const seite = !route && !istActionDatei(t)
+      && (innerhalb(path.join(root, 'src', 'app'), f) || innerhalb(path.join(root, 'src', 'components'), f))
     if (!route && !seite && !istActionDatei(t)) continue
     anzahl++
     const e = pruefeText(t, { route: route || seite })
