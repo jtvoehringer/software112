@@ -17,6 +17,7 @@ import { istParameterFehler } from '@/lib/behoerden/typen'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
+import { ladeKonzentratBestaende } from '@/lib/behoerden/besondereKonten'
 
 export const metadata: Metadata = { title: 'Bestandsmeldung (BSM) – software:112' }
 export const dynamic = 'force-dynamic'
@@ -53,12 +54,14 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
   const p = istParameterFehler(pruefung) ? { ...standardBsmZeitraum(heute), arten: [] as string[] } : pruefung
   const zeitraum = { von: p.von, bis: p.bis }
 
-  const [daten, { data: settingsRaw, error: stFehler }] = await Promise.all([
+  const [daten, { data: settingsRaw, error: stFehler }, konzentrate] = await Promise.all([
     ladeBsm(supabase, tenantId, zeitraum, { heute }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, betrieb_betriebsnummer, logo_url')
       .eq('tenant_id', tenantId).maybeSingle(),
+    // KAN-45: § 29 Abs. 3 WG – Bestände an KTM/RTK zum Stichtag aus dem Stoffkonto (nachrichtlich)
+    ladeKonzentratBestaende(supabase, tenantId, p.bis),
   ])
   if (stFehler) throw new Error(`Betriebsdaten konnten nicht geladen werden: ${stFehler.message}`)
   const s = (settingsRaw as R | null) ?? {}
@@ -208,6 +211,27 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
             </tbody>
           </table>
         </details>
+
+        {/* KAN-45: § 29 Abs. 3 WG – Konzentrate (nachrichtlich, Darstellung im BSM-Formular mit der BKI zu klären, KAN-38) */}
+        <div className="mt-6">
+          <h2 className="text-base font-semibold text-s112-text">Bestände an Konzentraten zum {datumAT(p.bis)} (§ 29 Abs. 3 WG, nachrichtlich)</h2>
+          {konzentrate.length === 0 ? (
+            <p className="text-xs text-s112-muted mt-1">Kein Stoff der Art KTM oder RTK im Stoffkonto (Kellerbuch › Besondere Konten).</p>
+          ) : (
+            <table className="text-sm mt-2 border-collapse">
+              <thead><tr className="text-left text-xs text-s112-text-2"><th className="px-2 py-1 border border-s112-line">Stoff</th><th className="px-2 py-1 border border-s112-line">Art</th><th className="px-2 py-1 border border-s112-line text-right">Bestand</th></tr></thead>
+              <tbody>
+                {konzentrate.map(k => (
+                  <tr key={k.stoff}>
+                    <td className="px-2 py-1 border border-s112-line">{k.stoff}</td>
+                    <td className="px-2 py-1 border border-s112-line">{k.art}</td>
+                    <td className="px-2 py-1 border border-s112-line text-right tabular-nums">{fmtNum(k.bestand, { max: 3 })} {k.einheit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
         {/* Kontrolljournal */}
         <div className="mt-10 pt-6 border-t-2 border-s112-line-str print:break-before-page">

@@ -13,7 +13,7 @@ import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { zahlAus } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { stornoGrundFehler } from '@/lib/storno/grund'
-import { buchungsMenge, inventurDifferenz, type KontoArt } from '@/lib/kellerbuch/stoffkonto'
+import { buchungsMenge, inventurDifferenz, type KontoArt, istStoffArt } from '@/lib/kellerbuch/stoffkonto'
 import { ladeKontoBuchungen } from '@/lib/behoerden/besondereKonten'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,10 +35,22 @@ export async function stoffAnlegen(fd: FormData): Promise<void> {
   const { supabase, tenantId } = await kontext()
   const name = text(fd, 'name')
   const einheit = text(fd, 'einheit')
+  const art = text(fd, 'art')
   if (!name || name.length > 80) throw new AktionsFehler('Bitte einen Namen für den Stoff angeben (höchstens 80 Zeichen).')
   if (einheit !== 'kg' && einheit !== 'l') throw new AktionsFehler('Bitte als Einheit kg oder l wählen.')
-  const { error } = await (supabase.from('kellermittel') as R).insert({ tenant_id: tenantId, name, einheit, notizen: text(fd, 'notizen') })
+  if (!istStoffArt(art)) throw new AktionsFehler('Bitte die Art des Stoffs wählen (Zucker, RTK, Säuerungs-, Entsäuerungsmittel …).')   // KAN-45
+  const { error } = await (supabase.from('kellermittel') as R).insert({ tenant_id: tenantId, name, einheit, art, notizen: text(fd, 'notizen') })
   if (error) throw new AktionsFehler((error as R).code === '23505' ? `Den Stoff „${name}“ gibt es schon.` : dbFehlerText(error, 'Stoff konnte nicht angelegt werden'))
+  revalidatePath(PFAD)
+}
+
+/** KAN-45: Art des Stoffs ändern (BKI-Blatt „Besondere Konten“, KTM/RTK-Bestand der BSM) */
+export async function stoffArtSetzen(id: string, art: string): Promise<void> {
+  const { supabase, tenantId } = await kontext()
+  if (!istStoffArt(art)) throw new AktionsFehler('Unbekannte Art des Stoffs.')
+  const { data: geaendert, error } = await (supabase.from('kellermittel') as R).update({ art }).eq('id', id).eq('tenant_id', tenantId).select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Art konnte nicht geändert werden'))
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)
   revalidatePath(PFAD)
 }
 
