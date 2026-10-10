@@ -15,7 +15,8 @@
 //   R3 Ausgang: Merkmale der Start-Charge bzw. -Füllung für jede Zeile, ChargenNr = Los der Zeile. Die Spezifikation hat
 //      keine Käuferspalten – Abnehmer, Adresse und Betriebsnummer stehen hinter den Spezifikationsspalten.
 //      Buchungsart BSM: Tankverkauf → VK_FA_AT, Export → VK_FL_AU, Verkauf/Endverbraucher → VK_FL_AT, Verarbeitung → AB_VERAR.
-//   R4 Die Behandlungskennzahlen (Anreicherung … Alkoholkorrektur) bleiben wie im Lagerstand leer (KAN-46 Etappe 2).
+//   R4 Behandlungskennzahlen (KAN-276): Eingang – die der gewählten Charge bis zum Ende des Zeitraums (jede Zeile gleich);
+//      Ausgang – die der Start-Charge (bei einer Füllung: deren Charge) bis zum Tag der Zeile.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, type CsvSpalte } from '@/lib/csv'
@@ -26,7 +27,9 @@ import { gemeindeName, gemeindeVonKg } from '@/lib/wein/kgGemeinde'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { herkunftKatalog } from '@/lib/wein/herkunftKatalog'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
-import { lagerMerkmale, type LagerMerkmale } from './lagerstand'
+import { kennzahlSpalten, lagerMerkmale, type LagerMerkmale } from './lagerstand'
+import { ladeBehandlungskennzahlen } from './kennzahlen-laden'
+import type { Behandlungskennzahlen } from '@/lib/kellerbuch/behandlungskennzahlen'
 import { ladeRueckruf, type RueckrufZeile } from './rueckruf'
 import { MeldungsFehler } from './typen'
 import { num, text, type R } from './kellerbuch-hilfen'
@@ -73,6 +76,8 @@ export type RvEingangZeile = LagerMerkmale & {
   anteilFremdSorte: number | null
   anteilFremdJg: number | null
   lieferant: string | null
+  /** KAN-276 */
+  kennzahlen: Behandlungskennzahlen | null
 }
 
 const QUELLE: Record<string, RvEingangZeile['quelle']> = { pressung: 'Lese', zukauf: 'Zukauf', eroeffnungsbestand: 'Eröffnungsbestand', unbekannt: 'unbekannt' }
@@ -113,6 +118,7 @@ export function rvEingangZeilen(charge: R, anteile: readonly Herkunftsanteil[], 
       liter: l3(a.liter), anteilPct: pct(a.anteil_pct), kmw: a.kmw,
       anteilFremdSorte: fremd.sorte, anteilFremdJg: fremd.jahrgang,
       lieferant: a.zukauf_von ?? null,
+      kennzahlen: null,
     }
   })
 }
@@ -132,10 +138,12 @@ export async function ladeRvEingang(supabase: any, tenantId: string, p: RvEingan
     const c = await ladeCharge(supabase, tenantId, p.charge)
     if (!c) throw new MeldungsFehler(404, 'Charge nicht gefunden.')
     const z = await anteileCharge(supabase, tenantId, c, p.bis)
-    const zeilen = rvEingangZeilen(c, z.anteile, a => !p.von || !a.ernte_datum || a.ernte_datum.slice(0, 10) >= p.von)
+    const kz = await ladeBehandlungskennzahlen(supabase, tenantId, p.bis)
+    const kennzahlen = kz.kennzahl(String(c.id), p.bis)
+    const zeilen = rvEingangZeilen(c, z.anteile, a => !p.von || !a.ernte_datum || a.ernte_datum.slice(0, 10) >= p.von).map(x => ({ ...x, kennzahlen }))
     const gesamt = l3(z.anteile.reduce((s, a) => s + a.liter, 0))
     warnungen.push(`Gesamtmenge der Charge ${text(c.chargennummer) ?? text(c.name) ?? ''}${p.bis ? ` zum ${p.bis.split('-').reverse().join('.')}` : ''}: ${String(gesamt).replace('.', ',')} l`)
-    return { zeilen, warnungen: [...warnungen, ...z.warnungen] }
+    return { zeilen, warnungen: [...warnungen, ...z.warnungen, ...kz.hinweise] }
   }
   // GST-Einstieg (R2): Lesezeilen des Grundstücks im Zeitraum → Chargen der Pressungen
   const gstNr = await (supabase.from('grundstuecke') as any).select('gst_nr, katastralgemeinde').eq('tenant_id', tenantId).eq('id', p.gst).maybeSingle()
@@ -152,9 +160,12 @@ export async function ladeRvEingang(supabase: any, tenantId: string, p: RvEingan
   const ch = await inBloecken<R>(chargenIds, b => alle((supabase.from('weinausbau') as any).select(WEINAUSBAU_SPALTEN).eq('tenant_id', tenantId).in('id', b).order('id')))
   if (ch.error) throw new Error(`Chargen konnten nicht geladen werden (${ch.error.message})`)
   const zeilen: RvEingangZeile[] = []
+  const kz = await ladeBehandlungskennzahlen(supabase, tenantId, p.bis)
+  warnungen.push(...kz.hinweise)
   for (const c of ch.data.filter(c => !c.storniert_am)) {
     const z = await anteileCharge(supabase, tenantId, c, p.bis)
-    zeilen.push(...rvEingangZeilen(c, z.anteile, a => a.gst_nr === gstNr.data.gst_nr && ziffern(a.katastralgemeinde) === ziffern(gstNr.data.katastralgemeinde)))
+    const kennzahlen = kz.kennzahl(String(c.id), p.bis)
+    zeilen.push(...rvEingangZeilen(c, z.anteile, a => a.gst_nr === gstNr.data.gst_nr && ziffern(a.katastralgemeinde) === ziffern(gstNr.data.katastralgemeinde)).map(x => ({ ...x, kennzahlen })))
     warnungen.push(...z.warnungen.map(w => `${text(c.name) ?? ''}: ${w}`))
   }
   return { zeilen: zeilen.sort((a, b) => String(a.datum ?? '').localeCompare(String(b.datum ?? '')) || String(a.chargenNr).localeCompare(String(b.chargenNr), 'de')), warnungen }
@@ -196,12 +207,7 @@ export const SPALTEN_RV_EINGANG: CsvSpalte<RvEingangZeile>[] = [
   { kopf: 'Lesegradation in KMW', typ: 'dezimal', stellen: 1, wert: z => z.kmw },
   { kopf: 'Anteil FremdSorte', typ: 'prozent', wert: z => z.anteilFremdSorte },
   { kopf: 'Anteil FremdJG', typ: 'prozent', wert: z => z.anteilFremdJg },
-  { kopf: 'Anreicherung kg/hl', typ: 'dezimal', wert: () => null },
-  { kopf: 'Süßung g/lt', typ: 'dezimal', wert: () => null },
-  { kopf: 'Konzentrierung %', typ: 'dezimal', wert: () => null },
-  { kopf: 'Entsäuerung g/lt', typ: 'dezimal', wert: () => null },
-  { kopf: 'Säuerung g/lt', typ: 'dezimal', wert: () => null },
-  { kopf: 'Alkoholkorrektur %vol', typ: 'dezimal', wert: () => null },
+  ...kennzahlSpalten<RvEingangZeile>(),
   // hinter den Spezifikationsspalten
   { kopf: 'Quelle', typ: 'text', wert: z => z.quelle },
   { kopf: 'Grundstücksnummer', typ: 'code', wert: z => z.gstNr },
@@ -212,7 +218,7 @@ export const SPALTEN_RV_EINGANG: CsvSpalte<RvEingangZeile>[] = [
 
 // ── RV zum Ausgang ──────────────────────────────────────────────────────────
 
-export type RvAusgangZeile = LagerMerkmale & RueckrufZeile & { buchungsartBsm: string | null; offen: boolean }
+export type RvAusgangZeile = LagerMerkmale & RueckrufZeile & { buchungsartBsm: string | null; offen: boolean; kennzahlen: Behandlungskennzahlen | null }
 
 /** R3: BSM-Buchungsart einer Rückruf-Zeile */
 export function bsmAusgang(art: RueckrufZeile['art']): string | null {
@@ -229,23 +235,30 @@ export type RvAusgangParameter = { charge: string | null; fuellung: string | nul
 
 export async function ladeRvAusgang(supabase: any, tenantId: string, p: RvAusgangParameter): Promise<{ zeilen: RvAusgangZeile[]; warnungen: string[] }> {
   let merkmale: LagerMerkmale
+  let startCharge: string | null = null
   if (p.charge) {
     const c = await ladeCharge(supabase, tenantId, p.charge)
     if (!c) throw new MeldungsFehler(404, 'Charge nicht gefunden.')
     merkmale = chargeMerkmale(c)
+    startCharge = String(c.id)
   } else {
     const { data: f, error } = await (supabase.from('fuellungen') as any)
       .select('id, name, pruefnummer, weinausbau:weinausbau_id(' + WEINAUSBAU_SPALTEN + ')').eq('tenant_id', tenantId).eq('id', p.fuellung).maybeSingle()
     if (error) throw new Error(`Füllung konnte nicht geladen werden (${error.message})`)
     if (!f) throw new MeldungsFehler(404, 'Füllung nicht gefunden.')
     merkmale = { ...chargeMerkmale(f.weinausbau ?? {}), produkt: text(f.name), pruefnummer: text(f.pruefnummer) }
+    startCharge = text(f.weinausbau?.id)
   }
   const r = await ladeRueckruf(supabase, tenantId, p.charge ? { art: 'charge', id: p.charge } : { art: 'fuellung', id: p.fuellung as string })
   if (!r) throw new MeldungsFehler(404, 'Start der Rückverfolgung nicht gefunden.')
+  const kz = await ladeBehandlungskennzahlen(supabase, tenantId, p.bis)
   const zeilen = r.zeilen
     .filter(z => (!p.von || !z.datum || z.datum >= p.von) && (!p.bis || !z.datum || z.datum <= p.bis))
-    .map(z => ({ ...merkmale, ...z, produkt: z.produkt, buchungsartBsm: bsmAusgang(z.art), offen: z.art === 'Tankverkauf' }))
-  return { zeilen, warnungen: [`${r.chargen.length} Charge(n) im Weg (Umzüge, Verschnitte)`, ...r.warnungen] }
+    .map(z => ({
+      ...merkmale, ...z, produkt: z.produkt, buchungsartBsm: bsmAusgang(z.art), offen: z.art === 'Tankverkauf',
+      kennzahlen: kz.kennzahl(startCharge, z.datum ?? p.bis),
+    }))
+  return { zeilen, warnungen: [`${r.chargen.length} Charge(n) im Weg (Umzüge, Verschnitte)`, ...r.warnungen, ...kz.hinweise] }
 }
 
 const istLiter = (e: string) => /^l$/i.test(e)
@@ -277,12 +290,7 @@ export const SPALTEN_RV_AUSGANG: CsvSpalte<RvAusgangZeile>[] = [
   { kopf: 'Lesegradation in KMW', typ: 'dezimal', stellen: 1, wert: () => null },
   { kopf: 'Anteil FremdSorte', typ: 'prozent', wert: () => null },
   { kopf: 'Anteil FremdJG', typ: 'prozent', wert: () => null },
-  { kopf: 'Anreicherung kg/hl', typ: 'dezimal', wert: () => null },
-  { kopf: 'Süßung g/lt', typ: 'dezimal', wert: () => null },
-  { kopf: 'Konzentrierung %', typ: 'dezimal', wert: () => null },
-  { kopf: 'Entsäuerung g/lt', typ: 'dezimal', wert: () => null },
-  { kopf: 'Säuerung g/lt', typ: 'dezimal', wert: () => null },
-  { kopf: 'Alkoholkorrektur %vol', typ: 'dezimal', wert: () => null },
+  ...kennzahlSpalten<RvAusgangZeile>(),
   { kopf: 'Buchungsart BSM', typ: 'code', wert: z => z.buchungsartBsm },
   { kopf: 'Buchungsart', typ: 'text', wert: z => z.art },
   { kopf: 'Anmerkungen', typ: 'text', wert: z => (z.einheit && !istLiter(z.einheit) ? `Einheit ${z.einheit}` : null) },

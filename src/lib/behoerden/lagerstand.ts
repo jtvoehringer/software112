@@ -11,7 +11,9 @@
 //  Datum, Beleg, Position) und Buchungsmenge; Storno-Gegenbuchungen bleiben als eigene Zeilen sichtbar.
 //
 // Noch leer (nicht im Journal, Folgeschritte): Großlage, Ortswein, Gemeinde, Katastralgemeinde, Ried, Anteil Fremdsorte
-// und Fremdjahrgang, Behandlungsmengen (Anreicherung, Süßung …), Adressen der Käufer/Verkäufer (nur Name und Land).
+// und Fremdjahrgang, Adressen der Käufer/Verkäufer (nur Name und Land).
+// KAN-276: Behandlungskennzahlen (Anreicherung kg/hl … Alkoholkorrektur %vol) der Charge kumuliert bis zum Datum der Zeile
+// (bei Flaschen: Charge der Füllung) – Rechnung und Annahmen in src/lib/kellerbuch/behandlungskennzahlen.ts.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
@@ -26,6 +28,8 @@ import { abrunden } from '@/lib/wein/mostgewicht'
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
 import { istTag, num, numOderNull, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
 import { parameterFehler, type ParameterFehler } from './typen'
+import type { Behandlungskennzahlen } from '@/lib/kellerbuch/behandlungskennzahlen'
+import { ladeBehandlungskennzahlen, type KennzahlLookup } from './kennzahlen-laden'
 
 /** Spalten der Journalzeilen für beide Blätter */
 const JOURNAL_SPALTEN_LAGER = 'id, beleg_nr, pos, datum, buchungsart_code, bestand, weinausbau_id, fuellung_id, behaelter_id, menge_liter, menge_stk, partner_name, partner_land, quelle_tabelle, storno_von_id, charge_name, fuellung_name, flaschengroesse_ml, erzeugnis, qualitaetsstufe, zusatzbezeichnung, weinart, herkunft_code, land_iso, rebsorte, jahrgang, hinweis'
@@ -58,6 +62,8 @@ export type LagerstandZeile = LagerMerkmale & {
   stk: number | null
   liter: number
   kmw: number | null
+  /** KAN-276 */
+  kennzahlen: Behandlungskennzahlen | null
   anmerkung: string | null
 }
 
@@ -73,6 +79,8 @@ export type LagerbewegungZeile = LagerMerkmale & {
   anfangLiter: number
   buchungLiter: number
   kmw: number | null
+  /** KAN-276 */
+  kennzahlen: Behandlungskennzahlen | null
   buchungsartBsm: string | null
   buchungsart: string
   kaeufer: string | null
@@ -89,6 +97,8 @@ export type LagerStamm = {
   behaelter: Map<string, { name: string; volumen_liter: number | null }>
   /** fuellung_etikettierungen (nicht storniert) */
   etikettierungen: R[]
+  /** KAN-276: Behandlungskennzahlen je Charge und Datum (ohne: Spalten leer) */
+  kennzahl?: KennzahlLookup
 }
 
 const HERKUNFT_STUFE: Record<string, string> = { dac_gebiet: 'Gebietswein', dac_ort: 'Ortswein', dac_ried: 'Riedenwein' }
@@ -136,6 +146,16 @@ const l2 = (n: number) => runden(n, STELLEN.liter)
 /** chronologisch: Datum, dann Beleg und Position */
 const chronologisch = (a: R, b: R) =>
   tag(a.datum).localeCompare(tag(b.datum)) || num(a.beleg_nr) - num(b.beleg_nr) || num(a.pos) - num(b.pos)
+
+/** Charge eines Postens (bei Flaschen: Charge der Füllung) */
+function chargeVon(r: R, s: LagerStamm): string | null {
+  return r.bestand === 'flasche' ? text(s.fuellungen.get(r.fuellung_id)?.weinausbau_id) : text(r.weinausbau_id)
+}
+
+/** KAN-276: Behandlungskennzahlen der Charge des Postens bis zum Datum */
+function kennzahlenVon(r: R, s: LagerStamm, bis: string): Behandlungskennzahlen | null {
+  return s.kennzahl ? s.kennzahl(chargeVon(r, s), bis) : null
+}
 
 /** °KMW der Charge (bei Flaschen: Charge der Füllung), abgerundet auf 1 Stelle (BKI NN,N) */
 function kmwVon(r: R, s: LagerStamm): number | null {
@@ -186,7 +206,7 @@ export function berechneLagerstand(journal: readonly R[], s: LagerStamm, stichta
     const m = lagerMerkmale(r, flasche ? text(s.fuellungen.get(r.fuellung_id)?.pruefnummer) : null, flasche ? text(s.fuellungen.get(r.fuellung_id)?.sekt_stufe) : null)
     if (flasche ? stk < 0 : l2(liter) < 0) { negativ.push(m.produkt ?? 'ohne Bezeichnung'); continue }
     if (flasche ? stk === 0 : Math.abs(l2(liter)) < 0.005) continue
-    const basis = { ...m, datum: stichtag, ...gebindeVon(r, s), kmw: kmwVon(r, s), anmerkung: null }
+    const basis = { ...m, datum: stichtag, ...gebindeVon(r, s), kmw: kmwVon(r, s), kennzahlen: kennzahlenVon(r, s, stichtag), anmerkung: null }
     if (!flasche) { zeilen.push({ ...basis, gebindeArt: 'offen', etikett: null, stk: null, liter: l2(liter) }); continue }
     const f = s.fuellungen.get(r.fuellung_id)
     const ohne = Math.min(stk, Math.max(0, Math.trunc(num(f?.anzahl_unetikettiert)) - (etikettiert.get(r.fuellung_id) ?? 0)))
@@ -245,6 +265,7 @@ export function berechneLagerbewegungen(journal: readonly R[], s: LagerStamm, z:
       anfangLiter: l2(vorher.liter),
       buchungLiter: l2(liter),
       kmw: kmwVon(r, s),
+      kennzahlen: kennzahlenVon(r, s, d),
       buchungsartBsm: bsmBuchungsart(code),
       buchungsart: BUCHUNGSART.get(code)?.bezeichnung ?? code,
       kaeufer: abgang ? partner : null,
@@ -276,8 +297,8 @@ export function lagerstandStichtag(sp: URLSearchParams, heute: string = wienHeut
 
 // ── Laden ────────────────────────────────────────────────────────────────────────────────────────────────
 
-async function ladeStamm(supabase: any, tenantId: string): Promise<LagerStamm> {
-  const [cRes, fRes, eRes, gebinde] = await Promise.all([
+async function ladeStamm(supabase: any, tenantId: string, bis: string | null): Promise<LagerStamm & { kennzahlHinweise: string[] }> {
+  const [cRes, fRes, eRes, gebinde, kz] = await Promise.all([
     alle<R>((supabase.from('weinausbau') as any).select('id, kmw, chargennummer').eq('tenant_id', tenantId).order('id')),
     alle<R>((supabase.from('fuellungen') as any)
       .select('id, weinausbau_id, pruefnummer, chargennummer, flaschengroesse_ml, anzahl_unetikettiert, sekt_stufe')
@@ -286,6 +307,7 @@ async function ladeStamm(supabase: any, tenantId: string): Promise<LagerStamm> {
       .select('id, fuellung_id, datum, menge_stk, storniert_am')
       .eq('tenant_id', tenantId).is('storniert_am', null).order('id')),
     ladeBehaelter(supabase, tenantId),
+    ladeBehandlungskennzahlen(supabase, tenantId, bis),
   ])
   for (const [n, res] of [['weinausbau', cRes], ['fuellungen', fRes], ['fuellung_etikettierungen', eRes]] as const) {
     if (res.error) throw new Error(`Laden fehlgeschlagen (${n}): ${res.error.message}`)
@@ -295,6 +317,8 @@ async function ladeStamm(supabase: any, tenantId: string): Promise<LagerStamm> {
     fuellungen: new Map(fRes.data.map(f => [f.id, f])),
     behaelter: new Map(gebinde.map(b => [b.id, { name: b.anzeigeName ?? b.name, volumen_liter: b.volumen_liter }])),
     etikettierungen: eRes.data,
+    kennzahl: kz.kennzahl,
+    kennzahlHinweise: kz.hinweise,
   }
 }
 
@@ -309,17 +333,17 @@ async function ladeJournal(supabase: any, tenantId: string, bis: string | null):
 export async function ladeLagerstand(supabase: any, tenantId: string, p: { stichtag: string }): Promise<{ zeilen: LagerstandZeile[]; warnungen: string[]; journalAb: string | null }> {
   const journalAb = await ladeJournalBeginn(supabase, tenantId)
   if (!journalAb) return { zeilen: [], warnungen: journalHinweise(null, null), journalAb }
-  const [journal, stamm] = await Promise.all([ladeJournal(supabase, tenantId, p.stichtag), ladeStamm(supabase, tenantId)])
+  const [journal, stamm] = await Promise.all([ladeJournal(supabase, tenantId, p.stichtag), ladeStamm(supabase, tenantId, p.stichtag)])
   const e = berechneLagerstand(journal, stamm, p.stichtag)
-  return { ...e, warnungen: [...journalHinweise(journalAb, p.stichtag < journalAb ? p.stichtag : null), ...e.warnungen], journalAb }
+  return { ...e, warnungen: [...journalHinweise(journalAb, p.stichtag < journalAb ? p.stichtag : null), ...e.warnungen, ...stamm.kennzahlHinweise], journalAb }
 }
 
 export async function ladeLagerbewegungen(supabase: any, tenantId: string, z: Zeitraum): Promise<{ zeilen: LagerbewegungZeile[]; warnungen: string[]; journalAb: string | null }> {
   const journalAb = await ladeJournalBeginn(supabase, tenantId)
   if (!journalAb) return { zeilen: [], warnungen: journalHinweise(null, null), journalAb }
-  const [journal, stamm] = await Promise.all([ladeJournal(supabase, tenantId, z.bis), ladeStamm(supabase, tenantId)])
+  const [journal, stamm] = await Promise.all([ladeJournal(supabase, tenantId, z.bis), ladeStamm(supabase, tenantId, z.bis)])
   const e = berechneLagerbewegungen(journal, stamm, z)
-  return { ...e, warnungen: [...journalHinweise(journalAb, z.von ?? '0000-01-01'), ...e.warnungen], journalAb }
+  return { ...e, warnungen: [...journalHinweise(journalAb, z.von ?? '0000-01-01'), ...e.warnungen, ...stamm.kennzahlHinweise], journalAb }
 }
 
 // ── Spalten (Reihenfolge und Köpfe wie die BKI-Blätter) ──────────────────────────────────────────────────
@@ -349,16 +373,24 @@ function merkmalSpalten<Z extends LagerMerkmale>(): CsvSpalte<Z>[] {
   ]
 }
 
-function behandlungsSpalten<Z>(): CsvSpalte<Z>[] {
+/** KAN-276: die sechs Spalten der Behandlungskennzahlen (Reihenfolge der Spezifikation; 0 bzw. keine Behandlung = leer) */
+export function kennzahlSpalten<Z extends { kennzahlen: Behandlungskennzahlen | null }>(): CsvSpalte<Z>[] {
+  const k = (a: keyof Behandlungskennzahlen) => (z: Z) => { const w = z.kennzahlen?.[a]; return w ? runden(w, 2) : null }
+  return [
+    { kopf: 'Anreicherung kg/hl', typ: 'dezimal', stellen: 2, wert: k('anreicherung') },
+    { kopf: 'Süßung g/lt', typ: 'dezimal', stellen: 2, wert: k('suessung') },
+    { kopf: 'Konzentrierung %', typ: 'dezimal', stellen: 2, wert: k('konzentrierung') },
+    { kopf: 'Entsäuerung g/lt', typ: 'dezimal', stellen: 2, wert: k('entsaeuerung') },
+    { kopf: 'Säuerung g/lt', typ: 'dezimal', stellen: 2, wert: k('saeuerung') },
+    { kopf: 'Alkoholkorrektur %vol', typ: 'dezimal', stellen: 2, wert: k('alkoholkorrektur') },
+  ]
+}
+
+function behandlungsSpalten<Z extends { kennzahlen: Behandlungskennzahlen | null }>(): CsvSpalte<Z>[] {
   return [
     { kopf: 'Anteil FremdSorte', typ: 'prozent', wert: leer },
     { kopf: 'Anteil FremdJG', typ: 'prozent', wert: leer },
-    { kopf: 'Anreicherung kg/hl', typ: 'dezimal', wert: leer },
-    { kopf: 'Süßung g/lt', typ: 'dezimal', wert: leer },
-    { kopf: 'Konzentrierung %', typ: 'dezimal', wert: leer },
-    { kopf: 'Entsäuerung g/lt', typ: 'dezimal', wert: leer },
-    { kopf: 'Säuerung g/lt', typ: 'dezimal', wert: leer },
-    { kopf: 'Alkoholkorrektur %vol', typ: 'dezimal', wert: leer },
+    ...kennzahlSpalten<Z>(),
   ]
 }
 
