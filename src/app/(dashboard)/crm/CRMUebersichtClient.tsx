@@ -7,6 +7,7 @@ import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import { X, Lock, Pencil, Calendar, Check, Trash2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
+import { tastaturBedienbar } from '@/lib/ui/tastatur'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -662,7 +663,7 @@ function ZeitachseView({
                 const br = startsEarly && endsLate ? '0' : startsEarly ? '0 4px 4px 0' : endsLate ? '4px 0 0 4px' : '4px'
                 return (
                   <div key={e.id}
-                    onClick={() => zeigeEintrag(e)}
+                    onClick={() => zeigeEintrag(e)} {...tastaturBedienbar(() => zeigeEintrag(e))}
                     title={`${isUrlaub ? 'Urlaub' : 'Abwesenheit'}${e.titel ? `: ${e.titel}` : ''}`}
                     className="absolute flex items-center gap-1 px-2 overflow-hidden cursor-pointer hover:opacity-80 z-20 text-white text-[10px] font-semibold select-none"
                     style={{
@@ -697,6 +698,8 @@ function ZeitachseView({
               <div key={i}
                 className={`border-l border-s112-border/60 p-1 space-y-0.5 min-h-[28px] cursor-pointer transition-colors ${isGDrop ? 'bg-s112-teal/10' : 'hover:bg-s112-bg/60'}`}
                 onClick={(e) => handleGanztagesClick(e, dateStr)}
+                {...tastaturBedienbar(() => { if (!dragInfo) { setSaveErr(null); setNewAkt({ datum: dateStr, von: '', bis: '', ganztags: true }) } }, null)}
+                role="group" aria-label={`Neue ganztägige Aktivität am ${dateStr.split('-').reverse().join('.')}`}
                 onDragOver={(e) => { if (dragInfo?.ganztags) { e.preventDefault(); setDropTarget(dateStr) } }}
                 onDragLeave={() => setDropTarget(prev => prev === dateStr ? null : prev)}
                 onDrop={(e) => handleGanztagsDrop(e, dateStr)}
@@ -769,6 +772,9 @@ function ZeitachseView({
                 <div key={i}
                   className={`relative border-l border-s112-border/30 cursor-crosshair transition-colors ${isDrop ? 'bg-s112-teal/5' : ''}`}
                   onClick={(e) => handleSlotClick(e, dateStr)}
+                  // Tastatur: ohne Mausposition ein Termin um 09:00–10:00 (Uhrzeit im Dialog änderbar)
+                  {...tastaturBedienbar(() => { if (!dragInfo) { setSaveErr(null); setNewAkt({ datum: dateStr, von: '09:00', bis: '10:00', ganztags: false }) } }, null)}
+                  role="group" aria-label={`Neue Aktivität am ${dateStr.split('-').reverse().join('.')}`}
                   onDragOver={(e) => { if (dragInfo) { e.preventDefault(); setDropTarget(dateStr) } }}
                   onDragLeave={() => setDropTarget(prev => prev === dateStr ? null : prev)}
                   onDrop={(e) => handleDrop(e, dateStr)}
@@ -803,6 +809,7 @@ function ZeitachseView({
                         } : undefined}
                         onDragEnd={() => { setDragInfo(null); setDropTarget(null) }}
                         onClick={ev => { if (!dragInfo) { ev.stopPropagation(); zeigeEintrag(e) } }}
+                        {...tastaturBedienbar(() => zeigeEintrag(e))}
                         className={`absolute overflow-hidden rounded border transition-opacity
                           ${farbe}
                           ${isAkt ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}

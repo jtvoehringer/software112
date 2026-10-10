@@ -9,6 +9,7 @@ import LeadDialog from './LeadDialog'
 import { ignoriereAbsender, emailHinzufuegen } from '../crm/actions'
 import EmailEingabe from '@/components/crm/EmailEingabe'
 import EmailHtmlAnzeige from '@/components/EmailHtmlAnzeige'
+import { tastaturBedienbar } from '@/lib/ui/tastatur'
 
 // absender: Status aus der Absender-Erkennung (lib/crm/absender.ts) - 'lead'
 // und 'unbekannt' werden in der Liste markiert, 'unbekannt' löst beim Öffnen
@@ -845,7 +846,7 @@ export default function NachrichtenClient() {
                   <div className="space-y-3">
                     {threadMsgs.map(tm => (
                       <div key={tm.id} className="border border-s112-border rounded-xl p-4 hover:bg-s112-bg/30 cursor-pointer"
-                        onClick={() => openMessage(tm)}>
+                        onClick={() => openMessage(tm)} {...tastaturBedienbar(() => openMessage(tm))}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-semibold text-s112-text">{tm.vonName || tm.von}</span>
                           <span className="text-[11px] text-s112-muted">{fmtDate(tm.datum)}</span>

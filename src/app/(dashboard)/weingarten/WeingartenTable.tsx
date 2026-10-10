@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { Pencil, Trash2 } from 'lucide-react'
 import { deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
+import { tastaturBedienbar } from '@/lib/ui/tastatur'
 
 const BEWIRTSCHAFTUNG_LABELS: Record<string, string> = {
   konventionell: 'Konventionell',
@@ -31,7 +32,8 @@ function SortTh({
   return (
     <th
       className={`px-4 py-3 font-semibold text-s112-text-1 cursor-pointer select-none hover:text-s112-blue-700 transition-colors ${align === 'right' ? 'text-right' : 'text-left'}`}
-      onClick={() => onSort(col)}
+      onClick={() => onSort(col)} {...tastaturBedienbar(() => onSort(col), null)}
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}
     >
       <span className="inline-flex items-center gap-1">
         {label}
