@@ -35,6 +35,19 @@ export function tageSeit(datum: string, heute: Date): number {
   return Math.round((Date.UTC(heute.getFullYear(), heute.getMonth(), heute.getDate()) - Date.UTC(j, m - 1, t)) / 86400000)
 }
 
+/** Volle Kalendertage vom lokalen Tag von `heute` bis zu einem Datum ('JJJJ-MM-TT…'); negativ = vorbei. Gegenstück zu
+ *  tageSeit (Sweep 101: Fristen und Testphase rechneten über Millisekunden gegen UTC-Mitternacht – zwischen 0 und 2 Uhr
+ *  Wiener Zeit ein Tag daneben). Auf dem Server `heute` = wienJetzt(), im Browser new Date(). */
+export function tageBis(datum: string, heute: Date): number {
+  return -tageSeit(datum, heute)
+}
+
+/** Kalendertage zwischen zwei Tagen ('JJJJ-MM-TT…'), bis − von – reine Datumsrechnung, ohne Uhrzeit und Zone */
+export function tageZwischen(von: string, bis: string): number {
+  const utc = (s: string) => { const [j, m, t] = String(s).slice(0, 10).split('-').map(Number); return Date.UTC(j, m - 1, t) }
+  return Math.round((utc(bis) - utc(von)) / 86400000)   // datum-ok: beide Seiten Date.UTC (Zeile davor), reine Datumsrechnung
+}
+
 /** Heute als 'JJJJ-MM-TT' in Wiener Zeit (KAN-237: statt new Date().toISOString().slice(0, 10), das bis 1 bzw. 2 Uhr
  *  den UTC-Vortag lieferte – auf dem Server wie im Browser) */
 export function heuteWien(jetzt: Date = new Date()): string {

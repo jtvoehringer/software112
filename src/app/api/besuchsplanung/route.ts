@@ -3,6 +3,7 @@ import { alle } from '@/lib/supabase/alle'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { tageSeit, wienJetzt, wienTag } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -144,7 +145,7 @@ export async function POST(req: NextRequest) {
       firma: undefined,
       letzter_kontakt: letzteMap[k.id] ?? null,
       tage_seit_kontakt: letzteMap[k.id]
-        ? Math.abs(Math.floor((Date.now() - new Date(letzteMap[k.id]).getTime()) / 86400000))
+        ? Math.abs(tageSeit(wienTag(letzteMap[k.id]), wienJetzt()))   // Sweep 101: Kalendertage nach Wiener Tag
         : null,
     }))  as R[]
 

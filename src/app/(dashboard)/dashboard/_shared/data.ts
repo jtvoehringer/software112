@@ -6,7 +6,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle, inBloecken } from '@/lib/supabase/alle'
-import { wienJetzt, lokalerTag, tageSeit } from '@/lib/datum/wien'
+import { wienJetzt, lokalerTag, tageSeit, tageZwischen } from '@/lib/datum/wien'
 import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
 import type { Charge, Frist, FristStatus } from './types'
 import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
@@ -156,11 +156,10 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
   const letzteMassnahme = new Map<string, R>()
   for (const m of (massnahmenRaw ?? []) as R[]) if (!letzteMassnahme.has(m.behaelter_id)) letzteMassnahme.set(m.behaelter_id, m)
 
-  const heuteMs = ctx.heute.getTime()
   const chargen: Charge[] = chargenBasis.map(c => {
     const a = letzteAnalyse.get(c.id) ?? null
     const m = c.behaelter_id ? (letzteMassnahme.get(c.behaelter_id) ?? null) : null
-    const tage = a ? Math.floor((heuteMs - new Date(a.analyse_datum).getTime()) / 86400000) : null
+    const tage = a ? tageSeit(a.analyse_datum, ctx.heute) : null   // Sweep 101: Kalendertage statt Millisekunden
     return {
       id: c.id, name: c.name, jahrgang: c.jahrgang ?? null, rebsorte: c.rebsorte ?? null, weinart: c.weinart ?? null,
       status: c.status, menge_liter: Number(c.menge_liter) || 0,
@@ -266,7 +265,7 @@ function statusAus(faelligAm: string | null, erledigt: boolean, heuteStr: string
   if (erledigt) return 'erledigt'
   if (!faelligAm) return 'offen'
   if (faelligAm < heuteStr) return 'ueberfaellig'
-  const tage = Math.round((new Date(faelligAm).getTime() - new Date(heuteStr).getTime()) / 86400000)
+  const tage = tageZwischen(heuteStr, faelligAm)
   return tage <= vorwarnungTage ? 'faellig' : 'offen'
 }
 

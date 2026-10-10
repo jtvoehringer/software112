@@ -12,6 +12,7 @@ import PartnerSuche from '@/components/crm/PartnerSuche'
 import BehoerdenUebersicht from '@/components/behoerden/BehoerdenUebersicht'
 import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
 import { CU_GRENZWERT_KG_HA_JAHR, type CuStatus } from '@/lib/behoerden/cu'
+import { tageSeit } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -329,7 +330,7 @@ export default function ReportsClient({
         rechnung: p.rechnungsnummer ?? null,
         kunde:    kundenName(p),
         betrag:   runden(posSum(p), 2),
-        tage:     Math.floor((new Date().getTime()-new Date(p.datum).getTime())/86400000),
+        tage:     tageSeit(p.datum, new Date()),   // Sweep 101: Kalendertage (Browser = Wiener Zeit)
       })),
       [
         { key: 'datum',    header: 'Datum',           typ: 'datum' },
@@ -944,7 +945,7 @@ export default function ReportsClient({
                 </tr></thead>
                 <tbody>
                   {offene.map((p,i) => {
-                    const tage = Math.floor((new Date().getTime()-new Date(p.datum).getTime())/86400000)
+                    const tage = tageSeit(p.datum, new Date())
                     return (
                       <tr key={p.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
                         <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(p.datum)}</td>

@@ -9,7 +9,7 @@ import {
   ART_LABEL, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, mittelmenge, mittelName, spritzbruehe,
 } from '@/lib/behoerden/psm'
 import { cuBilanz } from '@/lib/behoerden/cu'
-import { heuteWien, lokalerTag, wienJetzt } from '@/lib/datum/wien'
+import { heuteWien, lokalerTag, wienJetzt, tageSeit } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Reports – software:112' }
 export const dynamic = 'force-dynamic'
@@ -165,10 +165,9 @@ export default async function ReportsPage() {
     const letzteAkts = (letzteAktsRaw ?? []) as R[]
     const letztMap: Record<string, string> = {}
     letzteAkts.forEach((a: R) => { if (!letztMap[a.kontakt_id]) letztMap[a.kontakt_id] = a.datum })
-    const heuteMs = heute.getTime()
     kontakte.forEach(k => {
       const letzt = letztMap[k.id] ?? null
-      const tage = letzt ? Math.floor((heuteMs - new Date(letzt).getTime()) / 86400000) : 999
+      const tage = letzt ? tageSeit(letzt, wien) : 999   // Sweep 101: Kalendertage nach Wiener Tag
       kontaktFrequenz.push({ id: k.id, name: [k.vorname, k.nachname].filter(Boolean).join(' '), accountnummer: k.accountnummer, letzterKontakt: letzt, tage })
     })
     kontaktFrequenz.sort((a, b) => b.tage - a.tage)
