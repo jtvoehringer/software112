@@ -22,6 +22,7 @@ import { messwertText, mostgewichtAusGespeichert, type GespeichertesMostgewicht 
 import { abrunden, formatKmw, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } from '@/lib/wein/mostgewicht'
 import { datumText, lesedatumFehler, lesetageFuerOrt, vorbelegterLesetag, type LeseEintrag, type Lesetag } from '@/lib/wein/pressungLesedatum'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -499,7 +500,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
+          <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostausbeute gesamt (L) *</label>
@@ -658,7 +659,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
                   <label className="block text-[11px] text-s112-text-2 mb-0.5">
                     Lesedatum{row.weingarten_id && ' *'}{row.zukauf_posten_id && <span className="text-s112-muted"> (Zukaufsdatum)</span>}
                   </label>
-                  <input aria-label={`Lesedatum Traubenzeile ${i + 1}`} required={!!row.weingarten_id} type="date" value={row.ernte_datum}
+                  <ZukunftsDatum aria-label={`Lesedatum Traubenzeile ${i + 1}`} required={!!row.weingarten_id} value={row.ernte_datum}
                     disabled={!!row.zukauf_posten_id}
                     onChange={e => updateWG(i, 'ernte_datum', e.target.value)}
                     className={`${inp} disabled:bg-s112-bg disabled:text-s112-text-2`} />

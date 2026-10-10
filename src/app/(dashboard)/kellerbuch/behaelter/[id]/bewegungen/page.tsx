@@ -17,6 +17,7 @@ import DruckKnopf from '../../../_behoerden/DruckKnopf'
 import ZeitraumFormular from '../../../_behoerden/ZeitraumFormular'
 import { rundText } from '@/lib/zahl/runden'
 import SendenKnopf from '@/components/ui/SendenKnopf'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch' }
 export const dynamic = 'force-dynamic'
@@ -193,9 +194,8 @@ export default async function BehaelterBewegungsPage({
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-              <input aria-label="Datum"
+              <ZukunftsDatum aria-label="Datum"
                 name="datum"
-                type="date"
                 defaultValue={wienHeute()}
                 required
                 className={`w-full sm:w-auto ${inputCls}`}

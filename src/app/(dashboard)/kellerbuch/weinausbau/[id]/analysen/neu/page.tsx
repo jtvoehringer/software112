@@ -8,6 +8,7 @@ import { fehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -98,9 +99,8 @@ export default function AnalyseNeuPage({ params }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">Datum *</label>
-              <input aria-label="Datum"
+              <ZukunftsDatum aria-label="Datum"
                 name="analyse_datum"
-                type="date"
                 required
                 defaultValue={heuteWien()}
                 className="form-input py-2.5 sm:py-2 text-base sm:text-sm"

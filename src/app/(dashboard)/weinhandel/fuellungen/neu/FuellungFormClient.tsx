@@ -20,6 +20,7 @@ import { fehlerText } from '@/lib/fehler'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { istSortenverschnitt, sortenAngabePruefen, sortenAngabeVorschlag, weinartAusSortenverschnitt, type SortenAnteil } from '@/lib/wein/sortenangabe'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type Charge = {
   id: string
@@ -440,9 +441,8 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Abfülldatum *</label>
-            <input aria-label="Abfülldatum"
+            <ZukunftsDatum aria-label="Abfülldatum"
               name="datum"
-              type="date"
               defaultValue={heuteWien()}
               required
               className={inputCls}

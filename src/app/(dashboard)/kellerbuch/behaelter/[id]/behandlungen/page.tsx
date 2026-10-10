@@ -21,6 +21,7 @@ import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { korrekturErlaubt } from '../../../../freeze-korrektur-actions'
 import { behandlungPnGesperrt, BEHANDLUNG_FREEZE_GRUND, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type R = Record<string, any>
 
@@ -400,7 +401,7 @@ export default function KellerbehandlungenPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-                <input aria-label="Datum" type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)}
+                <ZukunftsDatum aria-label="Datum" value={formDatum} onChange={e => setFormDatum(e.target.value)}
                   className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" required />
               </div>
               <div>

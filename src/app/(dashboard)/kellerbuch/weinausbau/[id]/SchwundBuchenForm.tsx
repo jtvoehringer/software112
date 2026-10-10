@@ -13,6 +13,7 @@ import { fehlerText } from '@/lib/fehler'
 import { fmtLiter, zahlAus } from '@/lib/format'
 import { SCHWUND_STORNO_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 interface Props {
   bestandLiter: number
@@ -80,7 +81,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={`w-full sm:w-auto ${inputCls}`} />
+          <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} required className={`w-full sm:w-auto ${inputCls}`} />
         </div>
         <div className="col-span-2 sm:flex-1 sm:min-w-[180px]">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Begründung *</label>

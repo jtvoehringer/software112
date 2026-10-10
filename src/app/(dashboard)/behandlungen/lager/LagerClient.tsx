@@ -10,6 +10,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import AnfangsbestandHinweis from './AnfangsbestandHinweis'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 const TYP_LABEL: Record<string, string> = {
   anfangsbestand: 'Anfangsbestand',
@@ -94,7 +95,7 @@ function BuchungsForm({
         {/* Datum */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input aria-label="Datum" name="datum" type="date" required
+          <ZukunftsDatum aria-label="Datum" name="datum" required
             value={datum} onChange={e => setDatum(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>

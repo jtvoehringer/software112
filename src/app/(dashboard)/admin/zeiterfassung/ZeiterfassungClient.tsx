@@ -8,6 +8,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
 import { heuteWien } from '@/lib/datum/wien'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 // ── Phasen ────────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ function ZeitForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input aria-label="Datum" type="date" name="datum" required defaultValue={initial?.datum ?? today} className={inputCls} />
+          <ZukunftsDatum aria-label="Datum" name="datum" required defaultValue={initial?.datum ?? today} className={inputCls} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Phase *</label>

@@ -22,4 +22,20 @@ test.describe('Eingabefelder', { tag: '@lesend' }, () => {
     await expect(betrag).toHaveValue('12.50')
     await expect(betrag).not.toBeFocused()
   })
+
+  // KAN-318: Ereignis-Datum in der Zukunft → Hinweis, Speichern bleibt möglich (kein max)
+  test('Datum in der Zukunft zeigt einen Hinweis, heute nicht', async ({ page, rolle }) => {
+    test.skip(rolle !== 'tenant_admin', 'einmal je Lauf genügt')
+    await page.goto('/buchhaltung/neu')
+    const datum = page.getByLabel('Datum', { exact: true })
+    test.skip(await datum.count() === 0, 'E&A-Modul im Testbetrieb nicht aktiv')
+    const hinweis = page.getByText('Datum liegt in der Zukunft – bitte prüfen.')
+
+    await datum.fill('2099-01-01')
+    await expect(hinweis).toBeVisible()
+    await expect(datum).not.toHaveAttribute('max', /.+/)
+
+    await datum.fill(new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' }))
+    await expect(hinweis).toHaveCount(0)
+  })
 })

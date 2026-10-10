@@ -6,6 +6,7 @@ import { createZahlung } from '../verkauf/actions'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type Posten = {
   id: string
@@ -122,7 +123,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input aria-label="Datum" name="datum" type="date" defaultValue={heuteWien()} className="form-input text-sm w-full" />
+                  <ZukunftsDatum aria-label="Datum" name="datum" defaultValue={heuteWien()} className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Art</label>

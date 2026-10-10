@@ -24,6 +24,7 @@ import LandSelect, { type Land } from '@/components/wein/LandSelect'
 import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { heuteWien } from '@/lib/datum/wien'
 import { rundText } from '@/lib/zahl/runden'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -282,7 +283,7 @@ export default function ZukaufNeuPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
-              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)}
+              <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)}
                 required className={inputCls + ' w-full'} />
             </div>
             <div>

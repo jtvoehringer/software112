@@ -12,6 +12,7 @@ import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
+import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
@@ -251,7 +252,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-        <input aria-label="Datum" name="datum" type="date" required
+        <ZukunftsDatum aria-label="Datum" name="datum" required
           value={datum} onChange={e => setDatum(e.target.value)}
           className={`${inputCls} w-48`} />
       </div>
