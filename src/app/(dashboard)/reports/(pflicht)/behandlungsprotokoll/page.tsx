@@ -116,7 +116,8 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
             <p className="text-sm text-s112-text-2">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-semibold text-s112-text">Weinbauliches Behandlungsprotokoll</p>
+            {/* Hauptüberschrift der Seite (bisher <p>: Seite ohne Überschrift, gefunden im ersten E2E-Lauf 10.10.2026) */}
+            <h1 className="text-lg font-semibold text-s112-text">Weinbauliches Behandlungsprotokoll</h1>
             <p className="text-2xl font-semibold text-s112-blue-700">Saison {aktJahr}</p>
             <p className="text-xs text-s112-tertiary mt-1">
               {art ? `${ART_LABEL[art]} · ` : ''}Erstellt: {datumDe(heute)} · {behandlungen.length} Einträge · {zeilen.length} Grundstückszeilen

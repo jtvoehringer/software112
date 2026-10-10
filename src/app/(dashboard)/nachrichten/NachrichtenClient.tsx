@@ -226,6 +226,7 @@ export default function NachrichtenClient() {
       // Verbindungsstatus prüfen
       fetch('/api/nachrichten/list?folder=inbox').then(async r => {
         const data = await r.json()
+        if (r.ok && data.nichtVerbunden) { setVerbunden(false); return }
         if (!r.ok || data.fehler) {
           setNeuVerbinden(!!data.neuVerbinden)
           setFehler(data.neuVerbinden ? String(data.fehler)
@@ -260,6 +261,7 @@ export default function NachrichtenClient() {
         const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}`)
         const data = await res.json()
         if (gen !== loadGenRef.current) return  // veraltete Antwort – ignorieren
+        if (res.ok && data.nichtVerbunden) return   // keine Mailbox verbunden – kein Fehler
         if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
         setMessages(data.messages ?? [])
         setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? (data.messages?.length ?? 0))
@@ -279,6 +281,7 @@ export default function NachrichtenClient() {
         const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}&skip=${naechsteSeite}`)
         const data = await res.json()
         if (gen !== loadGenRef.current) return
+        if (res.ok && data.nichtVerbunden) return   // keine Mailbox verbunden – kein Fehler
         if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
         setMessages(prev => { const ids = new Set(prev.map(m => m.id)); return [...prev, ...((data.messages ?? []) as Msg[]).filter(m => !ids.has(m.id))] })
         setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? naechsteSeite + 50)

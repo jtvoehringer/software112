@@ -47,6 +47,14 @@ describe('KAN-269: Actions-Minuten', () => {
     assert.match(lies('.github/workflows/e2e.yml'), /if: github\.event_name == 'workflow_dispatch' \|\| \(github\.event\.deployment_status\.state == 'success' && github\.event\.deployment\.environment == 'staging'\)/)
   })
 
+  test('E2E: Warteschlange nur am Test-Job – übersprungene Deployment-Ereignisse verdrängen keinen wartenden Staging-Lauf', () => {
+    const w = lies('.github/workflows/e2e.yml')
+    const kopf = w.slice(0, w.indexOf('\njobs:'))
+    assert.doesNotMatch(kopf, /^concurrency:/m, 'keine Workflow-Concurrency')
+    const job = w.slice(w.indexOf('\n  e2e:\n'))
+    assert.match(job, /\n {4}concurrency:\n {6}group: e2e-staging\n {6}cancel-in-progress: false/)
+  })
+
   test('Staging-Spiegel: nur beim Push auf main, kurz, ohne Tests', () => {
     const s = lies('.github/workflows/staging.yml')
     assert.match(s, /\n {2}push:\n {4}branches: \[main\]/)
