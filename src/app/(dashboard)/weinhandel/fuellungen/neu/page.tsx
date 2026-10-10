@@ -38,6 +38,7 @@ export default async function NeueFuellungPage({
   // KAN-232: Rückkehr aus der Lohnversektung – Charge = versandter Grundwein, nur bei offenem Versand
   let lohnversektung: { id: string; firma: string | null; datum: string; literVersandt: number } | null = null
   if (lvParam && tenantId) {
+    // storno-sichtbar: Einzelzeile per ID – storniert_am wird geprüft bzw. die Folgeaktion lehnt Stornos ab
     const lv = geladen(await (supabase.from('lohnversektungen') as R)
       .select('id, weinausbau_id, datum, liter_versandt, storniert_am, abgeschlossen_am, firma:firmen!firma_id(name)')
       .eq('id', lvParam).eq('tenant_id', tenantId).maybeSingle(), 'Lohnversektungen')

@@ -146,7 +146,7 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
   // jeweils neueste Eintrag je Charge bzw. Behälter; alle Zeilen eines Schlüssels liegen im selben Block.
   const [analysenRes, massnahmenRes] = await Promise.all([
     inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl, kmw, oechsle, mostgewicht_einheit').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))),
-    inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).order('datum', { ascending: false }).limit(500))),
+    inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).is('storniert_am', null).order('datum', { ascending: false }).limit(500))),
   ])
   const analysenRaw = geladen(analysenRes, 'Analysen')
   const massnahmenRaw = geladen(massnahmenRes, 'Kellerbehandlungen')
@@ -310,6 +310,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').is('storniert_am', null).gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
     doppik ? ctx.tf(ctx.q('verkaufsposten').select('datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [], error: null }),
+    // storno-sichtbar: BMD-Übergabe überträgt Stornos und Gegenbuchungen bewusst mit (KAN-149)
     doppik ? ctx.tf(ctx.q('ea_transaktionen').select('datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [], error: null }),
   ])
   const eigeneRaw = geladen(eigeneRes, 'Fristen')

@@ -29,6 +29,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
   const tenantId = membership?.tenantId ?? ''
 
   const [rohRes, einstRes] = await Promise.all([
+    // storno-sichtbar: Detailseite zeigt auch stornierte Rechnungen mit Vermerk
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('rechnungen') as any)
       .select(`id, rechnungsnummer, datum, leistung_von, leistung_bis, storniert, storniert_am, storno_grund, bezahlt, bezahlt_am,

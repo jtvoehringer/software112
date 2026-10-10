@@ -92,6 +92,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
 
   const [{ data: txRaw, error: txErr }, { data: vpRaw, error: vpErr }, { data: kontenRaw, error: kontenErr }, { data: zahlRaw, error: zahlErr },
     { data: umbRaw, error: umbErr }, { data: uvaRaw, error: uvaErr }, { data: maRaw, error: maErr }, { count: belegeErkannt, error: belegeErr }, prot, offenePosten] = await Promise.all([
+    // storno-sichtbar: Prüfung wertet storniert_am im Code aus (Storno und Gegenbuchung getrennt ausgewiesen)
     alle<R>(ctx.tf(ctx.q('ea_transaktionen')
       .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, import_quelle, storniert_am, storno_von_id, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
       .gte('datum', von).lte('datum', bis).order('datum').order('id'))),
@@ -194,6 +195,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   for (const k of (kontenRaw ?? []) as R[]) salden.set(k.id, Number(k.eroeffnungssaldo ?? 0))
   for (const z of (zahlRaw ?? []) as R[]) if (salden.has(z.konto_id)) salden.set(z.konto_id, salden.get(z.konto_id)! + Number(z.betrag ?? 0))
   // Bewegungen über E&A-Buchungen mit Konto: alle Jahre nötig -> eigene Abfrage ohne Datumsfilter
+  // storno-sichtbar: E&A storniert über eine Gegenbuchung (negativer Betrag) – Saldo/Summe zählt Original und Gegenbuchung, ein Filter ließe die Gegenbuchung allein
   const { data: txKontoRaw, error: txKontoErr } = await alle<R>(ctx.tf(ctx.q('ea_transaktionen').select('typ, betrag_brutto, konto_id').not('konto_id', 'is', null).order('id')))
   for (const t of (txKontoRaw ?? []) as R[]) if (salden.has(t.konto_id)) salden.set(t.konto_id, salden.get(t.konto_id)! + (t.typ === 'einnahme' ? 1 : -1) * Number(t.betrag_brutto ?? 0))
   for (const u of (umbRaw ?? []) as R[]) {

@@ -784,6 +784,7 @@ export async function stornoZahlung(
   const supabase = await createSupabaseServerClient()
   const tenantId = await getZahlungsKontext()   // KAN-239
   // Zahlung muss zu diesem Verkauf gehören (die RPC prüft den Betrieb)
+  // storno-sichtbar: Einzelzeile per ID – storniert_am wird geprüft bzw. die Folgeaktion lehnt Stornos ab
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: z, error: zErr } = await (supabase.from('zahlungen') as any)
     .select('id').eq('id', zahlungId).eq('verkaufsposten_id', verkaufspostenId).eq('tenant_id', tenantId).maybeSingle()

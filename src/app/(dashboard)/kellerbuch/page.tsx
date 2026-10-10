@@ -142,7 +142,8 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
         <span title={auslastung === null ? 'ohne Kapazität' : `${Math.round(auslastung)} % gefüllt`}>
           <FuellKreis pct={auslastung} farbe={farbe} negativ={literImBehaelter < 0} />
         </span>
-        <span title={b.name} className="font-semibold text-s112-text w-32 sm:w-56 shrink-0 truncate">{b.name}</span>
+        {/* KAN-285: Gebindename führt zu den Bewegungen (ersetzt den Knopf „Bewegungen →“) */}
+        <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} title={`${b.name} – Bewegungen`} className="font-semibold text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
         <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-0.5">
           {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
           {b.gesperrt && <span title="Ein anderer Betrieb hat Wein in diesem Gebinde – kein Ziel für Umzüge" className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">belegt · {b.fremd_betrieb} · {fmtLiter(b.fremd_liter)}</span>}
@@ -167,7 +168,6 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
           title={literImBehaelter < 0 ? 'Negativer Bestand – Buchungsfehler prüfen' : undefined}>
           {fmtLiter(literImBehaelter)}{kapazitaet ? <span className="text-s112-tertiary"> / {fmtLiter(kapazitaet)}</span> : null}
         </span>
-        <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap font-medium">Bewegungen →</Link>
         {writeOk && !b.fremd && (
           <Link href={`/kellerbuch/behaelter/${b.id}`} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-muted hover:text-s112-blue-700">
             <Pencil className="w-4 h-4" />
@@ -235,7 +235,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
                   <div className="rounded-lg border border-s112-line divide-y divide-s112-line">
                     {g.leer.map(b => (
                       <div key={b.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
-                        <span title={b.name} className="font-medium text-s112-text w-32 sm:w-56 shrink-0 truncate">{b.name}</span>
+                        <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} title={`${b.name} – Bewegungen`} className="font-medium text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
                         {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
                         <span className="text-xs text-s112-text-2 capitalize">{b.typ ?? '–'}</span>
                         <span className="text-xs text-s112-text-2 font-mono tabular-nums">{b.volumen_liter ? fmtLiter(b.volumen_liter) : '–'}</span>
@@ -244,7 +244,6 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
                           ? <PickerlEntfernen behaelterId={b.id} text={pickerlText(b.lp_pickerl) as string} />
                           : <span className="text-[10.5px] font-semibold px-1.5 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">{pickerlText(b.lp_pickerl)}</span>)}
                         <span className="ml-auto flex items-center gap-3 shrink-0">
-                          <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">Bewegungen →</Link>
                           {writeOk && !b.fremd && <Link href={`/kellerbuch/behaelter/${b.id}`} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-muted hover:text-s112-blue-700"><Pencil className="w-3.5 h-3.5" /></Link>}
                         </span>
                       </div>

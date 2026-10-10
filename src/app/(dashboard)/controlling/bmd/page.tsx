@@ -44,6 +44,7 @@ export default async function BmdPage() {
   const nurLesen = (await schreibSperre(membership)) !== null
 
   const offeneRechnungen = gezaehlt(offeneRechnungenRes, 'Offene Rechnungen')
+  // storno-sichtbar: BMD-Übergabe überträgt Stornos und Gegenbuchungen bewusst mit (KAN-149)
   const offeneAusgaben = gezaehlt(await (supabase.from('ea_transaktionen') as any)
     .select('id', { count: 'exact', head: true })
     .eq('tenant_id', tenantId).eq('typ', 'ausgabe').is('bmd_export_id', null), 'Offene Ausgaben')

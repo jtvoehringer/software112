@@ -300,6 +300,7 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
   }
 
   // Manuelle Einnahmen aus der E&A-Rechnung (ohne Verkaufsbeleg dahinter)
+  // storno-sichtbar: BMD-Übergabe überträgt Stornos und Gegenbuchungen bewusst mit (KAN-149)
   let qe = (supabase.from('ea_transaktionen') as any)
     .select(`id, datum, beschreibung, betrag_brutto, betrag_netto, ust_satz, ust_betrag, bank_ref, bmd_export_id,
       storno_von_id,
@@ -347,6 +348,7 @@ async function belegnrMitStorno(supabase: any, tenantId: string, zeilen: R[]): P
   const original = new Map<string, R>()
   if (ids.length) {
     // inBloecken: viele Stornos in einem Exportzeitraum sprengten sonst die URL (≈ 350 IDs)
+    // storno-sichtbar: Originale der Gegenbuchungen (bank_ref) für die BMD-Stornozeile
     const { data, error } = await inBloecken<R>(ids, b => alle<R>(supabase.from('ea_transaktionen').select('id, bank_ref').eq('tenant_id', tenantId).in('id', b).order('id')))
     if (error) throw new Error(`Stornierte Buchungen konnten nicht geladen werden: ${error.message}`)
     for (const o of data) original.set(o.id, o)
@@ -363,6 +365,7 @@ async function eingangsbelege(supabase: any, tenantId: string, m: Mapping, konte
   const ids = { verkaufsposten: [] as string[], ea: [] as string[] }
   let anzahl = 0, summe = 0
 
+  // storno-sichtbar: BMD-Übergabe überträgt Stornos und Gegenbuchungen bewusst mit (KAN-149)
   let q = (supabase.from('ea_transaktionen') as any)
     .select(`id, datum, beschreibung, betrag_brutto, betrag_netto, ust_satz, ust_betrag, bank_ref, bmd_export_id,
       storno_von_id,

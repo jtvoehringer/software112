@@ -39,6 +39,7 @@ export async function abgleichVerkaufsEinnahmen(
 ): Promise<EinnahmenErgebnis> {
   const admin = createSupabaseAdminClient()
 
+  // storno-sichtbar: Prüfung wertet storniert_am im Code aus (bestehende Einnahmen samt Stornos abgleichen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const basis = (admin.from('ea_transaktionen') as any)
     .select('id, zahlung_id, betrag_netto, ust_satz, is_locked, import_quelle, storniert_am, storno_von_id')

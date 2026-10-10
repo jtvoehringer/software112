@@ -169,6 +169,7 @@ export function eaFilterAus(sp: URLSearchParams): { typ: 'einnahme' | 'ausgabe' 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeEaJournal(supabase: any, tenantId: string, p: EaJournalParameter): Promise<{ zeilen: EaJournalZeile[]; warnungen: string[] }> {
+  // storno-sichtbar: E&A-Journal zeigt Stornos und Gegenbuchungen gekennzeichnet (Lückenlosigkeit)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q = (supabase.from('ea_transaktionen') as any)
     .select(`id, typ, datum, beschreibung, betrag_netto, ust_satz, ust_betrag, betrag_brutto, abzugsfaehig_pct, betrag_abzugsfaehig,

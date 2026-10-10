@@ -108,6 +108,7 @@ export async function stornoEaTransaktion(id: string, grund: string, datum: stri
   const { supabase, tenantId } = await getCtx()
 
   // Abgeleitete Buchungen haben ihren eigenen Weg – sonst liefen Zahlung bzw. Anlagenverzeichnis auseinander
+  // storno-sichtbar: Einzelzeile per ID – storniert_am wird geprüft bzw. die Folgeaktion lehnt Stornos ab
   const { data: b, error: leseErr } = await (supabase.from('ea_transaktionen') as any)
     .select('import_quelle, verkaufsposten_id, anlage_id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   if (leseErr) return { error: dbFehlerText(leseErr, 'Buchung konnte nicht geladen werden') }
@@ -278,6 +279,7 @@ export async function syncEaEinnahmeFuerVerkauf(
   // KAN-149 D2b: Einnahmen je Zahlung (am Zahlungstag, je USt-Satz anteilig), Abweichungen per Gegenbuchung – kein
   // Löschen und Neuaufbau mehr. Ein stornierter Verkauf behält seine Einnahmen, solange die Zahlung nicht storniert
   // (erstattet) ist: Das Geld ist eingegangen. Plan: lib/ea/verkaufEinnahmenPlan.ts
+  // storno-sichtbar: Prüfung wertet storniert_am im Code aus (verkaufEinnahmenPlan)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const zq = (supabase.from('zahlungen') as any).select('id, betrag, datum, erstellt_am, storniert_am').eq('tenant_id', tenantId)
   const { data: zahlungenRaw, error: zahlErr } = await (kontext.rechnungId

@@ -115,6 +115,7 @@ export async function GET(req: NextRequest) {
   })
 
   // KAN-105: Rechnungen (Sammelrechnungen, stornierte Rechnungen – deren Lieferscheine tragen die Nummer nicht mehr)
+  // storno-sichtbar: Suche findet auch stornierte Rechnungen (Kennzeichen storniert)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rechnungen, error: rechnungenErr } = await (supabase.from('rechnungen') as any)
     .select('id, rechnungsnummer, datum, bezahlt, storniert')
