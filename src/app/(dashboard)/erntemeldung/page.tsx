@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import JahrgaengeClient from './JahrgaengeClient'
 import type { Lese } from '@/lib/wein/lesen'
+import { geladen } from '@/lib/supabase/geladen'
 import { mischen, type MischTeil } from '@/lib/wein/mostgewicht'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
@@ -39,25 +40,26 @@ export default async function ErntemeldungPage() {
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
+  // Sweep 86 (KAN-278): Lesefehler werfen (Fehlergrenze) statt einer leeren bzw. ohne Löschsperre gezeigten Jahrgangsliste
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawJ } = await (supabase.from('weinjahrgaenge') as any)
+  const rawJ = geladen(await (supabase.from('weinjahrgaenge') as any)
     .select(`id, jahrgang, qualitaet_gesamt,
              ama_gemeldet, ama_meldedatum, abgeschlossen, notizen,
              lesen(id, lfd_nr, art, bezeichnung, beginn, ende, notizen)`)
     .eq('tenant_id', tenantId)
-    .order('jahrgang', { ascending: false })
+    .order('jahrgang', { ascending: false }), 'Jahrgänge') as AR[] | null
 
   // ernte_parzellen hat keine tenant_id → über die Jahrgänge des aktiven Betriebs eingrenzen
   // (RLS allein liefert bei mehreren Mitgliedschaften auch fremde Betriebe)
   const jahrgangIds = ((rawJ ?? []) as AR[]).map(j => j.id as string)
-  const [{ data: rawP }, { data: rawA }, { data: rawPress }, { data: rawTV }] = await Promise.all([
+  const [pRes, aRes, pressRes, tvRes] = await Promise.all([
     jahrgangIds.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (supabase.from('ernte_parzellen') as any)
           .select('jahrgang_id, menge_kg, klosterneuburger')
           .in('jahrgang_id', jahrgangIds)
           .is('storniert_am', null)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ama_erntemeldungen') as any)
       .select('jahrgang_id, status, version')
@@ -75,6 +77,10 @@ export default async function ErntemeldungPage() {
       .eq('tenant_id', tenantId)
       .not('jahrgang_id', 'is', null).order('id')),
   ])
+  const rawP = geladen(pRes, 'Lesedaten') as AR[] | null
+  const rawA = geladen(aRes, 'AMA-Erntemeldungen') as AR[] | null
+  const rawPress = geladen(pressRes, 'Pressungen') as AR[] | null
+  const rawTV = geladen(tvRes, 'Traubenverkäufe') as AR[] | null
 
   const zaehleJe = (zeilen: AR[] | null | undefined) => {
     const m = new Map<string, number>()

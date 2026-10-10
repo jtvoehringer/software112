@@ -11,6 +11,7 @@ import { allergenText, kategorieText, seitenTexte, sprachName, zutatName } from 
 import { geringfuegigeMengen } from '@/lib/elabel/naehrwerte'
 import { ELABEL_SPRACHLISTE, elabelSprache, geringfuegigSatz, folgeUmleitung, istElabelCode, zahlText, type Sprache } from '@/lib/elabel/oeffentlich'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
+import { geladen } from '@/lib/supabase/geladen'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,17 +27,19 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
   const supabase = createSupabaseAdminClient()
   const SPALTEN = 'id, umleitung_auf, tenant_id, fuellung_id, zutaten_ids, alkohol_vol, energie_kj, energie_kcal, fett_g, fett_gesaettigt_g, kohlenhydrate_g, zucker_g, eiweiss_g, salz_g'
   // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – Code global eindeutig (UNIQUE)
-  const { data: start } = await (supabase.from('elabels') as R)
-    .select(SPALTEN).eq('code', code).eq('status', 'freigegeben').maybeSingle()
+  // Sweep 86 (KAN-278): Lesefehler nicht als „gibt es nicht“ bzw. Etikett ohne Zutaten/Allergene zeigen – werfen, die
+  // Fehlerseite (error.tsx daneben) meldet „vorübergehend nicht verfügbar“
+  const start = geladen(await (supabase.from('elabels') as R)
+    .select(SPALTEN).eq('code', code).eq('status', 'freigegeben').maybeSingle(), 'E-Label') as R | null
   if (!start) return ladeArchiv(supabase, code)
   // KAN-219: umgeleiteter QR-Code (z. B. Nachfolgefüllung) – Ziel im selben Betrieb, freigegeben, höchstens 5 Schritte
   const e = await folgeUmleitung(start as R & { id: string; umleitung_auf: string | null }, async zielId => {
     // tenant-isolation-ignore: Ziel der Umleitung – nur im Betrieb des gedruckten E-Labels und freigegeben
-    const { data } = await (supabase.from('elabels') as R)
-      .select(SPALTEN).eq('id', zielId).eq('tenant_id', (start as R).tenant_id).eq('status', 'freigegeben').maybeSingle()
+    const data = geladen(await (supabase.from('elabels') as R)
+      .select(SPALTEN).eq('id', zielId).eq('tenant_id', (start as R).tenant_id).eq('status', 'freigegeben').maybeSingle(), 'Umleitungsziel')
     return (data ?? null) as (R & { id: string; umleitung_auf: string | null }) | null
   })
-  const [{ data: f }, { data: t }, { data: k }] = await Promise.all([
+  const [fRes, tRes, kRes] = await Promise.all([
     // tenant-isolation-ignore: Füllung des freigegebenen E-Labels (tenant_id aus dem E-Label)
     (supabase.from('fuellungen') as R).select('name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, sekt_stufe, flaschengroesse_ml')
       .eq('id', (e as R).fuellung_id).eq('tenant_id', (e as R).tenant_id).maybeSingle(),
@@ -44,7 +47,10 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
     // alle-ausnahme: globaler E-Label-Katalog (Zutaten/Zusatzstoffe), wenige Dutzend Einträge
     (supabase.from('elabel_zutaten') as R).select('id, kategorie, name_de, name_en, e_nummer, allergen, sortierung').order('sortierung').limit(500),
   ])
-  return { e: e as R, f: (f ?? null) as R | null, betrieb: (t as R | null)?.name ?? null, katalog: (k ?? []) as KatalogEintrag[] }
+  const f = geladen(fRes, 'Füllung') as R | null
+  const t = geladen(tRes, 'Betrieb') as R | null
+  const k = geladen(kRes, 'Zutatenkatalog') as KatalogEintrag[] | null
+  return { e: e as R, f: f ?? null, betrieb: t?.name ?? null, katalog: k ?? [] }
 }
 
 /**
@@ -54,7 +60,7 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladeArchiv(supabase: any, code: string): Promise<{ e: R; f: R | null; betrieb: string | null; katalog: KatalogEintrag[] } | null> {
   // Archiv außerhalb der Data-API (Schema s112_archiv) – nur über die Service-Role-Funktion, die gueltig_bis prüft
-  const { data } = await supabase.rpc('s112_elabel_archiv_lesen', { p_code: code })
+  const data = geladen(await supabase.rpc('s112_elabel_archiv_lesen', { p_code: code }), 'E-Label-Archiv')
   if (!data) return null
   const inhalt = data as R
   return { e: (inhalt.e ?? {}) as R, f: (inhalt.f ?? null) as R | null, betrieb: inhalt.betrieb ?? null, katalog: (inhalt.katalog ?? []) as KatalogEintrag[] }
