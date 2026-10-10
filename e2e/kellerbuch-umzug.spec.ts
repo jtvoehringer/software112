@@ -49,13 +49,16 @@ test.describe('Kellerbuch (schreibend)', () => {
 
     // Aufräumen: nicht stornierte Umzüge abgebrochener früherer Läufe zurückbuchen (sonst fehlen Menge bzw. leere Gebinde)
     await formularOeffnen(page)
+    const reste = page.locator('tr', { hasText: 'E2E-Test' }).filter({ hasNotText: 'storniert am' }).filter({ has: page.getByRole('button', { name: 'Stornieren' }) })
     for (let i = 0; i < 10; i++) {
-      const rest = page.locator('tr', { hasText: 'E2E-Test' }).filter({ hasNotText: 'storniert am' }).filter({ has: page.getByRole('button', { name: 'Stornieren' }) }).first()
-      if (await rest.count() === 0) break
+      const anzahl = await reste.count()
+      if (anzahl === 0) break
+      const rest = reste.first()
       await rest.getByRole('button', { name: 'Stornieren' }).first().click()
       await rest.getByLabel(/Grund des Stornos/).fill('E2E-Test: Rest eines abgebrochenen Laufs')
       await rest.getByRole('button', { name: 'Stornieren' }).last().click()
-      await expect(rest.getByText(/storniert am/)).toBeVisible({ timeout: 20_000 })
+      // die stornierte Zeile fällt aus dem Filter – daher auf weniger offene Reste warten, nicht auf „storniert am“ in ihr
+      await expect(reste, 'Rest nicht storniert').toHaveCount(anzahl - 1, { timeout: 20_000 })
     }
 
     await formularOeffnen(page)
