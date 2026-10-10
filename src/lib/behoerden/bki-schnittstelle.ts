@@ -27,6 +27,8 @@ export type BkiBlatt = {
   meldung: string | null
   /** Ticket, mit dem das Blatt kommt */
   folgt?: string
+  /** KAN-46: Blatt braucht eine Auswahl (Charge, Grundstück …) – nicht in der Gesamtdatei, nur einzeln */
+  nurEinzeln?: string
 }
 
 export const BKI_BLAETTER: readonly BkiBlatt[] = [
@@ -36,8 +38,8 @@ export const BKI_BLAETTER: readonly BkiBlatt[] = [
   { blatt: 'Erzeugnisse', meldung: 'bki-erzeugnisse' },
   { blatt: 'Buchungsarten', meldung: 'bki-buchungsarten' },
   { blatt: 'GebindeVerzeichnis', meldung: 'bki-gebindeverzeichnis' },
-  { blatt: 'RV zum Eingang', meldung: null, folgt: 'KAN-46' },
-  { blatt: 'RV zum Ausgang', meldung: null, folgt: 'KAN-46' },
+  { blatt: 'RV zum Eingang', meldung: 'bki-rv-eingang', nurEinzeln: 'je Charge oder Grundstück unter Kellerbuch › BKI-Schnittstelle › Rückverfolgung' },
+  { blatt: 'RV zum Ausgang', meldung: 'bki-rv-ausgang', nurEinzeln: 'je Charge oder Füllung unter Kellerbuch › BKI-Schnittstelle › Rückverfolgung' },
   { blatt: 'Lagerstand zum Zeitraum', meldung: 'bki-lagerstand' },
   { blatt: 'Verkauf im Zeitraum', meldung: null, folgt: 'KAN-49' },
   { blatt: 'Einkauf im Zeitraum', meldung: null, folgt: 'KAN-49' },
@@ -157,6 +159,7 @@ export function blattPruefen(meldung: string, blattName: string, spalten: readon
 export function pruefbericht(ergebnisse: readonly BlattErgebnis[]): PruefHinweis[] {
   return ergebnisse.flatMap(e => {
     if (!e.blatt.meldung) return [{ blatt: e.blatt.blatt, art: 'fehlt' as const, text: `noch nicht umgesetzt – folgt mit ${e.blatt.folgt}` }]
+    if (e.blatt.nurEinzeln) return [{ blatt: e.blatt.blatt, art: 'info' as const, text: `nicht in der Gesamtdatei – braucht eine Auswahl: ${e.blatt.nurEinzeln}` }]
     const anzahl = e.daten ? [{ blatt: e.blatt.blatt, art: 'info' as const, text: `${e.daten.zeilen.length} Zeile(n)` }] : []
     const laden = (e.daten?.warnungen ?? []).map(w => ({ blatt: e.blatt.blatt, art: 'warnung' as const, text: w }))
     return [...anzahl, ...e.hinweise, ...laden]

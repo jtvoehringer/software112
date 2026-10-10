@@ -4,6 +4,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import Link from '@/components/ui/Link'
 import { csvPfad, type MeldungsId } from '@/lib/behoerden/katalog'
 import { betriebUndModuleLaden } from '@/lib/behoerden/zugriff'
 import { istParameterFehler } from '@/lib/behoerden/typen'
@@ -117,9 +118,11 @@ export default async function BkiSchnittstellePage({ searchParams }: { searchPar
             {BKI_BLAETTER.map(b => (
               <tr key={b.blatt} className="border-t border-s112-border">
                 <td className="px-3 py-2">{b.blatt}</td>
-                <td className="px-3 py-2 text-xs">{b.meldung ? 'umgesetzt' : <span className="text-s112-muted">folgt mit {b.folgt}</span>}</td>
+                <td className="px-3 py-2 text-xs">{b.nurEinzeln ? 'umgesetzt (nur mit Auswahl)' : b.meldung ? 'umgesetzt' : <span className="text-s112-muted">folgt mit {b.folgt}</span>}</td>
                 <td className="px-3 py-2">
-                  {b.meldung && (
+                  {b.nurEinzeln ? (
+                    <Link href="/kellerbuch/bki-rv" className="text-xs text-s112-blue-700 hover:underline">mit Auswahl öffnen →</Link>
+                  ) : b.meldung && (
                     <CsvExportKnopf href={csvPfad(b.meldung as MeldungsId, Object.fromEntries(parameterFuer(b.meldung, z)))} ariaLabel={`CSV exportieren: ${b.blatt}`} />
                   )}
                 </td>

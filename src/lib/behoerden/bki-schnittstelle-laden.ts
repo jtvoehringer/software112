@@ -33,7 +33,7 @@ export async function ladeBkiSchnittstelle(
 ): Promise<BlattErgebnis[]> {
   const ergebnisse: BlattErgebnis[] = []
   for (const blatt of BKI_BLAETTER) {
-    if (!blatt.meldung) { ergebnisse.push({ blatt, daten: null, hinweise: [] }); continue }
+    if (!blatt.meldung || blatt.nurEinzeln) { ergebnisse.push({ blatt, daten: null, hinweise: [] }); continue }
     const fehler = (text: string): BlattErgebnis => ({ blatt, daten: null, hinweise: [{ blatt: blatt.blatt, art: 'fehler', text }] })
     const m = meldungFinden(blatt.meldung)
     if (!m) { ergebnisse.push(fehler(`Meldung „${blatt.meldung}“ fehlt im Register`)); continue }

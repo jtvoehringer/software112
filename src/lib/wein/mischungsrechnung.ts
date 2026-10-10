@@ -28,6 +28,9 @@ export type HerkunftInfo = {
   /** KAN-110: amtliche Ried der Lage (lagen.amtliche_ried) – Grundlage der 85-%-Regel; fehlt = nicht gepflegt */
   ried?: string | null
   gst_nr: string | null
+  /** KAN-46: AMA-Feldstücksnummer der Ried (weingarten.ama_feldnummer) und Schlagnummer des Grundstücks (grundstuecke.ama_feldnummer) – nur Lese */
+  feldstueck?: string | null
+  schlag?: string | null
   katastralgemeinde: string | null
   ernte_datum: string | null
   kmw: number | null

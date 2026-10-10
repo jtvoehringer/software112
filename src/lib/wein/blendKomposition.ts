@@ -108,7 +108,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
         .select(`id, menge_liter, weinausbau_id,
           pressung:pressung_id(id, datum, erstellt_am, tenant_id, jahrgang_id, lese_id, storniert_am, jahrgang:jahrgang_id(jahrgang),
             pressung_weingaerten(id, trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, zukauf_posten_id, weingarten_id, grundstueck_id, storniert_am,
-              weingarten:weingarten_id(id, name, lage:lage_id(amtliche_ried)), grundstueck:grundstueck_id(gst_nr, katastralgemeinde)))`)
+              weingarten:weingarten_id(id, name, ama_feldnummer, lage:lage_id(amtliche_ried)), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer)))`)
         .in('weinausbau_id', ids).is('storniert_am', null).order('id'), 'Pressungen'),   // KAN-148 C1c: stornierte Pressungszeilen sind keine Herkunft
       liste((supabase.from('zukauf_posten') as any)
         .select('id, datum, erstellt_am, menge, rebsorte, jahrgang, kmw, oechsle, mostgewicht_einheit, ziel_weinausbau_id, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
@@ -184,6 +184,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
               typ: 'pressung', rebsorte: z.rebsorte ?? null, jahrgang: jg, weingarten_name: w?.name ?? null,
               ried: ((w?.lage as R | null)?.amtliche_ried as string | null | undefined) ?? null,
               gst_nr: g?.gst_nr ?? null, katastralgemeinde: g?.katastralgemeinde ?? null,
+              ...(w?.ama_feldnummer || g?.ama_feldnummer ? { feldstueck: (w?.ama_feldnummer as string | null) ?? null, schlag: (g?.ama_feldnummer as string | null) ?? null } : {}),   // KAN-46
               ernte_datum: z.ernte_datum ?? null, ...mg(z),
             }),
           }

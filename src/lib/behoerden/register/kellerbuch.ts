@@ -7,6 +7,7 @@ import { ladeKellerBehandlungen, SPALTEN_KELLER_BEHANDLUNGEN } from '../keller-b
 import { ladeGebindeverzeichnis, SPALTEN_GEBINDEVERZEICHNIS } from '../gebindeverzeichnis'
 import { ladeWeinbuch, ladeWeinbuchSammlung, SPALTEN_WEINBUCH } from '../weinbuch'
 import { ladeRueckverfolgung, SPALTEN_RUECKVERFOLGUNG } from '../rueckverfolgung'
+import { ladeRvAusgang, ladeRvEingang, SPALTEN_RV_AUSGANG, SPALTEN_RV_EINGANG } from '../bki-rv'
 import { ladeBesondereKonten, ladeBkiBesondereKonten, SPALTEN_BESONDERE_KONTEN, SPALTEN_BKI_BESONDERE_KONTEN } from '../besondereKonten'
 import { ladeRueckruf, SPALTEN_RUECKRUF, type RueckrufStart } from '../rueckruf'
 import { ladeBlendProtokoll, SPALTEN_BLEND, type BlendArt } from '../blend'
@@ -227,6 +228,41 @@ export const MELDUNGEN_KELLERBUCH = {
     spalten: SPALTEN_BKI_BESONDERE_KONTEN,
     dateiteile: (p, betrieb) => ['Besondere Konten', betrieb.betriebsnummer, zeitraumTeil(p)],
     bki: p => ({ bericht: 'Besondere-Konten', von: p.von, bis: p.bis }),
+  }),
+
+  // KAN-46: RV zum Eingang (charge ODER gst) bzw. zum Ausgang (charge ODER fuellung), jeweils mit Zeitraum von/bis
+  'bki-rv-eingang': definiereMeldung(KATALOG_KELLERBUCH['bki-rv-eingang'], {
+    parameter: sp => {
+      const charge = uuidOptional(sp, 'charge', 'Charge')
+      if (istParameterFehler(charge)) return charge
+      const gst = uuidOptional(sp, 'gst', 'Grundstück')
+      if (istParameterFehler(gst)) return gst
+      if ((charge ? 1 : 0) + (gst ? 1 : 0) !== 1) return parameterFehler('Bitte genau eine Charge (charge) oder ein Grundstück (gst) wählen.')
+      const z = zeitraumAus(sp)
+      if (istParameterFehler(z)) return z
+      return { charge, gst, ...z }
+    },
+    laden: (ctx, p) => ladeRvEingang(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_RV_EINGANG,
+    dateiteile: (p, betrieb) => ['RV-Eingang', betrieb.betriebsnummer, zeitraumTeil(p)],
+    bki: p => ({ bericht: 'RV-zum-Eingang', von: p.von, bis: p.bis }),
+  }),
+
+  'bki-rv-ausgang': definiereMeldung(KATALOG_KELLERBUCH['bki-rv-ausgang'], {
+    parameter: sp => {
+      const charge = uuidOptional(sp, 'charge', 'Charge')
+      if (istParameterFehler(charge)) return charge
+      const fuellung = uuidOptional(sp, 'fuellung', 'Füllung')
+      if (istParameterFehler(fuellung)) return fuellung
+      if ((charge ? 1 : 0) + (fuellung ? 1 : 0) !== 1) return parameterFehler('Bitte genau eine Charge (charge) oder eine Füllung (fuellung) wählen.')
+      const z = zeitraumAus(sp)
+      if (istParameterFehler(z)) return z
+      return { charge, fuellung, ...z }
+    },
+    laden: (ctx, p) => ladeRvAusgang(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_RV_AUSGANG,
+    dateiteile: (p, betrieb) => ['RV-Ausgang', betrieb.betriebsnummer, zeitraumTeil(p)],
+    bki: p => ({ bericht: 'RV-zum-Ausgang', von: p.von, bis: p.bis }),
   }),
 
   'bki-lagerstand': definiereMeldung(KATALOG_KELLERBUCH['bki-lagerstand'], {
