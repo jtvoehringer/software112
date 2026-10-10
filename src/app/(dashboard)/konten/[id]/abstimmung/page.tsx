@@ -71,15 +71,19 @@ export default async function AbstimmungPage({
   const kontoNamen = new Map<string, string>([[kontoId, konto.name], ...andereKonten.map(k => [k.id, k.name] as const)])
 
   const [zahlungenRawRes, txRawRes, umbVonRawRes, umbNachRawRes] = await Promise.all([
+    // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('zahlungen') as any)
       .select('id, betrag, datum, abgeglichen, storniert_am, storno_grund, verkaufsposten(rechnungsnummer)')
       .eq('tenant_id', tenantId).eq('konto_id', kontoId),
+    // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('ea_transaktionen') as any)
       .select('id, typ, betrag_brutto, datum, beschreibung, abgeglichen, is_locked, storniert_am, storno_von_id')
       .eq('tenant_id', tenantId).eq('konto_id', kontoId),
+    // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('konto_umbuchungen') as any)
       .select('id, betrag, datum, beschreibung, von_abgeglichen, nach_konto_id, storniert_am, storno_grund')
       .eq('tenant_id', tenantId).eq('von_konto_id', kontoId),
+    // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('konto_umbuchungen') as any)
       .select('id, betrag, datum, beschreibung, nach_abgeglichen, von_konto_id, storniert_am, storno_grund')
       .eq('tenant_id', tenantId).eq('nach_konto_id', kontoId),

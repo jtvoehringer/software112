@@ -120,6 +120,7 @@ export async function speichereAnlage(a: AnlageEingabe): Promise<{ ok: true; id:
 
 export async function loescheAnlage(id: string): Promise<{ ok: boolean; fehler?: string }> {
   const { supabase, tenantId } = await ctx()
+  // storno-sichtbar: Prüfung wertet storniert_am im Code aus (gültige AfA ohne Storno und Gegenbuchung)
   const { data: afa, error: afaErr } = await (supabase.from('ea_transaktionen') as any).select('datum, storniert_am, storno_von_id').eq('anlage_id', id).eq('tenant_id', tenantId)
   if (afaErr) return { ok: false, fehler: `Die AfA-Buchungen der Anlage konnten nicht geprüft werden: ${(afaErr as R).message}` }
   const gueltig = ((afa ?? []) as R[]).filter(t => !t.storniert_am && !t.storno_von_id)

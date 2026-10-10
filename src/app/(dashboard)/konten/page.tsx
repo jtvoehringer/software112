@@ -27,6 +27,7 @@ async function berechneSaldo(supabase: R, tenantId: string, konto: R): Promise<n
     .is('storniert_am', null), 'Zahlungen')   // KAN-149 D2b: stornierte Zahlungen zählen nicht
   saldo += ((zahlungenRaw ?? []) as R[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
 
+  // storno-sichtbar: E&A storniert über eine Gegenbuchung (negativer Betrag) – Saldo/Summe zählt Original und Gegenbuchung, ein Filter ließe die Gegenbuchung allein
   const txRaw = geladen(await (supabase.from('ea_transaktionen') as any)
     .select('typ, betrag_brutto, datum').eq('tenant_id', tenantId).eq('konto_id', konto.id)
     .gt('datum', konto.eroeffnungsdatum), 'Buchungen')

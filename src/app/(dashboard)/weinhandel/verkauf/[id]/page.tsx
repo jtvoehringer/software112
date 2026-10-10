@@ -93,6 +93,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .eq('aktiv', true)
       .maybeSingle(),
     getTenantSettings(supabase, tenantId),
+    // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Zahlungen des Belegs
     (supabase.from('zahlungen') as any)
       .select('id, betrag, art, datum, notizen, erstellt_am, storniert_am, storniert_von_name, storno_grund')
       .eq('verkaufsposten_id', id)

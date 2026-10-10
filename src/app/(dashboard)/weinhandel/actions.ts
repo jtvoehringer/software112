@@ -216,6 +216,7 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
 
   // KAN-232: Lohnversektung prüfen (offen, eigener Betrieb, dieselbe Charge) – die DB prüft dasselbe im Trigger
   if (lohnversektungId) {
+    // storno-sichtbar: Einzelzeile per ID – storniert_am wird geprüft bzw. die Folgeaktion lehnt Stornos ab
     const { data: lv, error: lvErr } = await (supabase.from('lohnversektungen') as AR)
       .select('id, weinausbau_id, storniert_am, abgeschlossen_am').eq('id', lohnversektungId).eq('tenant_id', tenantId).maybeSingle()
     if (lvErr) throw new AktionsFehler(dbFehlerText(lvErr, 'Lohnversektung konnte nicht geladen werden'))

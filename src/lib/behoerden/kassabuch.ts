@@ -144,18 +144,22 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
   }
 
   const [zRes, tRes, vonRes, nachRes] = await Promise.all([
+    // storno-sichtbar: Prüfung wertet storniert_am im Code aus (Kassabuch: stornierte gekennzeichnet, nicht im Saldo)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('zahlungen') as any)
       .select('id, betrag, datum, abgeglichen, erstellt_am, storniert_am, storno_grund, verkaufsposten(rechnungsnummer)')
       .eq('tenant_id', tenantId).eq('konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
+    // storno-sichtbar: E&A storniert über eine Gegenbuchung (negativer Betrag) – Saldo/Summe zählt Original und Gegenbuchung, ein Filter ließe die Gegenbuchung allein
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('ea_transaktionen') as any)
       .select('id, typ, betrag_brutto, datum, beschreibung, bank_ref, abgeglichen, erstellt_am, ea_belege(dateiname)')
       .eq('tenant_id', tenantId).eq('konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
+    // storno-sichtbar: Prüfung wertet storniert_am im Code aus (Kassabuch: stornierte gekennzeichnet, nicht im Saldo)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('konto_umbuchungen') as any)
       .select('id, betrag, datum, beschreibung, von_abgeglichen, erstellt_am, storniert_am, storno_grund, nach:konten!nach_konto_id(name)')
       .eq('tenant_id', tenantId).eq('von_konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
+    // storno-sichtbar: Prüfung wertet storniert_am im Code aus (Kassabuch: stornierte gekennzeichnet, nicht im Saldo)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('konto_umbuchungen') as any)
       .select('id, betrag, datum, beschreibung, nach_abgeglichen, erstellt_am, storniert_am, storno_grund, von:konten!von_konto_id(name)')

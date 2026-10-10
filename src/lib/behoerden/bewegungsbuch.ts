@@ -882,6 +882,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .eq('tenant_id', tenantId)
       .eq('art', 'wein')
       .order('id', { ascending: true }), 'produktion_eingaenge'),
+    // storno-sichtbar: Bewegungsbuch zeigt Stornos als Buchung und Gegenbuchung (KAN-145)
     liste((supabase.from('produktionen') as any)
       .select('id, datum, art, erzeugnis, ziel_menge, wein_liter, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, eingaenge:produktion_eingaenge(art, menge, einheit, bezeichnung, weinausbau_id, quelle:weinausbau_id(name))')
       .eq('tenant_id', tenantId)

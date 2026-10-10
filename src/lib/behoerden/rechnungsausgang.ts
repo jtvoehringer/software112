@@ -213,6 +213,7 @@ function nummernVergleich(a: string | null, b: string | null): number {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: RechnungsjournalParameter): Promise<{ zeilen: RechnungsjournalZeile[]; warnungen: string[] }> {
+  // storno-sichtbar: Rechnungsjournal zeigt stornierte Rechnungen gekennzeichnet (Lückenlosigkeit der Nummern)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: roh, error } = await alle<R>((supabase.from('rechnungen') as any)
     .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am, partner_daten, storno_positionen,
