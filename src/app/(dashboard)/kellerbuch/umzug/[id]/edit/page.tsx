@@ -13,6 +13,7 @@ import { ladeUmzugZeilen, planeUmzugStorno, umzugAlsEingabe, umzugSperrMeldung, 
 import AktionsFormular from '@/components/ui/AktionsFormular'
 import { Info } from 'lucide-react'
 import type { Metadata } from 'next'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const metadata: Metadata = { title: 'Umzug bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -82,10 +83,10 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
             <label htmlFor="umzug-notizen" className={labelCls}>Notizen</label>
             <input id="umzug-notizen" name="notizen" defaultValue={eingabe.notizen} className={inputCls} />
           </div>
-          <button type="submit"
+          <SendenKnopf
             className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Notizen speichern
-          </button>
+          </SendenKnopf>
         </AktionsFormular>
 
         <AbbrechenKnopf standard="/kellerbuch/gebinde?tab=umziehen"

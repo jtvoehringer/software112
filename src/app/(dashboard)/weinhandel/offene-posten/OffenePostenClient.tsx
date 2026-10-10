@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { createZahlung } from '../verkauf/actions'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 type Posten = {
   id: string
@@ -166,9 +167,9 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                 >
                   Abbrechen
                 </button>
-                <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
+                <SendenKnopf className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                   Zahlung buchen
-                </button>
+                </SendenKnopf>
               </div>
             </form>
           </td>

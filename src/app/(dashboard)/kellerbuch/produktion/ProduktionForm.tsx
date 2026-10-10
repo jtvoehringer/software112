@@ -254,7 +254,7 @@ export default function ProduktionForm({ chargen, gebinde, mittel, heute, quelle
           <button type="button" onClick={zurueck} className="btn-secondary inline-flex items-center gap-1"><ChevronLeft size={15} aria-hidden /> Zurück</button>
         )}
         {schritt < 3
-          ? <button type="submit" className="btn-primary inline-flex items-center gap-1">Weiter <ChevronRight size={15} aria-hidden /></button>
+          ? <button type="submit" disabled={pending} className="btn-primary inline-flex items-center gap-1">Weiter <ChevronRight size={15} aria-hidden /></button>
           : <button type="submit" disabled={pending} className="btn-primary">{pending ? 'Bucht …' : 'Produktion buchen'}</button>}
       </div>
     </form>

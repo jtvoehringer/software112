@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
 import { useDialog } from '@/components/ui/useDialog'
 import { GEBINDE_MATERIALIEN } from '@/lib/keller/gebindeMaterial'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -104,10 +105,10 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
                 </select>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="submit"
+                <SendenKnopf
                   className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
                   Speichern
-                </button>
+                </SendenKnopf>
                 <button type="button" onClick={() => setOpen(false)}
                   className="px-4 py-2 rounded-xl text-sm text-s112-text-2 hover:text-s112-text">
                   Abbrechen

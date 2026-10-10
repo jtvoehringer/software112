@@ -9,6 +9,7 @@ import type { Bewegung } from './page'
 import { fmtEur } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { heuteWien } from '@/lib/datum/wien'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 type Konto = {
   id: string
@@ -189,9 +190,9 @@ export default function AbstimmungClient({
                   className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:bg-s112-bg transition-colors">
                   Abbrechen
                 </button>
-                <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
+                <SendenKnopf className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                   Umbuchung buchen
-                </button>
+                </SendenKnopf>
               </div>
             </form>
           )}

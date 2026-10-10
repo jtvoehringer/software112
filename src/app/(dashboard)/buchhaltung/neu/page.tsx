@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { createEaTransaktion } from '../actions'
 import { heuteWien } from '@/lib/datum/wien'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const dynamic = 'force-dynamic'
 
@@ -151,10 +152,10 @@ export default async function BuchhaltungNeuPage() {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="submit"
+          <SendenKnopf
             className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Buchung speichern
-          </button>
+          </SendenKnopf>
           <AbbrechenKnopf standard="/buchhaltung"
             className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg" />
         </div>

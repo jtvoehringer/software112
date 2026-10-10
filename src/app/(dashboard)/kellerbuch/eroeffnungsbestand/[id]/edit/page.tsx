@@ -19,6 +19,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { eroeffnungsTag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import type { Metadata } from 'next'
 import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const metadata: Metadata = { title: 'Eröffnungsbestand bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -190,10 +191,10 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
           </div>
         </div>
         <div className="flex gap-3 pt-2">
-          <button type="submit"
+          <SendenKnopf
             className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Speichern
-          </button>
+          </SendenKnopf>
           <AbbrechenKnopf standard="/kellerbuch/gebinde?tab=eroeffnungsbestand"
             className="px-6 py-2 rounded-xl text-sm text-s112-text-2 hover:text-s112-text transition-colors" />
         </div>

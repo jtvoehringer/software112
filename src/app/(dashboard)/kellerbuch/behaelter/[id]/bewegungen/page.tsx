@@ -16,6 +16,7 @@ import { wienHeute } from '@/lib/csv'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
 import ZeitraumFormular from '../../../_behoerden/ZeitraumFormular'
 import { rundText } from '@/lib/zahl/runden'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -200,12 +201,11 @@ export default async function BehaelterBewegungsPage({
                 className={`w-full sm:w-auto ${inputCls}`}
               />
             </div>
-            <button
-              type="submit"
+            <SendenKnopf
               className="col-span-2 sm:col-span-1 w-full sm:w-auto bg-s112-warn-fg text-white px-4 py-3 sm:py-2 rounded-lg text-base sm:text-sm font-semibold hover:opacity-90 transition-colors"
             >
               Schwund nachbuchen
-            </button>
+            </SendenKnopf>
           </AktionsFormular>
         </section>
       )}

@@ -30,6 +30,7 @@ import { wienHeute } from '@/lib/csv'
 import { eroeffnungsTag, standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 import { wienJetzt } from '@/lib/datum/wien'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -270,9 +271,9 @@ export default async function GebindePage({
                   )}
                 </div>
                 <div className="sm:col-span-2 flex gap-3">
-                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
+                  <SendenKnopf className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                     Gebinde anlegen
-                  </button>
+                  </SendenKnopf>
                 </div>
               </form>
             </details>
@@ -472,9 +473,9 @@ export default async function GebindePage({
                   <p className="text-xs text-s112-muted mt-1">{EB_NOTIZEN_HINWEIS}</p>
                 </div>
                 <div className="sm:col-span-2">
-                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
+                  <SendenKnopf className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                     Eröffnungsbestand speichern
-                  </button>
+                  </SendenKnopf>
                 </div>
               </form>
             </details>

@@ -4,6 +4,7 @@ import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { createEaKategorie } from '../actions'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,10 +86,10 @@ export default async function KategorienPage() {
             <p className="text-[11px] text-s112-tertiary mt-0.5">z.B. 50 bei Bewirtung/Repräsentation (§ 20 EStG)</p>
           </div>
           <div className="col-span-5 flex justify-end">
-            <button type="submit"
+            <SendenKnopf
               className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
               Speichern
-            </button>
+            </SendenKnopf>
           </div>
         </form>
       </div>
