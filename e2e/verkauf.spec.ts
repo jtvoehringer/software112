@@ -20,7 +20,7 @@ async function bestandLaut(page: Page, fuellungId: string): Promise<number> {
 }
 
 test.describe('Verkauf (schreibend)', () => {
-  test('Flasche verkaufen und stornieren: Bestand −1, nach dem Storno wieder wie vorher', async ({ page, rolle }) => {
+  test('Flasche verkaufen, bezahlen, Zahlung und Verkauf stornieren: Bestand −1, danach wieder wie vorher', async ({ page, rolle }) => {
     schreibend()
     test.skip(rolle !== 'tenant_admin', 'als Betriebs-Manager')
     const marke = `E2E-Test ${Date.now()}`
@@ -60,6 +60,17 @@ test.describe('Verkauf (schreibend)', () => {
     const detail = page.url()
 
     expect(await bestandLaut(page, fuellungId), 'Bestand nach dem Verkauf').toBe(vorher - 1)
+
+    // Zahlung über den Rechnungsbetrag → „Bezahlt“; Zahlung stornieren → wieder „Offen“
+    await page.goto(detail)
+    const gesamt = (await page.locator('tfoot tr', { hasText: 'Gesamt brutto' }).locator('td').last().innerText()).replace(/[€\s]/g, '')
+    await page.getByLabel('Betrag (€)').fill(gesamt)
+    await page.getByRole('button', { name: /Zahlung buchen/ }).click()
+    await expect(page.getByText('Bezahlt', { exact: true }).first(), `Zahlung über ${gesamt} €`).toBeVisible({ timeout: 20_000 })
+    await page.getByRole('button', { name: 'Zahlung stornieren' }).first().click()
+    await page.getByLabel(/Grund des Stornos/).fill('E2E-Test: Zahlung zurück')
+    await page.getByRole('button', { name: 'Zahlung stornieren' }).last().click()
+    await expect(page.getByText('Offen', { exact: true }).first()).toBeVisible({ timeout: 20_000 })
 
     // Stornieren mit Grund
     await page.goto(detail)

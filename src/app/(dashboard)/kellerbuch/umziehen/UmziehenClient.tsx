@@ -58,7 +58,7 @@ function QuelleZeile({
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 flex-wrap">
-        <select
+        <select aria-label="Quelle (Gebinde · Charge)"
           value={value}
           onChange={e => {
             const charge = quellen.find(q => q.charge_id === e.target.value)
@@ -74,7 +74,7 @@ function QuelleZeile({
             </option>
           ))}
         </select>
-        <input
+        <input aria-label="Menge aus der Quelle (L)"
           type="number"
           inputMode="decimal"
           value={menge}
@@ -133,7 +133,7 @@ function ZielZeile({
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <select
+      <select aria-label="Ziel-Gebinde"
         value={value}
         onChange={e => onChange(e.target.value, menge)}
         required
@@ -149,7 +149,7 @@ function ZielZeile({
           )
         })}
       </select>
-      <input
+      <input aria-label="Menge ins Ziel (L)"
         type="number"
         inputMode="decimal"
         value={menge}
