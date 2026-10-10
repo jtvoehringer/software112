@@ -5,6 +5,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { LESE_ARTEN, LESE_ART_LABEL, leseTitel } from '@/lib/wein/lesen'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { dbFehlerText } from '@/lib/fehler'
+import { jahrgangFilter, sucheSicher } from '@/lib/suche/global'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,8 +23,9 @@ export type SearchResult = {
 export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
-  const q = req.nextUrl.searchParams.get('q')?.trim()
-  if (!q || q.length < 2) {
+  // Zeichen mit Bedeutung im or()-Filter weg – „Müller, Hans“ zerlegte sonst den Filter (400 → 500)
+  const q = sucheSicher(req.nextUrl.searchParams.get('q') ?? '')
+  if (q.length < 2) {
     return NextResponse.json({ results: [] })
   }
 
@@ -172,12 +174,16 @@ export async function GET(req: NextRequest) {
     })
   })
 
-  // ── Jahrgänge (Erntemeldung) ─────────────────────────────────────────────
-  const { data: jahrgaenge, error: jahrgaengeErr } = await (supabase.from('weinjahrgaenge') as any)
-    .select('id, jahrgang, qualitaet_gesamt, abgeschlossen, lesen(lfd_nr, art, bezeichnung)')
-    .or(`jahrgang::text.ilike.%${q}%`)
-    .eq('tenant_id', tenantId)
-    .limit(5)
+  // ── Jahrgänge (Erntemeldung) – nur bei einer Zahl; PostgREST kennt kein jahrgang::text im Filter (400) ──
+  const jgFilter = jahrgangFilter(q)
+  const { data: jahrgaenge, error: jahrgaengeErr } = jgFilter
+    ? await (supabase.from('weinjahrgaenge') as any)
+      .select('id, jahrgang, qualitaet_gesamt, abgeschlossen, lesen(lfd_nr, art, bezeichnung)')
+      .or(jgFilter)
+      .eq('tenant_id', tenantId)
+      .order('jahrgang', { ascending: false })
+      .limit(5)
+    : { data: [], error: null }
   if (jahrgaengeErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(jahrgaengeErr)}` }, { status: 500 })
 
   ;(jahrgaenge as R[] ?? []).forEach((j: R) => {
@@ -221,7 +227,7 @@ export async function GET(req: NextRequest) {
   // ── Kellerbuch (Weinausbau-Chargen) ──────────────────────────────────────
   const { data: chargen, error: chargenErr } = await (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, status')
-    .or(`name.ilike.%${q}%,rebsorte.ilike.%${q}%,jahrgang::text.ilike.%${q}%`)
+    .or([`name.ilike.%${q}%`, `rebsorte.ilike.%${q}%`, jgFilter].filter(Boolean).join(','))
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)

@@ -106,7 +106,12 @@ Ziel und Datenbank stehen fest im Workflow. Als Secrets (Settings → Secrets an
 | `E2E_VERCEL_BYPASS` | Vercel → Projekt software112 → Settings → Deployment Protection → „Protection Bypass for Automation“ (nur nötig, wenn Staging geschützt ist) |
 
 Mandantentrennung: Gegen Staging prüfen die Tests ohne weitere Angabe den Betrieb „E2E Fremdbetrieb (nur Staging)“
-(`44444444-…`, Kontakt, Firma, Tank; `STAGING_FREMDE` in `e2e/umgebung.ts`) – `E2E_FREMDE_IDS` ist nur für andere Ziele nötig.
+(`44444444-…`, aufgebaut mit `e2e/fremdbetrieb.sql` – idempotent, nur Staging, im SQL-Editor ausführen). Die E2E-Benutzer sind
+dort nicht Mitglied. Geprüft werden 22 Detailseiten (Kontakt, Firma, Gebinde, Lage, Ried, Charge, Füllung, Verkauf, Export,
+Kellerplan – `STAGING_FREMDE` in `e2e/umgebung.ts`) sowie Suche, Datenexporte, CSV-Behördenmeldungen und API-Routen mit fremder
+ID: Die Marke „E2E-Fremd“ darf nirgends erscheinen, eine fremde ID ergibt 4xx oder eine Leermeldung, nie 5xx.
+Neuer Datensatz → Zeile in `fremdbetrieb.sql` und ID in `FREMD_ID` (Unit-Test `e2e-zielschutz` gleicht beide ab).
+`E2E_FREMDE_IDS` ist nur für andere Ziele nötig.
  Bei Fehlern wird der Bericht (Screenshots) 7 Tage als Artefakt aufbewahrt;
 Traces sind in CI aus, weil sie Sitzungs-Cookies enthalten.
 
@@ -117,7 +122,11 @@ Traces sind in CI aus, weil sie Sitzungs-Cookies enthalten.
   - `verkauf.spec.ts`: Verkauf anlegen → Bestand −1 → Storno → Bestand wie vorher (schreibend, Notiz „E2E-Test …“)
   - `druck-csv.spec.ts`: Cu-Bilanz, Nährstoffbilanz und Behandlungsprotokoll, Druck = CSV
   - `rollen.spec.ts`: Leser-Schreibaufrufe an fünf API-Routen → 403, Mandantenverwaltung nur für die Plattform; Schreibknöpfe auf Zukauf und Lese im Smoke-Test
-- Offen: Kellerbuch-Ablauf (1), Rechnung/Zahlung im Verkauf (Rest von 2), automatische Mandantentrennung (5), Aufräumen (6)
+- Seit 11.10.2026 außerdem:
+  - `kellerbuch-umzug.spec.ts`: Teilmenge umziehen und stornieren (KAN-321)
+  - `verkauf.spec.ts`: Zahlung und Zahlungsstorno (KAN-321)
+  - `mandantentrennung.spec.ts`: Fremdbetrieb per SQL, 22 Detailseiten, Suche, Exporte, CSV, API (Befund: globale Suche HTTP 500)
+- Offen: Verschnitt und Füllung im Kellerbuch (Rest von 1), Aufräumen (6)
 - Einzelne Dateien per Workflow-Eingabe „auswahl“ starten (z. B. `e2e/verkauf.spec.ts`)
 
 Sobald es eine Test-Umgebung gibt (eigenes Supabase-Projekt oder Supabase-Branch mit
