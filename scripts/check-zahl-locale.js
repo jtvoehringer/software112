@@ -10,6 +10,10 @@
  * Gemeldet: <Ausdruck>.toLocaleString('de-AT'[, Optionen]) – außer der Ausdruck ist new Date(…) oder die Optionen
  * enthalten Datumsfelder (timeZone, dateStyle, month, …) – sowie new Intl.NumberFormat('de-AT').
  * Richtig: fmtZahl/fmtEur/fmtProzent bzw. toLocaleString(ZAHL_LOCALE, …) aus src/lib/format.ts.
+ * Sweep 96 (10.10.2026): Anzeige über x.toFixed(n) liefert einen Dezimalpunkt („0.1234 ha“, „72.5 %“, „1.5 MB“) – in
+ * Erntemeldung, Pressung, Grundstücken, Reports, Kostenrechnung und Nachrichten. Gemeldet in src/app und src/components:
+ * .toFixed(n) mit n ≠ 0, außer direkt gefolgt von .replace('.', ','); als Zahl weiterverwendet meldet es check-runden.
+ * Richtig: fmtNum(x, n) / fmtHa / fmtKoord. Technische Werte (Schlüssel, URL) mit // zahl-locale-ok: <Grund>.
  * Begründete Ausnahme (z. B. ein Date in einer Variablen): // zahl-locale-ok: <Grund, mind. 15 Zeichen> in derselben
  * Zeile oder bis zu vier Zeilen davor.
  *
@@ -62,7 +66,7 @@ function empfaenger(code, idx) {
   return code.slice(i + 1, idx).trim()
 }
 
-function pruefeText(text) {
+function pruefeText(text, opts = {}) {
   const roh = text.split('\n')
   const code = ohneKommentare(text)
   const funde = []
@@ -82,6 +86,16 @@ function pruefeText(text) {
   while ((m = nf.exec(code))) {
     const auf = m.index + m[0].length - 1
     if (DE_AT.test(text.slice(auf + 1, auf + 12))) melde(m.index, "Intl.NumberFormat('de-AT') gruppiert mit Leerzeichen – ZAHL_LOCALE aus src/lib/format.ts verwenden")
+  }
+  if (opts.anzeige) {
+    const tf = /\.toFixed\(/g
+    while ((m = tf.exec(code))) {
+      const auf = m.index + m[0].length - 1
+      const [args, nach] = argumente(code, auf)
+      if (/^\s*0\s*$/.test(args)) continue
+      if (/^\s*\.replace\(\s*['"]\.['"]\s*,\s*['"],['"]\s*\)/.test(text.slice(nach, nach + 30))) continue
+      melde(m.index, 'Anzeige über toFixed() zeigt einen Dezimalpunkt („0.1234 ha“) – fmtNum(x, n) / fmtHa aus src/lib/format.ts verwenden')
+    }
   }
   return { funde, ausnahmen }
 
@@ -112,9 +126,9 @@ function pruefeWurzel(root) {
   let anzahl = 0, ausnahmen = 0
   for (const f of dateien(path.join(root, 'src'))) {
     anzahl++
-    const e = pruefeText(fs.readFileSync(f, 'utf8'))
-    ausnahmen += e.ausnahmen
     const r = path.relative(root, f).split(path.sep).join('/')
+    const e = pruefeText(fs.readFileSync(f, 'utf8'), { anzeige: /^src\/(app|components)\//.test(r) })
+    ausnahmen += e.ausnahmen
     for (const x of e.funde) funde.push(`${r}:${x.zeile}  ${x.text}`)
   }
   return { funde, dateien: anzahl, ausnahmen }
@@ -126,11 +140,11 @@ if (require.main === module) {
   const ROOT = process.env.S112_GUARD_ROOT ? path.resolve(process.env.S112_GUARD_ROOT) : path.resolve(__dirname, '..')
   const e = pruefeWurzel(ROOT)
   if (e.funde.length) {
-    console.error(`\n✖ check-zahl-locale: ${e.funde.length} Fund(e) – Zahlen mit 'de-AT' formatiert:\n`)
+    console.error(`\n✖ check-zahl-locale: ${e.funde.length} Fund(e) – Zahlenanzeige ohne Tausenderpunkt bzw. Dezimalkomma:\n`)
     for (const x of e.funde) console.error('  ' + x)
-    console.error("\nZAHL_LOCALE ('de-DE', Tausenderpunkt) bzw. fmtZahl/fmtEur/fmtProzent aus src/lib/format.ts verwenden – oder begründen:")
+    console.error("\nZAHL_LOCALE ('de-DE', Tausenderpunkt) bzw. fmtNum/fmtZahl/fmtEur/fmtHa aus src/lib/format.ts verwenden – oder begründen:")
     console.error('  // zahl-locale-ok: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)\n')
     process.exit(1)
   }
-  console.log(`✓ check-zahl-locale: ${e.dateien} Dateien, keine Zahl mit 'de-AT' formatiert (Tausenderpunkt über ZAHL_LOCALE), ${e.ausnahmen} begründete Ausnahme(n).`)
+  console.log(`✓ check-zahl-locale: ${e.dateien} Dateien, keine Zahl mit 'de-AT' formatiert und keine Anzeige über toFixed() mit Dezimalpunkt, ${e.ausnahmen} begründete Ausnahme(n).`)
 }

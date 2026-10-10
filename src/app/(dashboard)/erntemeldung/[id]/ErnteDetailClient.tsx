@@ -373,7 +373,7 @@ function NeueParzellenForm({
                                   GST {g.gst_nr}
                                 </span>
                                 {g.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(g.rebsorte)}</span>}
-                                <span className="text-s112-muted ml-auto">{g.flaeche_ha ? `${g.flaeche_ha.toFixed(4)} ha` : 'ohne Fläche'}</span>
+                                <span className="text-s112-muted ml-auto">{g.flaeche_ha ? `${fmtHa(g.flaeche_ha)} ha` : 'ohne Fläche'}</span>
                               </label>
                             )
                           })}
@@ -623,7 +623,7 @@ function ParzellForm({
               <option value="">– kein GST –</option>
               {verfuegbareGSTs.map(g => (
                 <option key={g.id} value={g.id}>
-                  {g.gst_nr}{g.rebsorte ? ' · ' + formatRebsorteMitKuerzel(g.rebsorte) : ''}{g.flaeche_ha ? ' · ' + g.flaeche_ha.toFixed(4) + ' ha' : ''}
+                  {g.gst_nr}{g.rebsorte ? ' · ' + formatRebsorteMitKuerzel(g.rebsorte) : ''}{g.flaeche_ha ? ' · ' + fmtHa(g.flaeche_ha) + ' ha' : ''}
                 </option>
               ))}
             </select>

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from '@/components/ui/Link'
-import { fmtEur } from '@/lib/format'
+import { fmtEur, fmtNum } from '@/lib/format'
 import { exportCSV as csvExportieren } from '@/lib/utils/csv'
 import { csvDateiname, runden } from '@/lib/csv'
 
@@ -177,7 +177,7 @@ export default function KostenAuswertungPage() {
                   <div className="w-full bg-s112-teal rounded-sm transition-all" style={{height:`${pct}%`}} title={eur(sum)} />
                 </div>
                 <span className="text-[11px] text-s112-muted">{monate[i]}</span>
-                {sum > 0 && <span className="text-[11px] font-medium text-s112-text-1">{sum >= 1000 ? `${(sum/1000).toFixed(1)}k` : Math.round(sum)}</span>}
+                {sum > 0 && <span className="text-[11px] font-medium text-s112-text-1">{sum >= 1000 ? `${fmtNum(sum / 1000, 1)}k` : Math.round(sum)}</span>}
               </div>
             )
           })}
