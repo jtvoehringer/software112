@@ -187,18 +187,52 @@ export type FremderDatensatz = {
   rollen?: Rolle[]
 }
 
-/** Datensätze des Betriebs „E2E Fremdbetrieb (nur Staging)“ (44444444-…), angelegt am 10.10.2026 nur auf Staging,
- *  ohne Benutzer – kein Geheimnis, deshalb hier statt in E2E_FREMDE_IDS */
+/** Betrieb „E2E Fremdbetrieb (nur Staging)“ – Aufbau in e2e/fremdbetrieb.sql (idempotent, nur Staging) */
+export const FREMD_TENANT = '44444444-4444-4444-8444-444444444444'
+/** Gemeinsamer Anfang aller Namen im Fremdbetrieb – darf nirgends erscheinen (Seiten, Suche, Exporte, API) */
+export const FREMD_MARKE = 'E2E-Fremd'
+/** IDs der Datensätze aus e2e/fremdbetrieb.sql */
+export const FREMD_ID = {
+  kontakt: '44444444-4444-4444-8444-000000000001',
+  firma: '44444444-4444-4444-8444-000000000002',
+  behaelter: '44444444-4444-4444-8444-000000000003',
+  lage: '44444444-4444-4444-8444-000000000004',
+  ried: '44444444-4444-4444-8444-000000000005',
+  grundstueck: '44444444-4444-4444-8444-000000000006',
+  charge: '44444444-4444-4444-8444-000000000007',
+  fuellung: '44444444-4444-4444-8444-000000000008',
+  verkauf: '44444444-4444-4444-8444-000000000009',
+  export: '44444444-4444-4444-8444-00000000000a',
+  kellerplan: '44444444-4444-4444-8444-00000000000b',
+} as const
+
+/** Detailseiten mit Datensätzen des Fremdbetriebs (seit 10.10.2026, ausgebaut am 11.10.2026) – ohne Benutzer,
+ *  kein Geheimnis, deshalb hier statt in E2E_FREMDE_IDS */
 export const STAGING_FREMDE: FremderDatensatz[] = [
-  { pfad: '/crm/kontakte/44444444-4444-4444-8444-000000000001', text: 'E2E-Fremdkontakt' },
-  { pfad: '/crm/firmen/44444444-4444-4444-8444-000000000002', text: 'E2E-Fremdfirma' },
-  { pfad: '/kellerbuch/behaelter/44444444-4444-4444-8444-000000000003/bewegungen', text: 'E2E-Fremdtank' },
+  { pfad: `/crm/kontakte/${FREMD_ID.kontakt}`, text: 'E2E-Fremdkontakt' },
+  { pfad: `/crm/firmen/${FREMD_ID.firma}`, text: 'E2E-Fremdfirma' },
+  ...['', '/bewegungen', '/umzuege', '/behandlungen'].map(s => ({ pfad: `/kellerbuch/behaelter/${FREMD_ID.behaelter}${s}`, text: FREMD_MARKE })),
+  { pfad: `/lagen/${FREMD_ID.lage}`, text: FREMD_MARKE },
+  { pfad: `/weingarten/${FREMD_ID.ried}`, text: FREMD_MARKE },
+  ...['', '/buch', '/analysen', '/verarbeiten', '/abstufen', '/zugang', '/blend-protokoll'].map(s => ({ pfad: `/kellerbuch/weinausbau/${FREMD_ID.charge}${s}`, text: FREMD_MARKE })),
+  { pfad: `/weinhandel/fuellungen/${FREMD_ID.fuellung}/edit`, text: FREMD_MARKE },
+  { pfad: `/weinhandel/fuellungen/${FREMD_ID.fuellung}/elabel`, text: FREMD_MARKE },
+  { pfad: `/kellerbuch/fuellung/${FREMD_ID.fuellung}/blend-protokoll`, text: FREMD_MARKE },
+  { pfad: `/weinhandel/verkauf/${FREMD_ID.verkauf}`, text: FREMD_MARKE },
+  { pfad: `/weinhandel/verkauf/${FREMD_ID.verkauf}/transportbescheinigung`, text: FREMD_MARKE },
+  { pfad: `/weinexport/${FREMD_ID.export}`, text: FREMD_MARKE },
+  { pfad: `/kellerbuch/kellerplan/${FREMD_ID.kellerplan}`, text: FREMD_MARKE },
 ]
+
+/** true, wenn gegen Staging getestet wird (dort gibt es den Fremdbetrieb aus e2e/fremdbetrieb.sql) */
+export function gegenStaging(): boolean {
+  return (supabaseUrl() ?? '').includes(STAGING_SUPABASE_REF)
+}
 
 /** E2E_FREMDE_IDS: JSON-Array aus Pfaden oder Objekten { pfad, text?, rollen? }; ohne Angabe gegen Staging STAGING_FREMDE */
 export function fremdeDatensaetze(): FremderDatensatz[] {
   const v = env('E2E_FREMDE_IDS')
-  if (!v) return (supabaseUrl() ?? '').includes(STAGING_SUPABASE_REF) ? STAGING_FREMDE : []
+  if (!v) return gegenStaging() ? STAGING_FREMDE : []
   let roh: unknown
   try {
     roh = JSON.parse(v)
