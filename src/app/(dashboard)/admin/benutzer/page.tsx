@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import type { Metadata } from 'next'
 import { getCurrentUserRole, getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
@@ -40,7 +41,7 @@ export default async function SystemAdminPage() {
   }
 
   // Alle system_admin Memberships laden
-  const [{ data: memberships }, { data: tenants }, { data: { users } }] = await Promise.all([
+  const [membershipsRes, tenantsRes, { data: { users } }] = await Promise.all([
     (admin.from('tenant_memberships') as any)
       .select('id, user_id, tenant_id, created_at')
       .eq('role', 'system_admin')
@@ -48,6 +49,8 @@ export default async function SystemAdminPage() {
     (admin.from('tenants') as any).select('id, name'),
     admin.auth.admin.listUsers({ perPage: 1000 }),
   ])
+  const memberships = geladen(membershipsRes, 'Mitglieder')
+  const tenants = geladen(tenantsRes, 'Betrieb')
 
   const tenantMap: Record<string, string> = {}
   for (const t of (tenants ?? []) as R[]) tenantMap[t.id] = t.name

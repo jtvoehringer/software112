@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 
@@ -49,7 +50,7 @@ export default async function WeingartenEditPage({ params }: Props) {
     .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon, geometrie, geo_quelle, geo_stand')
     .eq('id', id)
   if (membership) weingartenQuery = weingartenQuery.eq('tenant_id', membership.tenantId)
-  const { data: rows } = await weingartenQuery.limit(1)
+  const rows = geladen(await weingartenQuery.limit(1), 'Ried')
   const weingarten = ((rows as WeingartenRow[] | null)?.[0]) ?? null
   if (!weingarten) notFound()
 
@@ -59,7 +60,7 @@ export default async function WeingartenEditPage({ params }: Props) {
     .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, nutzart, notizen, lse_stueckzahl, geometrie, aktiv, deaktiviert_am')
     .eq('weingarten_id', id)
   if (membership) grundstueckeQuery = grundstueckeQuery.eq('tenant_id', membership.tenantId)
-  const { data: rawG } = await grundstueckeQuery.order('gst_nr')
+  const rawG = geladen(await grundstueckeQuery.order('gst_nr'), 'Grundstücke')
   const grundstuecke = (rawG ?? []) as GST[]
 
   // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)

@@ -137,6 +137,19 @@ function pruefeText(text, { route = false } = {}) {
       k = nach - 1
     }
   }
+
+  // 3) Sweep 89 (KAN-281): geladen(…) mitten in der Abfragekette – `geladen(await q.from('t'), 'T')\n  .select(…)` führt
+  //    die Abfrage ohne Filter aus und hängt .select() an das Ergebnis (any: Typprüfung schweigt, zur Laufzeit Absturz)
+  const reG = /\bgeladen\(/g
+  while ((m = reG.exec(code))) {
+    let tiefe = 0, j = m.index + m[0].length - 1
+    for (; j < code.length; j++) {
+      if (code[j] === '(') tiefe++
+      else if (code[j] === ')') { tiefe--; if (tiefe === 0) break }
+    }
+    const danach = /^\s*\.\s*(select|eq|neq|in|is|not|or|order|limit|range|gte|lte|gt|lt|like|ilike|match|filter|contains|maybeSingle|single)\s*\(/.exec(code.slice(j + 1))
+    if (danach) funde.push({ zeile: zeileVon(m.index), text: `geladen(…) mitten in der Abfragekette – .${danach[1]}(…) hängt am Ergebnis statt an der Abfrage` })
+  }
   return { funde, ausnahmen, geprueft }
 }
 

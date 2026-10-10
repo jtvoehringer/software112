@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { hatModul } from '@/lib/auth/modul'
@@ -22,7 +23,7 @@ export default async function BmdPage() {
   const tenantId = membership.tenantId
   const supabase = await createSupabaseServerClient()
 
-  const [{ data: overrides }, { data: protokoll }, { data: kategorien }, { count: offeneRechnungen }] = await Promise.all([
+  const [overridesRes, protokollRes, kategorienRes, { count: offeneRechnungen }] = await Promise.all([
     (supabase.from('buchhaltung_kontenmapping') as any).select('schluessel, wert').eq('tenant_id', tenantId),
     (supabase.from('buchhaltung_export_protokoll') as any)
       .select('id, art, zeitraum_von, zeitraum_bis, anzahl, summe_brutto, dateiname, nur_neue, erstellt_am')
@@ -35,6 +36,9 @@ export default async function BmdPage() {
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null),
   ])
+  const overrides = geladen(overridesRes, 'Kontenzuordnung')
+  const protokoll = geladen(protokollRes, 'BMD-Übergaben')
+  const kategorien = geladen(kategorienRes, 'Kategorien')
 
   // KAN-5: im Nur-Lesen-Modus wird exportiert, aber nichts protokolliert/markiert (api/export/bmd)
   const nurLesen = (await schreibSperre(membership)) !== null

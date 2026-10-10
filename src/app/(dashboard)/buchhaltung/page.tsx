@@ -1,5 +1,6 @@
 // behoerdenmeldung: ea-journal
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -45,8 +46,8 @@ export default async function BuchhaltungPage({
   const tenantId = membership.tenantId
 
   // Modul-Check
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
   const sp       = await searchParams
@@ -59,7 +60,7 @@ export default async function BuchhaltungPage({
   const { zeilen } = await ladeEaJournal(supabase, tenantId, { jahr, typ: typFilter || null, q: q || null })
   const buchungen = [...zeilen].reverse()
   // Anlagenverzeichnis (Migration 200): welche Anschaffungsbuchungen sind schon eine Anlage?
-  const { data: anlagenRaw } = await (supabase.from('ea_anlagen') as any).select('id, transaktion_id').eq('tenant_id', tenantId).not('transaktion_id', 'is', null)
+  const anlagenRaw = geladen(await (supabase.from('ea_anlagen') as any).select('id, transaktion_id').eq('tenant_id', tenantId).not('transaktion_id', 'is', null), 'Anlagen')
   const anlageZuBuchung = new Map<string, string>(((anlagenRaw ?? []) as R[]).map(a => [a.transaktion_id as string, a.id as string]))
 
   // Summen aus den (gerundeten) Zeilenwerten – wie in der CSV

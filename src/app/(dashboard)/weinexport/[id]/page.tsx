@@ -1,5 +1,6 @@
 // behoerdenmeldung: exportauftrag
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import StornoKarte from '@/components/StornoKarte'
@@ -22,8 +23,8 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
   // Betriebs angezeigt werden.
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_export').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_export || !tenantId) redirect('/dashboard')
 
   const { id } = await params

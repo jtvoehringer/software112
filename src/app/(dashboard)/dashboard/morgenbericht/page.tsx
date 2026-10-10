@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { canWrite } from '@/lib/auth/roles'
@@ -28,11 +29,12 @@ export default async function MorgenberichtPage() {
   const ctx = await getCtx()
   if (!ctx.tenantId) redirect('/login')
   const einst = await ladeEinstellungen(ctx)
-  const [bericht, { data: tenant }] = await Promise.all([
+  const [bericht, tenantRes] = await Promise.all([
     ladeMorgenbericht(ctx.supabase, ctx.tenantId),
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
     ctx.q('tenants').select('stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
   ])
+  const tenant = geladen(tenantRes, 'Betrieb')
   const darfSchreiben = canWrite(ctx.role, 'betrieb')
   const we = wetterErlaubt(einst, (tenant as { stripe_plan?: string | null } | null)?.stripe_plan)
   const gruppen: { stufe: Befund['stufe']; titel: string }[] = [{ stufe: 'hoch', titel: 'Dringend' }, { stufe: 'mittel', titel: 'Zu erledigen' }, { stufe: 'info', titel: 'Hinweise' }]

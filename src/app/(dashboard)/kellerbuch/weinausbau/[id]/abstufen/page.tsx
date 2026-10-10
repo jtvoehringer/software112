@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -28,7 +29,7 @@ export default async function AbstufenPage({ params }: { params: Promise<{ id: s
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: waRaw }, { data: umstRaw }, { data: belegtRaw }, behaelter] = await Promise.all([
+  const [waRawRes, umstRawRes, belegtRawRes, behaelter] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, behaelter_id, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, aktiv, storniert_am')
@@ -42,6 +43,9 @@ export default async function AbstufenPage({ params }: { params: Promise<{ id: s
     alle(tf((supabase.from('weinausbau') as any).select('behaelter_id').eq('aktiv', true).is('storniert_am', null).not('behaelter_id', 'is', null).order('id'))),
     ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
   ])
+  const waRaw = geladen(waRawRes, 'Chargen')
+  const umstRaw = geladen(umstRawRes, 'Abstufungen')
+  const belegtRaw = geladen(belegtRawRes, 'Chargen')
   if (!waRaw) notFound()
   const wa = waRaw as R
   const alt = { ...normalisiereQualitaet(wa), herkunft: (wa.herkunft_code as string | null) ?? null }

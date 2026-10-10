@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -65,7 +66,7 @@ export default async function BehandlungenPage() {
 
   // Behandlungen + PSM; die Rieden kommen aus den Grundstücken der Maßnahme (eingebettet über die mandantengefilterte
   // Maßnahme – eine eigene Abfrage auf behandlung_grundstuecke war ungefiltert und bei vielen GST auf 1.000 Zeilen gekappt)
-  const [{ data: rawB }, { data: rawKosten }, { data: rawEinst }] = await Promise.all([
+  const [rawBRes, rawKostenRes, rawEinstRes] = await Promise.all([
     // storno-sichtbar: die Liste zeigt stornierte Maßnahmen gekennzeichnet (Endgültig löschen), sie zählen nirgends (KAN-88)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('behandlungen') as any)
@@ -89,6 +90,9 @@ export default async function BehandlungenPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('tenant_einstellungen') as any).select('psm_erfassungsfrist_h')).maybeSingle(),
   ])
+  const rawB = geladen(rawBRes, 'Maßnahmen')
+  const rawKosten = geladen(rawKostenRes, 'Kosteneinträge')
+  const rawEinst = geladen(rawEinstRes, 'Einstellungen')
   const psmFristH = fristAus((rawEinst as AR | null)?.psm_erfassungsfrist_h)
 
   const kostenByBeh = new Map<string, number>()

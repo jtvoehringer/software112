@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { Wine, Package, ReceiptText, ListChecks, ShoppingCart, Calendar, Wallet, FlaskConical, Grape } from 'lucide-react'
 import { DashHeader, Tile, Card, Badge, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from './_shared/ui'
@@ -25,20 +26,21 @@ export default async function UebersichtPage() {
   const einst = await ladeEinstellungen(ctx)
   const jahr = ctx.heute.getFullYear()
 
-  const [keller, flaschen, offen, fristen, aufgabenTermine, weingarten, { data: profil }, { count: checklistOffen }, finanzen, morgenbericht] = await Promise.all([
+  const [keller, flaschen, offen, fristen, aufgabenTermine, weingarten, profilRes, { count: checklistOffen }, finanzen, morgenbericht] = await Promise.all([
     ladeKeller(ctx, einst.messintervallTage),
     ladeFlaschenlager(ctx),
     ladeOffenePosten(ctx),
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     ladeAufgabenTermine(ctx),
     ladeWeingarten(ctx),
-    ctx.userId ? ctx.q('profiles').select('full_name').eq('id', ctx.userId).maybeSingle() : Promise.resolve({ data: null }),
+    ctx.userId ? ctx.q('profiles').select('full_name').eq('id', ctx.userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ctx.tf(ctx.q('checklisten_punkte').select('id, checkliste:checkliste_id!inner(jahr, typ)', { count: 'exact', head: true }).eq('erledigt', false).eq('checkliste.jahr', jahr)),
     // Finanzübersicht-Kachel (Rückmeldung 8.9.2026): "wo stehe ich" auf einen Klick
     einst.modulEa ? ladeFinanzen(ctx, { art: einst.doppik ? 'doppik' : 'ea', uvaZeitraum: einst.uvaZeitraum }) : Promise.resolve(null),
     // Morgenbericht (Migration 201): jüngster gespeicherter Bericht
     ctx.tenantId ? ladeMorgenbericht(ctx.supabase, ctx.tenantId) : Promise.resolve(null),
   ])
+  const profil = geladen(profilRes, 'Benutzer')
 
   const vorname = ((profil as R | null)?.full_name ?? '').split(/\s+/)[0] || null
   const stunde = ctx.heute.getHours()

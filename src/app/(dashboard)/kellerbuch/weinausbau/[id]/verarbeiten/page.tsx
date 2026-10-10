@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -26,7 +27,7 @@ export default async function VerarbeitenPage({ params }: { params: Promise<{ id
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: waRaw }, { data: vRaw }, { data: prRaw }] = await Promise.all([
+  const [waRawRes, vRawRes, prRawRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinausbau') as any)
       .select('id, name, menge_liter, aktiv, storniert_am').eq('id', id).maybeSingle()),
@@ -41,6 +42,9 @@ export default async function VerarbeitenPage({ params }: { params: Promise<{ id
     tf((supabase.from('sonstige_artikel') as any)
       .select('id, name, einheit, art, liter_je_stk').eq('aktiv', true).eq('bestand_fuehren', true).order('name')),
   ])
+  const waRaw = geladen(waRawRes, 'Chargen')
+  const vRaw = geladen(vRawRes, 'Verarbeitungen')
+  const prRaw = geladen(prRawRes, 'Produkte')
   if (!waRaw) notFound()
   const wa = waRaw as R
   const bestand = Number(wa.menge_liter) || 0

@@ -1,5 +1,6 @@
 // behoerdenmeldung: transportbescheinigung
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import StornoKarte from '@/components/StornoKarte'
 import { stornoTB, loescheTB } from './actions'
@@ -28,11 +29,11 @@ export default async function TransportbescheinigungPage({ params }: { params: P
 
   // KAN-150 F2: stornierte Fassungen (gekennzeichnet, endgültig löschbar) – die gültige lädt die Ladefunktion
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: stornRaw } = await (supabase.from('transportbescheinigungen') as any)
+  const stornRaw = geladen(await (supabase.from('transportbescheinigungen') as any)
     // storno-sichtbar: nur die stornierten Fassungen für den Vermerk und „Endgültig löschen“
     .select('id, storniert_am, storniert_von_name, storno_grund')
     .eq('tenant_id', tenantId).eq('verkaufsposten_id', id).not('storniert_am', 'is', null)
-    .order('storniert_am', { ascending: false })
+    .order('storniert_am', { ascending: false }), 'Transportbescheinigungen')
   const stornierte = (stornRaw ?? []) as { id: string; storniert_am: string; storniert_von_name: string | null; storno_grund: string | null }[]
   const schreiben = !!membership && canWrite(membership, 'warenwirtschaft')
 

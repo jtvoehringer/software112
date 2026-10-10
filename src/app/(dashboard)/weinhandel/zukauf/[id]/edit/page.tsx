@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import ZukaufEditForm from './ZukaufEditForm'
@@ -19,7 +20,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
   const tenantId = membership?.tenantId
   if (!tenantId) notFound()
 
-  const { data } = await (supabase.from('zukauf_posten') as any)
+  const data = geladen(await (supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, art, menge, einheit, preis_gesamt, einstandspreis_pro_liter,
       rebsorte, jahrgang, notizen, weinart, eingangsrechnungsnummer,
@@ -33,7 +34,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
-    .single()
+    .maybeSingle(), 'Zukäufe')
 
   if (!data) notFound()
   const z = data as R
@@ -63,8 +64,8 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
   // KAN-41 Paket 2b: Weinlager-Artikel des Flaschenzukaufs (je Zukauf höchstens einer)
   let flaschenArtikel: { id: string; name: string; bestand: number } | null = null
   if (z.art === 'flaschen') {
-    const { data: fl } = await (supabase.from('fuellungen') as R)
-      .select('id, name, bestand_flaschen').eq('tenant_id', tenantId).eq('zukauf_posten_id', z.id).maybeSingle()
+    const fl = geladen(await (supabase.from('fuellungen') as R)
+      .select('id, name, bestand_flaschen').eq('tenant_id', tenantId).eq('zukauf_posten_id', z.id).maybeSingle(), 'Füllungen')
     if (fl) flaschenArtikel = { id: String((fl as R).id), name: String((fl as R).name ?? ''), bestand: Number((fl as R).bestand_flaschen) || 0 }
   }
 

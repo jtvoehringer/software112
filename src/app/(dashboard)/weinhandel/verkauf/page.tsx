@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -32,14 +33,14 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
     let tq = (supabase.from('transportbescheinigungen') as any)
       .select('verkaufsposten_id').eq('tenant_id', tenantId).is('storniert_am', null).ilike('tbs_nummer', tbsQ.nummer)
     if (tbsQ.jahr !== null) tq = tq.eq('tbs_jahr', tbsQ.jahr)
-    const { data: tr } = await tq.limit(100)   // alle-ausnahme: Treffer einer Nummernsuche, je Jahr eindeutig
+    const tr = geladen(await tq.limit(100), 'Daten')   // alle-ausnahme: Treffer einer Nummernsuche, je Jahr eindeutig
     tbsTreffer = ((tr ?? []) as R[]).map(t => String(t.verkaufsposten_id)).filter(id => /^[0-9a-f-]{36}$/.test(id))
   }
 
   // Verkaufsposten mit Positionen + Kundendaten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
-  const { data: postenRaw } = await tf(
+  const postenRaw = geladen(await tf(
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, lieferscheinnummer, transaktions_nr, notizen, erstellt_am, storniert, bezahlt,
@@ -52,17 +53,17 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
     .or(q ? [`rechnungsnummer.ilike.*${qSicher}*`, `lieferscheinnummer.ilike.*${qSicher}*`, `transaktions_nr.ilike.*${qSicher}*`, ...(tbsTreffer.length ? [`id.in.(${tbsTreffer.join(',')})`] : [])].join(',') : 'id.not.is.null')
     .order('datum', { ascending: false })
     .order('erstellt_am', { ascending: false })
-    .limit(100)
+    .limit(100), 'Verkäufe')
 
   const posten = (postenRaw ?? []) as R[]
 
   // KAN-90: TBS-Nr. der (nicht stornierten) Transportbescheinigung je Verkauf
   const tbsJePosten = new Map<string, string>()
   if (tenantId && posten.length > 0) {
-    const { data: tbs } = await inBloecken<R>(posten.map(p => String(p.id)), b =>
+    const tbs = geladen(await inBloecken<R>(posten.map(p => String(p.id)), b =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('transportbescheinigungen') as any)
-        .select('verkaufsposten_id, tbs_nummer, tbs_jahr').eq('tenant_id', tenantId).is('storniert_am', null).in('verkaufsposten_id', b))
+        .select('verkaufsposten_id, tbs_nummer, tbs_jahr').eq('tenant_id', tenantId).is('storniert_am', null).in('verkaufsposten_id', b)), 'Transportbescheinigungen')
     for (const t of tbs) {
       const txt = tbsText(t.tbs_nummer, t.tbs_jahr)
       if (txt) tbsJePosten.set(String(t.verkaufsposten_id), txt)

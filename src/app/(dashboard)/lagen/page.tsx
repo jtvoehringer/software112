@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -25,18 +26,18 @@ export default async function LagenPage() {
   const adminOk = canAdmin(role)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawL } = await (supabase.from('lagen') as any)
+  const rawL = geladen(await (supabase.from('lagen') as any)
     .select('id, name, gemeinde, weinbaugebiet, notizen')
     .eq('tenant_id', membership?.tenantId ?? '')
-    .order('name')
+    .order('name'), 'Lagen')
   const lagenRoh = (rawL ?? []) as Omit<Lage, 'gebieteAbgeleitet'>[]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawW } = await (supabase.from('weingarten') as any)
+  const rawW = geladen(await (supabase.from('weingarten') as any)
     .select('id, name, lage_id, rebsorte, flaeche_ha, trauben_herkunft_code, grundstuecke(trauben_herkunft_code)')
     .eq('tenant_id', membership?.tenantId ?? '')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'), 'Rieden')
   const weingaerten = (rawW ?? []) as (WeingartenRow & { trauben_herkunft_code: string | null; grundstuecke: { trauben_herkunft_code: string | null }[] | null })[]
   // KAN-165: Gebiete je Lage aus den Codes der Grundstücke ihrer Rieden (Ried-Code, wenn das Grundstück keinen hat)
   const gebieteJeLage = new Map<string, Set<string>>()

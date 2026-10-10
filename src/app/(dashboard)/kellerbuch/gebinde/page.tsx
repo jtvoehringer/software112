@@ -1,5 +1,6 @@
 // behoerdenmeldung: gebindeverzeichnis, aenderungsprotokoll
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
@@ -61,8 +62,8 @@ export default async function GebindePage({
   const [
     verzeichnis,
     gemeinschaft,
-    { data: eroeffnungRaw },
-    { data: umzuegeRaw },
+    eroeffnungRawRes,
+    umzuegeRawRes,
   ] = await Promise.all([
     // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203) samt fremder
     // Belegung und den aktiven eigenen Chargen – dieselbe Ladefunktion wie die CSV
@@ -81,6 +82,8 @@ export default async function GebindePage({
       .order('datum', { ascending: false })
       .limit(200)),
   ])
+  const eroeffnungRaw = geladen(eroeffnungRawRes, 'Chargen')
+  const umzuegeRaw = geladen(umzuegeRawRes, 'Umzüge')
 
   const gebinde      = verzeichnis.eintraege.map(e => e.gebinde)
   const istEigentuemer = gemeinschaft.alsEigentuemer.length > 0

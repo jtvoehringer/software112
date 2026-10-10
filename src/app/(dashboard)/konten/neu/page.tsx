@@ -1,4 +1,5 @@
 import { zielNachAbschluss } from '@/lib/navigation/zurueck'
+import { geladen } from '@/lib/supabase/geladen'
 import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { redirect } from 'next/navigation'
 import Link from '@/components/ui/Link'
@@ -21,8 +22,8 @@ export default async function KontoNeuPage() {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) redirect('/login')
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', membership.tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', membership.tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
   if (!canAdmin(membership.role)) redirect('/konten')
 

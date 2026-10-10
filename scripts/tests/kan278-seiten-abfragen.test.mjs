@@ -77,7 +77,9 @@ describe('check-einzelabfrage: Seiten mit Ausgangswert', () => {
     assert.ok(existsSync(path.join(ROOT, 'scripts', 'einzelabfrage-baseline.json')))
     const e = pruefeWurzel(ROOT)
     assert.deepEqual(e.funde, [])
-    assert.ok(e.altfaelle > 0 && e.altfaelle <= 311, `${e.altfaelle} Altfälle`)
+    // Sweep 89 (KAN-281): alle Altfälle abgebaut – jede Seite wertet ihre Abfragen aus
+    assert.equal(e.altfaelle, 0, `${e.altfaelle} Altfälle`)
+    assert.deepEqual(e.seiten, {})
   })
 })
 

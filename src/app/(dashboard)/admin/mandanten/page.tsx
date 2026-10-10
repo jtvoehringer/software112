@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
@@ -64,10 +65,10 @@ export default async function MandantenPage() {
     // von jg@weingut-gebeshuber.at) - "sonst NIE" (Rückmeldung 19.8.2026).
     eigeneTenantIds = [sandboxTenantId as string]
   } else {
-    const { data: eigeneMemberships } = await (supabase.from('tenant_memberships') as any)
+    const eigeneMemberships = geladen(await (supabase.from('tenant_memberships') as any)
       .select('tenant_id')
       .eq('user_id', user.id)
-      .eq('aktiv', true)
+      .eq('aktiv', true), 'Mitglieder')
     eigeneTenantIds = ((eigeneMemberships ?? []) as R[]).map(m => m.tenant_id)
   }
 
@@ -85,10 +86,12 @@ export default async function MandantenPage() {
     )
   }
 
-  const [{ data: tenants }, { data: memberships }] = await Promise.all([
+  const [tenantsRes, membershipsRes] = await Promise.all([
     (supabase.from('tenants') as any).select('id, name, created_at, kundennummer').in('id', eigeneTenantIds).order('created_at'),
     (supabase.from('tenant_memberships') as any).select('tenant_id').in('tenant_id', eigeneTenantIds),
   ])
+  const tenants = geladen(tenantsRes, 'Betrieb')
+  const memberships = geladen(membershipsRes, 'Mitglieder')
 
   // tenant_einstellungen existiert erst nach Migration 021 → graceful fallback
   let einstellungen: R[] = []
@@ -98,9 +101,9 @@ export default async function MandantenPage() {
     // eingeschränkt. Diese Übersichtsseite zeigt absichtlich ALLE vom Nutzer verwalteten
     // Betriebe gleichzeitig (nicht nur den aktiven) - genau ihr Zweck.
     // tenant-isolation-ignore: mandantenübergreifende Verwaltungsübersicht, siehe Kommentar oben
-    const { data } = await (supabase.from('tenant_einstellungen') as any)
+    const data = geladen(await (supabase.from('tenant_einstellungen') as any)
       .select('tenant_id, anzeigename, logo_url, primary_color, secondary_color, modul_newsletter')
-      .in('tenant_id', eigeneTenantIds)
+      .in('tenant_id', eigeneTenantIds), 'Einstellungen')
     einstellungen = (data ?? []) as R[]
   } catch {
     // Tabelle noch nicht migriert – Branding-Felder bleiben leer

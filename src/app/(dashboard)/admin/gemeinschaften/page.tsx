@@ -6,6 +6,7 @@
 // Nur Plattform-Admin; Datenbasis sind die Mandanten mit aktiver Mitgliedschaft des Admins (wie unter Administration >
 // Mandanten).
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
@@ -43,22 +44,24 @@ export default async function GemeinschaftenPage({ searchParams }: { searchParam
   const art: GemeinschaftArt = (await searchParams).art === 'crm' ? 'crm' : 'keller'
 
   const admin = createSupabaseAdminClient()
-  const { data: memberships } = await (admin.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).eq('aktiv', true)
+  const memberships = geladen(await (admin.from('tenant_memberships') as any)
+    .select('tenant_id').eq('user_id', user.id).eq('aktiv', true), 'Mitglieder')
   const tenantIds = ((memberships ?? []) as R[]).map(m => m.tenant_id as string)
 
   // tenant-isolation-ignore: mandantenübergreifende Verwaltungsseite (system_admin), auf eigene Mitgliedschaften eingeschränkt
-  const [{ data: tenants }, { data: freigaben }] = await Promise.all([
+  const [tenantsRes, freigabenRes] = await Promise.all([
     (admin.from('tenants') as any).select('id, name').in('id', tenantIds).order('name'),
     // tenant-isolation-ignore: mandantenübergreifende Verwaltungstabelle (system_admin)
     (admin.from(art === 'crm' ? 'crm_freigaben' : 'keller_freigaben') as any).select('id, eigentuemer_tenant_id, nutzer_tenant_id, aktiv, notizen, erstellt_am').in('eigentuemer_tenant_id', tenantIds).order('erstellt_am'),
   ])
+  const tenants = geladen(tenantsRes, 'Betrieb')
+  const freigaben = geladen(freigabenRes, 'Daten')
   const nameMap = new Map<string, string>(((tenants ?? []) as R[]).map(t => [t.id, t.name]))
 
   const zaehler = new Map<string, { gesamt: number; frei: number }>()
   if (art === 'keller') {
     // tenant-isolation-ignore: Zähler je Eigentümer über die eigenen Mandanten des Admins
-    const { data: behaelter } = await alle((admin.from('behaelter') as any).select('tenant_id, gemeinsam, aktiv').in('tenant_id', tenantIds).eq('aktiv', true).order('id'))
+    const behaelter = geladen(await alle((admin.from('behaelter') as any).select('tenant_id, gemeinsam, aktiv').in('tenant_id', tenantIds).eq('aktiv', true).order('id')), 'Gebinde')
     for (const b of (behaelter ?? []) as R[]) {
       const z = zaehler.get(b.tenant_id) ?? { gesamt: 0, frei: 0 }
       z.gesamt++; if (b.gemeinsam) z.frei++

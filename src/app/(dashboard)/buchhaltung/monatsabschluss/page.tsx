@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
@@ -29,8 +30,8 @@ export default async function MonatsabschlussPage({
   const tenantId = membership.tenantId
   const adminOk  = canAdmin(membership.role)
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, buchhaltungsart').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea, buchhaltungsart').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
   // Migration 197: bei Doppik beim Steuerberater bedeutet der Abschluss "Belege
   // dieses Monats sind vollständig und übergeben" - keine steuerliche Sperre.
@@ -40,10 +41,10 @@ export default async function MonatsabschlussPage({
   const jahr = parseInt(sp.jahr ?? '') || wienJetzt().getFullYear()   // null-vorgabe-ok: Jahr 0 aus der URL ist ungültig – aktuelles Jahr
   const jahre = Array.from({ length: 5 }, (_, i) => wienJetzt().getFullYear() - i)
 
-  const { data: abschluesseRaw } = await (supabase.from('ea_monatsabschluss') as any)
+  const abschluesseRaw = geladen(await (supabase.from('ea_monatsabschluss') as any)
     .select('monat, abgeschlossen_am')
     .eq('tenant_id', tenantId)
-    .eq('jahr', jahr)
+    .eq('jahr', jahr), 'Monatsabschlüsse')
   const abschluesse = new Map(((abschluesseRaw ?? []) as R[]).map(a => [a.monat, a.abgeschlossen_am]))
 
   const heute = wienJetzt()   // Sweep 79: Monatswechsel in Wiener Zeit

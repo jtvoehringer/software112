@@ -1,5 +1,6 @@
 // behoerdenmeldung: cu-bilanz, cu-bilanz-behandlungen
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -41,7 +42,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
   const jahre = Array.from({ length: 5 }, (_, i) => diesesJahr - i)
   if (!jahre.includes(aktJahr)) jahre.push(aktJahr)
 
-  const [bilanz, { data: settingsRaw }] = await Promise.all([
+  const [bilanz, settingsRawRes] = await Promise.all([
     ladeCuBilanz(supabase, tenantId, { jahr: aktJahr }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any)
@@ -49,6 +50,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
       .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
+  const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
 
   const s = (settingsRaw as R | null) ?? {}
   // Brotkrume wie die Navigation (Rieden › Maßnahmen › …) – die Tab-Leiste zeigt diese Seite

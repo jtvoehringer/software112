@@ -1,5 +1,6 @@
 // behoerdenmeldung: blend-protokoll
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -38,12 +39,13 @@ export default async function BlendProtokollPage({ params, searchParams }: {
 
   if (!tenantId) notFound()
   // Dieselbe Ladefunktion wie die CSV „blend-protokoll“ (lib/behoerden/blend.ts)
-  const [protokoll, { data: settingsRaw }] = await Promise.all([
+  const [protokoll, settingsRawRes] = await Promise.all([
     ladeBlendProtokoll(supabase, tenantId, { art: 'charge', id, stichtag }),
     tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
       .limit(1).maybeSingle()),
   ])
+  const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
 
   if (!protokoll) notFound()
   const { kopf, komposition } = protokoll

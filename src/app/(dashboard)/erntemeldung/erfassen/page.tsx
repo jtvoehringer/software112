@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
@@ -12,11 +13,11 @@ export default async function LeseErfassenPage() {
   if (!membership) redirect('/erntemeldung')
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase.from('weinjahrgaenge') as any)
+  const data = geladen(await (supabase.from('weinjahrgaenge') as any)
     .select('id')
     .eq('tenant_id', membership.tenantId)
     .order('jahrgang', { ascending: false })
     .limit(1)
-    .maybeSingle()
+    .maybeSingle(), 'Jahrgänge')
   redirect(data?.id ? `/erntemeldung/${data.id}?erfassen=1` : '/erntemeldung')
 }

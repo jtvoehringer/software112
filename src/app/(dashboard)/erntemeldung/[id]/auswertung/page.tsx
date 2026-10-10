@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -42,7 +43,7 @@ export default async function LeseAuswertungPage({ params }: { params: Promise<{
   const tf = (q: any) => q.eq('tenant_id', tenantId)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: jg } = await tf((supabase.from('weinjahrgaenge') as any).select('id, jahrgang').eq('id', id)).maybeSingle()
+  const jg = geladen(await tf((supabase.from('weinjahrgaenge') as any).select('id, jahrgang').eq('id', id)).maybeSingle(), 'Jahrgänge')
   if (!jg) notFound()
   const jahr = Number((jg as AR).jahrgang)
 

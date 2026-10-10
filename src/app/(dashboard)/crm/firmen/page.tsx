@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import { filterAusParams, ladeFirmenSeite, ladeZaehler } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -35,11 +36,11 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
   const ids = fRaw.map(f => f.id as string)
   // inBloecken: bis zu 1.000 Firmen – 1.000 IDs in einer URL scheitern (ab ≈ 350), die Ansprechpersonen blieben leer.
   // Eine Firma liegt immer ganz in einem Block, die Reihenfolge je Firma bleibt.
-  const { data: kRaw } = await inBloecken(ids, b => alle(tf((supabase.from('kontakte') as any)
+  const kRaw = geladen(await inBloecken(ids, b => alle(tf((supabase.from('kontakte') as any)
     .select('id, vorname, nachname, segment, firma_id')
     .eq('aktiv', true)
     .in('firma_id', b)
-    .order('nachname').order('id'))))
+    .order('nachname').order('id')))), 'Kontakte')
 
   const firmen: FirmaRow[] = ((fRaw ?? []) as R[]).map(f => ({
     id: f.id, accountnummer: f.accountnummer ?? null, name: f.name, segment: f.segment,
@@ -66,8 +67,8 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
   // Rabattgruppen (non-fatal – Tabelle existiert erst nach Migration 031)
   let rRaw: R[] = []
   try {
-    const { data: r } = await tf((supabase.from('rabattgruppen') as any)
-      .select('id, name, rabatt_pct').order('rabatt_pct'))
+    const r = geladen(await tf((supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct').order('rabatt_pct')), 'Rabattgruppen')
     rRaw = (r ?? []) as R[]
   } catch { /* Tabelle noch nicht vorhanden */ }
 

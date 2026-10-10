@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -58,7 +59,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: waRaw }, { data: anRaw }] = await Promise.all([
+  const [waRawRes, anRawRes] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte')
       .eq('id', id).maybeSingle()),
@@ -68,6 +69,8 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
       .eq('weinausbau_id', id)
       .order('analyse_datum', { ascending: false })),
   ])
+  const waRaw = geladen(waRawRes, 'Chargen')
+  const anRaw = geladen(anRawRes, 'Analysen')
 
   if (!waRaw) notFound()
   const wa = waRaw as R

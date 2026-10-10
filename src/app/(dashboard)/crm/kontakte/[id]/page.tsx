@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import type { LieferadresseZeile } from '@/components/crm/LieferadressenKarte'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -19,6 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const membership = await getCurrentMembership()
   let query = (supabase.from('kontakte') as any).select('vorname, nachname').eq('id', id)
   if (membership) query = query.eq('tenant_id', membership.tenantId)
+  // abfrage-ohne-fehler: nur Seitentitel (generateMetadata) – bei einem Lesefehler genügt der Ersatztitel
   const { data } = await query.single()
   const name = data ? [data.vorname, data.nachname].filter(Boolean).join(' ') : 'Kontakt'
   return { title: `${name} – software:112` }
@@ -37,17 +39,17 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: kRaw },
-    { data: aRawAll },
-    { data: pRaw },
-    { data: vRaw },
-    { data: fRaw },
-    { data: rgRaw },
+    kRawRes,
+    aRawAllRes,
+    pRawRes,
+    vRawRes,
+    fRawRes,
+    rgRawRes,
   ] = await Promise.all([
     tf((supabase.from('kontakte') as any)
       .select(`${KONTAKT_SPALTEN}, firmen:firma_id(name, segment)`)
       .eq('id', id)
-      .single()),
+      .maybeSingle()),
 
     tf((supabase.from('aktivitaeten') as any)
       .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
@@ -80,6 +82,12 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     tf((supabase.from('rabattgruppen') as any)
       .select('id, name, rabatt_pct').order('rabatt_pct')),
   ])
+  const kRaw = geladen(kRawRes, 'Kontakte')
+  const aRawAll = geladen(aRawAllRes, 'Aktivitäten')
+  const pRaw = geladen(pRawRes, 'Pipeline')
+  const vRaw = geladen(vRawRes, 'Verkäufe')
+  const fRaw = geladen(fRawRes, 'Firmen')
+  const rgRaw = geladen(rgRawRes, 'Rabattgruppen')
 
   if (!kRaw) notFound()
 

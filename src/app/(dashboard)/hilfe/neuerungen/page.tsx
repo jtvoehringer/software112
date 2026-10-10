@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { CheckCircle2, TrendingUp } from 'lucide-react'
@@ -14,11 +15,11 @@ type R = Record<string, any>
 // Neuerungen bisher nirgends mehr).
 export default async function NeuerungenPage() {
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('release_notes') as any)
+  const data = geladen(await (supabase.from('release_notes') as any)
     .select('id, version, titel, features, fixes, veroeffentlicht_am')
     .eq('aktiv', true)
     .order('veroeffentlicht_am', { ascending: false })
-    .limit(50)
+    .limit(50), 'Neuerungen')
   const notes = (data ?? []) as R[]
 
   return (

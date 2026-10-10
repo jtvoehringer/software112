@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -44,11 +45,11 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
       von_weinausbau:von_weinausbau_id(name),
       nach_weinausbau:nach_weinausbau_id(name)
     `
-  const { data: initialRaw } = await tf((supabase.from('keller_umzuege') as any)
+  const initialRaw = geladen(await tf((supabase.from('keller_umzuege') as any)
     .select(UMZUG_SELECT)
     .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
     .or(`von_behaelter_id.eq.${id},nach_behaelter_id.eq.${id}`)
-    .order('datum', { ascending: false }))
+    .order('datum', { ascending: false })), 'Umzüge')
 
   const initial = (initialRaw ?? []) as R[]
 

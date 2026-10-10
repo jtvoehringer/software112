@@ -1,5 +1,6 @@
 // behoerdenmeldung: anlagenverzeichnis
 import type { Metadata } from 'next'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { fmtEur, fmtNum } from '@/lib/format'
@@ -37,10 +38,11 @@ export default async function AnlagenspiegelPage({ searchParams }: { searchParam
   const aktJahr = Number(heute.slice(0, 4))
   const { jahr: jahrParam } = await searchParams
   const gewuenscht = Number(jahrParam)
-  const [verzeichnis, { data: bRaw }] = await Promise.all([
+  const [verzeichnis, bRawRes] = await Promise.all([
     ladeAnlagenverzeichnis(ctx.supabase, ctx.tenantId, { jahr: Number.isInteger(gewuenscht) && gewuenscht > 0 ? gewuenscht : aktJahr }),
     ctx.tf(ctx.q('tenant_einstellungen').select('betrieb_uid, betrieb_betriebsnummer')).maybeSingle(),
   ])
+  const bRaw = geladen(bRawRes, 'Einstellungen')
   const betrieb = (bRaw ?? {}) as R
   const jahre = anlagenJahre(verzeichnis.anlagen, aktJahr)
   const jahr = jahre.includes(gewuenscht) ? gewuenscht : aktJahr

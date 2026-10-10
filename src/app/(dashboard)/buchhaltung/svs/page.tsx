@@ -1,5 +1,6 @@
 // behoerdenmeldung: svs-einheitswerte
 import type { Metadata } from 'next'
+import { geladen } from '@/lib/supabase/geladen'
 import { redirect } from 'next/navigation'
 import { canAdmin, canWrite, isSystemAdmin } from '@/lib/auth/roles'
 import { getCtx, ladeEinstellungen, type R } from '@/app/(dashboard)/dashboard/_shared/data'
@@ -27,7 +28,7 @@ export default async function SvsPage() {
   if (!einst.modulEa) redirect('/dashboard')
   const jahr = ctx.heute.getFullYear()
 
-  const [{ zeilen: gstZeilen }, { data: paramRaw }, { data: einstRaw }, finanzen] = await Promise.all([
+  const [{ zeilen: gstZeilen }, paramRawRes, einstRawRes, finanzen] = await Promise.all([
     ladeSvsEinheitswerte(ctx.supabase, ctx.tenantId),
     ctx.q('svs_parameter').select('*').order('jahr', { ascending: false }).limit(5),
     ctx.tf(ctx.q('tenant_einstellungen').select('svs_option, svs_option_seit, svs_einkuenfte_manuell, svs_kv_angehoerige')).maybeSingle(),
@@ -35,6 +36,8 @@ export default async function SvsPage() {
     // vereinfacht: Anlagenkäufe herausgerechnet, AfA lt. Anlagenverzeichnis abgezogen (Migration 200)
     ladeFinanzen(ctx, { art: einst.doppik ? 'doppik' : 'ea', uvaZeitraum: einst.uvaZeitraum, jahr }),
   ])
+  const paramRaw = geladen(paramRawRes, 'SVS-Parameter')
+  const einstRaw = geladen(einstRawRes, 'Einstellungen')
 
   const parameter = ((paramRaw ?? []) as R[]).map(p => ({
     jahr: Number(p.jahr), staffel: p.staffel, satz_pv: Number(p.satz_pv), satz_kv: Number(p.satz_kv), satz_uv: Number(p.satz_uv), satz_bh: Number(p.satz_bh),

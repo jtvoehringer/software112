@@ -2,6 +2,7 @@
 // Keine Authentifizierung erforderlich – nur öffentlich freigegebene Daten
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { geladen } from '@/lib/supabase/geladen'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { Sprout } from 'lucide-react'
@@ -43,18 +44,18 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
   let fuellungRaw: R | null = null
   if (istWeinpassCode(schluessel)) {
     // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – Code global eindeutig (UNIQUE)
-    const { data } = await (supabase.from('fuellungen') as R)
+    const data = geladen(await (supabase.from('fuellungen') as R)
       .select(SPALTEN)
       .eq('weinpass_code', schluessel)
-      .maybeSingle()
+      .maybeSingle(), 'Füllungen')
     fuellungRaw = (data ?? null) as R | null
   }
   if (!fuellungRaw) {
     // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – alte URL, nur bei eindeutigem Treffer
-    const { data } = await (supabase.from('fuellungen') as R)
+    const data = geladen(await (supabase.from('fuellungen') as R)
       .select(SPALTEN)
       .eq('chargennummer', schluessel)
-      .limit(2)
+      .limit(2), 'Füllungen')
     const treffer = (data ?? []) as R[]
     if (treffer.length > 1) return <WeinpassMehrdeutig nummer={schluessel} />
     fuellungRaw = treffer[0] ?? null
@@ -66,7 +67,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
   // Weingärten aus Pressung laden
   let weingaerten: R[] = []
   if (f.weinausbau_id) {
-    const { data: pbRaw } = await (supabase.from('pressung_behaelter') as any)
+    const pbRaw = geladen(await (supabase.from('pressung_behaelter') as any)
       .select(`
         pressung:pressung_id(
           datum, storniert_am,
@@ -77,7 +78,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
         )
       `)
       .eq('weinausbau_id', f.weinausbau_id)
-      .is('storniert_am', null)
+      .is('storniert_am', null), 'Mostzeilen')
 
     weingaerten = ((pbRaw ?? []) as R[])
       .flatMap((pb: R) => (pb.pressung?.pressung_weingaerten ?? []) as R[])
@@ -91,8 +92,8 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
   let chargeMostgewicht = ''
   if (f.weinausbau_id && weingaerten.length === 0 && f.tenant_id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- öffentliche Seite: Charge der Füllung, auf deren Betrieb eingeschränkt
-    const { data: waRaw } = await (supabase.from('weinausbau') as any)
-      .select('kmw, oechsle, mostgewicht_einheit').eq('id', f.weinausbau_id).eq('tenant_id', f.tenant_id).maybeSingle()
+    const waRaw = geladen(await (supabase.from('weinausbau') as any)
+      .select('kmw, oechsle, mostgewicht_einheit').eq('id', f.weinausbau_id).eq('tenant_id', f.tenant_id).maybeSingle(), 'Chargen')
     chargeMostgewicht = mgText(waRaw as R | null)
   }
 

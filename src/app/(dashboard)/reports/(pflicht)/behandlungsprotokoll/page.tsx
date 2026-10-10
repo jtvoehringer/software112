@@ -1,5 +1,6 @@
 // behoerdenmeldung: psm-aufzeichnung, psm-uebermittlung
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -54,7 +55,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
   const jahre = Array.from({ length: 5 }, (_, i) => diesesJahr - i)
   if (!jahre.includes(aktJahr)) jahre.push(aktJahr)
 
-  const [aufzeichnung, { data: settingsRaw }] = await Promise.all([
+  const [aufzeichnung, settingsRawRes] = await Promise.all([
     ladePsmAufzeichnung(supabase, tenantId, { jahr: aktJahr, art, ried: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any)
@@ -62,6 +63,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
       .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
+  const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
 
   const { behandlungen, zeilen, warnungen } = aufzeichnung
   const s = (settingsRaw as R | null) ?? {}

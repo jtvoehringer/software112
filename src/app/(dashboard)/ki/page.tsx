@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import KiClient from './KiClient'
@@ -12,9 +13,9 @@ export default async function KiPage() {
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+  const cfg = geladen(await (admin.from('tenant_einstellungen') as any)
     .select('ki_abfragen_aktiv, ki_abfragen_paket, ki_abfragen_zaehler')
-    .eq('tenant_id', tenantId).maybeSingle()
+    .eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   const c = (cfg ?? {}) as R
 
   return <KiClient

@@ -1,5 +1,6 @@
 // behoerdenmeldung: bki-traubenverkauf
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentUserRole, getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -28,7 +29,7 @@ export default async function TraubenverkaufPage() {
   // Bestehende Verkäufe (alle() statt 1.000er-Deckel)
   // storno-sichtbar: Liste zeigt stornierte gekennzeichnet (KAN-148); verfügbare kg rechnen ohne sie
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: verkaufeRaw } = await alle<R>((supabase.from('traubenverkauf') as any)
+  const verkaufeRaw = geladen(await alle<R>((supabase.from('traubenverkauf') as any)
     .select(`
       id, datum, menge_kg, storniert_am, storno_grund, storniert_von_name, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit,
       qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, lese_id, grundstueck_id, zukauf_posten_id, verkaufsposten_id,
@@ -41,7 +42,7 @@ export default async function TraubenverkaufPage() {
     `)
     .eq('tenant_id', membership.tenantId)
     .order('datum', { ascending: false })
-    .order('id'))
+    .order('id')), 'Traubenverkäufe')
 
   const verkaufe = (verkaufeRaw ?? []) as R[]
 
@@ -105,7 +106,7 @@ export default async function TraubenverkaufPage() {
 
   // Zugekaufte Trauben (art='trauben') - stehen zusätzlich zur eigenen Ernte
   // als verkaufbare Menge zur Verfügung (siehe Migration 141).
-  const { data: zukaufRaw } = await alle((supabase.from('zukauf_posten') as any)
+  const zukaufRaw = geladen(await alle((supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, menge, rebsorte, herkunft, kmw, oechsle, mostgewicht_einheit,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
@@ -114,7 +115,7 @@ export default async function TraubenverkaufPage() {
     .eq('tenant_id', membership.tenantId)
     .eq('art', 'trauben')
     .eq('aktiv', true)
-    .order('datum', { ascending: false }).order('id'))
+    .order('datum', { ascending: false }).order('id')), 'Zukäufe')
 
   const zukaufListe = (zukaufRaw ?? []) as R[]
   const zukaufIds = zukaufListe.map(z => z.id)
@@ -124,11 +125,11 @@ export default async function TraubenverkaufPage() {
   const pressedKgByZukauf: Record<string, number> = {}
   if (zukaufIds.length > 0) {
     // inBloecken: Trauben-Zukäufe aller Jahre (URL-Grenze ≈ 350 IDs), sonst stimmten die verfügbaren kg nicht
-    const { data: pressedRaw } = await inBloecken(zukaufIds, b => alle((supabase.from('pressung_weingaerten') as any)
+    const pressedRaw = geladen(await inBloecken(zukaufIds, b => alle((supabase.from('pressung_weingaerten') as any)
       .select('zukauf_posten_id, trauben_kg')
       .in('zukauf_posten_id', b)
       .is('storniert_am', null)
-      .order('id')))
+      .order('id'))), 'Traubenzeilen')
     for (const p of (pressedRaw ?? []) as R[]) {
       pressedKgByZukauf[p.zukauf_posten_id] = (pressedKgByZukauf[p.zukauf_posten_id] ?? 0) + (parseFloat(p.trauben_kg) || 0)
     }

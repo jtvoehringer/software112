@@ -1,4 +1,5 @@
 import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
@@ -94,13 +95,14 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   }
 
   // Gebinde + Chargen laden
-  const [gebindeRows, { data: chargenRaw }] = await Promise.all([
+  const [gebindeRows, chargenRawRes] = await Promise.all([
     // Ziele: eigene + freigegebene Gebinde, fremd belegte ausgenommen (Migration 203)
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
     alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
       .eq('aktiv', true).order('name').order('id'))),
   ])
+  const chargenRaw = geladen(chargenRawRes, 'Chargen')
 
   const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName, aktiv: b.aktiv, volumen_liter: b.volumen_liter })) as R[]
   const chargen = (chargenRaw ?? []) as R[]

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { schreibSperre } from '@/lib/auth/sperren'
 import type { Metadata } from 'next'
@@ -47,9 +48,9 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
   // Aktive Chargen im Gebinde (eigener Betrieb – auch in einem freigegebenen Gebinde)
   // alle-ausnahme: Chargen eines einzelnen Gebindes, wenige
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: chargenRaw } = await (supabase.from('weinausbau') as any)
+  const chargenRaw = geladen(await (supabase.from('weinausbau') as any)
     .select('id, name, menge_liter').eq('tenant_id', tenantId).eq('behaelter_id', id).eq('aktiv', true)
-    .order('name').order('id').limit(50)
+    .order('name').order('id').limit(50), 'Chargen')
   const chargen = ((chargenRaw ?? []) as R[]).map(c => ({ id: String(c.id), name: c.name ?? null, menge_liter: c.menge_liter })) as SchnellCharge[]
   const chargenIds = chargen.map(c => c.id)
 
@@ -86,8 +87,8 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
   let partner: string | null = null
   if (!gebinde.fremd) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows } = await (supabase.from('behaelter') as any)
-      .select('id, name, typ, volumen_liter, standort, aktiv, notizen, stapler, gemeinsam, lp_pickerl').eq('id', id).eq('tenant_id', tenantId).limit(1)
+    const rows = geladen(await (supabase.from('behaelter') as any)
+      .select('id, name, typ, volumen_liter, standort, aktiv, notizen, stapler, gemeinsam, lp_pickerl').eq('id', id).eq('tenant_id', tenantId).limit(1), 'Gebinde')
     stammdaten = ((rows ?? []) as R[])[0] ?? null
     const gemeinschaft = await ladeKellergemeinschaft(supabase, tenantId)
     partner = gemeinschaft.alsEigentuemer.length ? gemeinschaft.alsEigentuemer.map(p => p.name).join(', ') : null
@@ -120,11 +121,11 @@ async function andererBetrieb(
 ): Promise<{ tenantId: string; name: string } | null> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null
   // tenant-isolation-ignore: KAN-117 – sucht bewusst über alle Betriebe des Benutzers (RLS), nur Betriebs-ID und Name
-  const { data } = await supabase.from('behaelter').select('tenant_id').eq('id', id).limit(1).maybeSingle()
+  const data = geladen(await supabase.from('behaelter').select('tenant_id').eq('id', id).limit(1).maybeSingle(), 'Gebinde')
   const t = (data as R | null)?.tenant_id as string | undefined
   if (!t || t === aktiv) return null
   // tenant-isolation-ignore: Name des anderen Betriebs für den Wechsel-Hinweis (eigene Mitgliedschaft, RLS)
-  const { data: tn } = await supabase.from('tenants').select('id, name').eq('id', t).maybeSingle()
+  const tn = geladen(await supabase.from('tenants').select('id, name').eq('id', t).maybeSingle(), 'Betrieb')
   if (!tn) return null
   return { tenantId: t, name: String((tn as R).name ?? 'anderer Betrieb') }
 }

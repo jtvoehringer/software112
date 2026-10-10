@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -54,8 +55,8 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
 
   const [
     behaelter,
-    { data: weinausbauRaw },
-    { data: fuellstandRaw },
+    weinausbauRawRes,
+    fuellstandRawRes,
   ] = await Promise.all([
     // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
     ladeBehaelter(supabase, tenantId),
@@ -66,6 +67,8 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
     tf((supabase.from('v_behaelter_fuellstand') as any)
       .select('behaelter_id, liter_aktuell')),
   ])
+  const weinausbauRaw = geladen(weinausbauRawRes, 'Chargen')
+  const fuellstandRaw = geladen(fuellstandRawRes, 'Füllstände')
 
   const weinausbau = (weinausbauRaw ?? []) as R[]
 

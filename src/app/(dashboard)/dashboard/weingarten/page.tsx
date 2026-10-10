@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { Grape, FlaskConical, Clock, MapPin } from 'lucide-react'
 import RiedKarte, { type KartenPin } from '@/components/weingarten/RiedKarte'
@@ -16,10 +17,11 @@ export const dynamic = 'force-dynamic'
 export default async function WeingartenSichtPage() {
   const ctx = await getCtx()
   const jahr = ctx.heute.getFullYear()
-  const [wg, { data: listeRaw }] = await Promise.all([
+  const [wg, listeRawRes] = await Promise.all([
     ladeWeingarten(ctx),
     ctx.tf(ctx.q('checklisten').select('id, name, jahr, checklisten_punkte(id, text, zustaendig, faellig_am, faellig_hinweis, erledigt, sortierung)').eq('typ', 'lese').eq('jahr', jahr).maybeSingle()),
   ])
+  const listeRaw = geladen(listeRawRes, 'Checklisten')
   const liste = (listeRaw ?? null) as R | null
   const punkte: Punkt[] = ((liste?.checklisten_punkte ?? []) as R[])
     .sort((a, b) => (a.sortierung ?? 0) - (b.sortierung ?? 0))

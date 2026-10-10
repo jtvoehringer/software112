@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -24,6 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
   let query = (supabase.from('kellerplaene') as any).select('name').eq('id', id)
   if (tenantId) query = query.eq('tenant_id', tenantId)
+  // abfrage-ohne-fehler: nur Seitentitel (generateMetadata) – bei einem Lesefehler genügt der Ersatztitel
   const { data } = await query.single()
   return { title: `${(data as R | null)?.name ?? 'Kellerplan'} – software:112` }
 }
@@ -43,16 +45,16 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: planRaw },
-    { data: posRaw },
-    { data: allePositionenRaw },
+    planRawRes,
+    posRawRes,
+    allePositionenRawRes,
     behaelterRows,
-    { data: weinRaw },
+    weinRawRes,
   ] = await Promise.all([
     tf((supabase.from('kellerplaene') as any)
       .select('id, name, breite_m, laenge_m, notizen')
       .eq('id', id))
-      .single(),
+      .maybeSingle(),
 
     tf((supabase.from('kellerplan_positionen') as any)
       .select('behaelter_id, pos_x_pct, pos_y_pct, breite_pct, hoehe_pct')
@@ -77,6 +79,10 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       .not('status', 'eq', 'abgeschlossen')
       .eq('aktiv', true).order('id'))),
   ])
+  const planRaw = geladen(planRawRes, 'Kellerpläne')
+  const posRaw = geladen(posRawRes, 'Kellerplan-Positionen')
+  const allePositionenRaw = geladen(allePositionenRawRes, 'Kellerplan-Positionen')
+  const weinRaw = geladen(weinRawRes, 'Chargen')
 
   if (!planRaw) notFound()
 
