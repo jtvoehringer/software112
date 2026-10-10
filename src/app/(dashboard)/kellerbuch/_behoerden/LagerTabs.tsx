@@ -1,13 +1,14 @@
 import Link from '@/components/ui/Link'
 
 // KAN-50: „Gesamtexport & Kataloge“ (alle Blätter als XLSX). KAN-44: Reiter der BKI-Blätter „Lagerstand zum Datum“ und „Lagerbewegungen“; KAN-48: „Betriebsdaten & Gebinde“
-export default function LagerTabs({ aktiv }: { aktiv: 'lagerstand' | 'lagerbewegungen' | 'stammdaten' | 'weingaerten' | 'rv' | 'gesamt' }) {
+export default function LagerTabs({ aktiv }: { aktiv: 'lagerstand' | 'lagerbewegungen' | 'stammdaten' | 'weingaerten' | 'rv' | 'verkehr' | 'gesamt' }) {
   const reiter = [
     { key: 'lagerstand', href: '/kellerbuch/lagerstand', label: 'Lagerstand zum Datum' },
     { key: 'lagerbewegungen', href: '/kellerbuch/lagerbewegungen', label: 'Lagerbewegungen' },
     { key: 'stammdaten', href: '/kellerbuch/bki-stammdaten', label: 'Betriebsdaten & Gebinde' },
     { key: 'weingaerten', href: '/kellerbuch/bki-weingaerten', label: 'Weingärten' },
     { key: 'rv', href: '/kellerbuch/bki-rv', label: 'Rückverfolgung (RV)' },
+    { key: 'verkehr', href: '/kellerbuch/bki-verkehr', label: 'Verkauf, Einkauf, TBS' },
     { key: 'gesamt', href: '/kellerbuch/bki-schnittstelle', label: 'Gesamtexport & Kataloge' },
   ] as const
   return (
