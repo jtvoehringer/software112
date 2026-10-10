@@ -163,3 +163,7 @@ Jeweils auf Staging (https://staging.software112.icp-consultants.at) mit den Tes
   - `npm audit` und `npm outdated`
   - die manuellen Szenarien auf Staging durchgehen
   - Datum und Werte oben aktualisieren
+- **Nach Datenkorrekturen, vor dem Pilot-Reset und vor Releases mit Bestands- oder Zahlungslogik** in Produktion (nur lesend):
+  `scripts/fk-waisen.sql` (verwaiste Fremdschlüssel) und `scripts/integritaet.sql` (Sweep 106: Chargen negativ, Behälter
+  überfüllt, Flaschenbestände, „bezahlt“ ohne Zahlung, Zahlung auf storniertem Beleg, Kellerbuch-Journal gegen Ist) –
+  beide erwarten 0 Zeilen. Stand 10.10.2026: 0 Zeilen in allen vier Betrieben.
