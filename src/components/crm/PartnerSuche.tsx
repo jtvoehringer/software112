@@ -20,13 +20,17 @@ export type PartnerTreffer = {
 
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
-export default function PartnerSuche({ art, firmaId, value, onChange, placeholder, disabled }: {
+/** Beschriftung des Suchfelds für Screenreader – das sichtbare Label daneben ist nicht verknüpft (E2E-Ausbau 10.10.2026) */
+const SUCHE_LABEL = { kunde: 'Kunde suchen', lieferant: 'Lieferant suchen', kontakt: 'Kontakt suchen', firma: 'Firma suchen' } as const
+
+export default function PartnerSuche({ art, firmaId, value, onChange, placeholder, disabled, ariaLabel }: {
   art: 'kunde' | 'lieferant' | 'kontakt' | 'firma'
   firmaId?: string | null
   value: string
   onChange: (id: string, treffer: PartnerTreffer | null) => void
   placeholder?: string
   disabled?: boolean
+  ariaLabel?: string
 }) {
   const [query, setQuery]       = useState('')
   const [open, setOpen]         = useState(false)
@@ -96,6 +100,7 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
     <div ref={ref} className="relative">
       <input
         type="text"
+        aria-label={ariaLabel ?? SUCHE_LABEL[art]}
         value={query}
         onChange={e => { setQuery(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}

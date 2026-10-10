@@ -112,6 +112,14 @@ Traces sind in CI aus, weil sie Sitzungs-Cookies enthalten.
 
 ## Ausbau-Plan
 
+**Stand 10.10.2026:**
+- Umgesetzt:
+  - `verkauf.spec.ts`: Verkauf anlegen → Bestand −1 → Storno → Bestand wie vorher (schreibend, Notiz „E2E-Test …“)
+  - `druck-csv.spec.ts`: Cu-Bilanz, Nährstoffbilanz und Behandlungsprotokoll, Druck = CSV
+  - `rollen.spec.ts`: Leser-Schreibaufrufe an fünf API-Routen → 403, Mandantenverwaltung nur für die Plattform; Schreibknöpfe auf Zukauf und Lese im Smoke-Test
+- Offen: Kellerbuch-Ablauf (1), Rechnung/Zahlung im Verkauf (Rest von 2), automatische Mandantentrennung (5), Aufräumen (6)
+- Einzelne Dateien per Workflow-Eingabe „auswahl“ starten (z. B. `e2e/verkauf.spec.ts`)
+
 Sobald es eine Test-Umgebung gibt (eigenes Supabase-Projekt oder Supabase-Branch mit
 Testdaten, z. B. Kopie von „Weingut Musterhof (Demo)“), die kritischen Abläufe schreibend absichern:
 

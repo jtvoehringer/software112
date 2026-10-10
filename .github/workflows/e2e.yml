@@ -19,6 +19,10 @@ on:
         description: 'Nur lesende Tests (@lesend)'
         type: boolean
         default: false
+      auswahl:
+        description: 'Nur diese Testdateien (z. B. e2e/verkauf.spec.ts), leer = alle'
+        type: string
+        default: ''
   deployment_status:
 
 permissions:
@@ -82,7 +86,14 @@ jobs:
       - name: Playwright-Tests
         # Systematischer Fehler (z. B. Sitzung ungültig): nach 10 Fehlschlägen abbrechen statt ins Zeitlimit zu laufen
         # (erster Staging-Lauf 10.10.2026: 30 min ohne Fehlertexte, weil der Job vor dem Bericht abgebrochen wurde)
-        run: npx playwright test --max-failures=10
+        # Auswahl über eine Umgebungsvariable, nicht direkt im Skript (kein Einschleusen von Befehlen über die Eingabe);
+        # nur Dateipfade unter e2e/ zugelassen
+        env:
+          AUSWAHL: ${{ inputs.auswahl }}
+        run: |
+          set -f
+          for a in $AUSWAHL; do case "$a" in e2e/*.spec.ts) ;; *) echo "Auswahl nur als e2e/*.spec.ts: $a"; exit 2 ;; esac; done
+          npx playwright test --max-failures=10 $AUSWAHL
       - name: Bericht hochladen
         # auch bei Abbruch durch das Zeitlimit (dann ist failure() falsch)
         if: ${{ !success() }}

@@ -31,6 +31,8 @@ test.describe('Eingabefelder', { tag: '@lesend' }, () => {
     test.skip(await datum.count() === 0, 'E&A-Modul im Testbetrieb nicht aktiv')
     const hinweis = page.getByText('Datum liegt in der Zukunft – bitte prüfen.')
 
+    // erst nach der Übernahme durch React ausfüllen – vorher kommt die Eingabe nicht im Zustand an (wackelte im CI)
+    await page.waitForLoadState('networkidle')
     await datum.fill('2099-01-01')
     await expect(hinweis).toBeVisible()
     await expect(datum).not.toHaveAttribute('max', /.+/)
