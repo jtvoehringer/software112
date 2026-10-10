@@ -16,12 +16,12 @@ test.describe('Ungespeicherte Eingaben', { tag: '@lesend' }, () => {
     // erster Treffer = Hauptpunkt „Übersicht“ (/dashboard); die zweite Zeile kann ebenfalls „Übersicht“ enthalten
     const menue = page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name: 'Übersicht', exact: true }).first()
 
-    // 1) abbrechen → bleibt auf der Seite, Eingabe noch da
-    const erste = page.waitForEvent('dialog')
+    // 1) abbrechen → bleibt auf der Seite, Eingabe noch da. Den Dialog VOR dem Klick behandeln: click() kehrt erst
+    //    zurück, wenn der Dialog geschlossen ist (sonst warten Klick und waitForEvent aufeinander – erster Lauf 10.10.)
+    let meldung = ''
+    page.once('dialog', async d => { meldung = d.message(); await d.dismiss() })
     await menue.click()
-    const d1 = await erste
-    expect(d1.message()).toContain('Ungespeicherte Eingaben gehen verloren')
-    await d1.dismiss()
+    expect(meldung).toContain('Ungespeicherte Eingaben gehen verloren')
     await expect(page).toHaveURL(/\/buchhaltung\/neu/)
     await expect(betrag).toHaveValue('99.90')
 
