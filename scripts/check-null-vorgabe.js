@@ -46,6 +46,8 @@ function pruefeText(text) {
   while ((m = re.exec(code))) {
     const nach = ende(code, m.index + m[0].length - 1)
     if (!VORGABE.test(code.slice(nach, nach + 40))) continue
+    // rechter Teil eines Vergleichs (x !== Number(y) || …): Wahrheitswert, keine Vorgabe
+    if (/(?:[=!]==?|[<>]=?)\s*$/.test(code.slice(Math.max(0, m.index - 6), m.index))) continue
     const zeile = code.slice(0, m.index).split('\n').length
     const marker = roh.slice(Math.max(0, zeile - 1 - VORLAUF), zeile).reverse().find(r => AUSNAHME.test(r))
     if (marker) {

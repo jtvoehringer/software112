@@ -15,6 +15,7 @@ import { ladeAenderungsprotokoll, SPALTEN_AENDERUNGSPROTOKOLL } from '../aenderu
 import { ladeLagerbewegungen, ladeLagerstand, lagerstandStichtag, SPALTEN_LAGERBEWEGUNGEN, SPALTEN_LAGERSTAND } from '../lagerstand'
 import { ladeBetriebsdaten, ladeBkiGebindeverzeichnis, SPALTEN_BETRIEBSDATEN, SPALTEN_BKI_GEBINDE } from '../bki-stammdaten'
 import { ladeBkiWeingaerten, SPALTEN_BKI_WEINGAERTEN } from '../bki-weingaerten'
+import { buchungsartZeilen, erzeugnisZeilen, KATALOG_HINWEIS, qualitaetsstufenZeilen, SPALTEN_BKI_KATALOG } from '../bki-kataloge'
 
 // Register der Behördenmeldungen – Gruppe „Kellerbuch“ (24.09.2026).
 // Je Katalog-Eintrag aus katalog/kellerbuch.ts genau ein Eintrag mit CSV (laden + spalten).
@@ -269,6 +270,31 @@ export const MELDUNGEN_KELLERBUCH = {
     spalten: SPALTEN_BKI_WEINGAERTEN,
     dateiteile: (p, betrieb) => ['Weingaerten', betrieb.betriebsnummer, p.nurAktiv ? 'aktive' : null],
     bki: p => ({ bericht: ['Weingaerten', p.nurAktiv ? 'aktive' : null] }),
+  }),
+
+  // KAN-50: Katalogblätter
+  'bki-qualitaetsstufen': definiereMeldung(KATALOG_KELLERBUCH['bki-qualitaetsstufen'], {
+    parameter: () => ({}),
+    laden: async () => ({ zeilen: qualitaetsstufenZeilen(), warnungen: [KATALOG_HINWEIS] }),
+    spalten: SPALTEN_BKI_KATALOG,
+    dateiteile: (_p, betrieb) => ['Qualitaetsstufen', betrieb.betriebsnummer],
+    bki: () => ({ bericht: 'Qualitaetsstufen' }),
+  }),
+
+  'bki-erzeugnisse': definiereMeldung(KATALOG_KELLERBUCH['bki-erzeugnisse'], {
+    parameter: () => ({}),
+    laden: async () => ({ zeilen: erzeugnisZeilen(), warnungen: [KATALOG_HINWEIS] }),
+    spalten: SPALTEN_BKI_KATALOG,
+    dateiteile: (_p, betrieb) => ['Erzeugnisse', betrieb.betriebsnummer],
+    bki: () => ({ bericht: 'Erzeugnisse' }),
+  }),
+
+  'bki-buchungsarten': definiereMeldung(KATALOG_KELLERBUCH['bki-buchungsarten'], {
+    parameter: () => ({}),
+    laden: async () => ({ zeilen: buchungsartZeilen(), warnungen: [KATALOG_HINWEIS] }),
+    spalten: SPALTEN_BKI_KATALOG,
+    dateiteile: (_p, betrieb) => ['Buchungsarten', betrieb.betriebsnummer],
+    bki: () => ({ bericht: 'Buchungsarten' }),
   }),
 
   'keller-auswertungen': definiereMeldung(KATALOG_KELLERBUCH['keller-auswertungen'], {
