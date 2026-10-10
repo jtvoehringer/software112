@@ -1,5 +1,6 @@
 // Datenzugriff für das Anlagenverzeichnis (Server), Rechenlogik in @/lib/ea/anlagen.
 import type { Ctx, R } from '@/app/(dashboard)/dashboard/_shared/data'
+import { alle } from '@/lib/supabase/alle'
 import { geladen } from '@/lib/supabase/geladen'
 import type { Anlage, AfaBuchungRoh } from '@/lib/ea/anlagen'
 import { anlageAusZeile } from '@/lib/behoerden/anlagen'
@@ -21,8 +22,9 @@ export async function ladeAnlagen(ctx: Ctx): Promise<(Anlage & { transaktion_id:
 
 /** Gebuchte AfA (ea_transaktionen mit anlage_id) eines Jahres – ohne stornierte und Gegenbuchungen (KAN-149 D2c) */
 export async function ladeAfaBuchungen(ctx: Ctx, jahr: number): Promise<AfaBuchungRoh[]> {
-  const data = geladen(await ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked')
-    .not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)), 'Buchungen')
+  // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen
+  const data = geladen(await alle<R>(ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked')
+    .not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)).order('id')), 'Buchungen')
   return ((data ?? []) as R[]).map(b => ({ id: b.id, anlage_id: b.anlage_id, betrag_netto: Number(b.betrag_netto), datum: String(b.datum).slice(0, 10), is_locked: !!b.is_locked }))
 }
 

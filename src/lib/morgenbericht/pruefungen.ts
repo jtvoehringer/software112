@@ -29,8 +29,9 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   const [fristen, keller, { data: offeneVp, error: offeneVpErr }, { data: ohneKat, error: ohneKatErr }, { count: belegeErkannt, error: belegeErkanntErr }, { data: txJahr, error: txJahrErr }, { data: fuellNeg, error: fuellNegErr }, { data: chargenNeg, error: chargenNegErr }, { data: dublettenRaw, error: dublettenRawErr }, { data: tenant, error: tenantErr }, { data: wartefristen, error: wartefristenErr }, { data: pressungen, error: pressungenErr }] = await Promise.all([
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     ladeKeller(ctx, einst.messintervallTage),
-    ctx.tf(ctx.q('verkaufsposten').select('id, rechnungsnummer, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('storniert', false).eq('bezahlt', false).lt('datum', new Date(heute.getTime() - ZAHLUNGSZIEL_TAGE * 86400000).toISOString().slice(0, 10)).limit(500)),
+    // Sweep 93 (KAN-288): Anzahl und Summe überfälliger Rechnungen vollständig – vorher .limit(500)
+    alle<R>(ctx.tf(ctx.q('verkaufsposten').select('id, rechnungsnummer, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
+      .eq('aktiv', true).eq('storniert', false).eq('bezahlt', false).lt('datum', new Date(heute.getTime() - ZAHLUNGSZIEL_TAGE * 86400000).toISOString().slice(0, 10))).order('id')),
     einst.modulEa ? ctx.tf(ctx.q('ea_transaktionen').select('id').is('kategorie_id', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', seit90).limit(200)) : Promise.resolve({ data: [], error: null }),
     einst.modulEa ? ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')) : Promise.resolve({ count: 0, error: null }),
     einst.modulEa ? alle(ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, kategorie_id, typ').gte('datum', seit365).is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).order('datum').order('id'))) : Promise.resolve({ data: [], error: null }),   // Sweep 20.9.: .limit(5000) wurde bei 1.000 gekappt

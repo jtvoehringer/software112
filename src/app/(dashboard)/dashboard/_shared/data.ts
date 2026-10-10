@@ -123,11 +123,12 @@ export const GAERUNG_MESSINTERVALL_TAGE = 3
 
 export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_MESSINTERVALL_TAGE) {
   const [behaelterRes, chargenRes, fuellstandRes] = await Promise.all([
-    ctx.tf(ctx.q('behaelter').select('id, name, typ, volumen_liter, aktiv')),
-    ctx.tf(ctx.q('weinausbau')
+    // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen (Kapazität, Bestand)
+    alle<R>(ctx.tf(ctx.q('behaelter').select('id, name, typ, volumen_liter, aktiv')).order('id')),
+    alle<R>(ctx.tf(ctx.q('weinausbau')
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand, qualitaetsstufe, zusatzbezeichnung, erzeugnis, notizen')
-      .neq('status', 'abgeschlossen')
-      .order('jahrgang', { ascending: false }).order('name')),
+      .neq('status', 'abgeschlossen'))
+      .order('jahrgang', { ascending: false }).order('name').order('id')),
     ctx.tf(ctx.q('v_behaelter_fuellstand').select('behaelter_id, liter_aktuell')),
   ])
   const behaelterRaw = geladen(behaelterRes, 'Gebinde')
@@ -193,7 +194,8 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
 
 export async function ladeFlaschenlager(ctx: Ctx) {
   const wochenStart = toDateStr(startOfWeek(ctx.heute))
-  const data = geladen(await ctx.tf(ctx.q('fuellungen').select('id, rebsorte, datum, anzahl_flaschen, bestand_flaschen, aktiv').eq('aktiv', true)), 'Füllungen')
+  // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen (Flaschenbestand)
+  const data = geladen(await alle<R>(ctx.tf(ctx.q('fuellungen').select('id, rebsorte, datum, anzahl_flaschen, bestand_flaschen, aktiv').eq('aktiv', true)).order('id')), 'Füllungen')
   const rows = (data ?? []) as R[]
   const bestand = rows.reduce((s, f) => s + (Number(f.bestand_flaschen) || 0), 0)
   const abgefuelltWoche = rows.filter(f => f.datum >= wochenStart).reduce((s, f) => s + (Number(f.anzahl_flaschen) || 0), 0)
@@ -215,9 +217,11 @@ export async function ladeWeingarten(ctx: Ctx) {
   const [wRes, gRes, bRes] = await Promise.all([
     ctx.tf(ctx.q('weingarten').select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon').eq('aktiv', true).order('name')),
     // KAN-150 F1: nur heute bewirtschaftete Grundstücke
-    ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer').eq('aktiv', true)),
+    // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen (Fläche)
+    alle<R>(ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer').eq('aktiv', true)).order('id')),
     // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
-    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
+    // Sweep 93 (KAN-288): Maßnahmen der Saison werden gezählt – vorher .limit(500), über 500 stand still 500
+    alle<R>(ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('datum', `${jahr}-01-01`)).order('datum', { ascending: false }).order('id')),
   ])
   const rieden = ((geladen(wRes, 'Rieden') ?? []) as R[])
   const grundstuecke = ((geladen(gRes, 'Grundstücke') ?? []) as R[])
@@ -309,9 +313,10 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).is('storniert_am', null).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
     ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').is('storniert_am', null).gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
-    doppik ? ctx.tf(ctx.q('verkaufsposten').select('datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [], error: null }),
+    // Sweep 93 (KAN-288): nicht übergebene Belege werden je Periode gezählt – vollständig statt .limit(1000)
+    doppik ? alle<R>(ctx.tf(ctx.q('verkaufsposten').select('id, datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit)).order('id')) : Promise.resolve({ data: [], error: null }),
     // storno-sichtbar: BMD-Übergabe überträgt Stornos und Gegenbuchungen bewusst mit (KAN-149)
-    doppik ? ctx.tf(ctx.q('ea_transaktionen').select('datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [], error: null }),
+    doppik ? alle<R>(ctx.tf(ctx.q('ea_transaktionen').select('id, datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit)).order('id')) : Promise.resolve({ data: [], error: null }),
   ])
   const eigeneRaw = geladen(eigeneRes, 'Fristen')
   const uvaRaw = geladen(uvaRes, 'UVA-Perioden')
@@ -367,7 +372,8 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     const vj = jahr - 1
     const [anlRes, afaRes] = await Promise.all([
       ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes').lte('anschaffung_am', `${vj}-12-31`)),
-      ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked').not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${vj}-01-01`).lte('datum', `${vj}-12-31`)),
+      // Sweep 93 (KAN-288): AfA-Buchungen vollständig
+      alle<R>(ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked').not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${vj}-01-01`).lte('datum', `${vj}-12-31`)).order('id')),
     ])
     const anlRaw = geladen(anlRes, 'Anlagen')
     const afaRaw = geladen(afaRes, 'AfA-Buchungen')
