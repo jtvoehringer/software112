@@ -14,6 +14,8 @@
 import { alle, inBloecken } from '../supabase/alle.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { ZAHL_LOCALE } from '../format.ts'
 export const KG_TOLERANZ = 0.01
 
 export type Mengenzeile = { weingarten_id: string | null; grundstueck_id: string | null; kg: number }
@@ -107,7 +109,7 @@ export function verfuegbarJeLese(
 }
 
 function kgText(n: number): string {
-  return `${(rund(n, 1)).toLocaleString('de-AT', { maximumFractionDigits: 1 })} kg`
+  return `${(rund(n, 1)).toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} kg`
 }
 
 /** Klartext der ersten Überdeckung, z. B. für eine Pressung oder einen Traubenverkauf */

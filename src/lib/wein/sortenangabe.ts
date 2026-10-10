@@ -1,5 +1,7 @@
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { ZAHL_LOCALE } from '../format.ts'
 // Sorten- und Jahrgangsangabe nach einem Verschnitt aus den tatsächlichen Anteilen (KAN-93, 02.10.2026)
 //
 // Vorher rechnete der Verschnitt den GESAMTEN Zielbestand der aktuellen Rebsorte der Ziel-Charge zu (1.000 L Riesling
@@ -77,7 +79,7 @@ export interface SortenErgebnis {
   hinweise: string[]
 }
 
-const pct = (x: number) => `${(rund(x * 100, 1)).toLocaleString('de-AT')} %`
+const pct = (x: number) => `${(rund(x * 100, 1)).toLocaleString(ZAHL_LOCALE)} %`
 
 /**
  * Angaben der Ziel-Charge nach dem Verschnitt. `bisher` = Rebsorte/Jahrgang der Ziel-Charge vorher (bleiben, wenn es
