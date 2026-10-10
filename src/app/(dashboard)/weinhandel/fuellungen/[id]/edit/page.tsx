@@ -507,7 +507,7 @@ export default async function EditFuellungPage({
                 step="0.01"
                 min={0}
                 defaultValue={f.vk_preis_brutto ?? ''}
-                placeholder="z.B. 12.90"
+                placeholder="z.B. 12,90"
                 className={inputCls}
               />
               <p className="text-xs text-s112-muted mt-1">Verkaufspreis inkl. MwSt.</p>
@@ -520,7 +520,7 @@ export default async function EditFuellungPage({
                 step="0.01"
                 min={0}
                 defaultValue={f.einstandspreis ?? ''}
-                placeholder="z.B. 4.20"
+                placeholder="z.B. 4,20"
                 className={inputCls}
               />
               <p className="text-xs text-s112-muted mt-1">Kalkulationskosten / Lagerwert – netto, intern</p>

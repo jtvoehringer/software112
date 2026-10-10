@@ -149,16 +149,16 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         <table className="w-full text-sm border-collapse mb-3">
           <thead>
             <tr className="bg-[#F2F3F5] border border-s112-line-str">
-              <th className="text-left px-3 py-2 border border-s112-line-str font-semibold">Rebsorte</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Fläche (ha)</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Menge (kg)</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">davon verkauft (kg)</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Menge (hl)</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">°KMW</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">°Oe</th>
-              <th className="text-left px-3 py-2 border border-s112-line-str font-semibold">Qualitätsstufe</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Ertrag (kg/ha)</th>
-              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Übermenge (kg)</th>
+              <th className="text-left align-bottom px-3 py-2 border border-s112-line-str font-semibold">Rebsorte</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Fläche<br />(ha)</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Menge<br />(kg)</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">davon verkauft<br />(kg)</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Menge<br />(hl)</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">°KMW</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">°Oe</th>
+              <th className="text-left align-bottom px-3 py-2 border border-s112-line-str font-semibold">Qualitätsstufe</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Ertrag<br />(kg/ha)</th>
+              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Übermenge<br />(kg)</th>
             </tr>
           </thead>
           <tbody>
@@ -175,17 +175,17 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                   {/* KAN-165: bei Rieden aus mehreren Bundesländern eine Position je Weinbaugebiet */}
                   {(ernte?.gebiete.length ?? 0) > 1 && <span className="block text-xs font-normal text-s112-tertiary">{z.weinbaugebiet ?? 'ohne Weinbaugebiet'}</span>}
                 </td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(z.flaecheHa, 4)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums font-medium">{zahl(z.mengeKg, 0)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(z.verkauftKg, 0)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums" title={z.hlGeschaetzt ? 'aus Menge (kg) ÷ 130 umgerechnet' : undefined}>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(z.flaecheHa, 4)}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap font-medium">{zahl(z.mengeKg, 0)}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(z.verkauftKg, 0)}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap" title={z.hlGeschaetzt ? 'aus Menge (kg) ÷ 130 umgerechnet' : undefined}>
                   {zahl(z.mengeHl, 2)}
                 </td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums" title="Mostgewicht, mengengewichtetes Mittel der Lesen (abgerundet)">{z.kmw === null ? '–' : fmtNum(z.kmw, { min: 1, max: 2 })}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums" title="Mostgewicht in °Oe, aus dem °KMW-Mittel umgerechnet">{z.oechsle === null ? '–' : fmtNum(z.oechsle, { min: 1, max: 1 })}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap" title="Mostgewicht, mengengewichtetes Mittel der Lesen (abgerundet)">{z.kmw === null ? '–' : fmtNum(z.kmw, { min: 1, max: 2 })}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap" title="Mostgewicht in °Oe, aus dem °KMW-Mittel umgerechnet">{z.oechsle === null ? '–' : fmtNum(z.oechsle, { min: 1, max: 1 })}</td>
                 <td className="px-3 py-2 border border-s112-line">{qualitaetLabel(z.qualitaetsstufe)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(z.ertragKgHa, 0)}</td>
-                <td className={`px-3 py-2 border border-s112-line text-right tabular-nums ${(z.uebermengeKg ?? 0) > 0 ? 'text-s112-err-fg font-semibold' : ''}`}>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(z.ertragKgHa, 0)}</td>
+                <td className={`px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap ${(z.uebermengeKg ?? 0) > 0 ? 'text-s112-err-fg font-semibold' : ''}`}>
                   {zahl(z.uebermengeKg, 0)}
                 </td>
               </tr>
@@ -194,10 +194,10 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
           <tfoot>
             <tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
               <td className="px-3 py-2 border border-s112-line-str">GESAMT</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{ernte ? fmtNum(ernte.summe.flaecheHa, 4) : ''}</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(ernte?.summe.mengeKg ?? 0, 0)} kg</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(ernte?.summe.verkauftKg ?? 0, 0)} kg</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(ernte?.summe.mengeHl ?? 0, 2)} hl</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{ernte ? fmtNum(ernte.summe.flaecheHa, 4) : ''}</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(ernte?.summe.mengeKg ?? 0, 0)} kg</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(ernte?.summe.verkauftKg ?? 0, 0)} kg</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(ernte?.summe.mengeHl ?? 0, 2)} hl</td>
               <td className="px-3 py-2 border border-s112-line-str" colSpan={5} />
             </tr>
           </tfoot>
@@ -256,15 +256,15 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                   <td className="px-3 py-2 border border-s112-line">{sorteMitKuerzel(f.rebsorte, f.kuerzel)}</td>
                   <td className="px-3 py-2 border border-s112-line text-xs">{farbeQualitaet(f)}</td>
                   <td className="px-3 py-2 border border-s112-line text-right">{f.flaschengroesseMl}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(f.flaschen, 0)}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(f.hl, HL_STELLEN_BESTAND)}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(f.flaschen, 0)}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(f.hl, HL_STELLEN_BESTAND)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot><tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
               <td className="px-3 py-2 border border-s112-line-str" colSpan={5}>GESAMT Flaschen</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(bestand.summe.flaschen, 0)} Fl.</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(bestand.summe.flaschenHl, HL_STELLEN_BESTAND)} hl</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.flaschen, 0)} Fl.</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.flaschenHl, HL_STELLEN_BESTAND)} hl</td>
             </tr></tfoot>
           </table>
 
@@ -290,14 +290,14 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                   <td className="px-3 py-2 border border-s112-line">{sorteMitKuerzel(t.rebsorte, t.kuerzel)}</td>
                   <td className="px-3 py-2 border border-s112-line text-xs">{farbeQualitaet(t)}</td>
                   <td className="px-3 py-2 border border-s112-line text-xs text-s112-text-2">{t.behaelter ?? '–'}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{t.liter === null ? '–' : fmtNum(t.liter, { max: 2 })}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(t.hl, HL_STELLEN_BESTAND)}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{t.liter === null ? '–' : fmtNum(t.liter, { max: 2 })}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(t.hl, HL_STELLEN_BESTAND)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot><tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
               <td className="px-3 py-2 border border-s112-line-str" colSpan={6}>GESAMT Gebinde</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(bestand.summe.gebindeHl, HL_STELLEN_BESTAND)} hl</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.gebindeHl, HL_STELLEN_BESTAND)} hl</td>
             </tr></tfoot>
           </table>
 

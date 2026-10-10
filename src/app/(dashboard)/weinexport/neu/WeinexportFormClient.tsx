@@ -120,7 +120,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Versicherungswert (EUR)</label>
-              <input aria-label="Versicherungswert (EUR)" type="number" step="0.01" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0.00"
+              <input aria-label="Versicherungswert (EUR)" type="number" step="0.01" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0,00"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>

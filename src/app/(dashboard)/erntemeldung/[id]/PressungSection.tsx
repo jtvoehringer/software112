@@ -636,12 +636,14 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
                 <div className="col-span-5 text-sm text-s112-text-1 truncate" title={bezeichnung}>
                   <span className="text-[11px] text-s112-muted mr-1">{i + 1}.</span>{bezeichnung}
                 </div>
-                <div className="col-span-2">
+                {/* KAN-291 Rückmeldung: schmales Feld, Zahl rechtsbündig, Einheit dahinter */}
+                <div className="col-span-3 flex items-center gap-1">
                   <input aria-label={`Menge kg Traubenzeile ${i + 1}`} type="text" inputMode="decimal" value={row.trauben_kg}
                     onChange={e => updateWG(i, 'trauben_kg', e.target.value)}
-                    placeholder="kg" className={inp} />
+                    placeholder="0" className={`${inp} w-20! text-right tabular-nums`} />
+                  <span className="text-sm text-s112-text-2">kg</span>
                 </div>
-                <div className="col-span-4 flex items-center px-2">
+                <div className="col-span-3 flex items-center px-2">
                   <span className="text-sm text-s112-text-2 truncate">
                     {row.rebsorte ? formatRebsorteMitKuerzel(row.rebsorte) : <span className="text-s112-tertiary text-xs">–</span>}
                   </span>
@@ -785,10 +787,12 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
                   )
                 })()}
               </div>
-              <div className="col-span-4">
-                <input type="text" inputMode="decimal" required={i === 0} value={row.menge_liter}
+              {/* KAN-291 Rückmeldung: schmales Feld, Zahl rechtsbündig, Einheit dahinter */}
+              <div className="col-span-4 flex items-center gap-1">
+                <input aria-label={`Most in Liter Behälterzeile ${i + 1}`} type="text" inputMode="decimal" required={i === 0} value={row.menge_liter}
                   onChange={e => updateBeh(i, 'menge_liter', e.target.value)}
-                  placeholder="Liter" className={inp} />
+                  placeholder="0" className={`${inp} w-28! text-right tabular-nums`} />
+                <span className="text-sm text-s112-text-2">L</span>
               </div>
               <div className="col-span-2 flex justify-end">
                 {behRows.length > 1 && (

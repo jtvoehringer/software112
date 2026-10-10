@@ -7,7 +7,8 @@
  * Befund: Weinexport – Versicherungswert (EUR) und Menge der Position (numeric(…,2), Einheit wählbar) nahmen keine
  * Nachkommastellen an. Damit die Frage „ganze Zahl oder Kommastellen?“ bei jedem Feld beantwortet ist, verlangt der Wächter
  * ein ausdrückliches step: step="1" für ganze Zahlen (Jahrgang, Tage, Anzahl), step="0.01" bzw. "any" für Beträge und Mengen.
- * Gemeldet: <input … type="number" …> (auch type={'number'}) ohne step-Attribut in src/**.tsx.
+ * Gemeldet: <input … type="number" …> (auch type={'number'}) ohne step-Attribut in src/**.tsx, seit KAN-292 auch
+ * Platzhalter mit Dezimalpunkt („0.00“ statt „0,00“).
  *
  * Aufruf: node scripts/check-zahl-eingabe.js   (Exit 1 bei Funden)
  * Für Tests: require('./check-zahl-eingabe.js') → { pruefeText, pruefeWurzel } ohne Seiteneffekte.
@@ -40,6 +41,14 @@ function pruefeText(text) {
     felder++
     if (/\bstep=/.test(tag)) continue
     funde.push({ zeile: text.slice(0, m.index).split('\n').length, text: 'Zahlenfeld ohne step – Browser lässt nur ganze Zahlen zu; step="1" (ganze Zahl) bzw. step="0.01"/"any" (Kommastellen) angeben' })
+  }
+  // KAN-292 Rückmeldung (10.10.2026): Platzhalter mit Dezimalpunkt („0.00“, „z.B. 12.90“) – das Feld zeigte im leeren
+  // Zustand englisches Zahlenformat. Drei Ziffern nach dem Punkt gelten als Tausenderpunkt („1.250“), x.y.z als Version.
+  const ph = /placeholder="([^"]*)"/g
+  while ((m = ph.exec(text))) {
+    if (/^\d+\.\d+\.\d+$/.test(m[1])) continue
+    if (/(^|[^\d.])(0\.\d+|\d+\.(?:\d{1,2}|\d{4,}))(?![\d.])/.test(m[1]))
+      funde.push({ zeile: text.slice(0, m.index).split('\n').length, text: `Platzhalter „${m[1]}“ mit Dezimalpunkt – Dezimalkomma verwenden („0,00“)` })
   }
   return { funde, felder }
 }

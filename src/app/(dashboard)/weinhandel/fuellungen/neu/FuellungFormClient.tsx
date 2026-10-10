@@ -607,7 +607,7 @@ export default function FuellungFormClient({
               type="number"
               step="0.01"
               min={0}
-              placeholder="z.B. 12.90"
+              placeholder="z.B. 12,90"
               className={inputCls}
             />
             <p className="text-xs text-s112-muted mt-1">Verkaufspreis inkl. MwSt.</p>
@@ -619,7 +619,7 @@ export default function FuellungFormClient({
               type="number"
               step="0.01"
               min={0}
-              placeholder="z.B. 4.20"
+              placeholder="z.B. 4,20"
               className={inputCls}
             />
             <p className="text-xs text-s112-muted mt-1">Kalkulationskosten / Lagerwert – netto, intern</p>

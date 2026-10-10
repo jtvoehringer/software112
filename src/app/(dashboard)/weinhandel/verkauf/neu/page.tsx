@@ -841,7 +841,7 @@ export default function NeuerVerkaufPage() {
                   <label className={labelCls}>Preis/Einheit (€, brutto)</label>
                   <input aria-label="Preis/Einheit (€, brutto)" type="number" inputMode="decimal" value={pos.preis_brutto}
                     onChange={e => updatePos(idx, { preis_brutto: e.target.value })}
-                    step="0.01" min={0} placeholder="0.00"
+                    step="0.01" min={0} placeholder="0,00"
                     className={inputCls + ' w-full'} />
                 </div>
 

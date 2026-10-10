@@ -470,7 +470,7 @@ export default function ZukaufEditForm({
               <div>
                 <label className={labelCls}>Alkoholgehalt (%vol) *</label>
                 <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
-                  step="0.1" min="0.1" max="25" placeholder="z.B. 12.5" required className={inputCls + ' w-full'} />
+                  step="0.1" min="0.1" max="25" placeholder="z.B. 12,5" required className={inputCls + ' w-full'} />
               </div>
             )}
             {(art === 'wein' || istFlaschenArt(art)) && (
@@ -538,7 +538,7 @@ export default function ZukaufEditForm({
             <div>
               <label className={labelCls}>Gesamtpreis (€)</label>
               <input aria-label="Gesamtpreis (€)" type="number" value={preisGesamt} onChange={e => setPreisGesamt(e.target.value)}
-                step="0.01" min="0" placeholder="0.00" className={inputCls + ' w-full'} />
+                step="0.01" min="0" placeholder="0,00" className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>Preis / {einheit}</label>
@@ -562,7 +562,7 @@ export default function ZukaufEditForm({
                   </>
                 ) : (
                   <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
-                    step="0.0001" min="0" placeholder="0.0000" className={inputCls + ' w-full'} />
+                    step="0.0001" min="0" placeholder="0,0000" className={inputCls + ' w-full'} />
                 )}
               </div>
             )}
