@@ -59,11 +59,16 @@ function anmeldung(rolle: Rolle): void {
     if (z.tenantId) {
       // Aktiven Betrieb ausdrücklich setzen (GET-Route, prüft die eigene Mitgliedschaft)
       await page.goto(`/auth/betrieb?tenant_id=${encodeURIComponent(z.tenantId)}`)
-    } else if (new URL(page.url()).pathname === '/betrieb-waehlen') {
-      throw new Error(`Rolle ${rolle}: Das Konto gehört zu mehreren Betrieben – bitte E2E_${rolle.toUpperCase()}_TENANT_ID setzen.`)
     }
 
-    await page.waitForURL(/\/dashboard/, { timeout: 20_000 })
+    // Nicht schon beim Erreichen von /betrieb-waehlen abbrechen: bei einem Betrieb leitet die Seite erst nach dem
+    // Laden (Server-Redirect über /auth/betrieb) weiter – der erste Staging-Lauf scheiterte am Ladezustand (10.10.2026)
+    await page.waitForURL(/\/dashboard/, { timeout: 20_000 }).catch(() => {
+      if (!z.tenantId && new URL(page.url()).pathname === '/betrieb-waehlen') {
+        throw new Error(`Rolle ${rolle}: Das Konto gehört zu mehreren Betrieben – bitte E2E_${rolle.toUpperCase()}_TENANT_ID setzen.`)
+      }
+      throw new Error(`Rolle ${rolle}: Nach der Anmeldung kein Dashboard (zuletzt ${new URL(page.url()).pathname}).`)
+    })
     await expect(page.locator('body')).not.toContainText(/Application error/i)
 
     const datei = authDatei(rolle)
