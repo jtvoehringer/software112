@@ -105,10 +105,12 @@ export default function CommandPalette({
       ...(branding.modul_ea ? [{ id: 'a:beleg', gruppe: 'Aktionen' as const, label: 'Beleg hochladen (OCR)', icon: ScanLine, href: '/buchhaltung/belege', keywords: 'scan foto buchhaltung' }] : []),
     ] : []
     if (betriebCount > 1) {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Betriebswechsel: volles Neuladen, damit kein Zustand des alten Betriebs bleibt
       aktionen.push({ id: 'a:betrieb', gruppe: 'Aktionen', label: 'Betrieb wechseln', icon: ArrowLeftRight, keywords: 'mandant', run: () => { window.location.href = '/betrieb-waehlen' } })
     }
     aktionen.push({
       id: 'a:logout', gruppe: 'Aktionen', label: 'Abmelden', icon: LogOut, keywords: 'logout ausloggen',
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Abmelden: volles Neuladen, damit kein zwischengespeicherter Inhalt bleibt
       run: async () => { await createSupabaseBrowserClient().auth.signOut(); window.location.href = '/login' },
     })
     return [...aktionen, ...seiten]

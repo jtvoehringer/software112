@@ -1,10 +1,6 @@
 {
   "regeln": {
     "@typescript-eslint/no-explicit-any": 844,
-    "react-hooks/exhaustive-deps": 4,
-    "@next/next/no-location-assign-relative-destination": 3,
-    "@next/next/no-html-link-for-pages": 2,
-    "@next/next/no-img-element": 2,
     "@typescript-eslint/no-unused-vars": 1
   }
 }

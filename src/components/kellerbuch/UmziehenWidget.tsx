@@ -135,6 +135,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           // Harte Navigation (neuer Query-Parameter): ein router.push() direkt nach einer Server Action
           // kann vom impliziten Neuladen der Route überholt werden (Bugreport 5.8.2026).
           const { vonLabel, nachLabel } = result.abstufung
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- harte Navigation gewollt (siehe oben, Bugreport 5.8.2026)
           window.location.href = `/kellerbuch/weinausbau/${chargeId}?abstufung=${encodeURIComponent(`${vonLabel}→${nachLabel}`)}`
         } else {
           // Bleibt auf derselben Charge - ein bloßer Push auf dieselbe URL lädt in Next.js

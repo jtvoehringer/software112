@@ -188,6 +188,7 @@ export default function VisitkartenScannerPage() {
 
       {phase === 'analyse' && (
         <div className="bg-white rounded-xl border border-s112-border p-8 text-center space-y-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- Kamerabild als data:-URL, next/image optimiert nur Dateien bzw. erlaubte Hosts */}
           {foto && <img src={foto} alt="Visitenkarte" className="w-full rounded-xl max-h-48 object-contain" />}
           <p className="text-sm text-s112-muted animate-pulse">KI analysiert die Visitenkarte…</p>
         </div>
@@ -195,6 +196,7 @@ export default function VisitkartenScannerPage() {
 
       {phase === 'bestaetigen' && kontakt && (
         <div className="space-y-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- Kamerabild als data:-URL, next/image optimiert nur Dateien bzw. erlaubte Hosts */}
           {foto && <img src={foto} alt="Visitenkarte" className="w-full rounded-xl max-h-32 object-contain border border-s112-border" />}
           <div className="bg-white rounded-xl border border-s112-border p-5 space-y-2">
             <h2 className="font-semibold text-s112-text mb-3">Erkannte Daten</h2>
