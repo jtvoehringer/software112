@@ -339,7 +339,7 @@ export default function NeueBehandlungForm({
                 ${art === o.value
                   ? 'bg-s112-teal text-s112-yellow border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
-                <input type="radio" name="art" value={o.value} checked={art === o.value}
+                <input type="radio" name="art" value={o.value} checked={art === o.value} required
                   onChange={() => artWechseln(o.value)} className="sr-only" />
                 <o.icon size={14} />{o.label}
               </label>
@@ -564,7 +564,7 @@ export default function NeueBehandlungForm({
                     Spritzbrühe gesamt (l)
                     {felder.mengeGesamt !== 'optional' && <span className="text-s112-err"> *</span>}
                   </label>
-                  <input aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
+                  <input aria-required={felder.mengeGesamt !== 'optional'} aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
                     placeholder="z.B. 800"
                     value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamtGesperrt ? '' : mengeGesamt}
                     disabled={mengeGesamtGesperrt}
@@ -581,7 +581,7 @@ export default function NeueBehandlungForm({
                     Wasseraufwand (l/ha)
                     {felder.wasseraufwand !== 'optional' && <span className="text-s112-err"> *</span>}
                   </label>
-                  <input aria-label="Wasseraufwand (l/ha)" name="wasseraufwand_l_ha" type="text" inputMode="decimal"
+                  <input aria-required={felder.wasseraufwand !== 'optional'} aria-label="Wasseraufwand (l/ha)" name="wasseraufwand_l_ha" type="text" inputMode="decimal"
                     placeholder="z.B. 400"
                     value={m.wasserBerechnet !== null ? fmtNum(m.wasserBerechnet, { max: 2 }) : wasseraufwand}
                     disabled={wasserGesperrt}

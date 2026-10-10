@@ -149,7 +149,7 @@ ${ersetzt === 1 ? 'Die abweichende AfA-Buchung wird' : `${ersetzt} abweichende A
                 {gebuchte.length === 1 ? 'Die AfA-Buchung' : `Alle ${gebuchte.length} AfA-Buchungen`} {jahr} werden storniert – je eine Gegenbuchung per 31.12.{jahr}, die Buchungen bleiben gekennzeichnet in der E&A. Das Anlagenverzeichnis bleibt unverändert.
               </p>
               <label htmlFor="afa-rueck-grund" className="text-[12px] font-medium text-s112-text-1">Grund des Stornos <span className="text-s112-err">*</span></label>
-              <textarea id="afa-rueck-grund" value={grund} onChange={ev => setGrund(ev.target.value)} rows={2} autoFocus minLength={STORNO_GRUND_MIN}
+              <textarea required id="afa-rueck-grund" value={grund} onChange={ev => setGrund(ev.target.value)} rows={2} autoFocus minLength={STORNO_GRUND_MIN}
                 placeholder="z. B. Nutzungsdauer falsch erfasst"
                 className="w-full border border-s112-border rounded-sm px-2 py-1 text-[12.5px] bg-white focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               <div className="flex justify-end gap-2">

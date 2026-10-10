@@ -68,7 +68,7 @@ export default function BestandKorrigierenForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelCls} htmlFor="bk-art">Art der Buchung *</label>
-          <select
+          <select required
             id="bk-art"
             name="art"
             value={art}

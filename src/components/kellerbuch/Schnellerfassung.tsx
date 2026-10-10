@@ -154,7 +154,7 @@ export default function Schnellerfassung({
   const chargeAuswahl = (wert: string, setze: (v: string) => void, id: string) => chargen.length > 1 && (
     <div>
       <label htmlFor={id} className="block text-xs font-medium text-s112-text-2 mb-1">Charge *</label>
-      <select id={id} value={wert} onChange={e => setze(e.target.value)} className={inputCls}>
+      <select required id={id} value={wert} onChange={e => setze(e.target.value)} className={inputCls}>
         <option value="">– wählen –</option>
         {chargen.map(c => <option key={c.id} value={c.id}>{c.name ?? 'Charge'} ({fmtLiter(Number(c.menge_liter ?? 0))})</option>)}
       </select>
@@ -218,7 +218,7 @@ export default function Schnellerfassung({
           {chargeAuswahl(notiz.charge, v => { const n = { ...notiz, charge: v }; setNotiz(n); schreibeEntwurf(nk, n) }, 'schnell-notiz-charge')}
           <div>
             <label htmlFor="schnell-notiz" className="block text-xs font-medium text-s112-text-2 mb-1">Notiz *</label>
-            <textarea id="schnell-notiz" rows={3} maxLength={500} value={notiz.text}
+            <textarea required id="schnell-notiz" rows={3} maxLength={500} value={notiz.text}
               onChange={e => { const n = { ...notiz, text: e.target.value }; setNotiz(n); schreibeEntwurf(nk, n) }}
               placeholder="z. B. Gärung ruhig, Temperatur 16 °C" className={inputCls} />
           </div>
@@ -231,7 +231,7 @@ export default function Schnellerfassung({
           <div className="col-span-2">{chargeAuswahl(schwund.charge, v => { const s = { ...schwund, charge: v }; setSchwund(s); schreibeEntwurf(sk, s) }, 'schnell-schwund-charge')}</div>
           <div>
             <label htmlFor="schnell-schwund-menge" className="block text-xs font-medium text-s112-text-2 mb-1">Menge (L) *</label>
-            <input id="schnell-schwund-menge" type="text" inputMode="decimal" value={schwund.menge} placeholder="z. B. 12,5"
+            <input required id="schnell-schwund-menge" type="text" inputMode="decimal" value={schwund.menge} placeholder="z. B. 12,5"
               onChange={e => { const s = { ...schwund, menge: e.target.value }; setSchwund(s); schreibeEntwurf(sk, s) }} className={inputCls} />
           </div>
           <div>
@@ -241,7 +241,7 @@ export default function Schnellerfassung({
           </div>
           <div className="col-span-2">
             <label htmlFor="schnell-schwund-grund" className="block text-xs font-medium text-s112-text-2 mb-1">Begründung *</label>
-            <input id="schnell-schwund-grund" type="text" value={schwund.grund} placeholder="z. B. Verdunstung, Trub"
+            <input required id="schnell-schwund-grund" type="text" value={schwund.grund} placeholder="z. B. Verdunstung, Trub"
               onChange={e => { const s = { ...schwund, grund: e.target.value }; setSchwund(s); schreibeEntwurf(sk, s) }} className={inputCls} />
           </div>
           <button type="submit" disabled={pending} className="btn-primary col-span-2 sm:col-span-1">{pending ? 'Bucht …' : 'Schwund buchen'}</button>

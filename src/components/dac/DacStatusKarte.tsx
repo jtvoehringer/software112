@@ -136,14 +136,14 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
             {angaben.pruefnummer !== 'nein' && (
               <div>
                 <label className="form-label" htmlFor="pn-nr">Prüfnummer{angaben.pruefnummer === 'pflicht' ? ' *' : ''}</label>
-                <input id="pn-nr" type="text" value={nr} onChange={e => setNr(e.target.value)} className="form-input font-mono" />
+                <input id="pn-nr" required={angaben.pruefnummer === 'pflicht'} type="text" value={nr} onChange={e => setNr(e.target.value)} className="form-input font-mono" />
                 {pnFormatHinweis(nr) && <p className="text-xs text-s112-warn-fg mt-1">{pnFormatHinweis(nr)}</p>}
               </div>
             )}
           </div>
           <div>
             <label className="form-label" htmlFor="pn-grund">Grund / Anmerkung{angaben.grundPflicht ? ' *' : ''}</label>
-            <input id="pn-grund" type="text" value={grund} onChange={e => setGrund(e.target.value)} className="form-input" />
+            <input id="pn-grund" required={!!angaben.grundPflicht} type="text" value={grund} onChange={e => setGrund(e.target.value)} className="form-input" />
           </div>
           {ziel === 'eingereicht' && einreichFehlend.length > 0 && <EinreichCheckliste fehlend={einreichFehlend} antragHref={antragHref} />}
           {ziel === 'eingereicht' && (

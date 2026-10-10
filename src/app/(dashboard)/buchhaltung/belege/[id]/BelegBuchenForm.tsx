@@ -206,7 +206,7 @@ export default function BelegBuchenForm({
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz *</label>
-            <select aria-label="USt-Satz" name="ust_satz" defaultValue={e.ust_satz ?? ustStandard}
+            <select required aria-label="USt-Satz" name="ust_satz" defaultValue={e.ust_satz ?? ustStandard}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               {UST_SAETZE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
             </select>

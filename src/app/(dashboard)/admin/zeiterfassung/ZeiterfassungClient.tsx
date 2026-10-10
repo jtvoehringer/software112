@@ -74,7 +74,7 @@ function ZeitForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Phase *</label>
-          <select aria-label="Phase" name="phase" defaultValue={initial?.phase ?? 0} className={inputCls}>
+          <select required aria-label="Phase" name="phase" defaultValue={initial?.phase ?? 0} className={inputCls}>
             {PHASEN.map(p => (
               <option key={p.nr} value={p.nr}>{p.label}</option>
             ))}

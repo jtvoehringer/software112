@@ -173,7 +173,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
                 </div>
                 {firmaModus === 'neu' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div><label className={labelCls}>Firmenname *</label><input aria-label="Firmenname" value={firmaName} onChange={e => setFirmaName(e.target.value)} className={inputCls} /></div>
+                    <div><label className={labelCls}>Firmenname *</label><input required aria-label="Firmenname" value={firmaName} onChange={e => setFirmaName(e.target.value)} className={inputCls} /></div>
                     <div><label className={labelCls}>Website</label><input aria-label="Website" value={firmaWebsite} onChange={e => setFirmaWebsite(e.target.value)} className={inputCls} placeholder="weingut-beispiel.at" /></div>
                   </div>
                 )}
@@ -199,7 +199,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
                 <div><label className={labelCls}>Land</label>
                   <select aria-label="Land" value={land} onChange={e => setLand(e.target.value)} className={inputCls}><LandOptionen aktuell={land} /></select></div>
                 <div><label className={labelCls}>Segment *</label>
-                  <select aria-label="Segment" value={segment} onChange={e => setSegment(e.target.value)} className={inputCls}>{SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+                  <select required aria-label="Segment" value={segment} onChange={e => setSegment(e.target.value)} className={inputCls}>{SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
                 <div><label className={labelCls}>Rabattgruppe</label>
                   <select aria-label="Rabattgruppe" value={rabattgruppeId} onChange={e => setRabattgruppeId(e.target.value)} className={inputCls}>
                     <option value="">– keine –</option>

@@ -211,7 +211,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">Brutto (Liter) *</label>
-              <input aria-label="Brutto (Liter)" type="text" inputMode="decimal" value={brutto}
+              <input required aria-label="Brutto (Liter)" type="text" inputMode="decimal" value={brutto}
                 onChange={e => setBrutto(e.target.value)} placeholder="z.B. 1.200" className="form-input py-2.5 sm:py-2 text-base sm:text-sm" />
               {bruttoVal > verfuegbarLiter + 0.01 && (
                 <p className="text-xs text-s112-err-fg mt-1">Überschreitet verfügbaren Bestand</p>
@@ -219,7 +219,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             </div>
             <div>
               <label className="form-label">Netto (Liter) *</label>
-              <input aria-label="Netto (Liter)" type="text" inputMode="decimal" value={netto}
+              <input required aria-label="Netto (Liter)" type="text" inputMode="decimal" value={netto}
                 onChange={e => setNetto(e.target.value)} placeholder="z.B. 1.190" className="form-input py-2.5 sm:py-2 text-base sm:text-sm" />
               {nettoVal > bruttoVal + 0.01 && (
                 <p className="text-xs text-s112-err-fg mt-1">Netto &gt; Brutto nicht erlaubt</p>
@@ -240,7 +240,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           {/* Ziel-Gebinde */}
           <div>
             <label className="form-label">Ziel-Gebinde *</label>
-            <select aria-label="Ziel-Gebinde" value={zielId} onChange={e => setZielId(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm">
+            <select required aria-label="Ziel-Gebinde" value={zielId} onChange={e => setZielId(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm">
               <option value="">– Gebinde wählen –</option>
               {gebinde.map(g => {
                 // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität

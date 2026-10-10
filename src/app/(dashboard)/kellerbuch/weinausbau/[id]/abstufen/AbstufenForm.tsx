@@ -95,11 +95,11 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label htmlFor="abstufen-menge" className="block text-xs font-medium text-s112-text-2 mb-1">Teilmenge (L) *</label>
-            <input id="abstufen-menge" type="text" inputMode="decimal" value={menge} onChange={e => setMenge(e.target.value)} className={inputCls} />
+            <input required id="abstufen-menge" type="text" inputMode="decimal" value={menge} onChange={e => setMenge(e.target.value)} className={inputCls} />
           </div>
           <div>
             <label htmlFor="abstufen-ziel" className="block text-xs font-medium text-s112-text-2 mb-1">Leeres Gebinde *</label>
-            <select id="abstufen-ziel" value={ziel} onChange={e => setZiel(e.target.value)} className={inputCls}>
+            <select required id="abstufen-ziel" value={ziel} onChange={e => setZiel(e.target.value)} className={inputCls}>
               <option value="">– wählen –</option>
               {leereGebinde.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
@@ -110,7 +110,7 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label htmlFor="abstufen-datum" className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input id="abstufen-datum" type="date" value={datum} max={heute} onChange={e => setDatum(e.target.value)} className={inputCls} />
+          <input required id="abstufen-datum" type="date" value={datum} max={heute} onChange={e => setDatum(e.target.value)} className={inputCls} />
         </div>
         <div>
           <label htmlFor="abstufen-qualitaetsstufe" className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
@@ -139,7 +139,7 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
 
       <div>
         <label htmlFor="abstufen-grund" className="block text-xs font-medium text-s112-text-2 mb-1">Grund * <span className="text-s112-muted font-normal">(mindestens {ABSTUFEN_GRUND_MIN} Zeichen, steht im Weinbuch und im Änderungsprotokoll)</span></label>
-        <textarea id="abstufen-grund" value={grund} onChange={e => setGrund(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
+        <textarea required id="abstufen-grund" value={grund} onChange={e => setGrund(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
       </div>
 
       {pruefung && stufe && <p className="text-xs text-s112-muted">{pruefung}</p>}

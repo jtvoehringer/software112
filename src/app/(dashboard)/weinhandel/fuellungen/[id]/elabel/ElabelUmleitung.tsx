@@ -62,7 +62,7 @@ export default function ElabelUmleitung({ ziele, aktuell, protokoll, schreiben, 
           </div>
           <div>
             <label htmlFor="umleitung-grund" className="block text-xs font-medium text-s112-text-2 mb-1">Grund *</label>
-            <input id="umleitung-grund" value={grund} onChange={e => setGrund(e.target.value)} placeholder="z. B. Nachfolgefüllung 2027" className={inputCls} />
+            <input required id="umleitung-grund" value={grund} onChange={e => setGrund(e.target.value)} placeholder="z. B. Nachfolgefüllung 2027" className={inputCls} />
           </div>
           <div className="flex gap-2">
             <button type="button" disabled={pending || !ziel || ziel === aktuell} onClick={() => senden(ziel)} className="btn-primary text-sm">Umleiten</button>

@@ -353,7 +353,7 @@ export default function BenutzerClient({ members, limit }: Props) {
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Rolle *</label>
-              <select aria-label="Rolle" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+              <select required aria-label="Rolle" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                 className={inputCls()} disabled={isPending}>
                 {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
