@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import { ladeErnteSperren, MASSNAHME_ERNTE_GRUND } from '@/lib/behandlungen/ernteSperre'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
@@ -39,12 +40,12 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   let bioStatus: string = 'konventionell'
   if (tenantId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenantRow } = await (supabase.from('tenants') as any)
-      .select('bio_status').eq('id', tenantId).maybeSingle()
+    const tenantRow = geladen(await (supabase.from('tenants') as any)
+      .select('bio_status').eq('id', tenantId).maybeSingle(), 'Betrieb')
     bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
   }
 
-  const [{ data: rawB }, { data: rawPsm }, { data: rawDuenger }, { data: rawKostenarten }, { data: rawKE }] = await Promise.all([
+  const [rawBRes, rawPsmRes, rawDuengerRes, rawKostenartenRes, rawKERes] = await Promise.all([
     // storno-sichtbar: Einzelsatz – eine stornierte Maßnahme leitet die Seite zur Liste um (KAN-88)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('behandlungen') as any)
@@ -62,7 +63,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       `)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .single(),
+      .maybeSingle(),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pflanzenschutzmittel') as any)
@@ -94,6 +95,11 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
+  const rawB = geladen(rawBRes, 'Maßnahmen')
+  const rawPsm = geladen(rawPsmRes, 'Pflanzenschutzmittel')
+  const rawDuenger = geladen(rawDuengerRes, 'Düngemittel')
+  const rawKostenarten = geladen(rawKostenartenRes, 'Kostenarten')
+  const rawKE = geladen(rawKERes, 'Kosteneinträge')
 
   if (!rawB) notFound()
   // KAN-88: stornierte Maßnahmen sind unveränderlich (DB: s112_storno_schutz) – zurück zur Liste
@@ -177,9 +183,9 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
 
   // KAN-167: Betriebsmittel (aktiv, eigener Betrieb) für Sonstiges und Laubarbeit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBm } = await (supabase.from('betriebsmittel') as any)
+  const rawBm = geladen(await (supabase.from('betriebsmittel') as any)
     .select('id, name, gruppe, einheit, preis_pro_einheit')
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', tenantId), 'Betriebsmittel')
     // die gespeicherte Auswahl auch dann, wenn das Mittel inzwischen deaktiviert ist (Speichern verlangt ein aktives)
     .or(`aktiv.eq.true${b.betriebsmittel_id ? `,id.eq.${b.betriebsmittel_id}` : ''}`).order('name')
   const betriebsmittel: BmMassnahmeOption[] = ((rawBm ?? []) as AR[]).map(m => ({

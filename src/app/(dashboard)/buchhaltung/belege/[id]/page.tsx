@@ -1,4 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
@@ -19,25 +20,25 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
   if (!membership?.tenantId) redirect('/login')
   const tenantId = membership.tenantId
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
   const ustStandard = einst?.ust_satz_standard ?? 20
 
-  const { data: belegRaw } = await (supabase.from('ea_belege') as any)
+  const belegRaw = geladen(await (supabase.from('ea_belege') as any)
     .select('id, dateiname, dateityp, status, storage_pfad, erkannte_daten, fehler_details, hochgeladen_am')
-    .eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    .eq('id', id).eq('tenant_id', tenantId).maybeSingle(), 'Belege')
   if (!belegRaw) notFound()
   const beleg = belegRaw as R
   if (beleg.status === 'verbucht') redirect('/buchhaltung/belege')
 
-  const { data: signed } = await supabase.storage
+  const signed = geladen(await supabase.storage
     .from('ea-belege')
-    .createSignedUrl(beleg.storage_pfad, 3600)
+    .createSignedUrl(beleg.storage_pfad, 3600), 'Daten')
   const previewUrl = signed?.signedUrl ?? null
   const istBild = (beleg.dateityp as string)?.startsWith('image/')
 
-  const [{ data: kategorien }, { data: konten }, { data: firmenRaw }] = await Promise.all([
+  const [kategorienRes, kontenRes, firmenRawRes] = await Promise.all([
     (supabase.from('ea_kategorien') as any)
       .select('id, name, typ, abzugsfaehig_pct')
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
@@ -57,13 +58,16 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
       .eq('tenant_id', tenantId).eq('aktiv', true)
       .order('name').order('id')),
   ])
+  const kategorien = geladen(kategorienRes, 'Kategorien')
+  const konten = geladen(kontenRes, 'Konten')
+  const firmenRaw = geladen(firmenRawRes, 'Firmen')
 
   // Rabattgruppen (non-fatal, wie in crm/firmen/page.tsx – Tabelle existiert
   // erst nach Migration 031)
   let rabattgruppenRaw: R[] = []
   try {
-    const { data: r } = await (supabase.from('rabattgruppen') as any)
-      .select('id, name, rabatt_pct').eq('tenant_id', tenantId).order('rabatt_pct')
+    const r = geladen(await (supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct').eq('tenant_id', tenantId).order('rabatt_pct'), 'Rabattgruppen')
     rabattgruppenRaw = (r ?? []) as R[]
   } catch { /* Tabelle noch nicht vorhanden */ }
   const rabattgruppen = rabattgruppenRaw.map(r => ({

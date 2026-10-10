@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
@@ -27,15 +28,15 @@ export default async function DauerauftraegePage() {
   const tenantId = membership.tenantId
   const adminOk  = canAdmin(membership.role)
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
   // KAN-5: Der tägliche Lauf (process_ea_dauerauftraege) bucht bei gesperrtem Abo nichts. Maßgeblich
   // ist die Regel des Betriebs, nicht die Ausnahme des Betrachters – daher ohne Rolle abfragen.
   const aboGesperrt = (await aboStandAktuell({ tenantId, role: null })).gesperrt
 
-  const [{ data: dauerauftraege }, { data: kategorien }, { data: konten }, { data: log }] = await Promise.all([
+  const [dauerauftraegeRes, kategorienRes, kontenRes, logRes] = await Promise.all([
     (supabase.from('ea_dauerauftraege') as any)
       .select('*, ea_kategorien(name), konten(name)')
       .eq('tenant_id', tenantId)
@@ -54,6 +55,10 @@ export default async function DauerauftraegePage() {
       .order('erstellt_am', { ascending: false })
       .limit(10),
   ])
+  const dauerauftraege = geladen(dauerauftraegeRes, 'Daueraufträge')
+  const kategorien = geladen(kategorienRes, 'Kategorien')
+  const konten = geladen(kontenRes, 'Konten')
+  const log = geladen(logRes, 'Protokoll der Daueraufträge')
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
