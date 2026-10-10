@@ -6,6 +6,9 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { createEaKategorie } from '../actions'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import { ergebnisPruefen } from '@/lib/fehler'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Buchungskategorien' }
 
 export const dynamic = 'force-dynamic'
 

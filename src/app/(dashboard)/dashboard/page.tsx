@@ -10,7 +10,7 @@ import { canWrite } from '@/lib/auth/roles'
 import MorgenberichtKarte from './morgenbericht/MorgenberichtKarte'
 import { TrendingUp, ArrowRightLeft, Sparkles } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Übersicht – software:112' }
+export const metadata: Metadata = { title: 'Übersicht' }
 export const dynamic = 'force-dynamic'
 
 // ── Sicht "Übersicht" (Dashboard-Relaunch 27.8.2026) ─────────────────────────

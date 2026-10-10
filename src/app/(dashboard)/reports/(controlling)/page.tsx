@@ -11,7 +11,7 @@ import {
 import { cuBilanz } from '@/lib/behoerden/cu'
 import { heuteWien, lokalerTag, wienJetzt, tageSeit } from '@/lib/datum/wien'
 
-export const metadata: Metadata = { title: 'Reports – software:112' }
+export const metadata: Metadata = { title: 'Reports' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

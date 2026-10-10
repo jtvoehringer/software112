@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // abfrage-ohne-fehler: nur Seitentitel (generateMetadata) – bei einem Lesefehler genügt der Ersatztitel
   const { data } = await query.single()
   const name = data ? [data.vorname, data.nachname].filter(Boolean).join(' ') : 'Kontakt'
-  return { title: `${name} – software:112` }
+  return { title: `${name}` }
 }
 
 export default async function KontaktDetailPage({ params }: { params: Promise<{ id: string }> }) {

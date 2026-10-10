@@ -11,7 +11,7 @@ import type { BmMassnahmeOption } from './BetriebsmittelFeld'
 import NeueBehandlungForm from './NeueBehandlungForm'
 import { anwendungKontext } from '@/lib/behandlungen/anwendungKontext'
 
-export const metadata: Metadata = { title: 'Neue Maßnahme – software:112' }
+export const metadata: Metadata = { title: 'Neue Maßnahme' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>

@@ -10,7 +10,7 @@ import StornoButton from '@/components/StornoButton'
 import { lohnversektungStand, rueckkehrPfad, STAND_TEXT } from '@/lib/kellerbuch/lohnversektung'
 import { lohnversektungStornieren } from './actions'
 
-export const metadata: Metadata = { title: 'Lohnversektung – software:112' }
+export const metadata: Metadata = { title: 'Lohnversektung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -11,7 +11,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { gebindePasst, pickerlText, vorherrschendeWeinart, WEINART_FARBE } from '@/lib/keller/gebindeAnzeige'
 import PickerlEntfernen from './PickerlEntfernen'
 
-export const metadata: Metadata = { title: 'Kellerbuch – software:112' }
+export const metadata: Metadata = { title: 'Kellerbuch' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

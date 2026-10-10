@@ -6,7 +6,7 @@ import Link from '@/components/ui/Link'
 import LagenClient from './LagenClient'
 import { herkunftGebietTolerant } from '@/lib/herkunft'
 
-export const metadata: Metadata = { title: 'Rieden – software:112' }
+export const metadata: Metadata = { title: 'Rieden' }
 
 export type Lage = {
   id: string; name: string; gemeinde: string | null

@@ -12,7 +12,7 @@ import { gebindeTypLabel } from '@/lib/behoerden/gebindeverzeichnis'
 import { etikettenAuswahl } from '@/lib/keller/qrEtiketten'
 import DruckKnopf from '../../_behoerden/DruckKnopf'
 
-export const metadata: Metadata = { title: 'QR-Etiketten Gebinde – software:112' }
+export const metadata: Metadata = { title: 'QR-Etiketten Gebinde' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

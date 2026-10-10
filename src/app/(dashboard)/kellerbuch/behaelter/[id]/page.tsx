@@ -12,7 +12,7 @@ import { ladeBehaelterEinzeln, ladeKellergemeinschaft } from '@/lib/keller/behae
 import { letzteMassnahmen, type SchnellCharge } from '@/lib/keller/schnellerfassung'
 import { fmtLiter } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Gebinde – software:112' }
+export const metadata: Metadata = { title: 'Gebinde' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

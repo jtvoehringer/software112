@@ -9,7 +9,7 @@ import { getCtx, ladeWeingarten, type R } from '../_shared/data'
 import { canWrite } from '@/lib/auth/roles'
 import LeseCheckliste, { type Punkt } from './LeseCheckliste'
 
-export const metadata: Metadata = { title: 'Weingarten & Ernte – software:112' }
+export const metadata: Metadata = { title: 'Weingarten & Ernte' }
 export const dynamic = 'force-dynamic'
 
 // ── Sicht "Weingarten & Ernte" (Dashboard-Relaunch 27.8.2026) ────────────────

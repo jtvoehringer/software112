@@ -5,6 +5,9 @@ import Link from '@/components/ui/Link'
 import SonstigeArtikelClient from './SonstigeArtikelClient'
 import { alle } from '@/lib/supabase/alle'
 import { rund } from '@/lib/zahl/runden'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Sonstige Produkte' }
 
 export const dynamic = 'force-dynamic'
 

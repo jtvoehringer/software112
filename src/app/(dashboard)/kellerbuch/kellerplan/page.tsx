@@ -8,7 +8,7 @@ import KellerplanEditModal from '@/components/kellerbuch/KellerplanEditModal'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
-export const metadata: Metadata = { title: 'Kellerplan – software:112' }
+export const metadata: Metadata = { title: 'Kellerplan' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

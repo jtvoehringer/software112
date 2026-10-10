@@ -16,7 +16,7 @@ import {
   CU_GRENZWERT_KG_HA_5J, CU_GRENZWERT_KG_HA_7J, CU_GRENZWERT_KG_HA_JAHR, CU_STATUS_LABEL, ladeCuBilanz,
 } from '@/lib/behoerden/cu'
 
-export const metadata: Metadata = { title: 'Cu-Bilanz – software:112' }
+export const metadata: Metadata = { title: 'Cu-Bilanz' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

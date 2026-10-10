@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { CheckCircle2, TrendingUp } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Neuerungen – software:112' }
+export const metadata: Metadata = { title: 'Neuerungen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

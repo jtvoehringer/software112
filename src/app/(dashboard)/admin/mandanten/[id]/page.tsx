@@ -141,7 +141,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const admin = createSupabaseAdminClient()
   const data = geladen(await (admin.from('tenants') as any).select('name').eq('id', id).maybeSingle(), 'Betrieb')
-  return { title: `${(data as R | null)?.name ?? 'Mandant'} – software:112` }
+  return { title: `${(data as R | null)?.name ?? 'Mandant'}` }
 }
 
 export default async function MandantDetailPage({ params }: { params: Promise<{ id: string }> }) {

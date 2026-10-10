@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import SystemAdminClient from './SystemAdminClient'
 
-export const metadata: Metadata = { title: 'Super-Admin – software:112' }
+export const metadata: Metadata = { title: 'Super-Admin' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

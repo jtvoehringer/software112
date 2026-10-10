@@ -7,7 +7,7 @@ import WeingartenForm from '@/components/weingarten/WeingartenForm'
 import { createWeingarten } from '../actions'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 
-export const metadata: Metadata = { title: 'Neue Ried – software:112' }
+export const metadata: Metadata = { title: 'Neue Ried' }
 
 export default async function NeuePage() {
   // Rückmeldung 24.8.2026: "Neue Ried"-Link wird in der Übersicht bereits

@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { Users, Building2, Wine, ShoppingCart, type LucideIcon, FileText } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Datenexport – software:112' }
+export const metadata: Metadata = { title: 'Datenexport' }
 export const dynamic = 'force-dynamic'
 
 export default async function ExportPage() {

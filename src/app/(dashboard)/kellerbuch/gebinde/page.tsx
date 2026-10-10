@@ -32,7 +32,7 @@ import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 import { wienJetzt } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
-export const metadata: Metadata = { title: 'Gebinde – software:112' }
+export const metadata: Metadata = { title: 'Gebinde' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -3,7 +3,7 @@ import Link from '@/components/ui/Link'
 import BehaelterForm from '@/components/kellerbuch/BehaelterForm'
 import { createBehaelter } from '../../actions'
 
-export const metadata: Metadata = { title: 'Neuer Behälter – software:112' }
+export const metadata: Metadata = { title: 'Neuer Behälter' }
 export const dynamic = 'force-dynamic'
 
 export default function NeuePage() {

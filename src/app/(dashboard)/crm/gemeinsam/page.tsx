@@ -16,7 +16,7 @@ import Link from '@/components/ui/Link'
 import type { Metadata } from 'next'
 import { zahlLokal } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Gemeinsames CRM – software:112' }
+export const metadata: Metadata = { title: 'Gemeinsames CRM' }
 export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 

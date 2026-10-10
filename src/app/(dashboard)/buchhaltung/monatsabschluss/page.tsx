@@ -8,6 +8,9 @@ import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock, LockOpen } from 'lucide-react'
 import { wienJetzt } from '@/lib/datum/wien'
 import { ergebnisPruefen } from '@/lib/fehler'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Monatsabschluss' }
 
 export const dynamic = 'force-dynamic'
 

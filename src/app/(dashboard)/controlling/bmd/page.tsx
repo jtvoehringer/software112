@@ -5,6 +5,9 @@ import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { hatModul } from '@/lib/auth/modul'
 import { schreibSperre } from '@/lib/auth/sperren'
 import BmdClient from './BmdClient'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'BMD-Übergabe' }
 
 export const dynamic = 'force-dynamic'
 

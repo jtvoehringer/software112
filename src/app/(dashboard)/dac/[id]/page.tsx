@@ -15,7 +15,7 @@ import { pnPflichtFehlend } from '@/lib/dac/workflow'
 import { ladePruefnummernantrag } from '@/lib/behoerden/pruefnummernantrag'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 
-export const metadata: Metadata = { title: 'Prüfnummern-Antrag bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Prüfnummern-Antrag bearbeiten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

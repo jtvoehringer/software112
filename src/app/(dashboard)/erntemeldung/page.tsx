@@ -8,7 +8,7 @@ import type { Lese } from '@/lib/wein/lesen'
 import { geladen } from '@/lib/supabase/geladen'
 import { mischen, type MischTeil } from '@/lib/wein/mostgewicht'
 
-export const metadata: Metadata = { title: 'Lese – software:112' }
+export const metadata: Metadata = { title: 'Lese' }
 
 export type Jahrgang = {
   id: string; jahrgang: number

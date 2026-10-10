@@ -10,7 +10,7 @@ import { ladeBehandlungen, ladeWeingaerten } from '@/lib/behoerden/psm'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { KATALOG_PFLANZENSCHUTZ } from '@/lib/behoerden/katalog/pflanzenschutz'
 
-export const metadata: Metadata = { title: 'Maßnahmen-Berichte – software:112' }
+export const metadata: Metadata = { title: 'Maßnahmen-Berichte' }
 export const dynamic = 'force-dynamic'
 
 // Maßnahmen-Berichte (Tabs Ried, Mittelverbrauch, Cu-Bilanz). Daten über dieselbe Ladefunktion wie

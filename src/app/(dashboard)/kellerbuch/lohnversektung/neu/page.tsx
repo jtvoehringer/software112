@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
 import { wienHeute } from '@/lib/csv'
 import VersandForm from './VersandForm'
 
-export const metadata: Metadata = { title: 'Grundwein zur Lohnversektung – software:112' }
+export const metadata: Metadata = { title: 'Grundwein zur Lohnversektung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

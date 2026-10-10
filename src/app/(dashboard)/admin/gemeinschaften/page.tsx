@@ -16,7 +16,7 @@ import Link from '@/components/ui/Link'
 import GemeinschaftenClient from './GemeinschaftenClient'
 import type { GemeinschaftArt } from './actions'
 
-export const metadata: Metadata = { title: 'Gemeinschaften – software:112' }
+export const metadata: Metadata = { title: 'Gemeinschaften' }
 export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 

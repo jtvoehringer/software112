@@ -10,7 +10,7 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeDacAntraege, DAC_STATUS_LABEL, type DacAntragZeile } from '@/lib/behoerden/dac'
 
-export const metadata: Metadata = { title: 'DAC & Prüfnummern – software:112' }
+export const metadata: Metadata = { title: 'DAC & Prüfnummern' }
 export const dynamic = 'force-dynamic'
 
 const STATUS_FARBE: Record<string, string> = {

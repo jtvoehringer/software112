@@ -9,7 +9,7 @@ import { ladeBehaelter } from '@/lib/keller/behaelter'
 import ProduktionForm from '../ProduktionForm'
 import { produktionBuchen } from '../actions'
 
-export const metadata: Metadata = { title: 'Neue Produktion – software:112' }
+export const metadata: Metadata = { title: 'Neue Produktion' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

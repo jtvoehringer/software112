@@ -10,7 +10,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeRiedenStammdaten, type GstStamm, type RiedStamm } from '@/lib/behoerden/flaechenverzeichnis'
 import { fmtHa } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Rieden – software:112' }
+export const metadata: Metadata = { title: 'Rieden' }
 
 export default async function WeingartenPage() {
   const supabase = await createSupabaseServerClient()

@@ -11,7 +11,7 @@ import { PRODUKTION_ART_LABEL, PRODUKTION_ZUTAT_LABEL, type ProduktionArt } from
 import StornoButton from '@/components/StornoButton'
 import { produktionStornieren } from './actions'
 
-export const metadata: Metadata = { title: 'Produktion – software:112' }
+export const metadata: Metadata = { title: 'Produktion' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

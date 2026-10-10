@@ -10,7 +10,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeSvsEinheitswerte } from '@/lib/behoerden/svs'
 import SvsClient from './SvsClient'
 
-export const metadata: Metadata = { title: 'SV-Beiträge (SVS) – software:112' }
+export const metadata: Metadata = { title: 'SV-Beiträge (SVS)' }
 export const dynamic = 'force-dynamic'
 
 // ── SV-Beiträge (SVS) – Rückmeldung 8.9.2026 ─────────────────────────────────

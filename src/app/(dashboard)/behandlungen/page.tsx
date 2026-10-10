@@ -14,7 +14,7 @@ import { erfassungsAmpel, erfassungsverzugH, fristAus, fristRelevant, nacherfass
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
 
-export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
+export const metadata: Metadata = { title: 'Maßnahmen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -10,7 +10,7 @@ import KontakteClient from './KontakteClient'
 import type { KontaktRow } from '@/lib/crm/types'
 import type { AktivitaetRow, PipelineRow } from './KontakteClient'
 
-export const metadata: Metadata = { title: 'Kontakte – software:112' }
+export const metadata: Metadata = { title: 'Kontakte' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

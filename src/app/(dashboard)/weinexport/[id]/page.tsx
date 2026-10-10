@@ -10,7 +10,7 @@ import Link from '@/components/ui/Link'
 import WeinexportDetailClient from './WeinexportDetailClient'
 import { ladeExportauftrag } from '@/lib/behoerden/exportauftrag'
 import { csvPfad } from '@/lib/behoerden/katalog'
-export const metadata: Metadata = { title: 'Exportauftrag – software:112' }
+export const metadata: Metadata = { title: 'Exportauftrag' }
 export const dynamic = 'force-dynamic'
 
 export default async function WeinexportDetailPage({ params }: { params: Promise<{ id: string }> }) {

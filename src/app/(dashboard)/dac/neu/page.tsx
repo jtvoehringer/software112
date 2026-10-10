@@ -11,7 +11,7 @@ import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
 import { PN_OFFENE_ANTRAGS_STATUS, pnStatusLabel } from '@/lib/dac/workflow'
 import { sortenAnteilText } from '@/lib/wein/sortenangabe'
 
-export const metadata: Metadata = { title: 'Neuer Prüfnummern-Antrag – software:112' }
+export const metadata: Metadata = { title: 'Neuer Prüfnummern-Antrag' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

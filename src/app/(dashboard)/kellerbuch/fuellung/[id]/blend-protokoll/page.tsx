@@ -16,7 +16,7 @@ import { ladeBlendProtokoll } from '@/lib/behoerden/blend'
 import { BlendHerkunftTabelle, BlendHinweise, BlendSchritteTabelle, BlendSortenAbsteigend } from '@/components/kellerbuch/BlendProtokollTeile'
 import { weinartAusSortenverschnitt } from '@/lib/wein/sortenangabe'
 
-export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
+export const metadata: Metadata = { title: 'Blend-Protokoll' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

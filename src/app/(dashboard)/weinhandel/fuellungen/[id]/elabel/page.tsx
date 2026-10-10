@@ -14,7 +14,7 @@ import ElabelFormular, { type AnalyseWahl, type TypZuordnung, type ElabelStand }
 import { speichereElabel, elabelFreigeben, setzeBehandlungstypZutat, elabelUmleiten } from './actions'
 import { zahlLokal } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'E-Label – software:112' }
+export const metadata: Metadata = { title: 'E-Label' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

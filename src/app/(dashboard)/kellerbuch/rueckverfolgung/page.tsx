@@ -22,7 +22,7 @@ import {
 import { fensterBeginnText, ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
 import { leseTitel } from '@/lib/wein/lesen'
 
-export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
+export const metadata: Metadata = { title: 'Rückverfolgung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

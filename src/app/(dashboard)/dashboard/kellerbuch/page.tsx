@@ -7,7 +7,7 @@ import { canWrite } from '@/lib/auth/roles'
 import ChargenKanban from './ChargenKanban'
 import { journalAbweichungenAnzahl } from '@/lib/kellerbuch/journal'
 
-export const metadata: Metadata = { title: 'Kellerbuch – Übersicht – software:112' }
+export const metadata: Metadata = { title: 'Kellerbuch – Übersicht' }
 export const dynamic = 'force-dynamic'
 
 // ── Sicht "Kellerbuch" (Dashboard-Relaunch 27.8.2026) ────────────────────────

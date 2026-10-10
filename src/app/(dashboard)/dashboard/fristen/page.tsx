@@ -7,7 +7,7 @@ import FristenClient from './FristenClient'
 import BehoerdenUebersicht from '@/components/behoerden/BehoerdenUebersicht'
 import { behoerdenUebersicht } from '@/lib/behoerden/uebersicht'
 
-export const metadata: Metadata = { title: 'Meldungen & Fristen – software:112' }
+export const metadata: Metadata = { title: 'Meldungen & Fristen' }
 export const dynamic = 'force-dynamic'
 
 // ── Sicht "Meldungen & Fristen" (Dashboard-Relaunch 27.8.2026) ───────────────

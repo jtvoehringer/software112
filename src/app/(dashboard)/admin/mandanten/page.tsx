@@ -9,7 +9,7 @@ import type { Metadata } from 'next'
 import MandantenClient from './MandantenClient'
 import { premiumSupportStand, premiumSupportText } from '@/lib/abo/premiumSupport'
 
-export const metadata: Metadata = { title: 'Mandanten – software:112' }
+export const metadata: Metadata = { title: 'Mandanten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

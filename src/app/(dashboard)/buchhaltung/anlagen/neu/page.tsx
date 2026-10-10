@@ -8,7 +8,7 @@ import { getCtx, ladeEinstellungen } from '@/app/(dashboard)/dashboard/_shared/d
 import AnlageForm, { type AnlageInput } from '../AnlageForm'
 import { ladeKandidaten } from '../daten'
 
-export const metadata: Metadata = { title: 'Anlage erfassen – software:112' }
+export const metadata: Metadata = { title: 'Anlage erfassen' }
 export const dynamic = 'force-dynamic'
 
 export default async function NeueAnlagePage({ searchParams }: { searchParams: Promise<{ buchung?: string }> }) {

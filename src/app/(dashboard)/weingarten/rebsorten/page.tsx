@@ -6,7 +6,7 @@ import { amtlicheSorten } from '@/lib/wein/bki_kuerzel'
 import { ohneKuerzel, REBSORTEN_TABELLEN, type OhneKuerzel } from '@/lib/wein/rebsortenPruefung'
 import RebsortenKorrektur from './RebsortenKorrektur'
 
-export const metadata: Metadata = { title: 'Rebsorten prüfen – software:112' }
+export const metadata: Metadata = { title: 'Rebsorten prüfen' }
 export const dynamic = 'force-dynamic'
 
 // KAN-89 (05.10.2026): Rebsorten ohne amtliches BKI-Kürzel je Tabelle, mit Sammelkorrektur (Rieden, Grundstücke,

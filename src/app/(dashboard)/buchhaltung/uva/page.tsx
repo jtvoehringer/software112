@@ -16,6 +16,9 @@ import { ladeUva, uvaZeitraumLabel, UVA_MONATE, type UvaMeldung, type UvaSchlues
 import { datumText } from '@/lib/behoerden/buchhaltung-gemeinsam'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import { ergebnisPruefen } from '@/lib/fehler'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'UVA' }
 
 export const dynamic = 'force-dynamic'
 

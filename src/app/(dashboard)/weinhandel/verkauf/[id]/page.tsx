@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const label = d?.rechnungsnummer
     ? `Beleg ${d.rechnungsnummer}`
     : d?.datum ? `Verkauf ${new Date(d.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : 'Verkauf'
-  return { title: `${label} – software:112` }
+  return { title: `${label}` }
 }
 
 // ── Tenant-Einstellungen (Briefkopf + Rechnung) ──────────────────────────────

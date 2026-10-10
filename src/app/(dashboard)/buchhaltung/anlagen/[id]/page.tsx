@@ -9,7 +9,7 @@ import { getCtx, ladeEinstellungen, type R } from '@/app/(dashboard)/dashboard/_
 import AnlageForm, { type AnlageInput } from '../AnlageForm'
 import { ladeKandidaten, kontoText } from '../daten'
 
-export const metadata: Metadata = { title: 'Anlage – software:112' }
+export const metadata: Metadata = { title: 'Anlage' }
 export const dynamic = 'force-dynamic'
 
 export default async function AnlagePage({ params }: { params: Promise<{ id: string }> }) {

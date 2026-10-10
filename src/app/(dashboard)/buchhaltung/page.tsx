@@ -13,6 +13,9 @@ import { wienHeute } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeEaJournal } from '@/lib/behoerden/ea-journal'
 import { datumText, summe } from '@/lib/behoerden/buchhaltung-gemeinsam'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'E&A-Rechnung' }
 
 export const dynamic = 'force-dynamic'
 

@@ -7,6 +7,9 @@ import { folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGeb
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import { herkunftVorbelegung } from '@/lib/zukauf/ware'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Zukauf bearbeiten' }
 
 export const dynamic = 'force-dynamic'
 

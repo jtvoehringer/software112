@@ -17,7 +17,7 @@ import LagerTabs from '../_behoerden/LagerTabs'
 // KAN-50 AP13: Gesamtexport der BKI-Schnittstelle (eine XLSX-Datei, ein Blatt je Spezifikationsblatt, Prüfbericht vorne)
 // und die drei Katalogblätter. Jedes Blatt einzeln weiterhin als CSV über /meldungen/<id>/csv.
 
-export const metadata: Metadata = { title: 'BKI-Schnittstelle – Gesamtexport – software:112' }
+export const metadata: Metadata = { title: 'BKI-Schnittstelle – Gesamtexport' }
 export const dynamic = 'force-dynamic'
 
 const ART_FARBE: Record<PruefHinweis['art'], string> = {

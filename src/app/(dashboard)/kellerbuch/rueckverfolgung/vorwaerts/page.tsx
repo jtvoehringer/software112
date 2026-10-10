@@ -11,7 +11,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { fmtNum } from '@/lib/format'
 import { ladeRueckruf, type RueckrufStart } from '@/lib/behoerden/rueckruf'
 
-export const metadata: Metadata = { title: 'Rückverfolgung vorwärts – software:112' }
+export const metadata: Metadata = { title: 'Rückverfolgung vorwärts' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

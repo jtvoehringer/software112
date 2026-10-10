@@ -8,6 +8,9 @@ import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { createKonto } from '../actions'
 import { heuteWien } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Neues Konto' }
 
 export const dynamic = 'force-dynamic'
 

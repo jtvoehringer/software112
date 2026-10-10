@@ -22,7 +22,7 @@ import { geladen } from '@/lib/supabase/geladen'
 // Umgeleitet wird nur noch ein Neukunde, der den Checkout der Registrierung nie
 // abgeschlossen hat ('incomplete' ohne Abo-ID, AboStand.zahlungOffen).
 
-export const metadata: Metadata = { title: 'Abo & Zahlung – software:112' }
+export const metadata: Metadata = { title: 'Abo & Zahlung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -18,7 +18,7 @@ import ReifeMessungen from './ReifeMessungen'
 import type { ReifeMessung } from '@/lib/wein/reifemessung'
 import { wienHeute } from '@/lib/csv'
 
-export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Ried bearbeiten' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>

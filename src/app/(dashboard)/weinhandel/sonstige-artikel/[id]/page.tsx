@@ -10,6 +10,9 @@ import { alle } from '@/lib/supabase/alle'
 import { wienHeute } from '@/lib/csv'
 import ProduktLagerClient, { type ProduktZeile } from './ProduktLagerClient'
 import type { ProduktBewegung } from '@/lib/warenwirtschaft/sonstigeProdukte'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Sonstiges Produkt' }
 
 export const dynamic = 'force-dynamic'
 

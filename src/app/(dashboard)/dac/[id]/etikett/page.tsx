@@ -11,7 +11,7 @@ import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
 import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
 import { sortenAngabeVorschlag, weinartAusSortenverschnitt, type SortenVorschlag } from '@/lib/wein/sortenangabe'
 
-export const metadata: Metadata = { title: 'Weinetikett – software:112' }
+export const metadata: Metadata = { title: 'Weinetikett' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -6,6 +6,9 @@ import BetriebListe, { type BetriebEintrag } from './BetriebListe'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import AbmeldenKnopf from './AbmeldenKnopf'
 import { sichererWeiterPfad, wechselUrl } from '@/lib/tenant/waechter'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Betrieb wählen' }
 
 export const dynamic = 'force-dynamic'
 

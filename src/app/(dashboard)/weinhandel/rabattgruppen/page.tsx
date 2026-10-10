@@ -4,7 +4,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import type { Metadata } from 'next'
 import RabattgruppenClient from './RabattgruppenClient'
 
-export const metadata: Metadata = { title: 'Rabattgruppen – software:112' }
+export const metadata: Metadata = { title: 'Rabattgruppen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

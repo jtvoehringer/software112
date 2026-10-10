@@ -16,7 +16,7 @@ import ZeitraumFormular from '../_behoerden/ZeitraumFormular'
 // KAN-44 Teil 1: BKI-Blatt „Lagerbewegungen“ aus dem Bewegungsjournal – dieselbe Ladefunktion liefert die CSV
 // (/meldungen/bki-lagerbewegungen/csv?von=…&bis=…). Ohne Zeitraum: ab 1. Jänner des laufenden Jahres.
 
-export const metadata: Metadata = { title: 'Lagerbewegungen – software:112' }
+export const metadata: Metadata = { title: 'Lagerbewegungen' }
 export const dynamic = 'force-dynamic'
 
 const datum = (d: string) => d.split('-').reverse().join('.')

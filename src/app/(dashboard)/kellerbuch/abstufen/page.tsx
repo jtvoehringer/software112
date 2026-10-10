@@ -8,7 +8,7 @@ import { qualitaetAnzeige } from '@/lib/wein/qualitaet'
 import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { fmtNum } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Charge abstufen – software:112' }
+export const metadata: Metadata = { title: 'Charge abstufen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

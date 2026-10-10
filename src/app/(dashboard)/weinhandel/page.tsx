@@ -10,7 +10,7 @@ import { Package, Truck, Grape, Search, Pencil } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Warenwirtschaft – software:112' }
+export const metadata: Metadata = { title: 'Warenwirtschaft' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

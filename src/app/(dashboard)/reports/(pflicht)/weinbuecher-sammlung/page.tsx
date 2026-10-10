@@ -12,7 +12,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeWeinbuchFilter, ladeWeinbuchSammlung, WEINBUCH_STATUS_LABEL, type WeinbuchFilter } from '@/lib/behoerden/weinbuch'
 import { fmtNum } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Weinbuch-Sammlung – software:112' }
+export const metadata: Metadata = { title: 'Weinbuch-Sammlung' }
 export const dynamic = 'force-dynamic'
 
 // Weinbuch-Sammlung für BKI-Prüfungen: sammelt die vollständigen Weinbücher (alle

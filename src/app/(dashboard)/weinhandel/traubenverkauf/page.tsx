@@ -11,7 +11,7 @@ import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { leseTitel } from '@/lib/wein/lesen'
 import { AktionsFehler } from '@/lib/fehler'
 
-export const metadata: Metadata = { title: 'Traubenverkauf – software:112' }
+export const metadata: Metadata = { title: 'Traubenverkauf' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

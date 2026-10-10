@@ -35,7 +35,7 @@ import { ladeBilder } from '@/lib/handel/datenblattLaden'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
 
-export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Füllung bearbeiten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

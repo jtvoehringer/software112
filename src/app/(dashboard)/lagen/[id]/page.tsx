@@ -7,7 +7,7 @@ import type { Metadata } from 'next'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import Link from '@/components/ui/Link'
 
-export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Ried bearbeiten' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>

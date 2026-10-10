@@ -16,7 +16,7 @@ import { AktionsFehler } from '@/lib/fehler'
 // KAN-46 Etappe 1: BKI-Blätter „RV zum Eingang“ (Charge oder Grundstück) und „RV zum Ausgang“ (Charge oder Füllung)
 // mit Zeitraum. Dieselben Ladefunktionen liefern die CSV (/meldungen/bki-rv-eingang/csv bzw. bki-rv-ausgang).
 
-export const metadata: Metadata = { title: 'Rückverfolgung (BKI) – software:112' }
+export const metadata: Metadata = { title: 'Rückverfolgung (BKI)' }
 export const dynamic = 'force-dynamic'
 
 type Sp = Record<string, string | undefined>

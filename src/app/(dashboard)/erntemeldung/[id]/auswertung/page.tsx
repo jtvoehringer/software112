@@ -15,7 +15,7 @@ import {
 import LeseAuswertungCsv from './LeseAuswertungCsv'
 import { AktionsFehler } from '@/lib/fehler'
 
-export const metadata: Metadata = { title: 'Lese-Auswertung – software:112' }
+export const metadata: Metadata = { title: 'Lese-Auswertung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

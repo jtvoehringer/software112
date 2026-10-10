@@ -6,7 +6,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import BenutzerClient from './BenutzerClient'
 
-export const metadata: Metadata = { title: 'Benutzerverwaltung – software:112' }
+export const metadata: Metadata = { title: 'Benutzerverwaltung' }
 export const dynamic = 'force-dynamic'
 
 export default async function BenutzerPage() {
