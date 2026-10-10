@@ -133,7 +133,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
   const ro = !darfSchreiben
 
   return (
-    <form onSubmit={speichern} className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
+    <form data-ungespeichert onSubmit={speichern} className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
       <div className="space-y-4">
         <div className={karte}>
           <h2 className="font-display font-semibold text-[14.5px] text-s112-text">Anlage</h2>

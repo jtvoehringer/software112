@@ -324,7 +324,7 @@ export default function NeueBehandlungForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
 
       {/* Art & Datum */}
       <div className="card space-y-4">

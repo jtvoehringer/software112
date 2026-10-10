@@ -492,7 +492,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <h3 className="text-sm font-semibold text-s112-text">{pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}</h3>
 
       {/* Datum + Most + Bezeichnung */}

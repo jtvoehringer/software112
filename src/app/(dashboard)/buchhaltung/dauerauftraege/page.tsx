@@ -87,7 +87,7 @@ export default async function DauerauftraegePage() {
       {/* Neuer Dauerauftrag */}
       <div className="bg-white rounded-xl border border-s112-border p-5 mb-6">
         <h2 className="font-semibold text-s112-text mb-4">Neuer Dauerauftrag</h2>
-        <form action={async (fd: FormData) => { 'use server'; ergebnisPruefen(await createEaDauerauftrag(fd)) }} className="space-y-4">
+        <form data-ungespeichert action={async (fd: FormData) => { 'use server'; ergebnisPruefen(await createEaDauerauftrag(fd)) }} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>

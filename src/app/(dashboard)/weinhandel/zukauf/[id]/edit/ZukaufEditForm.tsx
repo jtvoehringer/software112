@@ -313,7 +313,7 @@ export default function ZukaufEditForm({
         <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form data-ungespeichert onSubmit={handleSubmit} className="space-y-5">
 
         {/* ── 1. Lieferung ──────────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">

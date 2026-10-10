@@ -274,7 +274,7 @@ export default function ZukaufNeuPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form data-ungespeichert onSubmit={handleSubmit} className="space-y-5">
 
         {/* ── 1. Lieferung ──────────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">

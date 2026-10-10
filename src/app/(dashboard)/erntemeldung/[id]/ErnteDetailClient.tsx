@@ -261,7 +261,7 @@ function NeueParzellenForm({
     .filter(g => g.weingaerten.length > 0)
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       {leseArt === 'eiswein' && (
         <p role="note" className="rounded-lg border border-s112-blue-100 bg-s112-blue-50 px-3 py-2 text-xs text-s112-text">
           Eiswein-Lese: Die Stufe ist Eiswein (nicht aus den °KMW abgeleitet). Eiswein verlangt mindestens 25 °KMW (§ 11 Abs. 1 Z 6 WeinG).
@@ -589,7 +589,7 @@ function ParzellForm({
   const lagen = riedGruppen(weingaerten.filter(w => w.erntebar || w.id === parzelle?.weingarten_id))
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
       <h3 className="text-sm font-semibold text-s112-text">
         {parzelle ? 'Lesedaten bearbeiten' : 'Lesedaten erfassen'}
       </h3>

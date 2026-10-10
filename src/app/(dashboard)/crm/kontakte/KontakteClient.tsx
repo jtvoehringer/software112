@@ -115,7 +115,7 @@ export function KontaktForm({
   const v = (field: keyof KontaktRow) => (initial?.[field] ?? '') as string
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-s112-text">{initial ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</h3>
       {saveError && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{saveError}</p>}
       {dubletteWarnung && (

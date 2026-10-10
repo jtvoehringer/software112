@@ -119,7 +119,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
         </div>
       )}
 
-      <form action={updateEroeffnungsbestand.bind(null, id)} className="card p-6 space-y-4">
+      <form data-ungespeichert action={updateEroeffnungsbestand.bind(null, id)} className="card p-6 space-y-4">
         <ZurueckFeld standard="/kellerbuch/gebinde?tab=eroeffnungsbestand" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">

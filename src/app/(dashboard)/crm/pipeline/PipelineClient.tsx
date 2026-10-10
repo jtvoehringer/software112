@@ -58,7 +58,7 @@ function PipelineForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-s112-text">{initial ? 'Eintrag bearbeiten' : 'Neue Chance'}</h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

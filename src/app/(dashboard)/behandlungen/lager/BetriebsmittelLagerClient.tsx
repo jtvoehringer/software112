@@ -75,7 +75,7 @@ function BuchungsForm({ ctx, mittelId, edit, onDone }: { ctx: Ctx; mittelId?: st
   }
 
   return (
-    <form onSubmit={absenden} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
+    <form data-ungespeichert onSubmit={absenden} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
       {fehler && <div role="alert" className="p-2.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">{fehler}</div>}
       <h3 className="text-sm font-semibold text-s112-text">{edit ? 'Buchung bearbeiten' : 'Neue Buchung'}</h3>
       {edit && <input type="hidden" name="existing_id" value={edit.id} />}

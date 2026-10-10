@@ -179,7 +179,7 @@ export default function BelegBuchenForm({
       )}
 
       {/* ── Buchungsformular ──────────────────────────────────────────────── */}
-      <form action={handleSubmit} className="space-y-5">
+      <form data-ungespeichert action={handleSubmit} className="space-y-5">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-2">Typ *</label>
           <div className="flex gap-3">

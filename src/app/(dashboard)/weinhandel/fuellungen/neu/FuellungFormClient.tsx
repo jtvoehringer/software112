@@ -240,7 +240,7 @@ export default function FuellungFormClient({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
 
       {/* Charge */}
       <div className="card p-5 space-y-4">

@@ -183,7 +183,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-5 max-w-lg">
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Anzeigename</label>
         <input aria-label="Anzeigename" name="anzeigename" defaultValue={daten.anzeigename ?? daten.tenantName}
@@ -344,7 +344,7 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
+    <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6 max-w-lg">
       <div>
         <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Betriebsdaten (Briefkopf)</p>
         <div className="grid grid-cols-1 gap-3">
