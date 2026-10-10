@@ -26,8 +26,9 @@ async function optionen(feld: Locator) {
   return feld.locator('option').evaluateAll(os => os.map(o => ({ wert: (o as HTMLOptionElement).value, text: o.textContent ?? '' })))
 }
 
-/** Liter am Ende eines Optionstexts der Quelle („Tank 3 · GV · 1.200,00 L“) */
-const literAmEnde = (text: string) => zahlDe(/([\d.]+,\d+|\d+)\s*L\s*$/.exec(text)?.[1] ?? '0')
+/** Liter am Ende eines Optionstexts („Tank 3 · GV · 1.200,00 L“, Füllung: „Muskateller (2025) · 1.485 L“) – auch mit
+ *  Tausenderpunkt ohne Nachkommastellen (vorher wurde aus „1.485 L“ 485 L) */
+const literAmEnde = (text: string) => zahlDe(/(\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+(?:,\d+)?)\s*L\s*$/.exec(text)?.[1] ?? '0')
 
 async function formularOeffnen(page: Page) {
   await page.goto('/kellerbuch/umziehen')
@@ -118,13 +119,20 @@ test.describe('Kellerbuch (schreibend)', () => {
     await page.waitForLoadState('networkidle')
     const reste = page.locator('tr', { hasText: 'E2E-Test' }).filter({ has: page.getByRole('button', { name: 'Stornieren' }) })
     for (let i = 0; i < 10; i++) {
-      const anzahl = await reste.count()
-      if (anzahl === 0) break
-      const rest = reste.first()
+      if (await reste.count() === 0) break
+      const name = /E2E-Test \d+/.exec(await reste.first().innerText())?.[0]
+      expect(name, 'Name des Rests nicht lesbar').toBeTruthy()
+      const rest = page.locator('tr', { hasText: name! })
       await rest.getByRole('button', { name: 'Stornieren' }).first().click()
       await rest.getByLabel(/Grund des Stornos/).fill('E2E-Test: Rest eines abgebrochenen Laufs')
       await rest.getByRole('button', { name: 'Stornieren' }).last().click()
-      await expect(reste, 'Rest nicht storniert').toHaveCount(anzahl - 1, { timeout: 20_000 })
+      // während des Speicherns verschwindet der Knopf schon – erst neu geladen ohne die Zeile ist der Storno gebucht
+      // (Lauf 11.10.2026: der Ausgangsbestand wurde sonst vor der Rückbuchung gelesen)
+      await expect.poll(async () => {
+        await page.goto('/weinhandel')
+        await page.waitForLoadState('networkidle')
+        return page.locator('tr', { hasText: name! }).count()
+      }, { message: `Rest ${name} nicht storniert`, timeout: 30_000 }).toBe(0)
     }
 
     await page.goto('/weinhandel/fuellungen/neu')
