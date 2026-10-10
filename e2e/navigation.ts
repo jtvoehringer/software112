@@ -42,4 +42,7 @@ export const SCHREIB_KNOEPFE: Record<string, RegExp> = {
   '/crm/kontakte': /Neuer Kontakt/,
   '/crm/firmen': /Neue Firma/,
   '/weinhandel/verkauf': /Neuer Verkauf/,
+  // E2E-Ausbau 10.10.2026
+  '/weinhandel/zukauf': /Neuer Zukauf/,
+  '/erntemeldung': /Neue Lese/,
 }
