@@ -101,7 +101,8 @@ export default function RiedAuswahlListe({
 
             return (
               <div key={schluessel} className="border border-s112-border rounded-xl overflow-hidden">
-                {/* Lage-Header (nicht bei einer Lage mit nur einer Ried) */}
+                {/* Lage-Header (nicht bei einer Lage mit nur einer Ried)
+                    a11y-ignore: Komfortfläche – per Tastatur löst die Leertaste auf der Checkbox den Klick aus, der hierher durchläuft */}
                 {!einzelRied && <div
                   className="flex items-center gap-3 px-3 py-3 sm:py-2 bg-s112-bg cursor-pointer hover:bg-s112-bg/80 transition-colors"
                   onClick={() => toggleLage(wgs)}

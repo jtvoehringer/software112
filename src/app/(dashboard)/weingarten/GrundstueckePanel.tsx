@@ -591,6 +591,7 @@ export default function GrundstueckePanel({
                 const hasHistory = massnahmen.length > 0
                 return (
                   <React.Fragment key={g.id}>
+                    {/* a11y-ignore: Komfortfläche – per Tastatur öffnet der Knopf „Bearbeiten“ in der Zeile dasselbe Formular */}
                     <tr
                       className={`group border-b border-s112-border/50 transition-colors ${writeOk ? 'cursor-pointer hover:bg-s112-bg/40' : ''} ${!isExpanded ? 'last:border-0' : ''} ${g.nutzart !== 'WI' || g.aktiv === false ? 'opacity-60' : ''}`}
                       onClick={() => { if (writeOk) { setEditId(g.id); setShowForm(false) } }}

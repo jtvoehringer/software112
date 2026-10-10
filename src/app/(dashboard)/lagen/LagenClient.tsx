@@ -6,6 +6,7 @@ import { Pencil, Trash2, X } from 'lucide-react'
 import { deleteLage, assignWeingartenToLage } from './actions'
 import type { Lage, WeingartenRow } from './page'
 import { fmtHa } from '@/lib/format'
+import { tastaturBedienbar } from '@/lib/ui/tastatur'
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -55,6 +56,7 @@ function LageKarte({
       <div
         className="flex items-center justify-between px-4 py-3 bg-s112-bg border-b border-s112-border cursor-pointer hover:bg-s112-bg/80 transition-colors"
         onClick={() => setOpen(o => !o)}
+        {...tastaturBedienbar(() => setOpen(o => !o))} aria-expanded={open}
       >
         <div className="flex items-center gap-3">
           <span className="text-s112-blue-700"><ChevronIcon open={open} /></span>

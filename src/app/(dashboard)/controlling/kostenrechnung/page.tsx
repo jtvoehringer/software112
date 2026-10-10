@@ -50,6 +50,7 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
             ? splitModus === 'gleich' ? betrag / selected.length : betrag * (anteile[w.id] ?? 0) / 100
             : 0
           return (
+            // a11y-ignore: Komfortfläche – per Tastatur schaltet die Checkbox in der Karte dieselbe Auswahl
             <div key={w.id} onClick={() => onToggle(w.id)}
               className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors
                 ${checked ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border hover:border-s112-teal/40'}`}>

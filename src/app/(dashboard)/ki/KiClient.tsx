@@ -251,6 +251,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
                     const ziele = zeilenZiele(row, alleCols)
                     const haupt = ziele[0]
                     return (
+                      // a11y-ignore: Komfortfläche – per Tastatur führt der Link in der ersten Spalte zum selben Ziel
                       <tr key={i}
                         className={haupt ? 'hover:bg-s112-blue-50/60 cursor-pointer' : 'hover:bg-s112-bg/30'}
                         title={haupt ? `${haupt.label} öffnen` : undefined}

@@ -9,6 +9,9 @@
  *     (Sweep 105: über den TypeScript-Syntaxbaum statt Textmuster – vorher fielen Links und Knöpfe mit verschachteltem
  *     onClick-Template durch: Jahr-Pfeile im Anlagenverzeichnis, Löschen in der Kostenrechnung)
  *  3. BILD_OHNE_ALT    – <img> ohne alt
+ *  4. KLICK_OHNE_TASTATUR – onClick auf <div>, <tr>, <th> … ohne Tastaturbedienung (Sweep 116, WCAG 2.1.1): nur mit der
+ *     Maus erreichbar. Abhilfe {...tastaturBedienbar(aktion)} aus @/lib/ui/tastatur; Überlagerungen zum Schließen
+ *     („fixed inset-0“) und reines stopPropagation() sind ausgenommen, Komfortflächen mit Link/Knopf darin per a11y-ignore.
  * Labels mit dynamischem Text ({…}) werden nur als Hinweis gemeldet.
  * Ausnahme je Stelle: Kommentar „a11y-ignore: <Grund>“ in der Zeile davor oder derselben Zeile.
  * Behebt Fälle 1 automatisch: python3 scripts/a11y-labels.py --schreiben
@@ -68,7 +71,35 @@ function symbolOhneName(s, datei = 'x.tsx') {
   return out
 }
 
-module.exports = { symbolOhneName }
+/** Sweep 116: onClick auf einem nicht-interaktiven Element (div, tr, th …) ohne Tastaturbedienung – nur mit der Maus
+ *  erreichbar (WCAG 2.1.1). In Ordnung: onKeyDown/onKeyUp, {...tastaturBedienbar(…)}, Überlagerungen zum Schließen
+ *  (className mit „fixed inset-0“ bzw. aria-hidden) und reines e.stopPropagation(). */
+const NICHT_INTERAKTIV = new Set(['div', 'span', 'tr', 'td', 'th', 'li', 'p', 'section', 'article', 'img', 'ul', 'ol',
+  'table', 'tbody', 'thead', 'header', 'footer', 'main', 'aside', 'nav', 'form', 'label', 'svg', 'g', 'h1', 'h2', 'h3', 'h4', 'dl', 'dt', 'dd'])
+function klickOhneTastatur(s, datei = 'x.tsx') {
+  const sf = ts.createSourceFile(datei, s, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const out = []
+  function besuch(n) {
+    if ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && NICHT_INTERAKTIV.has(n.tagName.getText())) {
+      const props = n.attributes.properties
+      const attr = (name) => props.find(p => ts.isJsxAttribute(p) && p.name.getText() === name)
+      const klick = attr('onClick')
+      if (klick) {
+        const tastatur = ['onKeyDown', 'onKeyUp', 'onKeyPress'].some(attr)
+          || props.some(p => ts.isJsxSpreadAttribute(p) && /tastaturBedienbar\(/.test(p.getText()))
+        const cls = attr('className')?.getText() ?? ''
+        const ueberlagerung = /fixed inset-0/.test(cls) || /aria-hidden=(\{true\}|"true")/.test(attr('aria-hidden')?.getText() ?? '')
+        const nurStopp = /^onClick=\{\s*\(?\s*\w+\s*\)?\s*=>\s*\w+\.stopPropagation\(\)\s*\}$/.test(klick.getText().replace(/\s+/g, ' ').trim())
+        if (!tastatur && !ueberlagerung && !nurStopp) out.push({ pos: n.getStart(), tag: n.tagName.getText() })
+      }
+    }
+    ts.forEachChild(n, besuch)
+  }
+  besuch(sf)
+  return out
+}
+
+module.exports = { symbolOhneName, klickOhneTastatur }
 if (require.main !== module) return
 
 for (const f of dateien(SRC)) {
@@ -105,6 +136,12 @@ for (const f of dateien(SRC)) {
   for (const b of symbolOhneName(s, f)) {
     if (ignoriert(s, b.pos)) continue
     funde.push(`${rel}:${zeile(s, b.pos)}  SYMBOL_OHNE_NAME  <${b.tag}> nur mit <${b.symbol} /> – aria-label ergänzen`)
+  }
+
+  // 4) Klickflächen ohne Tastaturbedienung (Sweep 116)
+  for (const k of klickOhneTastatur(s, f)) {
+    if (ignoriert(s, k.pos)) continue
+    funde.push(`${rel}:${zeile(s, k.pos)}  KLICK_OHNE_TASTATUR  <${k.tag} onClick> nur mit der Maus bedienbar – {...tastaturBedienbar(…)} aus @/lib/ui/tastatur ergänzen`)
   }
 
   // 3) Bilder ohne alt

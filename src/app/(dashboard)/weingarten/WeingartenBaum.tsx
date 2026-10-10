@@ -9,6 +9,7 @@ import { deleteWeingarten, deleteRied, setzeWeingartenAktiv } from './actions'
 import { fmtHa } from '@/lib/format'
 import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { tastaturBedienbar } from '@/lib/ui/tastatur'
 
 // Auffangkorb-Label für Weingärten ohne eigene Ried-Zuordnung (w.ried === null) -
 // KEIN echter Ried, nur eine technische Sammelgruppe. Wird verwendet, um beim
@@ -134,6 +135,7 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
     <tr
       className={`border-b border-s112-border/50 last:border-0 bg-white hover:bg-s112-bg/30 cursor-pointer transition-colors ${gst.aktiv === false ? "opacity-50" : ""}`}
       onClick={() => router.push(`/weingarten/${gst.weingarten_id}`)}
+      {...tastaturBedienbar(() => router.push(`/weingarten/${gst.weingarten_id}`), null)}
       title={gst.aktiv === false ? `Deaktiviert seit ${gst.deaktiviert_am ?? "–"} – zum Weingarten` : "Zum Weingarten (Grundstück bearbeiten)"}
     >
       {/* Zwei Kontexte: direkt unter dem Ried (verschachtelt=false, "flatGst" in
@@ -200,6 +202,8 @@ function WeingartenZeile({
           ${!w.aktiv ? 'opacity-50' : 'hover:bg-s112-bg/40'} transition-colors
           ${pending ? 'opacity-40 pointer-events-none' : ''}`}
         onClick={() => gsts.length > 0 && setOpen(o => !o)}
+        {...tastaturBedienbar(() => { if (gsts.length > 0) setOpen(o => !o) }, null)}
+        aria-expanded={gsts.length > 0 ? open : undefined}
       >
         <td className="pl-8 pr-3 py-2.5">
           <div className="flex items-center gap-2">
@@ -391,6 +395,7 @@ function LageGruppe({
       <tr
         className={`bg-s112-bg border-b border-s112-border cursor-pointer select-none hover:bg-s112-bg/80 transition-colors ${pending ? 'opacity-40 pointer-events-none' : ''}`}
         onClick={() => setOpen(o => !o)}
+        {...tastaturBedienbar(() => setOpen(o => !o), null)} aria-expanded={open}
       >
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
@@ -529,21 +534,24 @@ export default function WeingartenBaum({
           <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-xs">
             <th
               className="text-left px-4 py-3 font-semibold text-s112-text-1 rounded-tl-2xl cursor-pointer select-none hover:text-s112-blue-700"
-              onClick={() => setSortBy('ried')}
+              onClick={() => setSortBy('ried')} {...tastaturBedienbar(() => setSortBy('ried'), null)}
+              aria-sort={sortBy === 'ried' ? 'ascending' : undefined}
               title="Nach Ried/Grundstück sortieren"
             >
               Ried / Grundstück{sortBy === 'ried' && ' ▲'}
             </th>
             <th
               className="text-left px-3 py-3 font-semibold text-s112-text-1 cursor-pointer select-none hover:text-s112-blue-700"
-              onClick={() => setSortBy('ama')}
+              onClick={() => setSortBy('ama')} {...tastaturBedienbar(() => setSortBy('ama'), null)}
+              aria-sort={sortBy === 'ama' ? 'ascending' : undefined}
               title="Nach AMA-Feldstücknr. sortieren"
             >
               AMA-Feldstücknr.{sortBy === 'ama' && ' ▲'}
             </th>
             <th
               className="text-left px-3 py-3 font-semibold text-s112-text-1 cursor-pointer select-none hover:text-s112-blue-700"
-              onClick={() => setGstSort('schlag')}
+              onClick={() => setGstSort('schlag')} {...tastaturBedienbar(() => setGstSort('schlag'), null)}
+              aria-sort={gstSort === 'schlag' ? 'ascending' : undefined}
               title="Nach AMA-Schlagnr. sortieren"
             >
               AMA-Schlagnr.{gstSort === 'schlag' && ' ▲'}

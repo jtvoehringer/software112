@@ -19,6 +19,7 @@ export default function ClickableTableRow({
 }) {
   const router = useRouter()
   return (
+    // a11y-ignore: Komfortfläche – per Tastatur führt der Link (Name/Nummer) in der Zeile zum selben Ziel
     <tr
       onClick={() => router.push(href)}
       className={`cursor-pointer ${className}`}
