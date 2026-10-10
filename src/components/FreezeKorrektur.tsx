@@ -83,11 +83,11 @@ export default function FreezeKorrektur({ tabelle, id, felder, werte, hinweis }:
             <div key={f.spalte}>
               <label htmlFor={fid} className="block text-xs font-medium text-s112-text-2 mb-1">{f.label}{f.pflicht ? ' *' : ''}</label>
               {f.typ === 'auswahl' ? (
-                <select id={fid} value={wert} onChange={e => setzen(e.target.value)} className={inputCls}>
+                <select id={fid} required={f.pflicht} value={wert} onChange={e => setzen(e.target.value)} className={inputCls}>
                   {(f.optionen ?? []).map(o => <option key={o.wert} value={o.wert}>{o.label}</option>)}
                 </select>
               ) : (
-                <input id={fid} type={f.typ === 'datum' ? 'date' : 'text'} inputMode={f.typ === 'zahl' ? 'decimal' : undefined}
+                <input id={fid} required={f.pflicht} type={f.typ === 'datum' ? 'date' : 'text'} inputMode={f.typ === 'zahl' ? 'decimal' : undefined}
                   value={wert} onChange={e => setzen(e.target.value)} className={inputCls} />
               )}
             </div>

@@ -84,7 +84,7 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
       <label htmlFor={id} className="text-[11px] font-medium text-s112-text-1">
         {loeschen ? 'Grund des Löschens' : 'Grund des Stornos'} <span className="text-s112-err">*</span>
       </label>
-      <textarea id={id} value={grund} onChange={e => setGrund(e.target.value)} rows={2} autoFocus
+      <textarea required id={id} value={grund} onChange={e => setGrund(e.target.value)} rows={2} autoFocus
         minLength={STORNO_GRUND_MIN} aria-invalid={!!fehler || undefined} aria-describedby={fehler ? `${id}-f` : undefined}
         placeholder="z. B. Menge falsch erfasst, doppelt gebucht"
         className="w-full border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />

@@ -115,7 +115,7 @@ export default function SammelrechnungClient({ kunden, heute, darf, erstellen }:
           </table>
           <div className="max-w-[12rem]">
             <label htmlFor="sr-datum" className="block text-xs font-medium text-s112-text-2 mb-1">Rechnungsdatum *</label>
-            <input id="sr-datum" type="date" value={datum} min={spaetestes || undefined} max={heute} onChange={e => setDatum(e.target.value)}
+            <input required id="sr-datum" type="date" value={datum} min={spaetestes || undefined} max={heute} onChange={e => setDatum(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white" />
           </div>
           {fehler && <p role="alert" className="text-sm text-s112-err">{fehler}</p>}

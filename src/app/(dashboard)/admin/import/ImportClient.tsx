@@ -483,7 +483,7 @@ export default function ImportClient({
                     </span>
                   )}
                 </label>
-                <select value={mapping[f.key] ?? ''} onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value }))}
+                <select aria-label={f.label} aria-required={f.pflicht || undefined} value={mapping[f.key] ?? ''} onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value }))}
                   className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">– nicht importieren –</option>
                   {parsed.headers.map(h => <option key={h} value={h}>{h}</option>)}

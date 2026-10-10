@@ -47,7 +47,7 @@ function Formular({ gruppe, edit, kategorien, onDone }: { gruppe: Betriebsmittel
         </div>
         <div>
           <label className={lbl}>Einheit *</label>
-          <select aria-label="Einheit" name="einheit" defaultValue={edit?.einheit ?? 'stk'} className={feld}>
+          <select required aria-label="Einheit" name="einheit" defaultValue={edit?.einheit ?? 'stk'} className={feld}>
             {BM_EINHEITEN.map(e => <option key={e} value={e}>{BM_EINHEIT_LABEL[e]}</option>)}
           </select>
         </div>

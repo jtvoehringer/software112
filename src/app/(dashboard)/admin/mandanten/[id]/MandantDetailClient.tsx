@@ -427,7 +427,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Rolle *</label>
-              <select aria-label="Rolle" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+              <select required aria-label="Rolle" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                 className={inputCls()}>
                 {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>

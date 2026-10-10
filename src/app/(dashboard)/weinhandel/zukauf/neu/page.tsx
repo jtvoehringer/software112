@@ -296,7 +296,7 @@ export default function ZukaufNeuPage() {
             <div className="flex gap-4 mt-1.5">
               {ART_OPTIONS.map(({ value, label }) => (
                 <label key={value} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="art" value={value} checked={art === value}
+                  <input required type="radio" name="art" value={value} checked={art === value}
                     onChange={() => handleArtChange(value)} className="accent-s112-teal" />
                   <span className="text-sm text-s112-text-1">{label}</span>
                 </label>
@@ -595,7 +595,7 @@ export default function ZukaufNeuPage() {
               </div>
               <div>
                 <label className={labelCls}>Flaschengröße *</label>
-                <select aria-label="Flaschengröße" value={flaschengroesse} onChange={e => setFlaschengroesse(e.target.value)}
+                <select required aria-label="Flaschengröße" value={flaschengroesse} onChange={e => setFlaschengroesse(e.target.value)}
                   className={inputCls + ' w-full'}>
                   {FLASCHEN_GROESSEN_ML.map(ml => <option key={ml} value={String(ml)}>{fmtNum(ml / 1000, { min: 3, max: 3 })} l</option>)}
                 </select>

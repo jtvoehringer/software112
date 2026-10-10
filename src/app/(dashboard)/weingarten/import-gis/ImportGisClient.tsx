@@ -92,7 +92,7 @@ export default function ImportGisClient() {
           <label className="block border border-dashed border-s112-line-str rounded-xl p-4 hover:border-s112-teal cursor-pointer">
             <span className="flex items-center gap-2 text-sm font-semibold text-s112-text"><Upload size={16} className="text-s112-blue-700" /> Exporttyp „beantragte Feldstücke“ (ZIP) <span className="text-s112-err-fg">*</span></span>
             <span className="block text-xs text-s112-muted mt-1">Ein Polygon je Feldstück → Umriss und Pin der Ried</span>
-            <input type="file" accept=".zip" className="mt-2 text-xs" onChange={e => e.target.files?.[0] && dateiLesen(e.target.files[0], 'fs')} />
+            <input aria-required="true" type="file" accept=".zip" className="mt-2 text-xs" onChange={e => e.target.files?.[0] && dateiLesen(e.target.files[0], 'fs')} />
             {feldstuecke && <span className="block mt-2 text-xs text-s112-ok-fg inline-flex items-center gap-1"><CheckCircle2 size={13} /> {feldstuecke.length} Feldstücke gelesen</span>}
           </label>
           <label className="block border border-dashed border-s112-line-str rounded-xl p-4 hover:border-s112-teal cursor-pointer">

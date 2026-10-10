@@ -654,7 +654,7 @@ export default function BehandlungEditForm({
                     Spritzbrühe gesamt (l)
                     {felder.mengeGesamt !== 'optional' && <span className="text-s112-err"> *</span>}
                   </label>
-                  <input aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
+                  <input aria-required={felder.mengeGesamt !== 'optional'} aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
                     value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamtGesperrt ? '' : mengeGesamt}
                     disabled={mengeGesamtGesperrt}
                     onChange={e => { const v = e.target.value; setMengeGesamt(v); setMengeQuelle(v.trim() === '' ? null : 'gesamt'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}
@@ -670,7 +670,7 @@ export default function BehandlungEditForm({
                     Wasseraufwand (l/ha)
                     {felder.wasseraufwand !== 'optional' && <span className="text-s112-err"> *</span>}
                   </label>
-                  <input aria-label="Wasseraufwand (l/ha)" name="wasseraufwand_l_ha" type="text" inputMode="decimal"
+                  <input aria-required={felder.wasseraufwand !== 'optional'} aria-label="Wasseraufwand (l/ha)" name="wasseraufwand_l_ha" type="text" inputMode="decimal"
                     value={m.wasserBerechnet !== null ? fmtNum(m.wasserBerechnet, { max: 2 }) : wasseraufwand}
                     disabled={wasserGesperrt}
                     onChange={e => { const v = e.target.value; setWasseraufwand(v); setMengeQuelle(v.trim() === '' ? null : 'wasser'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}

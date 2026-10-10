@@ -337,7 +337,7 @@ export default function ZukaufEditForm({
                 const gesperrt = artGesperrt(value) && art !== value
                 return (
                   <label key={value} className={`flex items-center gap-1.5 ${gesperrt ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                    <input type="radio" name="art" value={value} checked={art === value}
+                    <input required type="radio" name="art" value={value} checked={art === value}
                       disabled={gesperrt}
                       onChange={() => {
                         setArt(value)

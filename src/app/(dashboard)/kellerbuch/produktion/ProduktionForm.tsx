@@ -139,7 +139,7 @@ export default function ProduktionForm({ chargen, gebinde, mittel, heute, quelle
             </div>
             <div>
               <label htmlFor="prod-datum" className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-              <input id="prod-datum" type="date" value={datum} max={heute} onChange={e => setDatum(e.target.value)} className={inp} />
+              <input required id="prod-datum" type="date" value={datum} max={heute} onChange={e => setDatum(e.target.value)} className={inp} />
             </div>
           </div>
         </div>
@@ -221,11 +221,11 @@ export default function ProduktionForm({ chargen, gebinde, mittel, heute, quelle
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="prod-name" className="block text-xs font-medium text-s112-text-2 mb-1">Name der neuen Charge *</label>
-              <input id="prod-name" value={name} onChange={e => setName(e.target.value)} placeholder={`z. B. ${PRODUKTION_ART_LABEL[art]} ${heute.slice(0, 4)}`} className={inp} />
+              <input required id="prod-name" value={name} onChange={e => setName(e.target.value)} placeholder={`z. B. ${PRODUKTION_ART_LABEL[art]} ${heute.slice(0, 4)}`} className={inp} />
             </div>
             <div>
               <label htmlFor="prod-geb" className="block text-xs font-medium text-s112-text-2 mb-1">Gebinde (leer) *</label>
-              <select id="prod-geb" value={behaelterId} onChange={e => setBehaelterId(e.target.value)} className={inp}>
+              <select required id="prod-geb" value={behaelterId} onChange={e => setBehaelterId(e.target.value)} className={inp}>
                 <option value="">– Gebinde wählen –</option>
                 {gebinde.map(g => <option key={g.id} value={g.id}>{g.name}{g.volumen ? ` (${fmtNum(g.volumen, { max: 0 })} L)` : ''}</option>)}
               </select>

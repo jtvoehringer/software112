@@ -660,7 +660,7 @@ export default function NeuerVerkaufPage() {
                   <div className="col-span-2 sm:col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-s112-ok-bg rounded-lg border border-s112-ok/30">
                     <div>
                       <label className={labelCls}>Ried *</label>
-                      <select aria-label="Ried" value={pos.trauben_weingarten_id}
+                      <select required aria-label="Ried" value={pos.trauben_weingarten_id}
                         onChange={e => {
                           const wg = weingaerten.find(w => w.id === e.target.value)
                           updatePos(idx, {

@@ -14,6 +14,8 @@
  *     („fixed inset-0“) und reines stopPropagation() sind ausgenommen, Komfortflächen mit Link/Knopf darin per a11y-ignore.
  *  5. FOKUS_UNSICHTBAR – <input|select|textarea> mit „focus:ring“ in der Klasse, aber ohne Ringbreite (Sweep 117, WCAG
  *     2.4.7): globals.css lässt den Fokusrahmen dann weg, der Ring ist 0 px – beim Tabben nicht zu sehen.
+ *  6. PFLICHT_OHNE_KENNZEICHEN – Label mit „*“, Feld ohne required bzw. aria-required (Sweep 118, WCAG 3.3.2): Browser
+ *     prüft nicht vor dem Absenden, Screenreader sagt „Pflichtfeld“ nicht an. Bedingter Stern → required={dieselbe Bedingung}.
  * Labels mit dynamischem Text ({…}) werden nur als Hinweis gemeldet.
  * Ausnahme je Stelle: Kommentar „a11y-ignore: <Grund>“ in der Zeile davor oder derselben Zeile.
  * Behebt Fälle 1 automatisch: python3 scripts/a11y-labels.py --schreiben
@@ -119,7 +121,50 @@ function fokusUnsichtbar(s, datei = 'x.tsx') {
   return out
 }
 
-module.exports = { symbolOhneName, klickOhneTastatur, fokusUnsichtbar }
+/** Sweep 118: Label mit „*“ (Pflichtfeld), dessen Feld weder required noch aria-required trägt – der Browser prüft
+ *  nichts vor dem Absenden, der Screenreader sagt „Pflichtfeld“ nicht an (WCAG 3.3.2/1.3.1). Feld = im Label, über
+ *  htmlFor/id oder das direkt folgende Element (bzw. das erste Feld darin). Eigene Komponenten (Kunden-/Lieferanten-
+ *  auswahl …) werden nicht geprüft. */
+const FELD = new Set(['input', 'select', 'textarea'])
+function pflichtOhneKennzeichen(s, datei = 'x.tsx') {
+  const sf = ts.createSourceFile(datei, s, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const oeffner = (n) => ts.isJsxElement(n) ? n.openingElement : ts.isJsxSelfClosingElement(n) ? n : null
+  const istFeld = (n) => { const o = oeffner(n); return !!o && FELD.has(o.tagName.getText()) }
+  const attrWert = (o, name) => o.attributes.properties.find(p => ts.isJsxAttribute(p) && p.name.getText() === name)
+  const nachId = new Map()
+  const ersteFeld = (n) => { let f = null; (function s(k) { if (f) return; if (istFeld(k)) { f = k; return } ts.forEachChild(k, s) })(n); return f }
+  ;(function sammle(n) {
+    if (istFeld(n)) { const id = attrWert(oeffner(n), 'id'); if (id?.initializer) nachId.set(id.initializer.getText().replace(/^["'{]|["'}]$/g, ''), n) }
+    ts.forEachChild(n, sammle)
+  })(sf)
+  const out = []
+  ;(function besuch(n) {
+    if (ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'label') {
+      const text = n.children.filter(c => !istFeld(c) && !(ts.isJsxElement(c) && ersteFeld(c))).map(c => c.getText()).join(' ')
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      if (/(^|[\s>'"])\*(?=\s*($|[<'"}]))/.test(text)) {
+        let feld = ersteFeld(n) !== n ? ersteFeld(n) : null
+        const fuer = attrWert(n.openingElement, 'htmlFor')
+        if (!feld && fuer?.initializer) feld = nachId.get(fuer.initializer.getText().replace(/^["'{]|["'}]$/g, '')) ?? null
+        if (!feld && ts.isJsxElement(n.parent)) {
+          const geschw = n.parent.children.filter(c => !(ts.isJsxText(c) && !c.getText().trim()) && !ts.isJsxExpression(c) || (ts.isJsxExpression(c) && c.expression && !ts.isJsxText(c)))
+          const i = geschw.indexOf(n)
+          const naechst = geschw[i + 1]
+          if (naechst && (ts.isJsxElement(naechst) || ts.isJsxSelfClosingElement(naechst))) feld = istFeld(naechst) ? naechst : ersteFeld(naechst)
+        }
+        if (feld) {
+          const o = oeffner(feld)
+          const markiert = o.attributes.properties.some(p => ts.isJsxSpreadAttribute(p) || ['required', 'aria-required'].includes(p.name.getText()))
+          if (!markiert) out.push({ pos: n.getStart(), tag: o.tagName.getText() })
+        }
+      }
+    }
+    ts.forEachChild(n, besuch)
+  })(sf)
+  return out
+}
+
+module.exports = { symbolOhneName, klickOhneTastatur, fokusUnsichtbar, pflichtOhneKennzeichen }
 if (require.main !== module) return
 
 for (const f of dateien(SRC)) {
@@ -168,6 +213,12 @@ for (const f of dateien(SRC)) {
   for (const k of fokusUnsichtbar(s, f)) {
     if (ignoriert(s, k.pos)) continue
     funde.push(`${rel}:${zeile(s, k.pos)}  FOKUS_UNSICHTBAR  <${k.tag}> mit focus:ring-Farbe, aber ohne Breite – focus:ring-2 ergänzen`)
+  }
+
+  // 6) Pflichtfeld laut Label (*), Feld ohne required/aria-required (Sweep 118)
+  for (const k of pflichtOhneKennzeichen(s, f)) {
+    if (ignoriert(s, k.pos)) continue
+    funde.push(`${rel}:${zeile(s, k.pos)}  PFLICHT_OHNE_KENNZEICHEN  Label mit „*“, <${k.tag}> ohne required bzw. aria-required`)
   }
 
   // 3) Bilder ohne alt

@@ -658,7 +658,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
                   <label className="block text-[11px] text-s112-text-2 mb-0.5">
                     Lesedatum{row.weingarten_id && ' *'}{row.zukauf_posten_id && <span className="text-s112-muted"> (Zukaufsdatum)</span>}
                   </label>
-                  <input aria-label={`Lesedatum Traubenzeile ${i + 1}`} type="date" value={row.ernte_datum}
+                  <input aria-label={`Lesedatum Traubenzeile ${i + 1}`} required={!!row.weingarten_id} type="date" value={row.ernte_datum}
                     disabled={!!row.zukauf_posten_id}
                     onChange={e => updateWG(i, 'ernte_datum', e.target.value)}
                     className={`${inp} disabled:bg-s112-bg disabled:text-s112-text-2`} />
