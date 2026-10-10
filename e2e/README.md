@@ -123,7 +123,7 @@ Traces sind in CI aus, weil sie Sitzungs-Cookies enthalten.
   - `druck-csv.spec.ts`: Cu-Bilanz, Nährstoffbilanz und Behandlungsprotokoll, Druck = CSV
   - `rollen.spec.ts`: Leser-Schreibaufrufe an fünf API-Routen → 403, Mandantenverwaltung nur für die Plattform; Schreibknöpfe auf Zukauf und Lese im Smoke-Test
 - Seit 11.10.2026 außerdem:
-  - `kellerbuch-umzug.spec.ts`: Teilmenge umziehen und stornieren (KAN-321)
+  - `kellerbuch.spec.ts`: Teilmenge umziehen und stornieren (KAN-321), Füllung anlegen und stornieren
   - `verkauf.spec.ts`: Zahlung und Zahlungsstorno (KAN-321)
   - `mandantentrennung.spec.ts`: Fremdbetrieb per SQL, 22 Detailseiten, Suche, Exporte, CSV, API (Befund: globale Suche HTTP 500)
 - Offen: Verschnitt und Füllung im Kellerbuch (Rest von 1), Aufräumen (6)

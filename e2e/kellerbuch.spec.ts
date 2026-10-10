@@ -1,14 +1,17 @@
-// ── Kellerbuch: Teilmenge umziehen und stornieren (SCHREIBEND) ───────────────
+// ── Kellerbuch: Umzug und Füllung mit Storno (SCHREIBEND) ─────────────────────
 //
-// 5 L einer Charge in ein leeres Gebinde: Quelle −5 L, Ziel 5 L. Storno mit Grund: Quelle wieder wie vorher, Ziel leer.
-// Nur Staging bzw. lokal (schreibend()); der Umzug trägt die Notiz „E2E-Test <Zeitstempel>“ und wird daran in der
-// Liste erkannt, bevor storniert wird. Stornierte Umzüge bleiben gekennzeichnet stehen (KAN-145).
+// Umzug: 5 L einer Charge in ein leeres Gebinde: Quelle −5 L, Ziel 5 L. Storno mit Grund: Quelle wieder wie vorher, Ziel leer.
+// Füllung: 2 Flaschen à 0,75 L aus einer Charge: Charge −1,5 L, Füllung mit 2 Flaschen. Storno: Charge wieder wie vorher.
+// Nur Staging bzw. lokal (schreibend()); Umzug und Füllung tragen „E2E-Test <Zeitstempel>“ (Notiz bzw. Produktname) und
+// werden daran erkannt, bevor storniert wird. Stornierte Buchungen bleiben gekennzeichnet stehen (KAN-145).
+// Die Tests laufen nacheinander: Eine Füllung lässt sich nicht stornieren, wenn an der Charge seither weitergebucht wurde.
 
 import type { Locator, Page } from '@playwright/test'
 import { test, expect, schreibend } from './fixtures'
 import { zahlDe } from './csv-lesen'
 
 const MENGE = 5
+const FLASCHEN = 2
 const QUELLE_LEER = '– Behälter · Charge wählen –'
 const ZIEL_LEER = '– Behälter wählen –'
 
@@ -41,6 +44,8 @@ async function stand(page: Page, chargeId: string, zielId: string) {
 }
 
 test.describe('Kellerbuch (schreibend)', () => {
+  test.describe.configure({ mode: 'serial' })
+
   test(`Umzug von ${MENGE} L in ein leeres Gebinde und Storno: Mengen gehen hin und zurück`, async ({ page, rolle }) => {
     schreibend()
     test.skip(rolle !== 'tenant_admin', 'als Betriebs-Manager')
@@ -100,5 +105,60 @@ test.describe('Kellerbuch (schreibend)', () => {
 
     await expect.poll(async () => (await stand(page, q!.wert, z!.wert)).quelleLiter, { message: 'Quelle nach dem Storno', timeout: 30_000 }).toBeCloseTo(vorher, 2)
     await expect.poll(async () => (await stand(page, q!.wert, z!.wert)).zielText, { message: 'Ziel nach dem Storno', timeout: 30_000 }).toContain(' · leer')
+  })
+
+  test(`Füllung von ${FLASCHEN} Flaschen und Storno: Charge −${FLASCHEN * 0.75} L, danach wieder wie vorher`, async ({ page, rolle }) => {
+    schreibend()
+    test.skip(rolle !== 'tenant_admin', 'als Betriebs-Manager')
+    const marke = `E2E-Test ${Date.now()}`
+    page.on('dialog', d => d.accept())   // Rückfragen bzw. Hinweise nach dem Anlegen bestätigen
+
+    // Aufräumen: Füllungen abgebrochener früherer Läufe stornieren (Liste zeigt nur Füllungen mit Bestand, stornierte nicht)
+    await page.goto('/weinhandel')
+    await page.waitForLoadState('networkidle')
+    const reste = page.locator('tr', { hasText: 'E2E-Test' }).filter({ has: page.getByRole('button', { name: 'Stornieren' }) })
+    for (let i = 0; i < 10; i++) {
+      const anzahl = await reste.count()
+      if (anzahl === 0) break
+      const rest = reste.first()
+      await rest.getByRole('button', { name: 'Stornieren' }).first().click()
+      await rest.getByLabel(/Grund des Stornos/).fill('E2E-Test: Rest eines abgebrochenen Laufs')
+      await rest.getByRole('button', { name: 'Stornieren' }).last().click()
+      await expect(reste, 'Rest nicht storniert').toHaveCount(anzahl - 1, { timeout: 20_000 })
+    }
+
+    await page.goto('/weinhandel/fuellungen/neu')
+    await page.waitForLoadState('networkidle')
+    const charge = page.getByLabel('Weinausbau-Charge')
+    const c = (await optionen(charge)).find(o => o.wert && literAmEnde(o.text) >= 10)
+    test.skip(!c, 'keine Charge mit genug Menge im Testbetrieb')
+    const vorher = literAmEnde(c!.text)
+
+    await charge.selectOption(c!.wert)
+    await page.getByLabel('Produktname').fill(marke)
+    await page.getByLabel('Flaschengröße').selectOption('750')
+    await page.getByLabel('Anzahl Flaschen').fill(String(FLASCHEN))
+    await page.getByRole('button', { name: 'Füllung anlegen' }).click()
+    await page.waitForURL(url => !url.pathname.endsWith('/fuellungen/neu'), { timeout: 30_000 })
+
+    // Charge −1,5 L (Auswahlliste neu geladen, bis die Buchung sichtbar ist)
+    const literDerCharge = async () => {
+      await page.goto('/weinhandel/fuellungen/neu')
+      const o = (await optionen(page.getByLabel('Weinausbau-Charge'))).find(x => x.wert === c!.wert)
+      return o ? literAmEnde(o.text) : 0
+    }
+    await expect.poll(literDerCharge, { message: 'Charge nach der Füllung', timeout: 30_000 }).toBeCloseTo(vorher - FLASCHEN * 0.75, 2)
+
+    // Füllung in der Weinhandel-Liste: Bestand = Anzahl; dann stornieren
+    await page.goto('/weinhandel')
+    const zeile = page.locator('tr', { hasText: marke })
+    await expect(zeile, 'Füllung nicht in der Liste').toHaveCount(1, { timeout: 20_000 })
+    await expect(zeile).toContainText(String(FLASCHEN))
+    await zeile.getByRole('button', { name: 'Stornieren' }).first().click()
+    await zeile.getByLabel(/Grund des Stornos/).fill('E2E-Test: automatische Rückbuchung')
+    await zeile.getByRole('button', { name: 'Stornieren' }).last().click()
+    await expect(zeile, 'stornierte Füllung noch in der Liste').toHaveCount(0, { timeout: 20_000 })
+
+    await expect.poll(literDerCharge, { message: 'Charge nach dem Storno', timeout: 30_000 }).toBeCloseTo(vorher, 2)
   })
 })
