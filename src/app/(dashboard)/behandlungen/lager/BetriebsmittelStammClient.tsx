@@ -10,6 +10,7 @@ import { fehlerText } from '@/lib/fehler'
 import { BM_EINHEITEN, BM_EINHEIT_LABEL, GRUPPE_BEISPIELE, GRUPPE_LABEL, type BetriebsmittelGruppe } from '@/lib/behandlungen/betriebsmittel'
 import { speichereBetriebsmittel, setzeBetriebsmittelAktiv } from './betriebsmittelActions'
 import { LagerJahrKopf, LagerJahrZellen, LagerJahrHinweis, type StammLager } from './LagerJahrSpalten'
+import { ZAHL_LOCALE } from '@/lib/format'
 
 export type BmStamm = {
   id: string; name: string; einheit: string; preis_pro_einheit: number | null
@@ -147,7 +148,7 @@ export default function BetriebsmittelStammClient({ gruppe, mittel, jahr, katego
                   </td>
                   <td className="hidden sm:table-cell px-3 py-2">{BM_EINHEIT_LABEL[m.einheit] ?? m.einheit}</td>
                   <td className="hidden lg:table-cell px-3 py-2 text-right tabular-nums">
-                    {m.preis_pro_einheit != null ? `€ ${m.preis_pro_einheit.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : '–'}
+                    {m.preis_pro_einheit != null ? `€ ${m.preis_pro_einheit.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : '–'}
                   </td>
                   <td className="hidden xl:table-cell px-3 py-2 text-xs text-s112-muted">{m.ea_kategorie_id ? katName.get(m.ea_kategorie_id) ?? '–' : '–'}</td>
                   <td className="hidden xl:table-cell px-3 py-2 text-xs text-s112-muted">{m.notizen ?? '–'}</td>

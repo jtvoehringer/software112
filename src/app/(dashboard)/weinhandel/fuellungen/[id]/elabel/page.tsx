@@ -12,6 +12,7 @@ import ElabelUmleitung, { type UmleitungProtokoll, type UmleitungZiel } from './
 import { appBasisUrl, qrPngDataUrl, qrSvg } from '@/lib/qr'
 import ElabelFormular, { type AnalyseWahl, type TypZuordnung, type ElabelStand } from './ElabelFormular'
 import { speichereElabel, elabelFreigeben, setzeBehandlungstypZutat, elabelUmleiten } from './actions'
+import { ZAHL_LOCALE } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'E-Label – software:112' }
 export const dynamic = 'force-dynamic'
@@ -139,7 +140,7 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
           <Tag className="w-6 h-6 text-s112-blue-700" aria-hidden /> E-Label
         </h1>
         <p className="text-sm text-s112-muted mt-0.5">
-          {f.name}{f.jahrgang ? ` ${f.jahrgang}` : ''}{f.flaschengroesse_ml ? ` · ${(Number(f.flaschengroesse_ml) / 1000).toLocaleString('de-AT')} l` : ''}
+          {f.name}{f.jahrgang ? ` ${f.jahrgang}` : ''}{f.flaschengroesse_ml ? ` · ${(Number(f.flaschengroesse_ml) / 1000).toLocaleString(ZAHL_LOCALE)} l` : ''}
           {f.chargennummer ? ` · ${f.chargennummer}` : ''}
         </p>
       </div>
