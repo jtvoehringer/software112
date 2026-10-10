@@ -119,6 +119,23 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     rechtsgrundlage: 'Del. VO (EU) 2018/273, § 31 WeinG (besondere Konten) – zu prüfen',
     beschreibung: 'Jede Buchung des Stoffkontos im Zeitraum mit Art des Stoffs (Zucker, RTK, Säuerungs-, Entsäuerungsmittel), Los, Anfangsstand, Menge und Empfangscharge.',
   },
+  // KAN-46 Etappe 1: Rückverfolgungs-Blätter der BKI-Schnittstelle (Auswahl Charge bzw. Grundstück/Füllung)
+  'bki-rv-eingang': {
+    titel: 'RV zum Eingang (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-rv',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Herkunft einer Charge bis zur Lese (Ried, Grundstück, AMA-Feldstück und -Schlag) bzw. zum Zukauf, mit Mengenanteilen – oder ab einem Grundstück die Chargen, in die es gelesen wurde.',
+  },
+  'bki-rv-ausgang': {
+    titel: 'RV zum Ausgang (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-rv',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Weg einer Charge bzw. Füllung vorwärts bis zum Abnehmer (Verkauf, Tankverkauf, Export, Verarbeitung) mit Buchungsart der BSM.',
+  },
   'bki-lagerstand': {
     titel: 'Lagerstand zum Datum (BKI-Schnittstelle)',
     behoerde: 'BKI (Weindatenbank)',

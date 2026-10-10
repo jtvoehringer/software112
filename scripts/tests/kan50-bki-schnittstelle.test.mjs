@@ -93,7 +93,7 @@ describe('BKI-Schnittstelle: Blätter und Register', nurMitHooks, () => {
     assert.equal(s.parameterFuer('besondere-konten', z).toString(), 'jahr=2025')
     assert.equal(s.parameterFuer('bki-betriebsdaten', z).toString(), '')
     assert.deepEqual(['2026-07-31', '2026-08-01'].map(s.weinwirtschaftsjahr), [2025, 2026])
-    for (const b of s.BKI_BLAETTER.filter(b => b.meldung)) {
+    for (const b of s.BKI_BLAETTER.filter(b => b.meldung && !b.nurEinzeln)) {   // KAN-46: RV-Blätter brauchen eine Auswahl
       const p = reg.meldungFinden(b.meldung).parameter(s.parameterFuer(b.meldung, z))
       assert.ok(!p.parameterFehler, `${b.meldung}: ${p.fehler ?? ''}`)
     }
@@ -136,12 +136,13 @@ describe('BKI-Schnittstelle: Prüfung und Mappe', nurMitHooks, () => {
       ? { blatt: b, daten: { spalten: SP, zeilen: [{ d: '2026-10-01', b: '1', e: 'WEIN', a: 'ERNTE', m: 1 }], warnungen: ['Ladehinweis'] }, hinweise: [] }
       : { blatt: b, daten: null, hinweise: b.meldung ? [{ blatt: b.blatt, art: 'fehler', text: 'kein Zugriff: x' }] : [] })
     const bericht = s.pruefbericht(erg)
-    assert.deepEqual(bericht.filter(h => h.art === 'fehlt').map(h => h.blatt), ['RV zum Eingang', 'RV zum Ausgang', 'Verkauf im Zeitraum', 'Einkauf im Zeitraum', 'TBS-Aufstellung'])
+    assert.deepEqual(bericht.filter(h => h.art === 'fehlt').map(h => h.blatt), ['Verkauf im Zeitraum', 'Einkauf im Zeitraum', 'TBS-Aufstellung'])   // RV seit KAN-46
     assert.ok(bericht.some(h => h.blatt === 'Lagerbewegungen' && h.text === '1 Zeile(n)'))
     assert.ok(bericht.some(h => h.blatt === 'Lagerbewegungen' && h.text === 'Ladehinweis'))
     const z = zipLesen(s.bkiMappe(erg, { betrieb: 'Testbetrieb', zeitraum: { von: '2026-08-01', bis: '2026-10-10', stichtag: '2026-10-10' } }))
     assert.match(z.get('xl/workbook.xml'), /<sheets><sheet name="Prüfbericht"[^>]*\/><sheet name="Lagerbewegungen"[^>]*\/><\/sheets>/)
-    assert.match(z.get('xl/worksheets/sheet1.xml'), /folgt mit KAN-46/)
+    assert.match(z.get('xl/worksheets/sheet1.xml'), /folgt mit KAN-49/)
+    assert.match(z.get('xl/worksheets/sheet1.xml'), /braucht eine Auswahl/)
   })
 
   test('Katalogblätter: Kürzel innerhalb der Längen, Buchungsarten nur BSM', () => {
