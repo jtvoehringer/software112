@@ -13,6 +13,9 @@
  *  - `spalte_id(` bzw. `spalte_id!inner(` (Einbettung über die Spalte) – die Spalte muss allein einen Fremdschlüssel bilden.
  * Verbund-Fremdschlüssel daher immer über ihren Namen ansprechen: `firmen!betriebsmittel_lager_bewegungen_lieferant_fkey(…)`.
  *
+ * Seit E2E-Ausbau 3 (11.10.2026) außerdem: keine Typumwandlung in einem Filter (or()/and()-Text wie `jahrgang::text.ilike.…`
+ * oder `.ilike('jahrgang::text', …)`) – PostgREST erlaubt sie nur im select und antwortet sonst mit 400.
+ *
  * Fremdschlüssel neu erzeugen (nach Migrationen): siehe scripts/fremdschluessel-aus-typen.js.
  * Ausnahme je Stelle: `// einbettung-ignore: <Grund ≥ 15 Zeichen>` in derselben oder der Zeile davor.
  *
@@ -23,6 +26,9 @@ const fs = require('fs')
 const path = require('path')
 
 const MODIFIKATOR = new Set(['inner', 'left'])
+
+/** `spalte::typ.operator.` in einem Filtertext (or(), and(), filter()) */
+const FILTER_CAST = /\b([a-z_][a-z0-9_]*)::([a-z_]+)\.(?:not\.)?(?:eq|neq|gt|gte|lt|lte|like|ilike|is|in|cs|cd|ov|fts|plfts|phfts|wfts|match|imatch)\./g
 
 /** Nachschlagestrukturen aus der Fremdschlüsselliste */
 function index(fks, tabellen) {
@@ -102,6 +108,16 @@ function pruefeText(text, ix) {
   let m
   while ((m = lit.exec(text))) {
     const inhalt = m[1] ?? m[2] ?? m[3] ?? ''
+    // Typumwandlung in einem Filter (E2E-Ausbau 3, 11.10.2026): PostgREST kennt `spalte::text` nur im select, im Filter
+    // antwortet es mit 400 – die globale Suche lieferte so für jeden Suchtext HTTP 500.
+    for (const c of inhalt.matchAll(FILTER_CAST)) {
+      const z = zeileVon(m.index + 1 + c.index)
+      if (!ausnahme(z)) funde.push({ zeile: z, meldung: `Typumwandlung „${c[1]}::${c[2]}“ in einem Filter – PostgREST antwortet mit 400 (nur im select erlaubt; Bereich oder eigene Spalte verwenden)` })
+    }
+    if (/::/.test(inhalt) && /\.(?:eq|neq|gt|gte|lt|lte|like|ilike|is|in|contains|match|imatch)\(\s*$/.test(text.slice(Math.max(0, m.index - 30), m.index))) {
+      const z = zeileVon(m.index + 1)
+      if (!ausnahme(z)) funde.push({ zeile: z, meldung: `Typumwandlung „${inhalt}“ als Filterspalte – PostgREST antwortet mit 400` })
+    }
     if (!inhalt.includes('(')) continue
     const davor = text.slice(Math.max(0, m.index - 600), m.index)
     const froms = [...davor.matchAll(/(?:\.from|\bq)\(\s*'([a-z_][a-z0-9_]*)'\s*\)/g)]
@@ -134,12 +150,12 @@ if (require.main === module) {
   const funde = []
   for (const d of liste) for (const f of pruefeText(fs.readFileSync(d, 'utf8'), ix)) funde.push({ datei: path.relative(wurzel, d).replace(/\\/g, '/'), ...f })
   if (funde.length) {
-    console.error(`✗ check-einbettung: ${funde.length} Einbettung(en) ohne passenden Fremdschlüssel (PostgREST PGRST200 zur Laufzeit):`)
+    console.error(`✗ check-einbettung: ${funde.length} Abfrage(n), an denen PostgREST zur Laufzeit scheitert (Einbettung ohne Fremdschlüssel → PGRST200, Typumwandlung im Filter → 400):`)
     for (const f of funde) console.error(`  ${f.datei}:${f.zeile}  ${f.meldung}`)
     console.error('  Fremdschlüssel veraltet? Neu erzeugen: siehe scripts/fremdschluessel-aus-typen.js. Ausnahme: // einbettung-ignore: <Grund>')
     process.exit(1)
   }
-  console.log(`✓ check-einbettung: ${liste.length} Dateien, alle Einbettungen passen zu einem der ${fks.length} Fremdschlüssel.`)
+  console.log(`✓ check-einbettung: ${liste.length} Dateien, alle Einbettungen passen zu einem der ${fks.length} Fremdschlüssel, keine Typumwandlung in einem Filter.`)
 }
 
 module.exports = { pruefeText, pruefeLiteral, index }

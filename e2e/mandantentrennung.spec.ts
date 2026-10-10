@@ -75,6 +75,8 @@ const ABRUFE: Abruf[] = [
 /** Leere Antwort auf eine ausdrücklich angefragte fremde ID: Leermeldung, leere Trefferliste bzw. leerer Export */
 function leer(text: string, kopf: Record<string, string>): boolean {
   if (kopf['x-zeilen'] === '0') return true
+  // Geo-Export (GPX/KML): Dokumentkopf ohne Wegpunkt, Route, Spur oder Placemark
+  if (/xml/.test(kopf['content-type'] ?? '')) return !/<(wpt|rte|trk|Placemark)\b/.test(text)
   try {
     const j = JSON.parse(text) as unknown
     if (Array.isArray(j)) return j.length === 0
