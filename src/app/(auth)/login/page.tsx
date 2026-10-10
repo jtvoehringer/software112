@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { mitWeiter } from '@/lib/tenant/waechter'
+import { abmeldeHinweis } from '@/lib/auth/sitzung'
 
 // Hinweis: metadata muss in Server Components definiert werden.
 // Login-Page-Titel wird über das Root-Layout gesetzt.
@@ -16,6 +17,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
+  // KAN-286: Grund der Abmeldung (Inaktivität, Browser geschlossen) – erst nach dem Laden lesen (kein Hydration-Unterschied)
+  const [hinweis, setHinweis]   = useState<string | null>(null)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Grund aus der Adresse nach dem Laden übernehmen
+  useEffect(() => { setHinweis(abmeldeHinweis(new URLSearchParams(window.location.search).get('grund'))) }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,6 +60,7 @@ export default function LoginPage() {
       <div className="card">
         <h2 className="text-lg font-semibold text-s112-text mb-6">Anmelden</h2>
 
+        {hinweis && <p role="status" className="mb-4 text-sm bg-s112-warn-bg text-s112-warn-fg px-3 py-2 rounded-lg">{hinweis}</p>}
         <form onSubmit={handleLogin} autoComplete="on" className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-s112-text-1 mb-1">

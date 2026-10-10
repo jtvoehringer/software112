@@ -4,6 +4,7 @@ import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
 import { authCookieOptionen } from '@/lib/tenant/subdomain'
 import { elabelRewritePfad } from '@/lib/elabel/oeffentlich'
 import { sichererWeiterPfad, weiterFuerUmleitung } from '@/lib/tenant/waechter'
+import { ABMELDE_GRUND, SITZUNG_COOKIE, pruefeSitzung, sitzungWert } from '@/lib/auth/sitzung'
 
 // Routen die OHNE Login zugänglich sind
 // Öffentlich ohne Anmeldung. /signup und /newsletter fehlten bis 23.9.2026 – Registrierung und
@@ -69,6 +70,29 @@ export async function proxy(request: NextRequest) {
   // Nicht eingeloggt + geschützte Route → zum Login
   if (!user && !isPublicRoute && pathname !== '/') {
     return umleiten('/login')
+  }
+
+  // KAN-286: Sitzungsende nach Inaktivität (Standard 60 Min) und beim Schließen des Browsers – serverseitig, auch wenn
+  // der Tab geschlossen war (vorher nur ein Timer im offenen Tab). Öffentliche Seiten und Auth-Rückwege ausgenommen.
+  if (user && !isPublicRoute && !pathname.startsWith('/auth/')) {
+    const sitzungsCookie = { path: '/', sameSite: 'lax' as const, secure: request.nextUrl.protocol === 'https:', httpOnly: false, ...(cookieOptions ? { domain: cookieOptions.domain } : {}) }
+    const p = pruefeSitzung({ cookie: request.cookies.get(SITZUNG_COOKIE)?.value, jetztMs: Date.now(), letzteAnmeldung: user.last_sign_in_at })
+    if (p.ergebnis === 'abgelaufen' || p.ergebnis === 'browser') {
+      await supabase.auth.signOut({ scope: 'local' })
+      const ziel = request.nextUrl.clone()
+      ziel.pathname = '/login'
+      ziel.search = ''
+      ziel.searchParams.set('grund', ABMELDE_GRUND[p.ergebnis])
+      const weiter = weiterFuerUmleitung(pathname, request.nextUrl.search)
+      if (weiter) ziel.searchParams.set('weiter', weiter)
+      const antwort = NextResponse.redirect(ziel)
+      // gelöschte Anmelde-Cookies aus signOut übernehmen, Sitzungs-Cookie entfernen
+      supabaseResponse.cookies.getAll().forEach(c => antwort.cookies.set(c))
+      antwort.cookies.set(SITZUNG_COOKIE, '', { ...sitzungsCookie, maxAge: 0 })
+      return antwort
+    }
+    // Sitzungs-Cookie ohne Ablaufdatum (endet mit dem Browser), letzte Aktivität = jetzt
+    supabaseResponse.cookies.set(SITZUNG_COOKIE, sitzungWert(Date.now(), p.minuten), sitzungsCookie)
   }
 
   // Zwei-Faktor (Sicherheits-Welle 2, S3): Wer einen Authenticator eingerichtet hat, muss
