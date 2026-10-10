@@ -66,7 +66,7 @@ async function crmLoeschen(tabelle: 'kontakte' | 'firmen', id: string, name: (r:
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from(tabelle) as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')   // storno-ausnahme: Stammdaten (Kontakt/Firma) ohne Bezug – Bezug vorher geprüft, die DB sperrt sonst (KAN-150)
     if (error) {
-      if (istBezugsSperre(error)) return { error: (error as AR).message, deaktivierbar: true }
+      if (istBezugsSperre(error)) return { error: dbFehlerText(error), deaktivierbar: true }
       return { error: dbFehlerText(error, 'Löschen fehlgeschlagen') }
     }
     if (((data ?? []) as AR[]).length !== 1) return { error: 'Nicht gelöscht – keine Berechtigung oder bereits entfernt. Bitte die Seite neu laden.' }
@@ -209,7 +209,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
     }
     payload.accountnummer = await generateAccountnummer(tenantId)
     const { error } = await (supabase.from('kontakte') as any).insert(payload).eq('tenant_id', tenantId)
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/kontakte')
     return {}
@@ -256,7 +256,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     })
     payload.aktualisiert_am = new Date().toISOString()
     const { data: geaendert, error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/kontakte')
@@ -299,7 +299,7 @@ export async function kontaktZuFirmaUmwandeln(
 
     const { data: kRaw, error: kErr } = await (supabase.from('kontakte') as any)
       .select('*').eq('id', kontaktId).eq('tenant_id', tenantId).maybeSingle()
-    if (kErr) return { error: (kErr as AR).message }
+    if (kErr) return { error: dbFehlerText(kErr) }
     const k = kRaw as AR | null
     if (!k) return { error: 'Kontakt nicht gefunden.' }
     if (k.firma_id) return { error: 'Dieser Kontakt ist bereits einer Firma zugeordnet – bitte dort weiterarbeiten.' }
@@ -343,14 +343,14 @@ export async function kontaktZuFirmaUmwandeln(
 
     const { data: fRaw, error: fErr } = await (supabase.from('firmen') as any)
       .insert(payload).select('id').single()
-    if (fErr) return { error: (fErr as AR).message }
+    if (fErr) return { error: dbFehlerText(fErr) }
     const firmaId = (fRaw as AR).id as string
 
     // Kontakt als Ansprechperson an die neue Firma hängen
     const { data: geaendert, error: linkErr } = await (supabase.from('kontakte') as any)
       .update({ firma_id: firmaId, aktualisiert_am: new Date().toISOString() })
       .eq('id', kontaktId).eq('tenant_id', tenantId).select('id')
-    if (linkErr) return { error: `Firma angelegt, Kontakt konnte aber nicht zugeordnet werden: ${(linkErr as AR).message}` }
+    if (linkErr) return { error: `Firma angelegt, Kontakt konnte aber nicht zugeordnet werden: ${dbFehlerText(linkErr)}` }
     if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
     // Historie umhängen: firma_id setzen, kontakt_id bleibt (Person an der Firma) – KAN-150 F1c per RPC
@@ -414,7 +414,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
     const { data, error } = await (supabase.from('firmen') as any)
       .insert(payload).eq('tenant_id', tenantId)
       .select('id').single()
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/firmen')
     return { id: (data as AR)?.id as string | undefined }
@@ -459,7 +459,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
     })
     payload.aktualisiert_am = new Date().toISOString()
     const { data: geaendert, error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/firmen')
@@ -720,7 +720,7 @@ export async function createLeadFromVisitkarte(kontakt: {
         tenant_id: tenantId, name: kontakt.firma, aktiv: true, is_lead: true,
         strasse: kontakt.strasse, plz: kontakt.plz, ort: kontakt.ort, land: normalisiereLand(kontakt.land) ?? 'AT',
       }).eq('tenant_id', tenantId).select().single()
-      if (firmaError) return { error: (firmaError as AR).message }
+      if (firmaError) return { error: dbFehlerText(firmaError) }
       firmaId = (f as AR | null)?.id ?? null
     }
 
@@ -742,7 +742,7 @@ export async function createLeadFromVisitkarte(kontakt: {
       newsletter_bestaetigt: false, is_lead: true,
       segment: 'privat',
     }).eq('tenant_id', tenantId).select().single()
-    if (kontaktError) return { error: (kontaktError as AR).message }
+    if (kontaktError) return { error: dbFehlerText(kontaktError) }
 
     const kontaktId = (k as AR | null)?.id
     if (!kontaktId) return { error: 'Kontakt konnte nicht gespeichert werden' }
@@ -895,7 +895,7 @@ export async function ignoriereAbsender(email: string, grund?: string | null): P
     if (!e.includes('@')) return { error: 'Keine gültige Adresse' }
     const { error } = await (supabase.from('email_lead_ignoriert') as any)
       .upsert({ tenant_id: tenantId, email: e, grund: grund?.trim() || null, erstellt_von: user?.id ?? null }, { onConflict: 'tenant_id,email' })
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     absenderIndexVerwerfen(tenantId)
     return {}
   } catch (err) {
@@ -973,7 +973,7 @@ export async function emailHinzufuegen(typ: 'kontakt' | 'firma', id: string, ema
     if (std === e || weitere.includes(e)) return {}
     const patch: AR = std ? { email_weitere: [...weitere, e] } : { email: e }
     const { data: geaendert, error } = await (supabase.from(tabelle) as any).update(patch).eq('tenant_id', tenantId).eq('id', id).select('id')
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     absenderIndexVerwerfen(tenantId)
     revalidatePath(typ === 'firma' ? `/crm/firmen/${id}` : `/crm/kontakte/${id}`)

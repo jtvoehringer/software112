@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { jsonBody, UNGUELTIGE_ANFRAGE } from '@/lib/api/body'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -16,7 +17,7 @@ export async function GET() {
   // Neueste aktive Release Note holen
   const { data: notes, error: notesErr } = await (s.from('release_notes') as any)
     .select('*').eq('aktiv', true).order('veroeffentlicht_am', { ascending: false }).limit(1)
-  if (notesErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${notesErr.message}` }, { status: 500 })
+  if (notesErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(notesErr)}` }, { status: 500 })
   const note = (notes ?? [])[0] as R | undefined
   if (!note) return NextResponse.json({ note: null })
 

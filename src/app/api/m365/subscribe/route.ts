@@ -9,6 +9,7 @@ import { erzeugeClientState } from '@/lib/m365/clientState'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
       // tenant-isolation-ignore: bewusst mandantenübergreifender Cron-Zweig, siehe Kommentar oben
       const { data: allCfgs, error: allCfgsErr } = await (admin.from('tenant_einstellungen') as any)
         .select('*').eq('m365_modul_aktiv', true).not('m365_refresh_token_enc', 'is', null)
-      if (allCfgsErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${allCfgsErr.message}` }, { status: 500 })
+      if (allCfgsErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(allCfgsErr)}` }, { status: 500 })
       const cfgs = (allCfgs ?? []) as R[]
       let renewed = 0
       const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'software112.icp-consultants.at'
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', tenantId).maybeSingle()
-    if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
+    if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${dbFehlerText(cfgErr)}` }, { status: 500 })
     const c = cfg as R | null
     if (!c?.m365_modul_aktiv) return NextResponse.json({ fehler: 'M365 nicht aktiv' }, { status: 400 })
 

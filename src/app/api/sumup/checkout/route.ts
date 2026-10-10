@@ -8,6 +8,7 @@ import { sumupWebhookUrl } from '@/lib/sumup/webhook'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
+import { dbFehlerText } from '@/lib/fehler'
 
 // POST /api/sumup/checkout
 // Erstellt einen SumUp Checkout für einen Verkaufsposten.
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     .select('modul_sumup, sumup_api_key, sumup_merchant_code')
     .eq('tenant_id', tenantId)
     .maybeSingle()
-  if (einstErr) return NextResponse.json({ error: `SumUp-Einstellungen konnten nicht geladen werden: ${einstErr.message}` }, { status: 500 })
+  if (einstErr) return NextResponse.json({ error: `SumUp-Einstellungen konnten nicht geladen werden: ${dbFehlerText(einstErr)}` }, { status: 500 })
 
   if (!einst?.modul_sumup) {
     return NextResponse.json({ error: 'SumUp-Modul nicht aktiviert' }, { status: 403 })
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (localErr) {
-    return NextResponse.json({ error: (localErr as R).message }, { status: 500 })
+    return NextResponse.json({ error: dbFehlerText(localErr) }, { status: 500 })
   }
 
   // SumUp Checkout API aufrufen
@@ -148,7 +149,7 @@ export async function GET(req: NextRequest) {
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
-  if (error) return NextResponse.json({ error: `Checkout konnte nicht geladen werden: ${error.message}` }, { status: 500 })
+  if (error) return NextResponse.json({ error: `Checkout konnte nicht geladen werden: ${dbFehlerText(error)}` }, { status: 500 })
 
   if (!data) return NextResponse.json({ error: 'Checkout nicht gefunden' }, { status: 404 })
 

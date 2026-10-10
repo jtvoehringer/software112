@@ -259,7 +259,7 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   }
 
   { const { error: e } = await (admin.from('tenants') as R).update({ stripe_plan: paket }).eq('id', membership.tenantId)
-    if (e) return { error: `Paket konnte nicht gespeichert werden (tenants): ${(e as R).message}` } }
+    if (e) return { error: `Paket konnte nicht gespeichert werden (tenants): ${dbFehlerText(e)}` } }
   const fehler = await wendePaketAn(admin, membership.tenantId, paket)
   if (fehler) return { error: fehler }
 
@@ -350,7 +350,7 @@ export async function premiumSupportBuchenAction() {
   const heute = heuteWien()
   const seit = k.stand.status === 'aktiv' ? (k.stand as { seit: string }).seit : heute
   const { error } = await (k.admin.from('tenants') as R).update({ premium_support_seit: seit, premium_support_bis: null }).eq('id', k.membership.tenantId)
-  if (error) return { error: `Premium-Support ist bei Stripe gebucht, das Kennzeichen konnte nicht gesetzt werden: ${(error as R).message}` }
+  if (error) return { error: `Premium-Support ist bei Stripe gebucht, das Kennzeichen konnte nicht gesetzt werden: ${dbFehlerText(error)}` }
   revalidatePath('/abo')
   revalidatePath('/hilfe/support')
   tenantKopfInvalidieren(k.membership.tenantId)
@@ -376,7 +376,7 @@ export async function premiumSupportKuendigenAction() {
   }
   const { error } = await (k.admin.from('tenants') as R)
     .update({ premium_support_bis: kuendigungZumMonatsende(heuteWien()) }).eq('id', k.membership.tenantId)
-  if (error) return { error: `Kündigung bei Stripe erfasst, das Kennzeichen konnte nicht gesetzt werden: ${(error as R).message}` }
+  if (error) return { error: `Kündigung bei Stripe erfasst, das Kennzeichen konnte nicht gesetzt werden: ${dbFehlerText(error)}` }
   revalidatePath('/abo')
   revalidatePath('/hilfe/support')
   tenantKopfInvalidieren(k.membership.tenantId)

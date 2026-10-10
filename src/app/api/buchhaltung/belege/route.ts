@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   const { data: einst, error: einstErr } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
-  if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${einstErr.message}` }, { status: 500 })
+  if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${dbFehlerText(einstErr)}` }, { status: 500 })
   if (!(einst as R | null)?.modul_ea) return NextResponse.json({ error: 'E&A-Modul für diesen Betrieb nicht aktiv' }, { status: 403 })
 
   const formData = await formBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
       .eq('aktiv', true)
       .order('sortierung')
-    if (kategorienRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${kategorienRawErr.message}` }, { status: 500 })
+    if (kategorienRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(kategorienRawErr)}` }, { status: 500 })
     const kategorien = (kategorienRaw ?? []) as R[]
 
     const bytes = Buffer.from(await file.arrayBuffer())
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
         .select('id, name')
         .eq('tenant_id', tenantId).eq('ist_lieferant', true)
         .order('id'))
-      if (lieferantenRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${lieferantenRawErr.message}` }, { status: 500 })
+      if (lieferantenRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(lieferantenRawErr)}` }, { status: 500 })
       const lieferanten = lieferantenRaw
       const normalisiert = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
       const gesucht = normalisiert(lieferantName)

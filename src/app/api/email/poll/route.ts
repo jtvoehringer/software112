@@ -7,6 +7,7 @@ import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { wienTag } from '@/lib/datum/wien'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       .select('email_modul_aktiv, email_imap_host, email_imap_port, email_imap_user, email_imap_pass_enc')
       .eq('tenant_id', tenantId).maybeSingle()
     // KAN-252: sonst „IMAP nicht konfiguriert – übersprungen“ mit ok: true
-    if (cfgErr) return NextResponse.json({ fehler: `E-Mail-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
+    if (cfgErr) return NextResponse.json({ fehler: `E-Mail-Einstellungen konnten nicht geladen werden: ${dbFehlerText(cfgErr)}` }, { status: 500 })
 
     const c = (cfg as R | null)
     if (!c?.email_modul_aktiv || !c.email_imap_host || !c.email_imap_pass_enc)

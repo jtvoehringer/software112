@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { createEaKategorie } from '../actions'
 import SendenKnopf from '@/components/ui/SendenKnopf'
+import { ergebnisPruefen } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,7 +50,7 @@ export default async function KategorienPage() {
       {/* Neue Kategorie */}
       <div className="bg-white rounded-xl border border-s112-border p-5 mb-6">
         <h2 className="font-semibold text-s112-text mb-4">Neue Kategorie anlegen</h2>
-        <form action={async (fd: FormData) => { 'use server'; await createEaKategorie(fd) }} className="grid grid-cols-5 gap-3 items-end">
+        <form action={async (fd: FormData) => { 'use server'; ergebnisPruefen(await createEaKategorie(fd)) }} className="grid grid-cols-5 gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
             <select aria-label="Typ" name="typ" required

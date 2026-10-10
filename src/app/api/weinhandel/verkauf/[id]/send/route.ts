@@ -24,6 +24,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
       fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum))`)
     .eq('tenant_id', tenantId).eq('rechnung_id', rechnung.id).order('datum').order('id')
-  if (lsRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${lsRawErr.message}` }, { status: 500 })
+  if (lsRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(lsRawErr)}` }, { status: 500 })
   const lieferscheine = ((lsRaw ?? []) as R[])
   const sammel = lieferscheine.length > 1
   const datumDe = (d: string) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })
@@ -251,7 +252,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: userCfgRaw, error: userCfgErr } = await (admin.from('user_email_connections') as any)
     .select('id, m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at')
     .eq('tenant_id', tenantId).eq('user_id', authUser.id).maybeSingle()
-  if (userCfgErr) return NextResponse.json({ error: `Postfach-Verbindung konnte nicht geladen werden: ${userCfgErr.message}` }, { status: 500 })
+  if (userCfgErr) return NextResponse.json({ error: `Postfach-Verbindung konnte nicht geladen werden: ${dbFehlerText(userCfgErr)}` }, { status: 500 })
   const userCfg = userCfgRaw as R | null
 
   let sentVia: 'm365' | 'smtp' | null = null
@@ -261,7 +262,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const { data: tcfgRaw, error: tcfgErr } = await (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')
         .eq('tenant_id', tenantId).maybeSingle()
-      if (tcfgErr) return NextResponse.json({ error: `M365-Einstellungen konnten nicht geladen werden: ${tcfgErr.message}` }, { status: 500 })
+      if (tcfgErr) return NextResponse.json({ error: `M365-Einstellungen konnten nicht geladen werden: ${dbFehlerText(tcfgErr)}` }, { status: 500 })
       const token = await getValidUserAccessToken(userCfg, tcfgRaw as R, admin, tenantId, authUser.id)
 
       const draftRes = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
@@ -291,7 +292,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const { data: tenantCfgRaw, error: tenantCfgErr } = await (admin.from('tenant_einstellungen') as any)
         .select('email_modul_aktiv, email_smtp_host, email_smtp_port, email_smtp_user, email_smtp_pass_enc, email_smtp_from_name')
         .eq('tenant_id', tenantId).maybeSingle()
-      if (tenantCfgErr) return NextResponse.json({ error: `E-Mail-Einstellungen konnten nicht geladen werden: ${tenantCfgErr.message}` }, { status: 500 })
+      if (tenantCfgErr) return NextResponse.json({ error: `E-Mail-Einstellungen konnten nicht geladen werden: ${dbFehlerText(tenantCfgErr)}` }, { status: 500 })
       const c = tenantCfgRaw as R | null
       if (!c?.email_modul_aktiv || !c.email_smtp_host || !c.email_smtp_user || !c.email_smtp_pass_enc) {
         return NextResponse.json({

@@ -2,6 +2,7 @@ import 'server-only'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 import { planeVerkaufsEinnahmen, type PlanEinnahme, type PlanPosition, type PlanZahlung } from './verkaufEinnahmenPlan'
+import { dbFehlerText } from '@/lib/fehler'
 
 // E&A-Einnahmen aus den Zahlungseingängen eines Verkaufs (import_quelle 'verkauf') sind abgeleitete Buchungen: Sie
 // folgen den Zahlungen und werden stellvertretend über die Service-Role geschrieben (KAN-149, Nebenbefund 2) – wer
@@ -48,7 +49,7 @@ export async function abgleichVerkaufsEinnahmen(
   const { data: bestehendeRaw, error: leseErr } = await (lieferscheinIds.length > 1
     ? basis.in('verkaufsposten_id', [...lieferscheinIds])   // alle-ausnahme: Lieferscheine einer Rechnung, fachlich wenige
     : basis.eq('verkaufsposten_id', verkaufspostenId))
-  if (leseErr) return { ok: false, fehler: `E&A-Einnahmen des Verkaufs konnten nicht geladen werden: ${(leseErr as R).message}` }
+  if (leseErr) return { ok: false, fehler: `E&A-Einnahmen des Verkaufs konnten nicht geladen werden: ${dbFehlerText(leseErr)}` }
   const bestehende = ((bestehendeRaw ?? []) as R[]).map((e): PlanEinnahme => ({
     id: e.id, zahlung_id: e.zahlung_id ?? null, betrag_netto: Number(e.betrag_netto), ust_satz: Number(e.ust_satz),
     is_locked: !!e.is_locked, import_quelle: e.import_quelle, storniert_am: e.storniert_am ?? null, storno_von_id: e.storno_von_id ?? null,
@@ -64,7 +65,7 @@ export async function abgleichVerkaufsEinnahmen(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (admin.rpc as any)('s112_ea_stornieren', { p_tenant_id: tenantId, p_id: id, p_grund: GRUND_EINNAHMEN_NEU })
     if (error) {
-      return { ok: false, fehler: `E&A-Einnahme des Verkaufs konnte nicht gegengebucht werden: ${(error as R).message}${storniert ? ` (${storniert} bereits gegengebucht)` : ''}` }
+      return { ok: false, fehler: `E&A-Einnahme des Verkaufs konnte nicht gegengebucht werden: ${dbFehlerText(error)}${storniert ? ` (${storniert} bereits gegengebucht)` : ''}` }
     }
     storniert++
   }
@@ -76,7 +77,7 @@ export async function abgleichVerkaufsEinnahmen(
   for (const d of new Set(plan.anlegen.map(a => a.datum))) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (admin.rpc as any)('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: d })
-    if (error) return { ok: false, fehler: `Buchungszeitraum konnte nicht geprüft werden: ${(error as R).message}` }
+    if (error) return { ok: false, fehler: `Buchungszeitraum konnte nicht geprüft werden: ${dbFehlerText(error)}` }
     offen.set(d, !!((data as R[] | null)?.[0]?.offen))
   }
   const zeilen = plan.anlegen.map(a => {
@@ -98,6 +99,6 @@ export async function abgleichVerkaufsEinnahmen(
   })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: angelegt, error: insErr } = await (admin.from('ea_transaktionen') as any).insert(zeilen).select('id')
-  if (insErr) return { ok: false, fehler: `E&A-Einnahme konnte nicht gebucht werden: ${(insErr as R).message}` }
+  if (insErr) return { ok: false, fehler: `E&A-Einnahme konnte nicht gebucht werden: ${dbFehlerText(insErr)}` }
   return { ok: true, gesperrt: false, storniert, angelegt: ((angelegt ?? []) as R[]).length }
 }

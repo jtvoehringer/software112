@@ -26,7 +26,7 @@ import { clientIp, drossel } from '@/lib/sicherheit/drossel'
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { istPaketKey, paketPriceId, PAKETE } from '@/lib/pakete'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { sendEmail } from '@/lib/brevo/api'
 import { APP_URL, EINLADUNG_REDIRECT, findeKontoPerEmail } from '@/lib/auth/einladung'
 import { ereignisMelden } from '@/lib/system/ereignis'
@@ -124,7 +124,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
     .insert({ name: betrieb, slug, stripe_status: 'incomplete' })
     .select('id')
     .single()
-  if (tenantError) return { ok: false, fehler: (tenantError as R).message }
+  if (tenantError) return { ok: false, fehler: dbFehlerText(tenantError) }
   const tenantId = (tenant as R).id as string
 
   const betriebLoeschen = async () => {
@@ -154,7 +154,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   if (memberError) {
     if (neuesKonto) await admin.auth.admin.deleteUser(userId)
     await betriebLoeschen()
-    return { ok: false, fehler: (memberError as R).message }
+    return { ok: false, fehler: dbFehlerText(memberError) }
   }
 
   // KAN-246: Name im Profil – Fehler protokollieren (die Registrierung selbst ist durch)

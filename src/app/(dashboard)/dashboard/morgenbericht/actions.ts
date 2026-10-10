@@ -5,6 +5,7 @@ import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { erstelleMorgenbericht } from '@/lib/morgenbericht/erstellen'
+import { dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -21,13 +22,13 @@ export async function aktualisiereMorgenbericht(): Promise<{ ok: boolean; fehler
   const admin = createSupabaseAdminClient()
   // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
   const { data: t, error: tErr } = await (admin.from('tenants') as any).select('id, name, stripe_plan').eq('id', membership.tenantId).maybeSingle()
-  if (tErr) return { ok: false, fehler: `Betrieb konnte nicht geladen werden: ${tErr.message}` }
+  if (tErr) return { ok: false, fehler: `Betrieb konnte nicht geladen werden: ${dbFehlerText(tErr)}` }
   if (!t) return { ok: false, fehler: 'Betrieb nicht gefunden' }
   try {
     const b = await erstelleMorgenbericht({ id: (t as R).id, name: (t as R).name, stripe_plan: (t as R).stripe_plan }, 'manuell')
     revalidatePath('/dashboard'); revalidatePath('/dashboard/morgenbericht')
     return { ok: true, befunde: b.befunde.length }
   } catch (e) {
-    return { ok: false, fehler: (e as Error).message }
+    return { ok: false, fehler: dbFehlerText(e) }
   }
 }

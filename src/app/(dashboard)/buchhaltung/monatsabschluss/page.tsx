@@ -7,6 +7,7 @@ import { schliesseEaMonat } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock, LockOpen } from 'lucide-react'
 import { wienJetzt } from '@/lib/datum/wien'
+import { ergebnisPruefen } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,7 +54,7 @@ export default async function MonatsabschlussPage({
 
   async function handleAbschliessen(monat: number, j: number) {
     'use server'
-    await schliesseEaMonat(j, monat)
+    ergebnisPruefen(await schliesseEaMonat(j, monat))   // Sweep 107: Fehler (Berechtigung, Datenbank) nicht verwerfen
   }
 
   return (

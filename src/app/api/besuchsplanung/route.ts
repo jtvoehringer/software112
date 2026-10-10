@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { tageSeit, wienJetzt, wienTag } from '@/lib/datum/wien'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     kq = kq.order('plz').order('nachname').order('id')
     const { data: kontakteRaw, error: kontakteRawErr } = await alle(kq)
-    if (kontakteRawErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${kontakteRawErr.message}` }, { status: 500 })
+    if (kontakteRawErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(kontakteRawErr)}` }, { status: 500 })
     const kontakte = (kontakteRaw ?? []) as R[]
 
     // Letzten Kontakt je Person laden
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
         .eq('erledigt', true)
         .not('kontakt_id', 'is', null)
         .order('datum', { ascending: false }).order('id'))
-      if (aktsAlleErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${aktsAlleErr.message}` }, { status: 500 })
+      if (aktsAlleErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(aktsAlleErr)}` }, { status: 500 })
       const akts = (aktsAlle as R[]).filter(a => idSet.has(a.kontakt_id))
       const seen = new Set<string>()
       ;(akts ?? []).forEach((a: R) => {

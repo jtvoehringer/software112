@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // storno-sichtbar: nur Eigentumsprüfung – Schreiben an einem stornierten Auftrag lehnt die DB ab (a_export_kind_schutz)
   const { data: auftrag, error: auftragErr } = await (supabase.from('exportauftraege') as any)
     .select('id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
-  if (auftragErr) return NextResponse.json({ fehler: `Exportauftrag konnte nicht geladen werden: ${auftragErr.message}` }, { status: 500 })
+  if (auftragErr) return NextResponse.json({ fehler: `Exportauftrag konnte nicht geladen werden: ${dbFehlerText(auftragErr)}` }, { status: 500 })
   if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
 
   const { data, error } = await (supabase.from('export_dokumente') as any)
@@ -91,7 +91,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // storno-sichtbar: nur Eigentumsprüfung – Schreiben an einem stornierten Auftrag lehnt die DB ab (a_export_kind_schutz)
   const { data: auftrag, error: auftragErr } = await (supabase.from('exportauftraege') as any)
     .select('id').eq('id', auftragId).eq('tenant_id', tenantId).maybeSingle()
-  if (auftragErr) return NextResponse.json({ fehler: `Exportauftrag konnte nicht geladen werden: ${auftragErr.message}` }, { status: 500 })
+  if (auftragErr) return NextResponse.json({ fehler: `Exportauftrag konnte nicht geladen werden: ${dbFehlerText(auftragErr)}` }, { status: 500 })
   if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
 
   const update: Record<string, unknown> = { status }

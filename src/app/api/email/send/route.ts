@@ -8,6 +8,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { heuteWien } from '@/lib/datum/wien'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     const { data: cfg, error: cfgErr } = await (createSupabaseAdminClient().from('tenant_einstellungen') as any)
       .select('email_modul_aktiv, email_smtp_host, email_smtp_port, email_smtp_user, email_smtp_pass_enc, email_smtp_from_name')
       .eq('tenant_id', tenantId).maybeSingle()
-    if (cfgErr) return NextResponse.json({ fehler: `E-Mail-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
+    if (cfgErr) return NextResponse.json({ fehler: `E-Mail-Einstellungen konnten nicht geladen werden: ${dbFehlerText(cfgErr)}` }, { status: 500 })
 
     const c = (cfg as R | null)
     if (!c?.email_modul_aktiv) return NextResponse.json({ fehler: 'E-Mail-Modul nicht aktiviert' }, { status: 403 })

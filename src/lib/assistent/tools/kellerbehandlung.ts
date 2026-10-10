@@ -11,6 +11,7 @@ import { createKellerbehandlung } from '@/app/(dashboard)/kellerbuch/actions'
 import { neuerTypWirkungFehler } from '@/lib/kellerbuch/behandlungRegeln'
 import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -132,7 +133,7 @@ export async function fuehreKellerbehandlungErfassenAus(
         .insert({ tenant_id: tenantId, name: typName, einheit_standard: input.typ_einheit ? String(input.typ_einheit) : null, pn_wirkung: String(input.typ_wirkung) })
         .select('id').single()
       if (typErr) {
-        return { erfolg: false, fehler: (typErr as R).message }
+        return { erfolg: false, fehler: dbFehlerText(typErr) }
       }
       typId = (neuerTyp as R).id
     }

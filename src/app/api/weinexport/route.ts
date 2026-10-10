@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     // Referenznummer generieren
     const { data: refData, error: refDataErr } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })
-    if (refDataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${refDataErr.message}` }, { status: 500 })
+    if (refDataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(refDataErr)}` }, { status: 500 })
     const referenz = refData ?? null
 
     const { data: auftrag, error } = await (supabase.from('exportauftraege') as any).insert({
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       { const { error: e } = await (supabase.from('exportauftrag_positionen') as any).insert(posen)
         if (e) {
           void ereignisMelden({ art: 'db', quelle: 'weinexport/exportauftrag_positionen', meldung: e.message })
-          return NextResponse.json({ fehler: `Der Exportauftrag ${referenz ?? ''} ist angelegt, die Positionen konnten aber nicht gespeichert werden: ${e.message}. Bitte im Auftrag ergänzen.`.replace('  ', ' '), id }, { status: 500 })
+          return NextResponse.json({ fehler: `Der Exportauftrag ${referenz ?? ''} ist angelegt, die Positionen konnten aber nicht gespeichert werden: ${dbFehlerText(e)}. Bitte im Auftrag ergänzen.`.replace('  ', ' '), id }, { status: 500 })
         } }
     }
 
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     )
       if (e) {
         void ereignisMelden({ art: 'db', quelle: 'weinexport/export_dokumente', meldung: e.message })
-        return NextResponse.json({ fehler: `Der Exportauftrag ist angelegt, die Standard-Dokumente konnten aber nicht vorbereitet werden: ${e.message}.`, id }, { status: 500 })
+        return NextResponse.json({ fehler: `Der Exportauftrag ist angelegt, die Standard-Dokumente konnten aber nicht vorbereitet werden: ${dbFehlerText(e)}.`, id }, { status: 500 })
       } }
 
     return NextResponse.json({ ok: true, id })

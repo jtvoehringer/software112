@@ -6,6 +6,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { suchWoerter } from '@/lib/crm/liste'
 import { fremderBetrieb, ladeCrmGemeinschaft, sichtbareBetriebe, type CrmGemeinschaft } from '@/lib/crm/gemeinschaft'
 import { zahlWert } from '@/lib/format'
+import { dbFehlerText } from '@/lib/fehler'
 
 // Serverseitige Namenssuche für Auswahlfelder (17.9.2026):
 //   /api/crm/suche?art=kontakt|firma|kunde|lieferant&q=<text>
@@ -156,7 +157,7 @@ export async function GET(req: NextRequest) {
 
   if (art === 'firma') {
     const { data, error: dataErr } = await firmenAbfrage(idsRoh, null)
-    if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
+    if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     return NextResponse.json({ treffer: ((data ?? []) as R[]).map(f => firmaTreffer(f, h)) })
   }
 
@@ -165,7 +166,7 @@ export async function GET(req: NextRequest) {
     const kErg = await kontakteAbfrage(idsRoh, firmaId)
     let data = kErg.data
     const dataErr = kErg.error
-    if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
+    if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     if (firmaId && !idsRoh.length && !(data ?? []).length) {
       // Firma ohne zugeordnete Ansprechpersonen → alle Kontakte anbieten
       const r = await kontakteAbfrage([], null)

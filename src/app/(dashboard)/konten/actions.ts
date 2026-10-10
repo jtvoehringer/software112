@@ -10,8 +10,6 @@ import { dezimal } from '@/lib/format'
 import { pruefeModul } from '@/lib/auth/modul'
 import { heuteWien } from '@/lib/datum/wien'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R = Record<string, any>
 
 async function getCtx() {
   const supabase   = await createSupabaseServerClient()
@@ -42,7 +40,7 @@ export async function createKonto(formData: FormData) {
     eroeffnungsdatum, eroeffnungssaldo,
   })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   revalidatePath('/konten')
   return { ok: true }
 }
@@ -57,7 +55,7 @@ export async function deaktiviereKonto(id: string) {
     .update({ aktiv: false })
     .eq('id', id).eq('tenant_id', tenantId).select('id')
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/konten')
   return { ok: true }
@@ -84,7 +82,7 @@ export async function createUmbuchung(formData: FormData) {
     betrag, datum, beschreibung,
   })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   revalidatePath(`/konten/${vonKontoId}/abstimmung`)
   revalidatePath(`/konten/${nachKontoId}/abstimmung`)
   revalidatePath('/konten')
@@ -126,7 +124,7 @@ export async function setzeAbgeglichen(
     p_tenant_id: tenantId, p_quelle: quelle, p_id: id, p_abgeglichen: abgeglichen,
   })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   revalidatePath(`/konten/${kontoId}/abstimmung`)
   return { ok: true }
 }

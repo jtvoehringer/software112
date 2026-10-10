@@ -9,6 +9,7 @@ import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
+import { ergebnisPruefen } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,7 +84,7 @@ export default async function DauerauftraegePage() {
       {/* Neuer Dauerauftrag */}
       <div className="bg-white rounded-xl border border-s112-border p-5 mb-6">
         <h2 className="font-semibold text-s112-text mb-4">Neuer Dauerauftrag</h2>
-        <form action={async (fd: FormData) => { 'use server'; await createEaDauerauftrag(fd) }} className="space-y-4">
+        <form action={async (fd: FormData) => { 'use server'; ergebnisPruefen(await createEaDauerauftrag(fd)) }} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
@@ -207,7 +208,7 @@ export default async function DauerauftraegePage() {
                   <td className="px-4 py-2.5 text-right">
                     {adminOk && (
                       <ConfirmDeleteForm
-                        action={async () => { 'use server'; await deaktiviereEaDauerauftrag(d.id) }}
+                        action={async () => { 'use server'; ergebnisPruefen(await deaktiviereEaDauerauftrag(d.id)) }}
                         message={`"${d.beschreibung}" deaktivieren? Es werden dann keine weiteren Buchungen mehr automatisch erzeugt.`}
                         title="Deaktivieren"
                         label="Deaktivieren"

@@ -63,7 +63,7 @@ async function gueltigeAfaBuchungen(supabase: Sb, tenantId: string, ids: string[
   const eindeutig = [...new Set(ids)]
   const { data, error } = await (supabase.from('ea_transaktionen') as any).select('id, betrag_netto')
     .in('id', eindeutig).eq('tenant_id', tenantId).not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null)
-  if (error) return { ok: false, fehler: `Die AfA-Buchungen konnten nicht geprüft werden: ${(error as R).message}` }
+  if (error) return { ok: false, fehler: `Die AfA-Buchungen konnten nicht geprüft werden: ${dbFehlerText(error)}` }
   const buchungen = new Map(((data ?? []) as R[]).map(r => [r.id as string, Number(r.betrag_netto)]))
   return { ok: true, buchungen: buchungen.size === eindeutig.length ? buchungen : null }
 }
@@ -107,13 +107,13 @@ export async function speichereAnlage(a: AnlageEingabe): Promise<{ ok: true; id:
   }
   if (a.id) {
     const { data: geaendert, error } = await (supabase.from('ea_anlagen') as any).update(payload).eq('id', a.id).eq('tenant_id', tenantId).select('id')
-    if (error) return { ok: false, fehler: (error as R).message }
+    if (error) return { ok: false, fehler: dbFehlerText(error) }
     if (!(geaendert as unknown[] | null)?.length) return { ok: false, fehler: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     pfade()
     return { ok: true, id: a.id }
   }
   const { data, error } = await (supabase.from('ea_anlagen') as any).insert(payload).select('id').single()
-  if (error) return { ok: false, fehler: (error as R).message }
+  if (error) return { ok: false, fehler: dbFehlerText(error) }
   pfade()
   return { ok: true, id: (data as R).id }
 }
@@ -122,7 +122,7 @@ export async function loescheAnlage(id: string): Promise<{ ok: boolean; fehler?:
   const { supabase, tenantId } = await ctx()
   // storno-sichtbar: Prüfung wertet storniert_am im Code aus (gültige AfA ohne Storno und Gegenbuchung)
   const { data: afa, error: afaErr } = await (supabase.from('ea_transaktionen') as any).select('datum, storniert_am, storno_von_id').eq('anlage_id', id).eq('tenant_id', tenantId)
-  if (afaErr) return { ok: false, fehler: `Die AfA-Buchungen der Anlage konnten nicht geprüft werden: ${(afaErr as R).message}` }
+  if (afaErr) return { ok: false, fehler: `Die AfA-Buchungen der Anlage konnten nicht geprüft werden: ${dbFehlerText(afaErr)}` }
   const gueltig = ((afa ?? []) as R[]).filter(t => !t.storniert_am && !t.storno_von_id)
   if (gueltig.length > 0) {
     const jahre = [...new Set(gueltig.map(t => String(t.datum).slice(0, 4)))].sort().join(', ')
@@ -133,7 +133,7 @@ export async function loescheAnlage(id: string): Promise<{ ok: boolean; fehler?:
     return { ok: false, fehler: 'Für diese Anlage gibt es stornierte AfA-Buchungen – sie bleibt deshalb zur Nachvollziehbarkeit im Verzeichnis. Ist sie nicht mehr im Betrieb, bitte den Abgang eintragen.' }
   }
   const { data: weg, error } = await (supabase.from('ea_anlagen') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
-  if (error) return { ok: false, fehler: (error as R).message }
+  if (error) return { ok: false, fehler: dbFehlerText(error) }
   if (((weg ?? []) as unknown[]).length === 0) return { ok: false, fehler: 'Die Anlage wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }   // KAN-243
   pfade()
   return { ok: true }
@@ -185,7 +185,7 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
   if (neu.length) {
     const { error } = await (supabase.from('ea_transaktionen') as any).insert(neu)
     // Gegenbuchungen sind dann schon da – Seite aktualisieren, damit die Anlagen als offen erscheinen
-    if (error) { pfade(); return { ok: false, fehler: (error as R).message } }
+    if (error) { pfade(); return { ok: false, fehler: dbFehlerText(error) } }
   }
   pfade()
   return { ok: true, gebucht: neu.length }
