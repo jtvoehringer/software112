@@ -4,6 +4,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import { createLage } from '../actions'
 import type { Metadata } from 'next'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const metadata: Metadata = { title: 'Neue Ried – software:112' }
 
@@ -58,10 +59,10 @@ export default async function NeueLagePage() {
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="submit"
+            <SendenKnopf
               className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Speichern
-            </button>
+            </SendenKnopf>
             <AbbrechenKnopf standard="/lagen"
             className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text" />
           </div>

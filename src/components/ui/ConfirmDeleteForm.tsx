@@ -1,4 +1,5 @@
 'use client'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 interface Props {
   action:    () => Promise<void> | void
@@ -14,15 +15,14 @@ interface Props {
 export default function ConfirmDeleteForm({ action, message, label = '×', title, className, style }: Props) {
   return (
     <form action={action} style={style ?? { display: 'inline' }}>
-      <button
-        type="submit"
+      <SendenKnopf
         title={title}
         aria-label={title}
         className={className}
         onClick={e => { if (!confirm(message)) e.preventDefault() }}
       >
         {label}
-      </button>
+      </SendenKnopf>
     </form>
   )
 }

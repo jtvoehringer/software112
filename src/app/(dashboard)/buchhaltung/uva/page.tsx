@@ -14,6 +14,7 @@ import { wienHeute, wienZeitpunkt } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeUva, uvaZeitraumLabel, UVA_MONATE, type UvaMeldung, type UvaSchluessel } from '@/lib/behoerden/uva'
 import { datumText } from '@/lib/behoerden/buchhaltung-gemeinsam'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const dynamic = 'force-dynamic'
 
@@ -157,10 +158,10 @@ export default async function UvaPage({
                   {zeitraeume.map(z => <option key={z} value={z}>{zeitraumLabel(z)}</option>)}
                 </select>
               </div>
-              <button type="submit"
+              <SendenKnopf
                 className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
                 Berechnen & Speichern
-              </button>
+              </SendenKnopf>
             </form>
             <p className="text-xs text-s112-muted mt-2">
               Berechnet USt und VSt aus den Buchungen und speichert die Meldung (kann beliebig oft wiederholt werden,

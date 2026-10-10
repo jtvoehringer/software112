@@ -22,6 +22,7 @@ import { landAnzeige } from '@/lib/katalog/laender'
 import { tbsText } from '@/lib/handel/tbsNummer'
 import { TB_POSITIONSTYPEN } from '@/lib/behoerden/transportbescheinigung'
 import { heuteWien } from '@/lib/datum/wien'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const dynamic = 'force-dynamic'
 
@@ -718,9 +719,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 </div>
               </div>
               <div className="flex justify-end">
-                <button type="submit" className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
+                <SendenKnopf className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                   Zahlung buchen
-                </button>
+                </SendenKnopf>
               </div>
             </form>
           )}

@@ -8,6 +8,7 @@ import { createEaDauerauftrag, deaktiviereEaDauerauftrag } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const dynamic = 'force-dynamic'
 
@@ -154,10 +155,10 @@ export default async function DauerauftraegePage() {
               <p className="text-xs text-s112-muted mt-1">Optional – wird an jede automatisch erzeugte Buchung weitergegeben.</p>
             </div>
           )}
-          <button type="submit"
+          <SendenKnopf
             className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Dauerauftrag anlegen
-          </button>
+          </SendenKnopf>
         </form>
       </div>
 

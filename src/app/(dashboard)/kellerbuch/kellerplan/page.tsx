@@ -6,6 +6,7 @@ import Link from '@/components/ui/Link'
 import { createKellerplan, updateKellerplan, deleteKellerplan } from './actions'
 import KellerplanEditModal from '@/components/kellerbuch/KellerplanEditModal'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
+import SendenKnopf from '@/components/ui/SendenKnopf'
 
 export const metadata: Metadata = { title: 'Kellerplan – software:112' }
 export const dynamic = 'force-dynamic'
@@ -121,10 +122,10 @@ export default async function KellerplanListPage() {
               <label className={lCls}>Notizen (optional)</label>
               <input aria-label="Notizen (optional)" name="notizen" placeholder="z.B. Erdgeschoss Nordbau" className={iCls} />
             </div>
-            <button type="submit"
+            <SendenKnopf
               className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Plan anlegen &amp; öffnen
-            </button>
+            </SendenKnopf>
           </form>
         </div>
       )}
