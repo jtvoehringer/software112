@@ -1,5 +1,6 @@
 // Datenzugriff für das Anlagenverzeichnis (Server), Rechenlogik in @/lib/ea/anlagen.
 import type { Ctx, R } from '@/app/(dashboard)/dashboard/_shared/data'
+import { geladen } from '@/lib/supabase/geladen'
 import type { Anlage, AfaBuchungRoh } from '@/lib/ea/anlagen'
 import { anlageAusZeile } from '@/lib/behoerden/anlagen'
 
@@ -14,14 +15,14 @@ export function zuAnlage(r: R): Anlage {
 }
 
 export async function ladeAnlagen(ctx: Ctx): Promise<(Anlage & { transaktion_id: string | null; notizen: string | null })[]> {
-  const { data } = await ctx.tf(ctx.q('ea_anlagen').select('*').order('anschaffung_am', { ascending: false }).order('name'))
+  const data = geladen(await ctx.tf(ctx.q('ea_anlagen').select('*').order('anschaffung_am', { ascending: false }).order('name')), 'Anlagen')
   return ((data ?? []) as R[]).map(r => ({ ...zuAnlage(r), transaktion_id: r.transaktion_id ?? null, notizen: r.notizen ?? null }))
 }
 
 /** Gebuchte AfA (ea_transaktionen mit anlage_id) eines Jahres – ohne stornierte und Gegenbuchungen (KAN-149 D2c) */
 export async function ladeAfaBuchungen(ctx: Ctx, jahr: number): Promise<AfaBuchungRoh[]> {
-  const { data } = await ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked')
-    .not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`))
+  const data = geladen(await ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked')
+    .not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)), 'Buchungen')
   return ((data ?? []) as R[]).map(b => ({ id: b.id, anlage_id: b.anlage_id, betrag_netto: Number(b.betrag_netto), datum: String(b.datum).slice(0, 10), is_locked: !!b.is_locked }))
 }
 
@@ -31,11 +32,13 @@ export async function ladeAfaBuchungen(ctx: Ctx, jahr: number): Promise<AfaBuchu
  * Buchung der gerade bearbeiteten Anlage. Stornierte Buchungen und Gegenbuchungen nicht (KAN-149 D2c).
  */
 export async function ladeKandidaten(ctx: Ctx, eigeneTransaktionId: string | null = null): Promise<BuchungsKandidat[]> {
-  const [{ data: buchungen }, { data: belegt }] = await Promise.all([
+  const [buchungenRes, belegtRes] = await Promise.all([
     ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, ea_kategorien!kategorie_id!inner(name, konto_nr)')
       .eq('typ', 'ausgabe').is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).lt('ea_kategorien.konto_nr', 1000).order('datum', { ascending: false }).limit(200)),
     ctx.tf(ctx.q('ea_anlagen').select('transaktion_id').not('transaktion_id', 'is', null)),
   ])
+  const buchungen = geladen(buchungenRes, 'Buchungen')
+  const belegt = geladen(belegtRes, 'Anlagen')
   const vergeben = new Set(((belegt ?? []) as R[]).map(a => a.transaktion_id as string))
   if (eigeneTransaktionId) vergeben.delete(eigeneTransaktionId)
   return ((buchungen ?? []) as R[])

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -124,17 +125,17 @@ export default async function LagerPage({
 
   // Alle PSM (aktiv) – Basisdaten für Bestand
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawPSM } = await tf((supabase.from('pflanzenschutzmittel') as any)
+  const rawPSM = geladen(await tf((supabase.from('pflanzenschutzmittel') as any)
     .select('id, name, kategorie')
     .eq('aktiv', true)
-    .order('name'))
+    .order('name')), 'Pflanzenschutzmittel')
 
   // Vollständige PSM-Stammdaten (für den Stammdaten-Tab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawPSMStamm } = await tf((supabase.from('pflanzenschutzmittel') as any)
+  const rawPSMStamm = geladen(await tf((supabase.from('pflanzenschutzmittel') as any)
     .select('id, name, handelsname, kategorie, wirkstoff, wirkstoffgehalt_pct, cu_gehalt_pct, max_aufwand_kg_ha, max_anwendungen, wartezeit_tage, oeko_zugelassen, zulassungsnr, eppo_code, bienengefaehrlich, notizen')
     .eq('aktiv', true)
-    .order('name'))
+    .order('name')), 'Pflanzenschutzmittel')
 
   const psmStammdaten: PSMEintrag[] = ((rawPSMStamm ?? []) as AR[]).map(p => ({
     id:                  p.id,
@@ -156,10 +157,10 @@ export default async function LagerPage({
 
   // Düngemittel-Stammdaten (für den Düngemittel-Tab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuengerStamm } = await tf((supabase.from('duengemittel') as any)
+  const rawDuengerStamm = geladen(await tf((supabase.from('duengemittel') as any)
     .select('id, name, handelsname, typ, naehrstoff_n_pct, naehrstoff_p_pct, naehrstoff_k_pct, wartezeit_tage, oeko_zugelassen, einarbeitung_erforderlich, preis_pro_einheit, einheit, notizen')
     .eq('aktiv', true)
-    .order('name'))
+    .order('name')), 'Düngemittel')
 
   const duengemittelStammdaten: DuengemittelEintrag[] = ((rawDuengerStamm ?? []) as AR[]).map(d => ({
     id:                        d.id,
@@ -179,11 +180,11 @@ export default async function LagerPage({
 
   // Sätze/Stundensätze je Maßnahmenart (für den Stundensätze-Tab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawSaetze } = await tf((supabase.from('saetze_massnahmen') as any)
+  const rawSaetze = geladen(await tf((supabase.from('saetze_massnahmen') as any)
     .select('id, art, bezeichnung, satz_pro_ha, gueltig_ab, notizen')
     .eq('aktiv', true)
     .order('art')
-    .order('bezeichnung'))
+    .order('bezeichnung')), 'Stundensätze')
 
   const saetzeMassnahmen: SatzEintrag[] = ((rawSaetze ?? []) as AR[]).map(s => ({
     id:           s.id,
@@ -197,10 +198,10 @@ export default async function LagerPage({
   // Lagerbewegungen
   // alle(): Lagerbestand = Summe ALLER Bewegungen – PostgREST kappt sonst still bei 1.000 (gilt für alle drei Lager)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBew } = await alle<AR>(tf((supabase.from('psm_lager_bewegungen') as any)
+  const rawBew = geladen(await alle<AR>(tf((supabase.from('psm_lager_bewegungen') as any)
     // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand (KAN-88)
     .select('id, psm_id, datum, typ, menge, einheit, notizen, storniert_am, storniert_von_name, storno_grund')
-    .order('datum', { ascending: false }).order('id')))
+    .order('datum', { ascending: false }).order('id'))), 'PSM-Lagerbewegungen')
 
   // Verbrauch aus Maßnahmen (KAN-133): Mittelmenge je Maßnahme (mittelmenge()) – PSM nur aus
   // Spritzungen und Sonstiges (KAN-154; Aufwand × Fläche; „Menge gesamt“ ist bei Spritzungen die
@@ -279,10 +280,10 @@ export default async function LagerPage({
 
   // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM oben) ────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuengerBew } = await alle<AR>(tf((supabase.from('duengemittel_lager_bewegungen') as any)
+  const rawDuengerBew = geladen(await alle<AR>(tf((supabase.from('duengemittel_lager_bewegungen') as any)
     // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand (KAN-88)
     .select('id, duengemittel_id, datum, typ, menge, einheit, notizen, storniert_am, storniert_von_name, storno_grund')
-    .order('datum', { ascending: false }).order('id')))
+    .order('datum', { ascending: false }).order('id'))), 'Düngemittel-Lagerbewegungen')
 
   // Verbrauch aus Düngungen: Düngermenge, sonst Aufwand × Fläche (mittelmenge(), siehe oben)
   const verbrauchByDuenger = verbrauchJeMittel(duengungen, 'duenger')
@@ -328,15 +329,15 @@ export default async function LagerPage({
 
   // ── KAN-167: Weinbehandlungs- und Produktionsmittel ──────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBm } = await tf((supabase.from('betriebsmittel') as any)
+  const rawBm = geladen(await tf((supabase.from('betriebsmittel') as any)
     .select('id, gruppe, name, einheit, preis_pro_einheit, ea_kategorie_id, notizen, aktiv')
-    .order('name'))
+    .order('name')), 'Betriebsmittel')
   const bmAlle = ((rawBm ?? []) as AR[])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBmBew } = await alle<AR>(tf((supabase.from('betriebsmittel_lager_bewegungen') as any)
+  const rawBmBew = geladen(await alle<AR>(tf((supabase.from('betriebsmittel_lager_bewegungen') as any)
     // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand
     .select('id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz, notizen, storniert_am, storniert_von_name, storno_grund, lieferant:firmen!lieferant_firma_id(name)')
-    .order('datum', { ascending: true }).order('id')))
+    .order('datum', { ascending: true }).order('id'))), 'Betriebsmittel-Lagerbewegungen')
   // Verbrauch aus Maßnahmen (Sonstiges, Laubarbeit) mit Betriebsmittel – Aufwand × behandelte Fläche bzw. gesamt
   const { data: rawBmVerbrauch } = brauchtBm
     ? await alle<AR>(tf((supabase.from('behandlungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -373,19 +374,19 @@ export default async function LagerPage({
   }
   // Ausgaben-Kategorien (global und eigene) und Lieferanten (Firmen mit „Lieferant“) für den Einkauf
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawKat } = await (supabase.from('ea_kategorien') as any)
+  const rawKat = geladen(await (supabase.from('ea_kategorien') as any)
     .select('id, name, tenant_id').eq('typ', 'ausgabe').eq('aktiv', true)
     .or(tenantId ? `tenant_id.is.null,tenant_id.eq.${tenantId}` : 'tenant_id.is.null')
-    .order('name')
+    .order('name'), 'Kategorien')
   const kategorien = ((rawKat ?? []) as AR[]).map(k => ({ id: k.id as string, name: k.name as string }))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawLief } = await tf((supabase.from('firmen') as any)
-    .select('id, name').eq('ist_lieferant', true).eq('aktiv', true).order('name').limit(500))
+  const rawLief = geladen(await tf((supabase.from('firmen') as any)
+    .select('id, name').eq('ist_lieferant', true).eq('aktiv', true).order('name').limit(500)), 'Firmen')
   const lieferanten = ((rawLief ?? []) as AR[]).map(l => ({ id: l.id as string, name: l.name as string }))
   // Einkauf (mit Pflicht-E/A-Ausgabe) nur mit Modul E&A bzw. Belege und Schreibrecht E&A – KAN-223 (Entscheidung 07.10.2026):
   // auch Doppik-Betriebe (Belege & BMD-Übergabe), dieselbe Regel wie s112_betriebsmittel_einkauf
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: einst } = await tf((supabase.from('tenant_einstellungen') as any).select('modul_ea, buchhaltungsart')).maybeSingle()
+  const einst = geladen(await tf((supabase.from('tenant_einstellungen') as any).select('modul_ea, buchhaltungsart')).maybeSingle(), 'Einstellungen')
   const einkaufSperre = !(einst as AR | null)?.modul_ea
     ? 'das Modul E&A bzw. Belege ist für diesen Betrieb nicht aktiv – bitte Anfangsbestand bzw. Inventurkorrektur verwenden.'
     : !(membership && canWrite(membership, 'ea'))

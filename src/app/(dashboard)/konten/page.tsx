@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
@@ -20,27 +21,27 @@ const TYP_LABEL: Record<string, string> = { giro: 'Girokonto', kreditkarte: 'Kre
 async function berechneSaldo(supabase: R, tenantId: string, konto: R): Promise<number> {
   let saldo = Number(konto.eroeffnungssaldo ?? 0)
 
-  const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
+  const zahlungenRaw = geladen(await (supabase.from('zahlungen') as any)
     .select('betrag, datum').eq('tenant_id', tenantId).eq('konto_id', konto.id)
     .gt('datum', konto.eroeffnungsdatum)
-    .is('storniert_am', null)   // KAN-149 D2b: stornierte Zahlungen zählen nicht
+    .is('storniert_am', null), 'Zahlungen')   // KAN-149 D2b: stornierte Zahlungen zählen nicht
   saldo += ((zahlungenRaw ?? []) as R[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
 
-  const { data: txRaw } = await (supabase.from('ea_transaktionen') as any)
+  const txRaw = geladen(await (supabase.from('ea_transaktionen') as any)
     .select('typ, betrag_brutto, datum').eq('tenant_id', tenantId).eq('konto_id', konto.id)
-    .gt('datum', konto.eroeffnungsdatum)
+    .gt('datum', konto.eroeffnungsdatum), 'Buchungen')
   saldo += ((txRaw ?? []) as R[]).reduce((s, t) => s + (t.typ === 'einnahme' ? 1 : -1) * Number(t.betrag_brutto ?? 0), 0)
 
-  const { data: umbVonRaw } = await (supabase.from('konto_umbuchungen') as any)
+  const umbVonRaw = geladen(await (supabase.from('konto_umbuchungen') as any)
     .select('betrag, datum').eq('tenant_id', tenantId).eq('von_konto_id', konto.id)
     .gt('datum', konto.eroeffnungsdatum)
-    .is('storniert_am', null)
+    .is('storniert_am', null), 'Umbuchungen')
   saldo -= ((umbVonRaw ?? []) as R[]).reduce((s, u) => s + Number(u.betrag ?? 0), 0)
 
-  const { data: umbNachRaw } = await (supabase.from('konto_umbuchungen') as any)
+  const umbNachRaw = geladen(await (supabase.from('konto_umbuchungen') as any)
     .select('betrag, datum').eq('tenant_id', tenantId).eq('nach_konto_id', konto.id)
     .gt('datum', konto.eroeffnungsdatum)
-    .is('storniert_am', null)
+    .is('storniert_am', null), 'Umbuchungen')
   saldo += ((umbNachRaw ?? []) as R[]).reduce((s, u) => s + Number(u.betrag ?? 0), 0)
 
   return saldo
@@ -53,12 +54,12 @@ export default async function KontenPage() {
   const tenantId = membership.tenantId
   const adminOk  = canAdmin(membership.role)
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
-  const { data: kontenRaw } = await (supabase.from('konten') as any)
-    .select('*').eq('tenant_id', tenantId).eq('aktiv', true).order('sortierung').order('name')
+  const kontenRaw = geladen(await (supabase.from('konten') as any)
+    .select('*').eq('tenant_id', tenantId).eq('aktiv', true).order('sortierung').order('name'), 'Konten')
   const konten = (kontenRaw ?? []) as R[]
 
   const kontenMitSaldo: (R & { saldo: number })[] = await Promise.all(

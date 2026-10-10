@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -32,11 +33,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase.from('verkaufsposten') as any)
+  const data = geladen(await (supabase.from('verkaufsposten') as any)
     .select('rechnungsnummer, datum')
     .eq('id', id)
     .eq('tenant_id', membership?.tenantId ?? '')
-    .single()
+    .maybeSingle(), 'Verkäufe')
   const d = data as R | null
   const label = d?.rechnungsnummer
     ? `Beleg ${d.rechnungsnummer}`
@@ -47,14 +48,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 // ── Tenant-Einstellungen (Briefkopf + Rechnung) ──────────────────────────────
 async function getTenantSettings(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, tenantId: string | null) {
   try {
-    const { data } = await (supabase.from('tenant_einstellungen') as any)
+    const data = geladen(await (supabase.from('tenant_einstellungen') as any)
       .select(`anzeigename, logo_url,
                betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort,
                betrieb_telefon, betrieb_email, betrieb_website, betrieb_uid,
                rechnung_iban, rechnung_bic, rechnung_zahlungsziel, rechnung_fusstext`)
       .eq('tenant_id', tenantId ?? '')
       .limit(1)
-      .single()
+      .maybeSingle(), 'Einstellungen')
     return (data as R | null) ?? {}
   } catch {
     return {}
@@ -71,7 +72,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [{ data: postenRaw }, settings, { data: zahlungenRaw }, { count: traubenverkaufAnzahl }, { data: tbRaw }] = await Promise.all([
+  const [postenRawRes, settings, zahlungenRawRes, { count: traubenverkaufAnzahl }, tbRawRes] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, lieferscheinnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
@@ -90,7 +91,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .eq('id', id)
       .eq('tenant_id', tenantId ?? '')
       .eq('aktiv', true)
-      .single(),
+      .maybeSingle(),
     getTenantSettings(supabase, tenantId),
     (supabase.from('zahlungen') as any)
       .select('id, betrag, art, datum, notizen, erstellt_am, storniert_am, storniert_von_name, storno_grund')
@@ -112,6 +113,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .is('storniert_am', null)
       .maybeSingle(),
   ])
+  const postenRaw = geladen(postenRawRes, 'Verkäufe')
+  const zahlungenRaw = geladen(zahlungenRawRes, 'Zahlungen')
+  const tbRaw = geladen(tbRawRes, 'Transportbescheinigungen')
   const tbsNr = tbsText((tbRaw as R | null)?.tbs_nummer, (tbRaw as R | null)?.tbs_jahr)
 
   if (!postenRaw) notFound()

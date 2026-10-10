@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { preisEinheit, type LagerBuchung } from '@/lib/behandlungen/lagerVerbrauch'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -61,8 +62,8 @@ export default async function NeueBehandlungPage() {
   let bioStatus: string = 'konventionell'
   if (tenantId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenantRow } = await (supabase.from('tenants') as any)
-      .select('bio_status').eq('id', tenantId).maybeSingle()
+    const tenantRow = geladen(await (supabase.from('tenants') as any)
+      .select('bio_status').eq('id', tenantId).maybeSingle(), 'Betrieb')
     bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,21 +71,21 @@ export default async function NeueBehandlungPage() {
 
   // PSM laden (global + eigene) — inkl. cu_gehalt_pct (bzw. Kupfer-Wirkstoff) + preis_pro_einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawPSM } = await tf((supabase.from('pflanzenschutzmittel') as any)
+  const rawPSM = geladen(await tf((supabase.from('pflanzenschutzmittel') as any)
     .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct, preis_pro_einheit, bienengefaehrlich')
     .eq('aktiv', true)
-    .order('name'))
+    .order('name')), 'Pflanzenschutzmittel')
 
   // Preis-Einheit je PSM (pflanzenschutzmittel hat keine Einheit-Spalte): Grundeinheit des Lagers nach
   // derselben Regel wie die Lager-Seite (lagerEinheit), g → kg, ml → l. Der Material-Vorschlag rechnet
   // Preis je kg bzw. l × Mittelmenge (KAN-133); ohne Lagerbuchung bleibt die Einheit unbekannt – dann
   // kein Vorschlag.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBew } = await alle(tf((supabase.from('psm_lager_bewegungen') as any)
+  const rawBew = geladen(await alle(tf((supabase.from('psm_lager_bewegungen') as any)
     .select('id, psm_id, datum, menge, einheit')
     .is('storniert_am', null)   // KAN-88: stornierte Lagerbuchungen zählen nicht
     .order('datum', { ascending: false })
-    .order('id')))
+    .order('id'))), 'PSM-Lagerbewegungen')
   const buchungenJePsm = new Map<string, LagerBuchung[]>()
   for (const b of ((rawBew ?? []) as AR[])) {
     if (!b.einheit) continue
@@ -111,10 +112,10 @@ export default async function NeueBehandlungPage() {
 
   // Düngemittel laden (global + eigene) — inkl. preis_pro_einheit + einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuenger } = await tf((supabase.from('duengemittel') as any)
+  const rawDuenger = geladen(await tf((supabase.from('duengemittel') as any)
     .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen, preis_pro_einheit, einheit')
     .eq('aktiv', true)
-    .order('name'))
+    .order('name')), 'Düngemittel')
   const duengemittel: DuengemittelOption[] = ((rawDuenger ?? []) as AR[]).map(d => ({
     id:              d.id,
     name:            d.name,
@@ -128,21 +129,21 @@ export default async function NeueBehandlungPage() {
 
   // Kostenarten (für die Kosten-Vorschlagsfunktion)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawKostenarten } = await tf((supabase.from('kostenarten') as any)
+  const rawKostenarten = geladen(await tf((supabase.from('kostenarten') as any)
     .select('id, name, kategorie')
     .eq('aktiv', true)
-    .order('name'))
+    .order('name')), 'Kostenarten')
   const kostenarten: KostenartOption[] = ((rawKostenarten ?? []) as AR[]).map(k => ({
     id: k.id, name: k.name, kategorie: k.kategorie ?? null,
   }))
 
   // Hektarsätze je Maßnahmenart (für die Kosten-Vorschlagsfunktion, migration 133)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawSaetze } = await tf((supabase.from('saetze_massnahmen') as any)
+  const rawSaetze = geladen(await tf((supabase.from('saetze_massnahmen') as any)
     .select('id, art, bezeichnung, satz_pro_ha')
     .eq('aktiv', true)
     .order('art')
-    .order('bezeichnung'))
+    .order('bezeichnung')), 'Stundensätze')
   const saetzeMassnahmen: SatzOption[] = ((rawSaetze ?? []) as AR[]).map(s => ({
     id: s.id, art: s.art, bezeichnung: s.bezeichnung, satz_pro_ha: s.satz_pro_ha,
   }))

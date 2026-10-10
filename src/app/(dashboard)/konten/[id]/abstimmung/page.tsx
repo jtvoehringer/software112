@@ -1,4 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { mitStornoGegenzeile } from '@/lib/finanzen/stornoGegenzeile'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
@@ -55,21 +56,21 @@ export default async function AbstimmungPage({
   const writeOk  = canWrite(membership.role, 'ea')
   const { id: kontoId } = await params
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
-  const { data: kontoRaw } = await (supabase.from('konten') as any)
-    .select('*').eq('id', kontoId).eq('tenant_id', tenantId).maybeSingle()
+  const kontoRaw = geladen(await (supabase.from('konten') as any)
+    .select('*').eq('id', kontoId).eq('tenant_id', tenantId).maybeSingle(), 'Konten')
   if (!kontoRaw) notFound()
   const konto = kontoRaw as R
 
-  const { data: alleKontenRaw } = await (supabase.from('konten') as any)
-    .select('id, name').eq('tenant_id', tenantId).eq('aktiv', true).neq('id', kontoId).order('name')
+  const alleKontenRaw = geladen(await (supabase.from('konten') as any)
+    .select('id, name').eq('tenant_id', tenantId).eq('aktiv', true).neq('id', kontoId).order('name'), 'Konten')
   const andereKonten = ((alleKontenRaw ?? []) as R[]).map(k => ({ id: k.id as string, name: k.name as string }))
   const kontoNamen = new Map<string, string>([[kontoId, konto.name], ...andereKonten.map(k => [k.id, k.name] as const)])
 
-  const [{ data: zahlungenRaw }, { data: txRaw }, { data: umbVonRaw }, { data: umbNachRaw }] = await Promise.all([
+  const [zahlungenRawRes, txRawRes, umbVonRawRes, umbNachRawRes] = await Promise.all([
     (supabase.from('zahlungen') as any)
       .select('id, betrag, datum, abgeglichen, storniert_am, storno_grund, verkaufsposten(rechnungsnummer)')
       .eq('tenant_id', tenantId).eq('konto_id', kontoId),
@@ -83,6 +84,10 @@ export default async function AbstimmungPage({
       .select('id, betrag, datum, beschreibung, nach_abgeglichen, von_konto_id, storniert_am, storno_grund')
       .eq('tenant_id', tenantId).eq('nach_konto_id', kontoId),
   ])
+  const zahlungenRaw = geladen(zahlungenRawRes, 'Zahlungen')
+  const txRaw = geladen(txRawRes, 'Buchungen')
+  const umbVonRaw = geladen(umbVonRawRes, 'Umbuchungen')
+  const umbNachRaw = geladen(umbNachRawRes, 'Umbuchungen')
 
   const bewegungen: Bewegung[] = [
     // KAN-149 D2b: stornierte Zahlungen/Umbuchungen an ihrem Tag gekennzeichnet, Gegenzeile am Storno-Tag
