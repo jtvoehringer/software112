@@ -87,7 +87,7 @@ test.describe('Mandantentrennung: Suche, Exporte und API', { tag: '@lesend' }, (
   test.skip(!gegenStaging(), 'Fremdbetrieb gibt es nur auf Staging (e2e/fremdbetrieb.sql)')
 
   for (const a of ABRUFE) {
-    test(`ohne fremde Daten: ${a.pfad.split('?')[0]}${a.fremdeId ? ' (fremde ID)' : ''}`, async ({ page }) => {
+    test(`ohne fremde Daten: ${a.pfad}`, async ({ page }) => {
       const antwort = await page.request.get(a.pfad, { failOnStatusCode: false })
       const status = antwort.status()
       const kopf = antwort.headers()
