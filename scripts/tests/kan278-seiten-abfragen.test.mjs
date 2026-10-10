@@ -46,13 +46,13 @@ describe('check-einzelabfrage: Seiten mit Ausgangswert', () => {
   }
   const schreib = (w, p, t) => writeFileSync(path.join(w, p), t)
 
-  test('neuer Fund in einer Seite → rot; Client-Komponente und src/components nicht geprüft', () => mitWurzel(w => {
+  test('neuer Fund in einer Seite → rot; seit Sweep 91 (KAN-283) auch Client-Komponente und src/components', () => mitWurzel(w => {
     schreib(w, 'src/app/x/page.tsx', abfrage)
     schreib(w, 'src/app/x/Client.tsx', `'use client'\n${abfrage}`)
     schreib(w, 'src/components/Anzeige.tsx', abfrage)
     const e = pruefeWurzel(w)
-    assert.deepEqual(e.funde.map(f => f.split('  ')[0]), ['src/app/x/page.tsx:2'])
-    assert.match(e.funde[0], /Ausgangswert 0/)
+    assert.deepEqual(e.funde.map(f => f.split('  ')[0]).sort(), ['src/app/x/Client.tsx:3', 'src/app/x/page.tsx:2', 'src/components/Anzeige.tsx:2'])
+    assert.ok(e.funde.every(f => /Ausgangswert 0/.test(f)))
   }))
 
   test('Ausgangswert: gleich → grün, mehr → rot, weniger → rot bis festgeschrieben', () => mitWurzel(w => {
