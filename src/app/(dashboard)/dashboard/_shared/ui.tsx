@@ -6,6 +6,7 @@
 import Link from '@/components/ui/Link'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { tageBis as tageBisTag, wienJetzt, wienTag } from '@/lib/datum/wien'
 
 // CD-Manual (04 Typografie): Zahlen mit Tausenderpunkt und Dezimalkomma
 // („€ 48.320,00 · 1.284 hl“), Beträge immer mit zwei Nachkommastellen.
@@ -22,10 +23,9 @@ export function fmtDate(d: string | Date | null | undefined, opts: Intl.DateTime
   const x = typeof d === 'string' ? new Date(d) : d
   return Number.isNaN(x.getTime()) ? '–' : x.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', ...opts })
 }
+// Sweep 101: Kalendertage bis zum Datum ab dem Wiener Tag (vorher UTC-Mitternacht des Servers – 0 bis 2 Uhr ein Tag daneben)
 export function tageBis(d: string | Date) {
-  const x = typeof d === 'string' ? new Date(d) : d
-  const heute = new Date(); heute.setHours(0, 0, 0, 0)
-  return Math.round((x.getTime() - heute.getTime()) / 86400000)
+  return tageBisTag(typeof d === 'string' ? d : wienTag(d), wienJetzt())
 }
 
 /** Seitenkopf einer Dashboard-Sicht */

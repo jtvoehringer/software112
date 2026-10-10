@@ -104,6 +104,16 @@ function pruefeText(text) {
       }
     }
   }
+  // 5) Sweep 101: Kalendertage über Millisekunden – „(jetzt − new Date('JJJJ-MM-TT')) / 86400000“ mischt einen Zeitpunkt mit
+  //    UTC-Mitternacht; mit floor bzw. round zwischen 0 und 2 Uhr Wiener Zeit ein Tag daneben (Verzug, „seit X Tagen“, Fristen,
+  //    Testphase). Richtig: tageSeit/tageBis/tageZwischen aus src/lib/datum/wien.ts. Nicht gemeldet: Rechnung über Date.UTC
+  //    bzw. 'T00:00:00Z' (reine Datumsrechnung) und Multiplikationen (Zeitspannen wie „vor 30 Tagen“).
+  const TAGE_MS = /\/\s*\(?\s*(?:86_?400_?000|864e5|1000\s*\*\s*60\s*\*\s*60\s*\*\s*24|24\s*\*\s*60\s*\*\s*60\s*\*\s*1000)\b/g
+  while ((m = TAGE_MS.exec(code))) {
+    const zeileNr = code.slice(0, m.index).split('\n').length
+    if (/Date\.UTC|T00:00:00Z/.test(roh[zeileNr - 1] ?? '')) continue
+    melde(m.index, 'Kalendertage über Millisekunden (Zeitpunkt gegen UTC-Mitternacht) – tageSeit/tageBis/tageZwischen aus src/lib/datum/wien.ts verwenden')
+  }
   return { funde, ausnahmen }
 }
 

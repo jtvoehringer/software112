@@ -12,6 +12,7 @@ import { weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import { betriebeOhneMorgenberichtAmVortag } from './vortag'
 import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
+import { tageBis, wienTag } from '@/lib/datum/wien'
 
 export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
@@ -130,7 +131,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   const t = (tenant ?? {}) as R
   if (t.stripe_status === 'past_due' || t.stripe_status === 'unpaid') befunde.push({ key: 'abo:zahlung', bereich: 'Abo', stufe: 'hoch', titel: 'Abo: Zahlung offen', detail: 'Die letzte Abbuchung ist fehlgeschlagen – Zahlungsmittel unter Mein Betrieb → Abo & Paket prüfen', href: '/abo' })
   if (t.stripe_trial_ends_at) {
-    const tage = Math.round((new Date(t.stripe_trial_ends_at).getTime() - heute.getTime()) / 86400000)
+    const tage = tageBis(wienTag(t.stripe_trial_ends_at), heute)   // Sweep 101: heute ist wienJetzt() (verschoben) – nicht mit echtem Zeitpunkt mischen
     if (tage >= 0 && tage <= 7 && !t.stripe_plan) befunde.push({ key: 'abo:trial', bereich: 'Abo', stufe: 'mittel', titel: `Testphase endet in ${tage} ${tage === 1 ? 'Tag' : 'Tagen'}`, detail: 'Paket wählen, damit der Zugang bestehen bleibt', href: '/abo' })
   }
   // 9b. Stammdaten: Weinbau-Betriebsnummer ist für Weinproduzenten Pflichtfeld (25.09.2026, KAN-261: nicht für

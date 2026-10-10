@@ -5,6 +5,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import type { Metadata } from 'next'
 import OffenePostenClient from './OffenePostenClient'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
+import { tageSeit, wienJetzt } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Offene Posten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -61,8 +62,7 @@ export default async function OffenePostenPage() {
     }
   }
 
-  // eslint-disable-next-line react-hooks/purity -- Server-Komponente: Zeitpunkt je Anfrage ist gewollt, kein erneutes Rendern im Browser
-  const heuteMs = Date.now()
+  const heute = wienJetzt()   // Sweep 101: Wiener Kalendertag für den Verzug
   const posten = raw.map((p: R) => {
     const gesamt = ((p.verkauf_positionen ?? []) as R[]).reduce((s: number, pos: R) => {
       if (pos.preis_brutto == null) return s
@@ -79,7 +79,7 @@ export default async function OffenePostenPage() {
         ? [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
         : '–'
     const bezahlt = (p.bezahlt ?? false) as boolean
-    const tage = Math.floor((heuteMs - new Date(p.datum).getTime()) / 86400000)
+    const tage = tageSeit(p.datum, heute)
     const ueberfaellig = !bezahlt && Number.isFinite(tage) && tage > ZAHLUNGSZIEL_TAGE
     return {
       // Link und Zahlung über den (ersten) Lieferschein – die Zahlung hängt der Trigger an dessen Rechnung (KAN-105)
