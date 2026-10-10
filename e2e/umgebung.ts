@@ -18,6 +18,12 @@ export type Rolle = (typeof ROLLEN)[number]
 export const PRODUKTIONS_DOMAIN = 'software112.icp-consultants.at'
 export const PRODUKTIONS_SUPABASE_REF = 'zwcsgnemijkpyxrqykul'
 
+/** Staging (seit 26.09.2026): eigene Datenbank, Vercel-Umgebung „staging“ baut den Branch staging.
+ *  Schreibende Tests gegen eine entfernte Adresse sind NUR gegen dieses Supabase-Projekt erlaubt. */
+export const STAGING_DOMAIN = 'staging.software112.icp-consultants.at'
+export const STAGING_SUPABASE_REF = 'sjpeghrlhsowmquacjhb'
+export const STAGING_SUPABASE_URL = `https://${STAGING_SUPABASE_REF}.supabase.co`
+
 const PROJEKT = path.resolve(__dirname, '..')
 
 /** Einfache KEY=VALUE-Datei lesen (ohne dotenv-Abhängigkeit); # = Kommentar */
@@ -60,6 +66,20 @@ export function istLokal(url: string = BASE_URL): boolean {
   }
 }
 
+/** Produktion: die Hauptdomain oder eine Betriebs-Subdomain (*.software112.icp-consultants.at) – nicht Staging.
+ *  Vorher ein includes() auf den Domainnamen: das traf auch staging.software112… und hätte Staging blockiert. */
+export function istProduktionsHost(url: string = BASE_URL): boolean {
+  let h: string
+  try { h = new URL(url).hostname.toLowerCase() } catch { return url.toLowerCase().includes(PRODUKTIONS_DOMAIN) }
+  if (h === STAGING_DOMAIN) return false
+  return h === PRODUKTIONS_DOMAIN || h.endsWith('.' + PRODUKTIONS_DOMAIN)
+}
+
+/** Lokaler Supabase-Stack (supabase start) */
+function istLokalerStack(v: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(v)
+}
+
 /** Plausible Supabase-URL: gehostetes Projekt (https://<ref>.supabase.co) oder lokaler Stack */
 function istSupabaseUrl(v: string): boolean {
   return /^https:\/\/[a-z0-9]{20}\.supabase\.co\/?$/i.test(v) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(v)
@@ -98,7 +118,7 @@ export function zielPruefen(): Ziel {
   const gruende: string[] = []
   const angaben = supabaseAngaben()
   const sb = angaben[0]
-  if (BASE_URL.toLowerCase().includes(PRODUKTIONS_DOMAIN)) gruende.push(`E2E_BASE_URL zeigt auf die Produktion (${PRODUKTIONS_DOMAIN})`)
+  if (istProduktionsHost()) gruende.push(`E2E_BASE_URL zeigt auf die Produktion (${PRODUKTIONS_DOMAIN})`)
   if (angaben.length === 0) {
     gruende.push(istLokal()
       ? 'Supabase-Projekt unbekannt (weder E2E_SUPABASE_URL noch NEXT_PUBLIC_SUPABASE_URL bzw. .env.local)'
@@ -110,6 +130,10 @@ export function zielPruefen(): Ziel {
   }
   const unplausibel = angaben.filter(v => !istSupabaseUrl(v))
   if (unplausibel.length > 0) gruende.push(`keine gültige Supabase-URL: ${unplausibel.join(', ')} (erwartet https://<ref>.supabase.co oder lokaler Stack)`)
+  // Positivliste (E2E-Ausbau 10.10.2026): schreibend nur gegen Staging oder einen lokalen Stack – ein unbekanntes
+  // Projekt (z. B. Tippfehler, anderes Kundenprojekt) gilt wie die Produktion
+  const unbekannt = angaben.filter(v => !istLokalerStack(v) && !v.toLowerCase().includes(STAGING_SUPABASE_REF))
+  if (angaben.length > 0 && unbekannt.length > 0) gruende.push(`Supabase-Projekt weder Staging (${STAGING_SUPABASE_REF}) noch lokal: ${unbekannt.join(', ')}`)
   return { baseUrl: BASE_URL, supabase: sb, produktion: gruende.length > 0, gruende }
 }
 
@@ -163,10 +187,18 @@ export type FremderDatensatz = {
   rollen?: Rolle[]
 }
 
-/** E2E_FREMDE_IDS: JSON-Array aus Pfaden oder Objekten { pfad, text?, rollen? } */
+/** Datensätze des Betriebs „E2E Fremdbetrieb (nur Staging)“ (44444444-…), angelegt am 10.10.2026 nur auf Staging,
+ *  ohne Benutzer – kein Geheimnis, deshalb hier statt in E2E_FREMDE_IDS */
+export const STAGING_FREMDE: FremderDatensatz[] = [
+  { pfad: '/crm/kontakte/44444444-4444-4444-8444-000000000001', text: 'E2E-Fremdkontakt' },
+  { pfad: '/crm/firmen/44444444-4444-4444-8444-000000000002', text: 'E2E-Fremdfirma' },
+  { pfad: '/kellerbuch/behaelter/44444444-4444-4444-8444-000000000003/bewegungen', text: 'E2E-Fremdtank' },
+]
+
+/** E2E_FREMDE_IDS: JSON-Array aus Pfaden oder Objekten { pfad, text?, rollen? }; ohne Angabe gegen Staging STAGING_FREMDE */
 export function fremdeDatensaetze(): FremderDatensatz[] {
   const v = env('E2E_FREMDE_IDS')
-  if (!v) return []
+  if (!v) return (supabaseUrl() ?? '').includes(STAGING_SUPABASE_REF) ? STAGING_FREMDE : []
   let roh: unknown
   try {
     roh = JSON.parse(v)

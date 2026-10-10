@@ -1,0 +1,29 @@
+name: Staging aktualisieren
+
+# Nach jedem Merge auf main den Branch „staging“ auf denselben Stand bringen (E2E-Ausbau, 10.10.2026).
+# Vercel baut „staging“ in der Umgebung staging (https://staging.software112.icp-consultants.at, Datenbank
+# software112-staging) und meldet das Deployment an GitHub – darauf startet e2e.yml die schreibenden Tests.
+# „staging“ ist ein reiner Spiegel von main (keine eigenen Commits), daher --force. Läuft wenige Sekunden.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: staging-spiegel
+  cancel-in-progress: true
+
+jobs:
+  spiegeln:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: main → staging
+        run: git push --force origin HEAD:refs/heads/staging
