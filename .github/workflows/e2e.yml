@@ -1,63 +1,49 @@
 name: E2E-Regressionstests
 
-# Playwright-Regressionstests (e2e/, siehe e2e/README.md). Bewusst NICHT bei jedem Push:
-#  - manuell (workflow_dispatch) gegen E2E_BASE_URL bzw. die eingegebene URL
-#  - optional nach einem erfolgreichen Vercel-Preview-Deployment (deployment_status)
-# Läuft nur, wenn das Secret E2E_BASE_URL gesetzt ist (Schalter „E2E aktiv“).
+# Playwright-Regressionstests (e2e/, siehe e2e/README.md). Bewusst NICHT bei jedem PR (Actions-Minuten, KAN-269):
+#  - nach jedem Merge auf main: staging.yml spiegelt main → staging, Vercel baut die Umgebung „staging“ und meldet das
+#    Deployment; darauf laufen hier ALLE Tests (auch schreibende) gegen Staging (eigene Datenbank software112-staging)
+#  - manuell (workflow_dispatch): gegen Staging, wahlweise nur lesend
+# Läuft nur, wenn Zugangsdaten hinterlegt sind (Secret E2E_WINZER_EMAIL als Schalter „E2E aktiv“).
 #
-# Produktionsschutz: playwright.config.ts bricht ab, wenn das Ziel die Produktion ist oder
-# das Supabase-Projekt unbekannt ist – außer im Nur-Lesen-Modus (@lesend). Vercel-Previews
-# nutzen die Produktions-Datenbank, deshalb laufen sie hier IMMER nur lesend.
+# Produktionsschutz: e2e/umgebung.ts lässt schreibende Tests nur gegen das Staging-Projekt (bzw. einen lokalen
+# Supabase-Stack) zu; Produktion und unbekannte Projekte brechen ab. Ziel und Datenbank stehen deshalb hier fest.
 #
-# Secrets: E2E_BASE_URL, E2E_SUPABASE_URL (nur für eine eigene Test-Umgebung),
-#   E2E_{TENANT_ADMIN,WINZER,LESER}_{EMAIL,PASSWORT,TOTP_SECRET,TENANT_ID},
-#   E2E_FREMDE_IDS, E2E_MODULE, E2E_VERCEL_BYPASS (Protection Bypass for Automation)
+# Secrets (nur Zugangsdaten): E2E_{TENANT_ADMIN,WINZER,LESER}_{EMAIL,PASSWORT}, E2E_TENANT_ADMIN_TOTP_SECRET
+#   (Zwei-Faktor-Pflicht für Admins ab 15.10.2026), E2E_VERCEL_BYPASS (Protection Bypass for Automation).
 
 on:
   workflow_dispatch:
     inputs:
-      base_url:
-        description: 'Basis-URL (leer = Secret E2E_BASE_URL)'
-        required: false
-        default: ''
       nur_lesen:
         description: 'Nur lesende Tests (@lesend)'
         type: boolean
-        default: true
+        default: false
   deployment_status:
 
 permissions:
   contents: read
 
 concurrency:
-  group: e2e-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  # Staging-Läufe nie parallel (schreibende Tests teilen sich die Datenbank); ein neuer Merge ersetzt einen wartenden Lauf
+  group: e2e-staging
+  cancel-in-progress: false
 
 jobs:
   vorab:
-    # KAN-269: jedes Deployment meldet mehrere Zustände (pending, in_progress, success …), auch für
-    # Production – ohne diese Bedingung startete jeder davon einen Runner (≈ 1 Minute je Ereignis)
-    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Preview'))
+    # KAN-269: jedes Deployment meldet mehrere Zustände (pending, in_progress, success …) und auch Preview/Production –
+    # ohne diese Bedingung startete jeder davon einen Runner. Nur der fertige Staging-Deploy zählt.
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'staging')
     runs-on: ubuntu-latest
     outputs:
       aktiv: ${{ steps.pruefen.outputs.aktiv }}
     steps:
       - id: pruefen
         env:
-          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
-          EREIGNIS: ${{ github.event_name }}
-          STATUS: ${{ github.event.deployment_status.state }}
-          UMGEBUNG: ${{ github.event.deployment.environment }}
+          SCHALTER: ${{ secrets.E2E_WINZER_EMAIL }}
         run: |
-          aktiv=false
-          if [ -n "$E2E_BASE_URL" ]; then
-            if [ "$EREIGNIS" = "workflow_dispatch" ]; then aktiv=true; fi
-            # nur erfolgreiche Vercel-Previews, nie Production-Deployments
-            if [ "$EREIGNIS" = "deployment_status" ] && [ "$STATUS" = "success" ] && [[ "$UMGEBUNG" == Preview* ]]; then aktiv=true; fi
-          else
-            echo "Secret E2E_BASE_URL nicht gesetzt – E2E-Tests übersprungen."
-          fi
-          echo "aktiv=$aktiv" >> "$GITHUB_OUTPUT"
+          if [ -n "$SCHALTER" ]; then echo "aktiv=true" >> "$GITHUB_OUTPUT"
+          else echo "Keine E2E-Zugangsdaten hinterlegt (Secret E2E_WINZER_EMAIL) – E2E-Tests übersprungen."; echo "aktiv=false" >> "$GITHUB_OUTPUT"; fi
 
   e2e:
     needs: vorab
@@ -66,30 +52,23 @@ jobs:
     timeout-minutes: 30
     env:
       CI: 'true'
-      # Preview: URL des Deployments; manuell: Eingabe oder Secret
-      E2E_BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.target_url || inputs.base_url || secrets.E2E_BASE_URL }}
-      # Previews laufen gegen die Produktions-Datenbank → immer nur lesend
-      E2E_NUR_LESEN: ${{ (github.event_name == 'deployment_status' || inputs.nur_lesen) && '1' || '' }}
-      E2E_SUPABASE_URL: ${{ github.event_name != 'deployment_status' && secrets.E2E_SUPABASE_URL || '' }}
+      E2E_BASE_URL: https://staging.software112.icp-consultants.at
+      E2E_SUPABASE_URL: https://sjpeghrlhsowmquacjhb.supabase.co
+      E2E_NUR_LESEN: ${{ inputs.nur_lesen && '1' || '' }}
       E2E_TENANT_ADMIN_EMAIL: ${{ secrets.E2E_TENANT_ADMIN_EMAIL }}
       E2E_TENANT_ADMIN_PASSWORT: ${{ secrets.E2E_TENANT_ADMIN_PASSWORT }}
       E2E_TENANT_ADMIN_TOTP_SECRET: ${{ secrets.E2E_TENANT_ADMIN_TOTP_SECRET }}
-      E2E_TENANT_ADMIN_TENANT_ID: ${{ secrets.E2E_TENANT_ADMIN_TENANT_ID }}
       E2E_WINZER_EMAIL: ${{ secrets.E2E_WINZER_EMAIL }}
       E2E_WINZER_PASSWORT: ${{ secrets.E2E_WINZER_PASSWORT }}
       E2E_WINZER_TOTP_SECRET: ${{ secrets.E2E_WINZER_TOTP_SECRET }}
-      E2E_WINZER_TENANT_ID: ${{ secrets.E2E_WINZER_TENANT_ID }}
       E2E_LESER_EMAIL: ${{ secrets.E2E_LESER_EMAIL }}
       E2E_LESER_PASSWORT: ${{ secrets.E2E_LESER_PASSWORT }}
       E2E_LESER_TOTP_SECRET: ${{ secrets.E2E_LESER_TOTP_SECRET }}
-      E2E_LESER_TENANT_ID: ${{ secrets.E2E_LESER_TENANT_ID }}
-      E2E_FREMDE_IDS: ${{ secrets.E2E_FREMDE_IDS }}
-      E2E_MODULE: ${{ secrets.E2E_MODULE }}
       E2E_VERCEL_BYPASS: ${{ secrets.E2E_VERCEL_BYPASS }}
     steps:
       - uses: actions/checkout@v7
         with:
-          # Preview: genau den deployten Stand testen
+          # nach einem Deploy genau den deployten Stand testen
           ref: ${{ github.event_name == 'deployment_status' && github.event.deployment.sha || github.ref }}
       - uses: actions/setup-node@v7
         with:

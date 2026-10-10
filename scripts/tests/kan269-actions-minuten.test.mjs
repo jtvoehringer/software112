@@ -43,6 +43,15 @@ describe('KAN-269: Actions-Minuten', () => {
         assert.match(j, /\n {4}if: /, `${f}: Job „${name}“ braucht ein if`)
       }
     }
-    assert.match(lies('.github/workflows/e2e.yml'), /if: github\.event_name == 'workflow_dispatch' \|\| \(github\.event\.deployment_status\.state == 'success' && startsWith\(github\.event\.deployment\.environment, 'Preview'\)\)/)
+    // E2E-Ausbau 10.10.2026: nur der fertige Staging-Deploy (nach Merge auf main) – nicht mehr jeder PR-Preview
+    assert.match(lies('.github/workflows/e2e.yml'), /if: github\.event_name == 'workflow_dispatch' \|\| \(github\.event\.deployment_status\.state == 'success' && github\.event\.deployment\.environment == 'staging'\)/)
+  })
+
+  test('Staging-Spiegel: nur beim Push auf main, kurz, ohne Tests', () => {
+    const s = lies('.github/workflows/staging.yml')
+    assert.match(s, /\n {2}push:\n {4}branches: \[main\]/)
+    assert.match(s, /timeout-minutes: 5/)
+    assert.match(s, /git push --force origin HEAD:refs\/heads\/staging/)
+    assert.doesNotMatch(s, /npm (ci|install|test)/)
   })
 })

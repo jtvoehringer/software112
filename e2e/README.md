@@ -10,14 +10,19 @@ Die Produktion (`software112.icp-consultants.at`, Supabase-Projekt `zwcsgnemijkp
 enthält echte Betriebsdaten (u. a. Weingut Gebeshuber im Echtbetrieb). Ein schreibender Test
 legt dort Datensätze an, vergibt Nummern (Rechnungs-, Kunden-, Liefernummern – Lücken sind
 steuerlich relevant), löst Trigger und Protokolle aus und kann bei einem Abbruch Reste
-hinterlassen. Eine Staging-Umgebung gibt es noch nicht. Deshalb:
+hinterlassen. Schreibende Tests laufen deshalb **nur gegen Staging** (seit 26.09.2026:
+`https://staging.software112.icp-consultants.at`, Supabase-Projekt `sjpeghrlhsowmquacjhb`, Testbetrieb
+„Weingut Musterhof (Demo)“ mit den Konten `admin@`, `betrieb@`, `winzer@`, `leser@software112.test`)
+oder gegen einen lokalen Supabase-Stack:
 
 - `playwright.config.ts` **bricht ab**, wenn
   - `E2E_BASE_URL` die Produktions-Domain enthält,
   - irgendeine Supabase-Angabe (`E2E_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, bei lokaler
     Basis-URL auch `.env.local`) die Produktions-Ref enthält, oder
   - das Supabase-Projekt unbekannt bzw. keine gültige Supabase-URL ist (z. B. entfernte
-    Basis-URL ohne `E2E_SUPABASE_URL` – Vercel-Previews nutzen die Produktions-Datenbank!).
+    Basis-URL ohne `E2E_SUPABASE_URL` – Vercel-Previews nutzen die Produktions-Datenbank!),
+  - das Supabase-Projekt weder Staging (`sjpeghrlhsowmquacjhb`) noch ein lokaler Stack ist
+    (Positivliste seit 10.10.2026; `scripts/tests/e2e-zielschutz.test.mjs` prüft das in `verify`).
 - Ausnahme: `E2E_NUR_LESEN=1` – dann sammelt Playwright nur Tests mit Tag `@lesend`.
 - Jeder schreibende Test ruft zusätzlich `schreibend()` auf (zweite Sicherung zur Laufzeit,
   falls jemand den Filter per `--grep` überschreibt).
@@ -82,16 +87,27 @@ Die Test-Konten sollten eigene Konten eines eigenen Test-Betriebs sein (kein Kon
 echten Person). Der Setup-Schritt richtet **keinen** zweiten Faktor ein: Verlangt ein Konto die
 Einrichtung, einmal manuell einrichten und das Geheimnis als `E2E_<ROLLE>_TOTP_SECRET` hinterlegen.
 
-## GitHub-Workflow
+## GitHub-Workflow (seit 10.10.2026)
 
-`.github/workflows/e2e.yml` läuft nur, wenn das Secret `E2E_BASE_URL` gesetzt ist:
+1. **Merge auf main** → `.github/workflows/staging.yml` spiegelt main auf den Branch `staging` (wenige Sekunden).
+2. **Vercel** baut `staging` in der Umgebung „staging“ und meldet das Deployment an GitHub.
+3. **`.github/workflows/e2e.yml`** startet auf den fertigen Staging-Deploy (`deployment_status` = success,
+   Umgebung `staging`) und führt **alle** Tests aus, auch schreibende. Manuell (`workflow_dispatch`) ebenso,
+   wahlweise nur lesend. Nicht bei PRs und nicht nach Preview-Deploys (Actions-Minuten, KAN-269).
 
-- **manuell** (`workflow_dispatch`): gegen die eingegebene URL bzw. `E2E_BASE_URL`, Standard nur lesend;
-- **nach Vercel-Preview-Deployments** (`deployment_status`, nur `success` und Umgebung „Preview…“):
-  immer nur lesend, weil Previews die Produktions-Datenbank nutzen. Für geschützte Previews
-  `E2E_VERCEL_BYPASS` setzen.
+Ziel und Datenbank stehen fest im Workflow. Als Secrets (Settings → Secrets and variables → Actions) nur:
 
-Nicht bei `push`. Bei Fehlern wird der Bericht (Screenshots) 7 Tage als Artefakt aufbewahrt;
+| Secret | Inhalt |
+|---|---|
+| `E2E_WINZER_EMAIL`, `E2E_WINZER_PASSWORT` | `winzer@software112.test` – zugleich Schalter „E2E aktiv“ |
+| `E2E_LESER_EMAIL`, `E2E_LESER_PASSWORT` | `leser@software112.test` |
+| `E2E_TENANT_ADMIN_EMAIL`, `E2E_TENANT_ADMIN_PASSWORT` | `betrieb@software112.test` |
+| `E2E_TENANT_ADMIN_TOTP_SECRET` | Base32-Geheimnis des Authenticators von `betrieb@` (2FA-Pflicht für Admins ab 15.10.2026) |
+| `E2E_VERCEL_BYPASS` | Vercel → Projekt software112 → Settings → Deployment Protection → „Protection Bypass for Automation“ (nur nötig, wenn Staging geschützt ist) |
+
+Mandantentrennung: Gegen Staging prüfen die Tests ohne weitere Angabe den Betrieb „E2E Fremdbetrieb (nur Staging)“
+(`44444444-…`, Kontakt, Firma, Tank; `STAGING_FREMDE` in `e2e/umgebung.ts`) – `E2E_FREMDE_IDS` ist nur für andere Ziele nötig.
+ Bei Fehlern wird der Bericht (Screenshots) 7 Tage als Artefakt aufbewahrt;
 Traces sind in CI aus, weil sie Sitzungs-Cookies enthalten.
 
 ## Ausbau-Plan
