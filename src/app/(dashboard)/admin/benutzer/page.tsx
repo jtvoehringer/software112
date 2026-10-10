@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { geladen } from '@/lib/supabase/geladen'
+import { alleKonten } from '@/lib/auth/einladung'
 import type { Metadata } from 'next'
 import { getCurrentUserRole, getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
@@ -41,13 +42,13 @@ export default async function SystemAdminPage() {
   }
 
   // Alle system_admin Memberships laden
-  const [membershipsRes, tenantsRes, { data: { users } }] = await Promise.all([
+  const [membershipsRes, tenantsRes, users] = await Promise.all([
     (admin.from('tenant_memberships') as any)
       .select('id, user_id, tenant_id, created_at')
       .eq('role', 'system_admin')
       .order('created_at'),
     (admin.from('tenants') as any).select('id, name'),
-    admin.auth.admin.listUsers({ perPage: 1000 }),
+    alleKonten(admin),   // Sweep 102: alle Seiten (vorher nur die ersten 1.000 Konten, Fehler verworfen)
   ])
   const memberships = geladen(membershipsRes, 'Mitglieder')
   const tenants = geladen(tenantsRes, 'Betrieb')

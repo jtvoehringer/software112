@@ -7,7 +7,7 @@ import { getCurrentMembership, canManageUsers, isModul, type Modul } from '@/lib
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
-import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
+import { mitgliedEinladen, alleKonten, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { dbFehlerText } from '@/lib/fehler'
 import { authFehlerText } from '@/lib/auth/authFehler'
 
@@ -54,7 +54,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
   if (!memberships || memberships.length === 0) return []
 
   // Alle Auth-User laden (admin API) um Emails + Bestätigungsstatus zu bekommen
-  const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  const users = await alleKonten(admin)   // Sweep 102: alle Seiten, Fehler werden ausgewertet
   const emailMap: Record<string, string> = {}
   const confirmedMap: Record<string, boolean> = {}
   users.forEach(u => {

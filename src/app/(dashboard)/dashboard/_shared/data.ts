@@ -516,6 +516,7 @@ export async function ladeAufgabenTermine(ctx: Ctx, tage = 30, limit = 60): Prom
   const bis = new Date(ctx.heute); bis.setDate(bis.getDate() + tage)
   const bisStr = bis.toISOString().slice(0, 10)
   const [aktRes, mitglieder] = await Promise.all([
+    // alle-ausnahme: offene Aufgaben bis zum Stichtag, die ältesten (überfälligen) zuerst – Anzeige, keine Summe
     ctx.tf(ctx.q('aktivitaeten')
       .select('id, art, betreff, datum, ganztags, uhrzeit_von, verantwortlich_id, fuer_alle, ist_privat, erstellt_von, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
       .eq('erledigt', false).not('datum', 'is', null).lte('datum', bisStr)

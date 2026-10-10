@@ -65,7 +65,11 @@ test('ganzes Projekt ohne Fund, im prebuild, große Tabellen enthalten den Befun
   const r = c.pruefeWurzel()
   assert.deepEqual(r.funde, [])
   // Stand 05.10.2026: 1 Vollabfrage (Wetter) + 15 kleine .in()-Listen – jede neue Ausnahme bewusst hier nachziehen
-  assert.ok(r.ausnahmen.length <= 16, `neue alle-ausnahme? ${JSON.stringify(r.ausnahmen)}`)
+  const alt = r.ausnahmen.filter(a => a.regel !== 'AELTESTE_BEHALTEN')
+  assert.ok(alt.length <= 16, `neue alle-ausnahme? ${JSON.stringify(alt)}`)
+  // Sweep 102: AELTESTE_BEHALTEN – Lieferadressen (2×, wenige je Kontakt/Firma), ältestes Überfälliges, älteste offene Aufgaben
+  const aelteste = r.ausnahmen.filter(a => a.regel === 'AELTESTE_BEHALTEN')
+  assert.ok(aelteste.length <= 4, `neue alle-ausnahme (AELTESTE_BEHALTEN)? ${JSON.stringify(aelteste)}`)
   for (const a of r.ausnahmen) assert.ok(a.grund.length >= c.MIN_GRUND, `${a.datei}:${a.zeile}`)
   const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'))
   assert.match(pkg.scripts.prebuild, /check-alle\.js/)

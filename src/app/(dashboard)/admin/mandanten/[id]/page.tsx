@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { geladen } from '@/lib/supabase/geladen'
+import { alleKonten } from '@/lib/auth/einladung'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
@@ -163,7 +164,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     tenantRawRes,
     settingsRawRes,
     membershipsRes,
-    { data: { users } },
+    users,
   ] = await Promise.all([
     (admin.from('tenants') as any)
       .select('id, name, slug, plan, created_at, kundennummer, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status, abrechnung_ueber, zusatz_preis_cent').eq('id', id).maybeSingle(),
@@ -171,7 +172,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
       .select('*').eq('tenant_id', id).maybeSingle(),
     (admin.from('tenant_memberships') as any)
       .select('id, user_id, role, created_at').eq('tenant_id', id).order('created_at'),
-    admin.auth.admin.listUsers({ perPage: 1000 }),
+    alleKonten(admin),   // Sweep 102: alle Seiten (vorher nur die ersten 1.000 Konten, Fehler verworfen)
   ])
   const tenantRaw = geladen(tenantRawRes, 'Betrieb')
   const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
