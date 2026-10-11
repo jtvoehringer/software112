@@ -72,7 +72,10 @@ test('Rückmeldung 30.09.2026: Liste – Maßnahme in eigener Spalte, Ried(en) n
   const k = quelle('src/app/(dashboard)/behandlungen/BehandlungenClient.tsx')
   const kopf = k.slice(k.indexOf('>Maßnahme</th>'), k.indexOf('>Kosten</th>'))
   assert.ok(kopf.indexOf('Erntefrei ab') < kopf.indexOf('Ried(en)'))
-  assert.doesNotMatch(k.slice(k.indexOf('function RiedenZelle'), k.indexOf('// Behandlungen nach Datum gruppieren')), /font-(medium|semibold|bold)/)
+  // Abschnitt RiedenZelle bis zur Listen-Komponente (KAN-324: der frühere Endmarker groupByDate ist weg)
+  const zelleVon = k.indexOf('function RiedenZelle'), zelleBis = k.indexOf('export default function BehandlungenClient')
+  assert.ok(zelleVon >= 0 && zelleBis > zelleVon, 'RiedenZelle steht vor der Listen-Komponente')
+  assert.doesNotMatch(k.slice(zelleVon, zelleBis), /font-(medium|semibold|bold)/)
   const p = quelle('src/app/(dashboard)/behandlungen/page.tsx')
   assert.match(p, /\.sort\(KOLLATOR\.compare\)/)
   assert.doesNotMatch(p, /from\('behandlung_grundstuecke'\)/)   // eingebettet über die mandantengefilterte Maßnahme
