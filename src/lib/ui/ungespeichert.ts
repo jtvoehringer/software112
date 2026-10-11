@@ -7,6 +7,9 @@
 // Eingebunden über UngespeichertSchutz im Root-Layout; Wächter scripts/check-formulare.js (ab 8 Feldern Pflicht).
 
 export const SCHUTZ_ATTR = 'data-ungespeichert'
+/** KAN-330 (UAT 11.10.2026): Link im Formular, der es verlässt (z. B. „Abstufen“ im Charge-Formular) – fragt wie ein Link
+ *  außerhalb nach; ohne das Attribut gilt ein Link im Formular als „Abbrechen“ (keine Rückfrage) */
+export const VERLAESST_ATTR = 'data-verlaesst-formular'
 export const GEAENDERT_ATTR = 'data-geaendert'
 export const MELDUNG = 'Ungespeicherte Eingaben gehen verloren. Seite trotzdem verlassen?'
 
@@ -15,6 +18,12 @@ export function schutzFormular(ziel: EventTarget | null): HTMLFormElement | null
   const el = ziel as Element | null
   if (!el || typeof el.closest !== 'function') return null
   return el.closest(`form[${SCHUTZ_ATTR}]`) as HTMLFormElement | null
+}
+
+/** Formulare, die beim Klick auf diesen Link als „verlassen“ gelten: alle – außer dem eigenen, wenn der Link darin ein
+ *  „Abbrechen“ ist (ohne VERLAESST_ATTR). Ergebnis als Argument „ausser“ für offeneAenderungen. */
+export function ausserFuerLink(a: Pick<Element, 'hasAttribute'> & Node): Node | null {
+  return a.hasAttribute(VERLAESST_ATTR) ? null : a
 }
 
 /** Geänderte, noch nicht abgesendete Formulare im Dokument, die das Element nicht enthalten */

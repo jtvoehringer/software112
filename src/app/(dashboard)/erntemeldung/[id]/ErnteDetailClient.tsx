@@ -914,8 +914,10 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                   <th className="text-left px-3 py-2 font-semibold">Sorte</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
-                  <th className="text-left px-3 py-2 font-semibold">Notizen</th>
-                  <th className="text-right px-3 py-2 font-semibold">Mostgewicht</th>
+                  {/* KAN-328: Notizen schmal (gekürzt, voller Text als title), Mostgewicht/Qualität ohne Umbruch – sonst wurde die
+                      Tabelle breiter als der Platz und Mostgewicht/Qualität rutschten unter die fixierte Aktionsspalte */}
+                  <th className="text-left px-3 py-2 font-semibold w-48 max-w-48">Notizen</th>
+                  <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Mostgewicht</th>
                   <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Qualität</th>
                   {mitAktionen && (
                     <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" data-print="hide" />
@@ -925,7 +927,8 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
               <tbody>
                 {tabellenZeilen.map((p, i) => (
                   <React.Fragment key={p.id}>
-                    {mehrereLesen && (i === 0 || tabellenZeilen[i - 1].lese_nr !== p.lese_nr) && (
+                    {/* KAN-327: die Lese-Nummer steht immer über ihren Zeilen, auch wenn der Jahrgang nur eine Lese hat */}
+                    {(i === 0 || tabellenZeilen[i - 1].lese_nr !== p.lese_nr) && (
                       <tr className="bg-s112-bg/60 border-b border-s112-border">
                         <td colSpan={spaltenAnzahl} className="px-3 py-1.5 text-xs font-semibold text-s112-text-2">
                           Lese {p.lese_titel ?? '–'}
@@ -945,10 +948,10 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                       <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
                       <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{(p.menge_kg == null ? undefined : fmtNum(p.menge_kg)) ?? '–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-text-2">
+                      <td className="px-3 py-2 text-xs text-s112-text-2 w-48 max-w-48">
                         <NotizZelle text={p.notizen} />
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
                         <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} />
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>

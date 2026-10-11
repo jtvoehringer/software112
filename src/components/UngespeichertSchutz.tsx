@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { GEAENDERT_ATTR, MELDUNG, SCHUTZ_ATTR, offeneAenderungen, schutzFormular, verlaesstSeite } from '@/lib/ui/ungespeichert'
+import { GEAENDERT_ATTR, MELDUNG, SCHUTZ_ATTR, ausserFuerLink, offeneAenderungen, schutzFormular, verlaesstSeite } from '@/lib/ui/ungespeichert'
 
 // Sweep 119: Rückfrage vor dem Verlassen eines geänderten, nicht abgesendeten Formulars – Begründung in
 // src/lib/ui/ungespeichert.ts. Ein Baustein für die ganze App; Formulare melden sich mit data-ungespeichert an.
@@ -21,7 +21,7 @@ export default function UngespeichertSchutz() {
     const linkKlick = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
       if (!a) return
-      const offen = offeneAenderungen(document, a)
+      const offen = offeneAenderungen(document, ausserFuerLink(a))   // KAN-330: data-verlaesst-formular fragt auch im eigenen Formular
       if (offen.length === 0 || !verlaesstSeite(e, a, window.location.href)) return
       if (window.confirm(MELDUNG)) offen.forEach(f => f.removeAttribute(GEAENDERT_ATTR))
       else { e.preventDefault(); e.stopPropagation() }

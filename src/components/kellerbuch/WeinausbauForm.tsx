@@ -204,7 +204,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                   <p className="text-xs text-s112-muted mt-1">Wird aus dem KMW-Wert der Pressung abgeleitet</p>
                 ) : weinausbau && pnSperre !== 'eingereicht' ? (
                   <p className="text-xs text-s112-muted mt-1">
-                    Ändern nur über <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/abstufen`} className="text-s112-blue-700 hover:underline">„Abstufen“</Link> (mit Datum und Grund)
+                    Ändern nur über <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/abstufen`} data-verlaesst-formular className="text-s112-blue-700 hover:underline">„Abstufen“</Link> (mit Datum und Grund)
                   </p>
                 ) : (
                   <p className="text-xs text-s112-muted mt-1">Ändern nur über „Abstufen“ – nach dem Bescheid zum Prüfnummernantrag</p>
