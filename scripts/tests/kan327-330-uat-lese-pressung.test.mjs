@@ -51,6 +51,17 @@ describe('KAN-328: Lesedaten – Mostgewicht rutscht nicht mehr unter die Aktion
     assert.match(k, /<td className="px-3 py-2 text-xs text-s112-text-2 w-48 max-w-48">\s*<NotizZelle text=\{p\.notizen\} \/>/)
     assert.match(k, /<td className="px-3 py-2 text-right whitespace-nowrap">\s*<MostgewichtAnzeige wert=\{\{ kmw: p\.klosterneuburger/)
   })
+
+  // 2. Anlauf (UAT 11.10.2026, Screenshot): Breitenbegrenzung allein reichte nicht – die am rechten Rand fixierte
+  // Aktionsspalte überdeckte bei Platzmangel weiter Mostgewicht und Qualität (samt Spaltenköpfen)
+  test('Aktionsspalte nicht fixiert, Mostgewicht nur in der bevorzugten Einheit (beide Werte im Tooltip)', () => {
+    const k = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
+    const a = k.indexOf('<table className="w-full text-sm min-w-[700px]')
+    const tabelle = k.slice(a, k.indexOf('</table>', a))
+    assert.ok(a >= 0, 'Lesedaten-Tabelle fehlt')
+    assert.doesNotMatch(tabelle, /sticky/)
+    assert.match(tabelle, /<MostgewichtAnzeige wert=\{\{ kmw: p\.klosterneuburger, oechsle: p\.oechsle, einheit: p\.mostgewicht_einheit \}\} nurBevorzugt \/>/)
+  })
 })
 
 describe('KAN-329: Pressungsformular in der Reihenfolge des Arbeitsablaufs', () => {

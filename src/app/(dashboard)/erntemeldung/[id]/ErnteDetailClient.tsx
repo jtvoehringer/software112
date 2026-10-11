@@ -914,13 +914,13 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                   <th className="text-left px-3 py-2 font-semibold">Sorte</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
-                  {/* KAN-328: Notizen schmal (gekürzt, voller Text als title), Mostgewicht/Qualität ohne Umbruch – sonst wurde die
-                      Tabelle breiter als der Platz und Mostgewicht/Qualität rutschten unter die fixierte Aktionsspalte */}
+                  {/* KAN-328: Notizen schmal (gekürzt, voller Text als title), Mostgewicht nur in der bevorzugten Einheit (beide im
+                      Tooltip), Aktionsspalte nicht fixiert – vorher lagen Mostgewicht/Qualität bei Platzmangel unter ihr */}
                   <th className="text-left px-3 py-2 font-semibold w-48 max-w-48">Notizen</th>
                   <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Mostgewicht</th>
                   <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Qualität</th>
                   {mitAktionen && (
-                    <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" data-print="hide" />
+                    <th className="px-3 py-2" data-print="hide" />
                   )}
                 </tr>
               </thead>
@@ -952,11 +952,11 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                         <NotizZelle text={p.notizen} />
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
-                        <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} />
+                        <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} nurBevorzugt />
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {mitAktionen && (
-                        <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" data-print="hide">
+                        <td className="px-3 py-2 text-right" data-print="hide">
                           <div className="flex items-center justify-end gap-2">
                             {writeOk && !p.storno && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
@@ -998,7 +998,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                     ≈ {fmtProzent(gesamtKg / 130)} hl
                   </td>
                   {mitAktionen && (
-                    <td className="sticky right-0 bg-s112-bg border-l border-s112-border" data-print="hide" />
+                    <td data-print="hide" />
                   )}
                 </tr>
               </tfoot>
