@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useSyncExternalStore, useTransition } from 'react'
 import Link from '@/components/ui/Link'
-import { Lock, Pencil } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Lock, Pencil } from 'lucide-react'
 import { loescheBehandlung, stornoBehandlung } from './actions'
 import StornoButton from '@/components/StornoButton'
 import type { Behandlung } from './page'
 import { fmtNum } from '@/lib/format'
 import { MASSNAHMEN_ART_LABEL, artFilterOptionen, filterMassnahmen } from '@/lib/behandlungen/arten'
 import { heuteWien } from '@/lib/datum/wien'
+import { nachDatumGruppiert, richtungAus, RICHTUNG_SPEICHER, RICHTUNG_VORGABE, type Richtung } from '@/lib/behandlungen/sortierung'
 
 const WITTERUNG_LABEL: Record<string, string> = {
   sonnig: 'Sonnig', bewoelkt: 'Bewölkt',
@@ -20,6 +21,17 @@ const EINHEIT_LABEL: Record<string, string> = {
 }
 // Bezeichnungen aller Arten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden)
 const ART_LABEL: Record<string, string> = MASSNAHMEN_ART_LABEL
+
+// KAN-324: gespeicherte Sortierung (localStorage) – Server und erster Aufbau mit der Vorgabe, danach der gespeicherte Wert
+const RICHTUNG_EREIGNIS = 's112-massnahmen-sortierung'
+function abonniereRichtung(melden: () => void) {
+  window.addEventListener('storage', melden)
+  window.addEventListener(RICHTUNG_EREIGNIS, melden)
+  return () => { window.removeEventListener('storage', melden); window.removeEventListener(RICHTUNG_EREIGNIS, melden) }
+}
+function gespeicherteRichtung(): Richtung {
+  try { return richtungAus(localStorage.getItem(RICHTUNG_SPEICHER)) } catch { return RICHTUNG_VORGABE }
+}
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -64,16 +76,6 @@ function RiedenZelle({ rieden, flaecheHa }: { rieden: string[]; flaecheHa: numbe
   )
 }
 
-// Behandlungen nach Datum gruppieren – chronologisch von oben (älteste) nach unten (jüngste), Rückmeldung 30.09.2026
-function groupByDate(behandlungen: Behandlung[]) {
-  const map = new Map<string, Behandlung[]>()
-  for (const b of behandlungen) {
-    const arr = map.get(b.datum) ?? []
-    arr.push(b)
-    map.set(b.datum, arr)
-  }
-  return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
-}
 
 export default function BehandlungenClient({
   behandlungen, schreibOk,
@@ -84,12 +86,24 @@ export default function BehandlungenClient({
   const [pending] = useTransition()
   const [filter, setFilter] = useState('')
   const [artFilter, setArtFilter] = useState('')
+  // KAN-324: neueste oben als Vorgabe, umschaltbar; die Wahl bleibt im Browser (lib/behandlungen/sortierung.ts)
+  const gespeichert = useSyncExternalStore(abonniereRichtung, gespeicherteRichtung, () => RICHTUNG_VORGABE)
+  const [gewaehlt, setGewaehlt] = useState<Richtung | null>(null)   // ohne Speicher (privates Fenster): nur für diese Seite
+  const richtung = gewaehlt ?? gespeichert
+  const richtungWechseln = () => {
+    const neu: Richtung = richtung === 'neueste' ? 'aelteste' : 'neueste'
+    setGewaehlt(neu)
+    try {
+      localStorage.setItem(RICHTUNG_SPEICHER, neu)
+      window.dispatchEvent(new Event(RICHTUNG_EREIGNIS))
+    } catch { /* ohne Speicher: gilt nur für diese Seite */ }
+  }
 
   // Art-Auswahl (alle Maßnahmenarten, Lese nur, wenn solche Einträge da sind) und Filter: lib/behandlungen/arten.ts
   const artOptionen = artFilterOptionen(behandlungen)
   const gefiltert = filterMassnahmen(behandlungen, artFilter, filter)
 
-  const grouped = groupByDate(gefiltert)
+  const grouped = nachDatumGruppiert(gefiltert, richtung)
 
   if (behandlungen.length === 0) {
     return (
@@ -124,6 +138,12 @@ export default function BehandlungenClient({
           <option value="">Alle Arten</option>
           {artOptionen.map(a => <option key={a} value={a}>{MASSNAHMEN_ART_LABEL[a]}</option>)}
         </select>
+        <button type="button" onClick={richtungWechseln}
+          aria-label={richtung === 'neueste' ? 'Sortierung: neueste oben – umschalten auf älteste oben' : 'Sortierung: älteste oben – umschalten auf neueste oben'}
+          className="inline-flex items-center gap-1.5 border border-s112-border rounded-xl px-3 py-2 text-sm bg-white text-s112-text-1 hover:bg-s112-bg focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
+          {richtung === 'neueste' ? <ArrowDownWideNarrow size={15} aria-hidden /> : <ArrowUpNarrowWide size={15} aria-hidden />}
+          {richtung === 'neueste' ? 'Neueste oben' : 'Älteste oben'}
+        </button>
       </div>
       {gefiltert.length === 0 && (
         <p className="card text-center py-8 text-sm text-s112-muted">Keine Maßnahmen für diesen Filter.</p>
