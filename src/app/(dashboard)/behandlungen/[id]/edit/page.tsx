@@ -56,6 +56,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
         einarbeitung, einarbeitung_zeitpunkt,
         uhrzeit_von, uhrzeit_bis, durchgefuehrt_von, anwender_name, art_verwendung, storniert_am,
+        bienenschutz_bestaetigt_am, bienenschutz_bestaetigt_von_name,
         weingarten_id, menge_gesamt, behandelte_flaeche_ha,
         weingarten:weingarten_id(name),
         psm:psm_id(wartezeit_tage),
@@ -138,6 +139,8 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     durchgefuehrt_von:    b.durchgefuehrt_von ?? null,
     anwender_name:        b.anwender_name ?? null,
     art_verwendung:       b.art_verwendung ?? null,
+    bienenschutz_bestaetigt_am:       b.bienenschutz_bestaetigt_am ?? null,   // KAN-325
+    bienenschutz_bestaetigt_von_name: b.bienenschutz_bestaetigt_von_name ?? null,
   }
 
   // Behandelte Fläche = Σ Grundstücke der Maßnahme (ha, je GST und gesamt 4 Stellen) – dieselbe Funktion,

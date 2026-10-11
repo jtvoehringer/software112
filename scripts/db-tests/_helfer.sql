@@ -1262,6 +1262,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
+    ('trigger',       '--S', false, 's112_bienenschutz_bestaetigung()'),   -- KAN-325: Bienenschutz-Bestätigung (Zeitpunkt, Benutzer, Name)
+    ('trigger',       '--S', false, 's112_lager_einkauf_schutz()'),   -- KAN-326: Einkauf mit Ausgabe nur über die RPCs
     ('trigger',       '--S', false, 's112_journal_trg_produktion()'),   -- KAN-118: Journal AB_VERAR/ZU_PROD
     ('trigger',       '--S', false, 's112_elabel_umleitung_schutz()'),   -- KAN-219: Umleitung nur über s112_elabel_umleiten
     ('trigger',       '--S', false, 's112_elabel_pruefen()'),   -- KAN-216: Zutatenliste aus dem Katalog, Kennung unveränderlich, Freigabe stempeln   -- KAN-96: generischer Freeze-Trigger
@@ -1356,6 +1358,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
     ('mandant',       '-US', true , 's112_betriebsmittel_einkauf(p_tenant_id uuid, p_betriebsmittel_id uuid, p_datum date, p_menge numeric, p_einheit text, p_betrag_netto numeric, p_ust_satz numeric, p_lieferant_firma_id uuid, p_ea_kategorie_id uuid, p_notizen text)'),   -- KAN-167: Einkauf mit E/A-Ausgabe
     ('mandant',       '-US', true , 's112_betriebsmittel_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-167: Storno Lagerbuchung (Einkauf samt Ausgabe)
+    ('mandant',       '-US', true , 's112_lager_einkauf(p_tenant_id uuid, p_art text, p_mittel_id uuid, p_datum date, p_menge numeric, p_einheit text, p_betrag_netto numeric, p_ust_satz numeric, p_lieferant_firma_id uuid, p_ea_kategorie_id uuid, p_notizen text)'),   -- KAN-326: PSM-/Dünger-Einkauf mit E/A-Ausgabe
+    ('mandant',       '-US', true , 's112_lager_einkauf_stornieren(p_tenant_id uuid, p_art text, p_id uuid, p_grund text, p_datum date)'),   -- KAN-326: Storno PSM-/Dünger-Lagerbuchung (Einkauf samt Ausgabe)
     ('intern',        '--S', false, 's112_charge_folgebuchung(p_tenant_id uuid, p_charge_id uuid)'),   -- KAN-148 C1c-2 (Hilfsfunktion)
     ('mandant',       '-US', true , 's112_mostzeile_anlegen(p_tenant_id uuid, p_pressung_id uuid, p_behaelter_id uuid, p_menge_liter numeric, p_notizen text, p_charge jsonb)'),   -- KAN-148 C1c-2
     ('mandant',       '-US', true , 's112_pressung_anlegen(p_tenant_id uuid, p_kopf jsonb, p_trauben jsonb)'),   -- KAN-148 C1c-2

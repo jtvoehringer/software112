@@ -80,6 +80,9 @@ export type BehandlungEdit = {
   durchgefuehrt_von?: string | null
   anwender_name?: string | null
   art_verwendung?: string | null
+  /** KAN-325: gespeicherte Bienenschutz-Bestätigung (Zeitpunkt und Name setzt die Datenbank) */
+  bienenschutz_bestaetigt_am?: string | null
+  bienenschutz_bestaetigt_von_name?: string | null
 }
 
 export type PSMOption = {
@@ -742,7 +745,8 @@ export default function BehandlungEditForm({
         {modus.bbch === 'behalten' && <input type="hidden" name="bbch_stadium" value={behandlung.bbch_stadium ?? ''} />}
         {/* KAN-171: Bienenschutz – derselbe BBCH-Wert, den das Speichern sendet */}
         <BienenschutzHinweis bienengefaehrlich={artMitPsm(art) && !!psm.find(p => p.id === selectedPsmId)?.bienengefaehrlich}
-          bbch={modus.bbch === 'sichtbar' ? bbch : modus.bbch === 'behalten' ? behandlung.bbch_stadium : null} />
+          bbch={modus.bbch === 'sichtbar' ? bbch : modus.bbch === 'behalten' ? behandlung.bbch_stadium : null}
+          bestaetigung={behandlung.bienenschutz_bestaetigt_am ? { am: behandlung.bienenschutz_bestaetigt_am, von: behandlung.bienenschutz_bestaetigt_von_name ?? null } : null} />
         {modus.schaderreger === 'behalten' && <input type="hidden" name="schaderreger" value={behandlung.schaderreger ?? ''} />}
 
         {/* Düngung: Einarbeitung wie beim Anlegen nur bei organischem Dünger (KAN-154). einarbeitung_gesendet

@@ -25,7 +25,7 @@ import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import {
   anwenderAus, erfassungsverzugH, fristAus, fristRelevant, istArtVerwendung, nacherfassungHinweis, uhrzeitAus, uhrzeitFehler,
 } from '@/lib/behandlungen/erfassungsfrist'
-import { BIENENSCHUTZ_FELD, bienenschutzFehler } from '@/lib/behandlungen/bienenschutz'
+import { BIENENSCHUTZ_FELD, bienenschutzBestaetigtAm, bienenschutzFehler } from '@/lib/behandlungen/bienenschutz'
 
 /** KAN-169: Sperre nach der Lese der Ried (Trigger a_freeze_ernte) als verständliche Meldung, sonst der DB-Fehlertext */
 function massnahmeFehler(error: unknown, kontext: string): string {
@@ -412,15 +412,19 @@ async function anwendungSpalten(
   const fehler = uhrzeitFehler({ datum, datumBis, uhrzeitVon, uhrzeitBis, bienengefaehrlich })
   if (fehler) throw new AktionsFehler(fehler)
   // KAN-171: bienengefährliches Mittel in der Blüte (BBCH 60–69) nur mit bestätigten Bienenschutz-Auflagen
-  const bienen = bienenschutzFehler({
+  const bienenEingabe = {
     bienengefaehrlich, bbch: (formData.get('bbch_stadium') as string | null) || null, bestaetigt: formData.get(BIENENSCHUTZ_FELD) === '1',
-  })
+  }
+  const bienen = bienenschutzFehler(bienenEingabe)
   if (bienen) throw new AktionsFehler(bienen)
   const roh = (formData.get('art_verwendung') as string | null) || null
   if (roh && !istArtVerwendung(roh)) throw new AktionsFehler(`Unbekannte Art der Verwendung „${roh}“.`)
   const spalten: Record<string, unknown> = {
     uhrzeit_von: uhrzeitVon, uhrzeit_bis: uhrzeitBis,
     art_verwendung: psmId ? (roh ?? 'freiland') : null,
+    // KAN-325: Bestätigung speichern – Zeitpunkt, Benutzer und Name setzt die Datenbank (Trigger a0_bienenschutz), eine
+    // frühere Bestätigung bleibt beim Bearbeiten; nicht mehr bienenrelevant → aufgehoben
+    bienenschutz_bestaetigt_am: bienenschutzBestaetigtAm(bienenEingabe),
   }
   if (neu || formData.has('anwender')) {
     const { data: { user } } = await supabase.auth.getUser()

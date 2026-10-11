@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { upsertLagerBewegung, stornoLagerBewegung, loescheLagerBewegung } from './actions'
+import { upsertLagerBewegung, bucheLagerEinkauf, stornoLagerBewegung, loescheLagerBewegung } from './actions'
 import StornoButton from '@/components/StornoButton'
 import { VerbrauchTr, zeilenChronologisch } from './Verbrauchszeilen'
 import type { PSMLager, PSMOption } from './page'
@@ -11,6 +11,7 @@ import { fehlerText } from '@/lib/fehler'
 import AnfangsbestandHinweis from './AnfangsbestandHinweis'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import EinkaufAusgabeFelder, { TYP_EINKAUF_EA, type EinkaufCtx } from './EinkaufAusgabeFelder'
 
 const TYP_LABEL: Record<string, string> = {
   anfangsbestand: 'Anfangsbestand',
@@ -34,18 +35,22 @@ function fmtMenge(m: number, einheit: string | null) {
 
 // ── Buchungsformular ──────────────────────────────────────────────────────────
 function BuchungsForm({
-  allePsm, defaultPsmId, defaultEinheit, onDone, edit,
+  allePsm, defaultPsmId, defaultEinheit, onDone, einkauf, edit,
 }: {
   allePsm: PSMOption[]
   defaultPsmId?: string
   /** Lager-Einheit des Mittels als Vorgabe für neue Buchungen */
   defaultEinheit?: string
   onDone: () => void
+  /** KAN-326: Einkauf mit E/A-Ausgabe (Kategorien, Lieferanten, Sperrgrund) */
+  einkauf?: EinkaufCtx
   edit?: PSMLager['bewegungen'][0] & { psm_id: string }
 }) {
   const [pending, startTransition] = useTransition()
   const [fehler, setFehler] = useState<string | null>(null)
-  const [typ, setTyp] = useState<string>(edit?.typ ?? 'einkauf')
+  // KAN-326: mit E&A ist der Einkauf mit Ausgabe die Vorgabe (wie bei den Betriebsmitteln)
+  const [typ, setTyp] = useState<string>(edit?.typ ?? (einkauf && !einkauf.einkaufSperre ? TYP_EINKAUF_EA : 'einkauf'))
+  const mitAusgabe = typ === TYP_EINKAUF_EA
   const isKorrektur = typ === 'korrektur'
   const [datum, setDatum] = useState<string>(edit?.datum ?? heuteWien())
   const [richtung, setRichtung] = useState<'eingang' | 'ausgang'>(
@@ -57,13 +62,17 @@ function BuchungsForm({
     const fd = new FormData(e.currentTarget)
     fd.set('richtung', richtung)
     startTransition(async () => {
-      try { await upsertLagerBewegung(fd); setFehler(null); onDone() }
+      try {
+        if (mitAusgabe) { fd.set('art', 'psm'); await bucheLagerEinkauf(fd) }
+        else await upsertLagerBewegung(fd)
+        setFehler(null); onDone()
+      }
       catch (e) { setFehler(fehlerText(e)) }
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
+    <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
       {fehler && <div className="p-2.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">{fehler}</div>}
       <h3 className="text-sm font-semibold text-s112-text">
         {edit ? 'Buchung bearbeiten' : 'Neue Buchung'}
@@ -86,8 +95,9 @@ function BuchungsForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
           <select aria-label="Typ" name="typ" required value={typ} onChange={e => setTyp(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
+            {einkauf && <option value={TYP_EINKAUF_EA} disabled={!!einkauf.einkaufSperre}>Einkauf (mit E/A-Ausgabe)</option>}
             <option value="anfangsbestand">Anfangsbestand</option>
-            <option value="einkauf">Einkauf / Zugang</option>
+            <option value="einkauf">{einkauf ? 'Einkauf / Zugang (ohne Ausgabe)' : 'Einkauf / Zugang'}</option>
             <option value="korrektur">Inventurkorrektur</option>
           </select>
         </div>
@@ -139,6 +149,8 @@ function BuchungsForm({
           </select>
         </div>
 
+        {mitAusgabe && einkauf && <EinkaufAusgabeFelder ctx={einkauf} />}
+
         {/* Notizen */}
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
@@ -147,11 +159,12 @@ function BuchungsForm({
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
+      {einkauf?.einkaufSperre && !edit && <p className="text-xs text-s112-muted">Einkauf mit E/A-Ausgabe nicht möglich: {einkauf.einkaufSperre}</p>}
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
-          {pending ? 'Speichert…' : 'Speichern'}
+          {pending ? 'Speichert…' : mitAusgabe ? 'Einkauf buchen' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
           className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
@@ -164,9 +177,9 @@ function BuchungsForm({
 
 // ── PSM-Karte ─────────────────────────────────────────────────────────────────
 function PsmKarte({
-  psm, allePsm, writeOk, adminOk,
+  psm, allePsm, writeOk, adminOk, einkauf,
 }: {
-  psm: PSMLager; allePsm: PSMOption[]; writeOk: boolean; adminOk: boolean
+  psm: PSMLager; allePsm: PSMOption[]; writeOk: boolean; adminOk: boolean; einkauf?: EinkaufCtx
 }) {
   const [showForm, setShowForm] = useState(false)
   const [pending] = useTransition()
@@ -227,6 +240,7 @@ function PsmKarte({
             allePsm={allePsm}
             defaultPsmId={psm.psm_id}
             defaultEinheit={einheit}
+            einkauf={einkauf}
             onDone={() => setShowForm(false)}
           />
         </div>
@@ -262,6 +276,8 @@ function PsmKarte({
                   </td>
                   <td className="px-3 py-2 text-xs text-s112-muted">
                     {b.notizen ?? '–'}
+                    {/* KAN-326: Einkauf mit E/A-Ausgabe (Storno storniert die Ausgabe mit) */}
+                    {b.mit_ausgabe && <p className="text-[11px] text-s112-ok-fg">mit Ausgabe{b.betrag_netto != null ? ` · € ${fmtNum(b.betrag_netto, 2)} netto` : ''}</p>}
                     {/* KAN-88: stornierte Buchung bleibt gekennzeichnet stehen, zählt nicht zum Bestand */}
                     {b.storniert_am && (
                       <p className="text-[11px] text-s112-warn-fg">storniert am {new Date(b.storniert_am).toLocaleDateString('de-AT')}{b.storniert_von_name ? ` von ${b.storniert_von_name}` : ''}{b.storno_grund ? ` – ${b.storno_grund}` : ''}</p>
@@ -302,9 +318,11 @@ function PsmKarte({
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function LagerClient({
-  psms, allePsm, writeOk, adminOk,
+  psms, allePsm, writeOk, adminOk, einkauf,
 }: {
   psms: PSMLager[]; allePsm: PSMOption[]; writeOk: boolean; adminOk: boolean
+  /** KAN-326: Einkauf mit E/A-Ausgabe */
+  einkauf?: EinkaufCtx
 }) {
   const [showNeuForm, setShowNeuForm] = useState(false)
 
@@ -313,7 +331,7 @@ export default function LagerClient({
       {/* Neues PSM einbuchen */}
       <div className="mb-6">
         {showNeuForm ? (
-          <BuchungsForm allePsm={allePsm} onDone={() => setShowNeuForm(false)} />
+          <BuchungsForm allePsm={allePsm} einkauf={einkauf} onDone={() => setShowNeuForm(false)} />
         ) : (
           writeOk && (
             <button onClick={() => setShowNeuForm(true)}
@@ -341,6 +359,7 @@ export default function LagerClient({
               allePsm={allePsm}
               writeOk={writeOk}
               adminOk={adminOk}
+              einkauf={einkauf}
             />
           ))}
         </div>

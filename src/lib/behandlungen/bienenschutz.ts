@@ -31,6 +31,13 @@ export function bienenschutzRelevant(e: { bienengefaehrlich: boolean; bbch: stri
   return e.bienengefaehrlich && inBluete(e.bbch)
 }
 
+/** KAN-325: Wert für behandlungen.bienenschutz_bestaetigt_am beim Speichern – ein Zeitpunkt, wenn bestätigt (die Datenbank
+ *  setzt den eigenen Zeitpunkt samt Benutzer und behält eine frühere Bestätigung), null, wenn nicht (mehr) bienenrelevant.
+ *  Relevant und nicht bestätigt lehnt bienenschutzFehler vorher ab. */
+export function bienenschutzBestaetigtAm(e: { bienengefaehrlich: boolean; bbch: string | null | undefined; bestaetigt: boolean }, jetzt: Date = new Date()): string | null {
+  return bienenschutzRelevant(e) && e.bestaetigt ? jetzt.toISOString() : null
+}
+
 /** Fehlertext, wenn der Hinweis nötig, aber nicht bestätigt ist – sonst null */
 export function bienenschutzFehler(e: { bienengefaehrlich: boolean; bbch: string | null | undefined; bestaetigt: boolean }): string | null {
   return bienenschutzRelevant(e) && !e.bestaetigt

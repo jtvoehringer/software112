@@ -181,7 +181,10 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund",
-"version"
+"version",
+"bienenschutz_bestaetigt_am",
+"bienenschutz_bestaetigt_von",
+"bienenschutz_bestaetigt_von_name"
 ],
 "benachrichtigungen": [
 "id",
@@ -437,7 +440,11 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"betrag_netto",
+"ust_satz",
+"lieferant_firma_id",
+"ea_transaktion_id"
 ],
 "ea_anlagen": [
 "id",
@@ -1520,7 +1527,11 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"betrag_netto",
+"ust_satz",
+"lieferant_firma_id",
+"ea_transaktion_id"
 ],
 "psm_uebermittlungen": [
 "id",
