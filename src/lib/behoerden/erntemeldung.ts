@@ -22,7 +22,7 @@ import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { mischen } from '@/lib/wein/mostgewicht'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
-import { leseTitel } from '@/lib/wein/lesen'
+import { erntemeldungRahmen, leseTitel } from '@/lib/wein/lesen'
 import { MeldungsFehler } from './typen'
 import { Hinweise, datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { gemessenInText, mostgewichtFuerExport, type MostgewichtExport } from './mostgewicht_export'
@@ -279,7 +279,7 @@ export function ohneStornierteLese<Z extends { storniertAm: string | null }>(zei
 // ausgewiesen. Hektarhöchstertrag und Lesedaten umfassen weiter den ganzen Jahrgang. Ohne Datum zählt mit.
 
 export function erntemeldungStichtag(jahrgang: number): string {
-  return `${jahrgang}-11-30`
+  return erntemeldungRahmen(jahrgang).stichtag   // dieselbe Quelle wie die Anzeige (KAN-327)
 }
 
 export function teileNachStichtag<Z extends { datum: string | null }>(zeilen: readonly Z[], jahrgang: number): { bis: Z[]; danach: Z[] } {

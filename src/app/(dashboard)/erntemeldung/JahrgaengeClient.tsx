@@ -7,7 +7,7 @@ import type { Jahrgang } from './page'
 import { fmtZahl, fmtProzent } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { updateJahrgang, deleteJahrgang } from './actions'
-import { leseArtText, leseNummer, leseZeitraumText } from '@/lib/wein/lesen'
+import { erntemeldungRahmenText, leseArtText, leseNummer, leseZeitraumText } from '@/lib/wein/lesen'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
 const QUALITAET_LABEL: Record<string, string> = {
@@ -157,6 +157,8 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
                     )
                   })}
                 </ul>
+                {/* KAN-327: Stichtag und Abgabe der Erntemeldung – auch bevor die Meldung angelegt ist */}
+                <p className="mt-1.5 text-xs text-s112-muted">{erntemeldungRahmenText(j.jahrgang)}</p>
               </div>
             </div>
 

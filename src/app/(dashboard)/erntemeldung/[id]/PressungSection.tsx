@@ -496,81 +496,15 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
     <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <h3 className="text-sm font-semibold text-s112-text">{pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}</h3>
 
-      {/* Datum + Most + Bezeichnung */}
+      {/* KAN-329 (UAT 11.10.2026): Reihenfolge des Arbeitsablaufs – zuerst die Eingaben (Datum, gelesene GST mit kg,
+          Lesedatum und Mostgewicht je Zeile), danach Mostausbeute und die daraus berechneten Angaben (Ø Mostgewicht,
+          Qualitätsstufe, Bezeichnung → Charge) und zuletzt das Ziel-Gebinde */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostausbeute gesamt (L) *</label>
-          <input aria-label="Mostausbeute gesamt (L)" type="text" inputMode="decimal" required value={mostLiter} onChange={e => setMostLiter(e.target.value)}
-            placeholder="z.B. 1.050" className={inp} />
-        </div>
-        <div className="col-span-2">
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostgewicht & Qualitätsstufe</label>
-          <div className="flex items-center gap-2">
-            <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-s112-text-1 cursor-not-allowed whitespace-nowrap shrink-0">
-              {/* KAN-131: beide Werte, bevorzugte Einheit zuerst (Ø der Traubenzeilen, kg-gewichtet in °KMW) */}
-              {kmwGrad ? <MostgewichtAnzeige wert={{ kmw: kmwNum, oechsle: null, einheit: 'kmw' }} /> : <span className="text-s112-muted text-xs">– kein Mostgewicht</span>}
-              {kmwGrad && kmwTeilweise && (
-                <span className="ml-1 text-xs text-amber-700" title="Nicht jede Traubenzeile hat ein Mostgewicht – der Durchschnitt zählt nur die Zeilen mit Wert.">
-                  (teilweise: {mittelZeilen.mitWert} von {mittelZeilen.gesamt} Zeilen)
-                </span>
-              )}
-            </div>
-            <div className="flex-1 flex items-center gap-2">
-              <select aria-label="Qualitätsstufe der neuen Charge" value={stufeWert} onChange={e => setAbgestuft(e.target.value)}
-                className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white">
-                <option value="">{qualitaetLabel(obergrenze)} ({obergrenzeAusZukauf ? 'Zukauf-Trauben' : obergrenzeAusLese ? 'aus der Lese' : 'aus °KMW'})</option>
-                {stufenOptionen.filter(o => o.value !== obergrenze).map(o => (
-                  <option key={o.value} value={o.value}>{o.label} – abgestuft</option>
-                ))}
-              </select>
-              <span className="text-xs text-s112-muted">
-                {stufeWert ? <>abgestuft von {qualitaetLabel(obergrenze)}</> : 'Abstufen möglich, höher nicht'}
-                {pressung && ' · gilt für neu angelegte Chargen, bestehende im Kellerbuch'}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="col-span-2">
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">
-            Bezeichnung <span className="text-s112-muted font-normal">(z.B. Gemischter Satz – optional)</span>
-          </label>
-          <input aria-label="Bezeichnung (z.B. Gemischter Satz – optional)" type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
-            placeholder="Leer lassen für reinsortige Weine" className={inp} />
-          {(() => {
-            const rebsorten = wgRows.map(r => r.rebsorte).filter(Boolean)
-            const unique = [...new Set(rebsorten)]
-            // KAN-89: wie die Server Action – Sortenverschnitt mit Farbe (hier nach der Farbe der Sorten)
-            const autoRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? pressungSortenverschnitt(null, unique.map(r => bkiFarbe(r))) : null
-            const preview = weinbezeichnung.trim() || autoRebsorte
-              || `Pressung ${datum ? new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '…'}`
-            return (
-              <p className="text-xs text-s112-muted mt-1">
-                → Charge: <strong className="text-s112-text-1">&ldquo;{preview}&rdquo;</strong>
-              </p>
-            )
-          })()}
-        </div>
       </div>
-
-      {/* Live-Kalkulation */}
-      {gesamtKg > 0 && (
-        <div className="flex gap-4 text-xs bg-white border border-s112-border rounded-lg px-3 py-2">
-          <span className="text-s112-text-2">Trauben: <strong className="text-s112-text">{fmt(gesamtKg)} kg</strong></span>
-          {mostL > 0 && <>
-            <span className="text-s112-tertiary">→</span>
-            <span className="text-s112-text-2">Most: <strong className="text-s112-text">{fmt(mostL)} L</strong></span>
-            <span className="text-s112-tertiary">→</span>
-            <span className={`font-semibold ${ausbeute && ausbeute < 65 ? 'text-s112-warn-fg' : 'text-s112-ok-fg'}`}>
-              {fmtProzent(ausbeute)} % Ausbeute
-            </span>
-            <span className="text-s112-tertiary ml-auto">Faustregel: 70 %</span>
-          </>}
-        </div>
-      )}
 
       {/* Gelesene GST – KAN-126 (Rückmeldung Jörgen 29.09.2026): Auswahl als Checkbox-Liste je Ried, damit mehrere
           GST einer Ried gemeinsam gepresst werden können; je gewähltem GST (bzw. Lesetag) eine Traubenzeile */}
@@ -691,6 +625,81 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
             Press- und Lesedatum lassen sich nur ändern, solange an den Chargen dieser Pressung noch nichts gebucht ist.
           </p>
         )}
+      </div>
+
+      {/* Mostausbeute und Live-Kalkulation (Trauben → Most → Ausbeute) */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostausbeute gesamt (L) *</label>
+          <input aria-label="Mostausbeute gesamt (L)" type="text" inputMode="decimal" required value={mostLiter} onChange={e => setMostLiter(e.target.value)}
+            placeholder="z.B. 1.050" className={inp} />
+        </div>
+      </div>
+      {/* Live-Kalkulation */}
+      {gesamtKg > 0 && (
+        <div className="flex gap-4 text-xs bg-white border border-s112-border rounded-lg px-3 py-2">
+          <span className="text-s112-text-2">Trauben: <strong className="text-s112-text">{fmt(gesamtKg)} kg</strong></span>
+          {mostL > 0 && <>
+            <span className="text-s112-tertiary">→</span>
+            <span className="text-s112-text-2">Most: <strong className="text-s112-text">{fmt(mostL)} L</strong></span>
+            <span className="text-s112-tertiary">→</span>
+            <span className={`font-semibold ${ausbeute && ausbeute < 65 ? 'text-s112-warn-fg' : 'text-s112-ok-fg'}`}>
+              {fmtProzent(ausbeute)} % Ausbeute
+            </span>
+            <span className="text-s112-tertiary ml-auto">Faustregel: 70 %</span>
+          </>}
+        </div>
+      )}
+
+      {/* Ergebnis der Traubenzeilen: Ø Mostgewicht (kg-gewichtet), Qualitätsstufe, Bezeichnung der neuen Charge */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostgewicht & Qualitätsstufe</label>
+          <div className="flex items-center gap-2">
+            <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-s112-text-1 cursor-not-allowed whitespace-nowrap shrink-0">
+              {/* KAN-131: beide Werte, bevorzugte Einheit zuerst (Ø der Traubenzeilen, kg-gewichtet in °KMW) */}
+              {kmwGrad ? <MostgewichtAnzeige wert={{ kmw: kmwNum, oechsle: null, einheit: 'kmw' }} /> : <span className="text-s112-muted text-xs">– kein Mostgewicht</span>}
+              {kmwGrad && kmwTeilweise && (
+                <span className="ml-1 text-xs text-amber-700" title="Nicht jede Traubenzeile hat ein Mostgewicht – der Durchschnitt zählt nur die Zeilen mit Wert.">
+                  (teilweise: {mittelZeilen.mitWert} von {mittelZeilen.gesamt} Zeilen)
+                </span>
+              )}
+            </div>
+            <div className="flex-1 flex items-center gap-2">
+              <select aria-label="Qualitätsstufe der neuen Charge" value={stufeWert} onChange={e => setAbgestuft(e.target.value)}
+                className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white">
+                <option value="">{qualitaetLabel(obergrenze)} ({obergrenzeAusZukauf ? 'Zukauf-Trauben' : obergrenzeAusLese ? 'aus der Lese' : 'aus °KMW'})</option>
+                {stufenOptionen.filter(o => o.value !== obergrenze).map(o => (
+                  <option key={o.value} value={o.value}>{o.label} – abgestuft</option>
+                ))}
+              </select>
+              <span className="text-xs text-s112-muted">
+                {stufeWert ? <>abgestuft von {qualitaetLabel(obergrenze)}</> : 'Abstufen möglich, höher nicht'}
+                {pressung && ' · gilt für neu angelegte Chargen, bestehende im Kellerbuch'}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">
+            Bezeichnung <span className="text-s112-muted font-normal">(z.B. Gemischter Satz – optional)</span>
+          </label>
+          <input aria-label="Bezeichnung (z.B. Gemischter Satz – optional)" type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
+            placeholder="Leer lassen für reinsortige Weine" className={inp} />
+          {(() => {
+            const rebsorten = wgRows.map(r => r.rebsorte).filter(Boolean)
+            const unique = [...new Set(rebsorten)]
+            // KAN-89: wie die Server Action – Sortenverschnitt mit Farbe (hier nach der Farbe der Sorten)
+            const autoRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? pressungSortenverschnitt(null, unique.map(r => bkiFarbe(r))) : null
+            const preview = weinbezeichnung.trim() || autoRebsorte
+              || `Pressung ${datum ? new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '…'}`
+            return (
+              <p className="text-xs text-s112-muted mt-1">
+                → Charge: <strong className="text-s112-text-1">&ldquo;{preview}&rdquo;</strong>
+              </p>
+            )
+          })()}
+        </div>
       </div>
 
       {/* Befüllte Behälter/Chargen */}

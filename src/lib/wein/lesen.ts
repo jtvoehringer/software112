@@ -63,6 +63,19 @@ export function leseNummer(jahrgang: number | string, lfdNr: number): string {
   return `${jahrgang}/${lfdNr}`
 }
 
+/** Erntemeldung je Jahrgang: Stichtag 30.11. (§ 29 Abs. 1 WeinG) und Abgabe bis 15.12. (KAN-37) – als ISO-Datum.
+ *  KAN-327 (UAT 11.10.2026): auch ohne angelegte Meldung angezeigt (Jahrgangsliste, AMA-Karte). */
+export function erntemeldungRahmen(jahrgang: number | string): { stichtag: string; abgabefrist: string } {
+  return { stichtag: `${jahrgang}-11-30`, abgabefrist: `${jahrgang}-12-15` }
+}
+
+/** „Erntemeldung: Stichtag 30.11.2026 · Abgabe bis 15.12.2026“ */
+export function erntemeldungRahmenText(jahrgang: number | string): string {
+  const de = (iso: string) => iso.split('-').reverse().join('.')
+  const r = erntemeldungRahmen(jahrgang)
+  return `Erntemeldung: Stichtag ${de(r.stichtag)} · Abgabe bis ${de(r.abgabefrist)}`
+}
+
 /** „2026/2 Eiswein“ bzw. „2026/2 Eiswein – Grüner Veltliner Hohenstein“ */
 export function leseTitel(jahrgang: number | string, lese: Pick<Lese, 'lfd_nr' | 'art' | 'bezeichnung'>): string {
   const basis = `${leseNummer(jahrgang, lese.lfd_nr)} ${leseArtText(lese.art)}`

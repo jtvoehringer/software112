@@ -13,6 +13,7 @@ import { fehlerText } from '@/lib/fehler'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { AMA_OFFEN, AMA_STATUS_LABEL, type AmaZielStatus } from '@/lib/behoerden/amaMeldung'
+import { erntemeldungRahmenText } from '@/lib/wein/lesen'
 
 const AMA_STATUS_CLS: Record<string, string> = {
   entwurf:     'bg-[#F2F3F5] text-s112-text-2',
@@ -127,6 +128,9 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
         </h2>
         {amaMeldung && <StatusBadge status={amaMeldung.status} />}
       </div>
+
+      {/* KAN-327: Stichtag und Abgabe auch ohne angelegte Meldung (mit Meldung stehen sie weiter unten an der Version) */}
+      {!amaMeldung && <p className="mb-3 text-xs text-s112-muted">{erntemeldungRahmenText(jahrgang)}</p>}
 
       {stichtagHinweis && (
         <p role="note" className="mb-3 rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-3 py-2 text-xs text-s112-warn-fg">
