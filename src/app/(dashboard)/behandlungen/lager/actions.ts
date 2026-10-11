@@ -70,19 +70,56 @@ type LagerTabelle = 'psm_lager_bewegungen' | 'duengemittel_lager_bewegungen'
 // KAN-88 (05.10.2026): Lagerbuchungen werden storniert, nicht gelöscht (Zeitpunkt und Benutzer setzt die Datenbank,
 // s112_storno_schutz; stornierte zählen nicht zum Bestand). Endgültig löschen nur stornierte über s112_storniert_loeschen
 // (Rolle, Modul Rieden, Betrieb, Abo; Grund im Änderungsprotokoll) – vorher KAN-166 Löschen mit Grund.
+// KAN-326: Storno über s112_lager_einkauf_stornieren – ein Einkauf mit E/A-Ausgabe storniert die Ausgabe mit
+// (Gegenbuchung; direkter Storno einer solchen Zeile lehnt der Trigger a_lager_einkauf ab), sonst wie bisher.
+const LAGER_ART: Record<LagerTabelle, 'psm' | 'duenger'> = { psm_lager_bewegungen: 'psm', duengemittel_lager_bewegungen: 'duenger' }
+
 async function lagerStornieren(tabelle: LagerTabelle, id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const f = stornoGrundFehler(grund)
   if (f) throw new AktionsFehler(f)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from(tabelle) as any)
-    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
-    .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null)
-    .select('id')
+  const { error } = await (supabase.rpc as any)('s112_lager_einkauf_stornieren', {
+    p_tenant_id: tenantId, p_art: LAGER_ART[tabelle], p_id: id, p_grund: grund.trim(), p_datum: null,
+  })
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Storno fehlgeschlagen'))
-  if (((data ?? []) as unknown[]).length !== 1) throw new AktionsFehler('Die Buchung wurde nicht gefunden oder ist schon storniert – bitte die Seite neu laden.')
   revalidatePath('/behandlungen/lager')
+  revalidatePath('/buchhaltung')
+}
+
+/** KAN-326: PSM- bzw. Dünger-Einkauf mit E/A-Ausgabe in einer Transaktion (RPC prüft E&A-Modul, Schreibmodule Rieden und
+ *  E&A, Zeitraum) – wie der Betriebsmittel-Einkauf (KAN-167/KAN-223) */
+export async function bucheLagerEinkauf(fd: FormData): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const art = fd.get('art')
+  if (art !== 'psm' && art !== 'duenger') throw new AktionsFehler('Unbekanntes Lager – bitte die Seite neu laden.')
+  const mittelId = (fd.get(art === 'psm' ? 'psm_id' : 'duengemittel_id') as string | null) || null
+  if (!mittelId) throw new AktionsFehler('Bitte ein Mittel wählen.')
+  const menge = zahlAus(fd.get('menge'))
+  const netto = zahlAus(fd.get('betrag_netto'))
+  const ust = zahlAus(fd.get('ust_satz'))
+  if (menge === null || menge <= 0) throw new AktionsFehler('Bitte eine Menge (> 0) angeben.')
+  if (netto === null || netto < 0) throw new AktionsFehler('Bitte den Netto-Betrag angeben.')
+  if (!fd.get('ea_kategorie_id')) throw new AktionsFehler('Bitte eine Ausgaben-Kategorie wählen.')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_lager_einkauf', {
+    p_tenant_id: tenantId,
+    p_art: art,
+    p_mittel_id: mittelId,
+    p_datum: fd.get('datum') as string,
+    p_menge: menge,
+    p_einheit: fd.get('einheit') as string,
+    p_betrag_netto: netto,
+    p_ust_satz: ust ?? 20,
+    p_lieferant_firma_id: (fd.get('lieferant_firma_id') as string) || null,
+    p_ea_kategorie_id: fd.get('ea_kategorie_id') as string,
+    p_notizen: ((fd.get('notizen') as string) ?? '').trim() || null,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Einkauf konnte nicht gebucht werden'))
+  revalidatePath('/behandlungen/lager')
+  revalidatePath('/buchhaltung')
 }
 
 async function lagerEndgueltigLoeschen(tabelle: LagerTabelle, id: string, grund: string) {
