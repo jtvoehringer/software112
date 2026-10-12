@@ -70,3 +70,6 @@ import-daten/
 /e2e/.ergebnisse/
 /playwright-report/
 /blob-report/
+# Stopp-Gate (scripts/hooks): Stempel des letzten grünen verify, lokaler Schalter „bewusst unfertig“
+.claude/verify-stempel
+.claude/done-gate-aus

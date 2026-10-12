@@ -1,0 +1,35 @@
+{
+  "version": "2026-10-12.1",
+  "hinweis": "Blockliste des PreToolUse-Hooks (scripts/hooks/guard.js). Jede Regel: id, muster (RegExp, Flags i), grund. Änderungen nur per PR (docs/AGENTIC_DELIVERY.md, Abschnitt Guard Rails).",
+  "befehl": [
+    { "id": "force_push", "muster": "\\bgit\\s+push\\b[^;&|\\n]*\\s(--force(?!-with-lease)\\b|-f\\b)", "grund": "Kein Force-Push – Verlauf auf GitHub bleibt unverändert." },
+    { "id": "reset_hard", "muster": "\\bgit\\s+reset\\s+[^;&|\\n]*--hard\\b", "grund": "Kein git reset --hard – verwirft Arbeit ohne Rückweg (parallele Sitzungen im selben Checkout)." },
+    { "id": "git_clean", "muster": "\\bgit\\s+clean\\s+-[a-z]*f", "grund": "Kein git clean -f – löscht unversionierte Dateien (Entwürfe, Nachweise im Repo-Ordner)." },
+    { "id": "supabase_push", "muster": "\\bsupabase\\s+db\\s+(push|reset)\\b", "grund": "Keine Migrationen per CLI-Push/Reset – Migrationen nur über apply_migration nach Staging und „OK, einspielen“." },
+    { "id": "env_lesen", "muster": "\\b(cat|type|less|more|head|tail|Get-Content|gc|Select-String|grep|rg|source)\\b[^;&|\\n]*(^|[\\s\"'/\\\\])\\.env(?![\\w.-]*\\.example)[\\w.-]*(?=[\\s\"']|$)", "grund": "Keine .env-Dateien lesen – Zugangsdaten bleiben außerhalb des Kontexts." }
+  ],
+  "loeschen": {
+    "id": "rm_rf",
+    "muster": "\\brm\\s+(-[a-z]*r[a-z]*f[a-z]*|-[a-z]*f[a-z]*r[a-z]*|-r\\s+-f|-f\\s+-r)\\b",
+    "erlaubt_wenn": "AppData[\\\\/]Local[\\\\/]Temp|[\\\\/]tmp[\\\\/]|scratchpad|\\.next\\b|node_modules|test-results|playwright-report|\\.ergebnisse",
+    "grund": "rm -rf nur in temporären Ordnern (Scratchpad, Temp, Build-Ausgaben) – nie im Repo."
+  },
+  "produktion": {
+    "id": "produktion_cli",
+    "muster": "zwcsgnemijkpyxrqykul",
+    "befehl": "\\bsupabase\\b|\\bpsql\\b",
+    "grund": "Produktion per CLI nur als Probelauf: Datei mit -f, endet mit ROLLBACK, kein COMMIT. Migrationen über apply_migration nach „OK, einspielen“."
+  },
+  "datei": [
+    { "id": "env_datei", "muster": "(^|[\\\\/])\\.env(?![\\w.-]*\\.example$)[\\w.-]*$", "werkzeuge": ["Read", "Write", "Edit", "MultiEdit"], "grund": "Kein Zugriff auf .env-Dateien (nur *.example)." },
+    { "id": "migration_aendern", "muster": "(^|[\\\\/])supabase[\\\\/]migrations[\\\\/][^\\\\/]+\\.sql$", "werkzeuge": ["Edit", "MultiEdit", "Write-bestehend"], "grund": "Eingespielte Migrationen sind unveränderlich – Erweiterung immer als neue Migration." },
+    { "id": "migration_legacy", "muster": "(^|[\\\\/])supabase[\\\\/]migrations_legacy[\\\\/]", "werkzeuge": ["Write", "Edit", "MultiEdit"], "grund": "migrations_legacy/ ist eingefroren (Stand 24.09.2026)." }
+  ],
+  "inhalt": [
+    { "id": "anthropic_key", "muster": "sk-ant-[A-Za-z0-9_-]{20,}", "grund": "Anthropic-API-Schlüssel gehört nicht in Dateien." },
+    { "id": "jwt", "muster": "eyJhbGciOi[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}", "grund": "JWT (z. B. Supabase-Schlüssel) gehört nicht in Dateien." },
+    { "id": "stripe_live", "muster": "\\b(sk|rk)_live_[A-Za-z0-9]{10,}", "grund": "Stripe-Live-Schlüssel gehört nicht in Dateien." },
+    { "id": "github_token", "muster": "\\bgh[pousr]_[A-Za-z0-9]{30,}", "grund": "GitHub-Token gehört nicht in Dateien." },
+    { "id": "private_key", "muster": "-----BEGIN [A-Z ]*PRIVATE KEY-----", "grund": "Privater Schlüssel gehört nicht in Dateien." }
+  ]
+}

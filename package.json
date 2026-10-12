@@ -21,7 +21,7 @@
     "check-einzelabfrage": "node scripts/check-einzelabfrage.js",
     "check-datum": "node scripts/check-datum.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "verify": "npm run -s typecheck && npm run -s lint:verify && npm run -s test:csv && npm run -s prebuild",
+    "verify": "npm run -s typecheck && npm run -s lint:verify && npm run -s test:csv && npm run -s prebuild && node scripts/hooks/verify-stempel.js",
     "test:csv": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"scripts/tests/*.test.mjs\"",
     "test:db": "node scripts/db-tests/run.mjs",
     "test:coverage": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-test-coverage --test-coverage-include=src/** --test \"scripts/tests/*.test.mjs\"",
