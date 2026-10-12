@@ -57,5 +57,8 @@ ci_rounds: <Anzahl CI-Läufe bis grün>
 review_findings: <n> (<blocker>/<major>/<minor>)
 ```
 
+**Gate C:** Ist „check“ auf diesem PR schon zweimal rot gewesen, keinen weiteren Push: Befund als Jira-Kommentar,
+Ticket „In Abklärung“ (Transition 2), Jörgen zuweisen. `ci_rounds` zählt die CI-Läufe bis grün (bzw. bis zum Abbruch).
+
 Befunde nicht selbst still beheben: Liste vorlegen; Jörgen entscheidet, was nachgearbeitet wird. PR-Kommentar auf
 GitHub nur nach ausdrücklichem Wunsch.

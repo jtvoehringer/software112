@@ -21,10 +21,11 @@ Das Modell entscheidet über das *Wie* des Codes. Der Harness entscheidet, *ob* 
 |---|---|
 | Kein Merge ohne grünes Gate: Ruleset auf `main` verlangt die Checks „check“ (verify) und „abhaengigkeiten“ | ✅ |
 | Merge = Produktion: Vercel deployt `main` automatisch; Staging-Spiegel und E2E laufen nach jedem Merge | ✅ |
-| Agent setzt Auto-Merge auf seinen PR – gemergt wird erst, wenn die Pflicht-Checks grün sind | ✅ (gelebter Ablauf) |
-| „Kein Agent merged, Merge nur durch Jörgen“ | ⬜ offene Entscheidung – würde Auto-Merge ersetzen |
+| Agent setzt Auto-Merge auf seinen PR – gemergt wird erst, wenn die Pflicht-Checks grün sind | ✅ (entschieden 12.10.2026: bleibt so) |
+| Kontrolle durch den Menschen liegt **nach** dem Merge (Abnahme am Ticket) und **vor** jeder Produktions-Migration – nicht am Merge-Knopf | ✅ entschieden 12.10.2026 |
+| Ausnahme: Änderungen am Harness selbst (Hooks, Regeln, Skills) merged Jörgen nach Review | ✅ |
 | Abnahme durch Jörgen: Ticket „In Überprüfung“ mit Abnahmeschritten, „Erledigt“ setzt nur Jörgen | ✅ |
-| Produktions-Migration nur nach ausdrücklichem „OK, einspielen“ (nach Staging, DB-Tests, Rollback-Probelauf) | ✅ (Ablauf) · 🟡 technisch: `apply_migration` steht in der Allow-Liste und braucht keine Bestätigung im Werkzeug |
+| Produktions-Migration nur nach ausdrücklichem „OK, einspielen“ (nach Staging, DB-Tests, Rollback-Probelauf) | ✅ Ablauf · `apply_migration` bleibt bewusst in der Allow-Liste (entschieden 12.10.2026): das OK kommt im Chat, eine zweite Bestätigung im Werkzeug brächte nur Klick-Müdigkeit |
 
 ---
 
@@ -59,7 +60,7 @@ Das Modell entscheidet über das *Wie* des Codes. Der Harness entscheidet, *ob* 
 ●    Stop-Hook          „fertig“ nur mit grünem `npm run verify` für genau diesen Stand             ✅ (done-gate.js)
 ● 6  CI                 GitHub Actions: volles verify-Gate je PR; Vercel-Preview                    ✅
 ●    nach Merge         Staging-Spiegel → E2E (Playwright) inkl. Mandantentrennung                  ✅
-●    Gate C             max. 2 CI-Runden, danach Mensch                                             🟡 gelebt, nicht technisch begrenzt
+●    Gate C             max. 2 CI-Runden, danach Mensch                                             ✅ Regel + Metrik (siehe 8, Nr. 6)
 ● 7  PR                 Beschreibung mit Inhalt, Prüfung; Metrik-Block                              🟡 Metrik-Block neu (/review)
 ○/● 8 Abnahme           Jörgen prüft nach den Schritten am Ticket, setzt „Erledigt“                 ✅
 ```
@@ -120,7 +121,7 @@ Das ist der eigentliche Kern des Harness – älter als diese Datei und im Allta
 
 | Server | Zweck | Stand |
 |---|---|---|
-| Supabase MCP | Schema, Logs, Advisor; `apply_migration` | ✅ · 🟡 Schreiben auf Staging frei, auf Produktion nur nach OK (Ablauf, nicht Werkzeug) |
+| Supabase MCP | Schema, Logs, Advisor; `apply_migration` | ✅ · Schreiben auf Staging frei, auf Produktion nur nach „OK, einspielen“ (Ablauf; Allow-Liste bewusst beibehalten) |
 | Atlassian MCP | Jira-Tickets, Kommentare, Übergänge, Anhänge; Confluence | ✅ |
 | GitHub | `gh` CLI: PR, Checks, Auto-Merge | ✅ |
 | Vercel MCP | Deployments, Laufzeitfehler | ✅ lesend |
@@ -147,10 +148,16 @@ Das ist der eigentliche Kern des Harness – älter als diese Datei und im Allta
 | 3 | Keine destruktiven Git-/Shell-Befehle, keine Force-Pushes | guard.js | ✅ |
 | 4 | Eingespielte Migrationen und `migrations_legacy/` unveränderlich | guard.js | ✅ |
 | 5 | „Fertig“ nur mit grünem verify | done-gate.js, CI-Pflicht-Check | ✅ |
-| 6 | Max. 2 CI-Runden, danach Mensch | – | ⬜ |
+| 6 | Max. 2 CI-Runden, danach Mensch: nach dem zweiten roten „check“ auf demselben PR kein weiterer Push – Befund als Jira-Kommentar, Ticket „In Abklärung“, Jörgen zuweisen | Regel in `/review`, Metrik `ci_rounds` | ✅ Regel · bewusst nicht technisch (siehe unten) |
 | 7 | Je Run: Ticket, Regel-Version, Tool-Calls, Dauer, Tokens protokolliert | – | ⬜ (Regel-Version steht in jeder Guard-Meldung) |
 | 8 | Personenbezogene Daten nur synthetisch in Tests | Testdaten „E2E-Test …“, Fremdbetrieb | ✅ Tests · 🟡 Analyse von Befunden |
 | 9 | Externe Netzzugriffe nur auf freigegebene Hosts | – | ⬜ |
+
+**Gate C – warum nur Regel (Entscheidung 12.10.2026):** Rote CI-Läufe sind selten, weil der Stop-Hook schon lokal
+ein grünes `verify` für genau diesen Stand verlangt – die CI wiederholt dasselbe Gate. Eine technische Sperre bräuchte
+entweder einen zusätzlichen Workflow (kostet GitHub-Actions-Minuten, die knapp sind) oder einen `gh`-Aufruf im
+Guard-Hook vor jedem `git push` (Netzwerk, Verzögerung, Fehlerquelle). Die Metrik `ci_rounds` zeigt, ob das reicht:
+Liegt sie im Schnitt über 1,5, wird Gate C technisch (Guard-Hook zählt rote Läufe des Branches vor dem Push).
 
 ---
 
@@ -186,8 +193,7 @@ review_findings: 0
 
 - ⬜ Trigger aus Jira (Label `claude`) statt manuellem Aufruf.
 - ⬜ Evaluator-Agent als eigener Lauf vor der Umsetzung.
-- ⬜ Gate C technisch: CI-Runden zählen, nach zwei roten Läufen an den Menschen.
-- ⬜ Merge-Entscheidung: Auto-Merge beibehalten oder „Merge nur durch Jörgen“.
-- ⬜ `apply_migration` aus der Allow-Liste nehmen, damit das OK auch technisch eine Bestätigung braucht.
+- ⬜ Gate C technisch – nur falls `ci_rounds` im Schnitt über 1,5 liegt.
+- ✅ Entschieden 12.10.2026: Auto-Merge bleibt; `apply_migration` bleibt in der Allow-Liste; Gate C als Regel + Metrik.
 - ⬜ Regeln aus Review-Befunden vorschlagen (Agent öffnet PR auf Prüfskripte/Regeln) – heute gelebt als „Sweep“:
   Fehlerklasse finden, beheben, Prüfskript dagegen.
