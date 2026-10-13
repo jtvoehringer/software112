@@ -16,6 +16,7 @@ import TabNav from './TabNav'
 import MobileNav from './MobileNav'
 import AssistantPanel from './AssistantPanel'
 import CommandPalette from '@/components/CommandPalette'
+import { APP_VERSION } from '@/lib/version'
 import ZurueckLeiste from './ZurueckLeiste'
 import { MostgewichtEinheitProvider } from '@/components/wein/MostgewichtEinheit'
 import { buildNav } from '@/lib/navigation'
@@ -44,7 +45,6 @@ interface Props {
   mostgewichtEinheit?: MostgewichtEinheit
 }
 
-export const APP_VERSION = 'v2.3.0 · August 2026'
 
 export default function AppShell({
   children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false, sandboxAdminUnlock = false, darfSchreiben = false, auswertungenSichtbar = true,

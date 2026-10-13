@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { APP_VERSION } from '@/lib/version'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { mitWeiter } from '@/lib/tenant/waechter'
@@ -161,7 +162,7 @@ export default function LoginPage() {
         software:112 · IC&P Consultants e.U.
       </p>
       <p className="text-center text-[11px] text-s112-tertiary mt-1">
-        v2.1.0 · Juni 2026 · <a href="/barrierefreiheit" className="hover:underline">Barrierefreiheit</a>
+        {APP_VERSION} · <a href="/barrierefreiheit" className="hover:underline">Barrierefreiheit</a>
       </p>
     </div>
   )
