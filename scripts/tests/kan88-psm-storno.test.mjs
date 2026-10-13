@@ -87,7 +87,9 @@ test('Lager: Buchungen fest, stornieren statt löschen, Bestand ohne stornierte'
 })
 
 test('Änderungsprotokoll benennt die Bereiche, Löschsperre-Liste und Migration passen', () => {
-  const ap = quelle('src/lib/behoerden/aenderungsprotokoll.ts')
+  // KAN-332: Bezeichnungen je Tabelle gemeinsam für Änderungsprotokoll und Journal
+  const ap = quelle('src/lib/journal/journal.ts')
+  assert.ok(quelle('src/lib/behoerden/aenderungsprotokoll.ts').includes("import { TABELLE_LABEL } from '@/lib/journal/journal'"))
   for (const t of ['behandlungen', 'behandlung_grundstuecke', 'psm_lager_bewegungen', 'duengemittel_lager_bewegungen']) assert.match(ap, new RegExp(`\\n  ${t}: '`), t)
   const liste = JSON.parse(quelle('scripts/storno-tabellen.json'))
   for (const t of ['behandlungen', 'psm_lager_bewegungen', 'duengemittel_lager_bewegungen']) assert.ok(liste.scharf.includes(t), t)
