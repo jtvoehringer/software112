@@ -601,9 +601,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       )}
 
       {/* Header */}
+      {/* KAN-335: Titel nimmt den Platz, die Knöpfe rechts brechen um (vorher shrink-0 ohne Breitengrenze: alle Knöpfe in
+          einer Zeile, der Titel brach Wort für Wort um, waagrechte Scrollleiste) */}
       <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-s112-text">{weinausbau.name}</h1>
+        <div className="min-w-0 sm:flex-1">
+          <h1 className="text-2xl font-semibold text-s112-text break-words">{weinausbau.name}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
             {weinausbau.jahrgang && <span className="text-xs text-s112-muted">Jahrgang {weinausbau.jahrgang}</span>}
@@ -636,7 +638,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             )}
           </div>
         </div>
-        <div className="sm:text-right shrink-0">
+        <div className="sm:text-right sm:max-w-[50%] lg:max-w-[55%]">
           <p className="text-2xl font-semibold text-s112-blue-700 tabular-nums">{fmtLiter(aktuell)}</p>
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
           {/* KAN-181: am Handy als umbrechende Knopfzeile; ab sm wie bisher (Block, mt der Knöpfe gilt) */}
