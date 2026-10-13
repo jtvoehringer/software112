@@ -30,54 +30,13 @@ import { VERWALTUNG_ROLLEN } from '@/lib/auth/pflichtmeldung'
 import { MeldungsFehler } from './typen'
 import { folgetag, kuerzen, text, wienTagesbeginnUtc, type R, type Zeitraum } from './kellerbuch-hilfen'
 import { AktionsFehler } from '@/lib/fehler'
+import { TABELLE_LABEL } from '@/lib/journal/journal'
 
 /** Rollen, die das Protokoll lesen dürfen – Katalog-Zugriff 'verwaltung'; hier als zweite Linie geprüft */
 export const PROTOKOLL_ROLLEN = VERWALTUNG_ROLLEN
 
-export const TABELLE_LABEL: Record<string, string> = {
-  weinausbau: 'Charge',
-  keller_umzuege: 'Umzug / Filtration / Schwund',
-  verschneidungen: 'Verschneidung',
-  verschneidung_quellen: 'Verschneidung – Quelle',
-  keller_behandlungen: 'Kellerbehandlung',
-  fuellungen: 'Füllung',
-  fuellung_chargen: 'Füllung – Chargenanteil',
-  fuellung_bewegungen: 'Flaschenbewegung',
-  zukauf_posten: 'Zukauf',
-  pressungen: 'Pressung',
-  pressung_behaelter: 'Pressung – Gebinde',
-  pressung_weingaerten: 'Pressung – Weingarten',
-  ernte_parzellen: 'Lese (Parzelle)',
-  traubenverkauf: 'Traubenverkauf',
-  verkaufsposten: 'Verkauf',
-  verkauf_positionen: 'Verkaufsposition',
-  ama_erntemeldungen: 'AMA-Erntemeldung',
-  ama_meldepositionen: 'AMA-Meldeposition',
-  weinjahrgaenge: 'Jahrgang',
-  // KAN-149 D3 / KAN-150 F1a: E&A-Abschluss und Stammdaten (Löschen, Deaktivieren)
-  ea_transaktionen: 'E&A-Buchung',
-  zahlungen: 'Zahlung',
-  konto_umbuchungen: 'Umbuchung',
-  ea_uva: 'UVA',
-  ea_monatsabschluss: 'Monatsabschluss',
-  ea_belege: 'Beleg',
-  weingarten: 'Ried',
-  grundstuecke: 'Grundstück',
-  pflanzenschutzmittel: 'Pflanzenschutzmittel',
-  duengemittel: 'Düngemittel',
-  ea_kategorien: 'E&A-Kategorie',
-  ea_dauerauftraege: 'Dauerauftrag',
-  keller_behandlungstypen: 'Kellerbehandlungstyp',
-  // KAN-97: Prüfnummernantrag (Statuswechsel mit Grund)
-  dac_antrag: 'DAC-/Prüfnummernantrag',
-  pruefnummernantraege: 'Prüfnummernantrag (Formular)',
-  // KAN-88: Pflanzenschutz- und Düngeaufzeichnung, Mittel-Lager
-  behandlungen: 'Maßnahme',
-  behandlung_grundstuecke: 'Maßnahme – Grundstück',
-  psm_lager_bewegungen: 'PSM-Lagerbuchung',
-  duengemittel_lager_bewegungen: 'Dünger-Lagerbuchung',
-  betriebsmittel_lager_bewegungen: 'Betriebsmittel-Lagerbuchung',
-}
+// Bezeichnungen je Tabelle: gemeinsam mit dem Journal (KAN-332) in lib/journal/journal.ts
+export { TABELLE_LABEL }
 
 const AKTION_LABEL: Record<string, string> = { UPDATE: 'Änderung', DELETE: 'Löschung' }
 
@@ -213,6 +172,8 @@ export async function ladeAenderungsprotokoll(
   let q = (supabase.from('bestandsprotokoll') as any)
     .select('id, tabelle, datensatz_id, aktion, alt, neu, geaenderte_spalten, db_rolle, benutzer_id, grund, erstellt_am')
     .eq('tenant_id', tenantId)
+    // KAN-332: das Protokoll schreibt seit dem Journal auch Neuanlagen – dieses Protokoll bleibt bei Änderungen und Löschungen
+    .in('aktion', ['UPDATE', 'DELETE'])
   if (z.von) q = q.gte('erstellt_am', wienTagesbeginnUtc(z.von))
   if (z.bis) q = q.lt('erstellt_am', wienTagesbeginnUtc(folgetag(z.bis)))
   const [prot, mitglieder] = await Promise.all([

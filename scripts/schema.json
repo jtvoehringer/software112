@@ -213,7 +213,8 @@
 "db_rolle",
 "benutzer_id",
 "erstellt_am",
-"grund"
+"grund",
+"kennung"
 ],
 "bestellung_positionen": [
 "id",

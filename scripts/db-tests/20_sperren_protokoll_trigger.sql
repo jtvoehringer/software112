@@ -110,8 +110,10 @@ CREATE FUNCTION pg_temp.t20_muster(p_ist text, p_like text, p_kurz text) RETURNS
 $f$;
 
 -- Protokollzeilen zu einem Datensatz (als postgres).
+-- Änderungen und Löschungen eines Datensatzes im Protokoll (seit KAN-332 stehen auch Neuanlagen dort – die Anlage der
+-- Testdaten zählt hier nicht; Neuanlagen prüft Datei 81)
 CREATE FUNCTION pg_temp.t20_bp(p_tab text, p_id uuid) RETURNS bigint LANGUAGE sql STABLE AS $f$
-  SELECT count(*) FROM public.bestandsprotokoll b WHERE b.tabelle = p_tab AND b.datensatz_id = p_id
+  SELECT count(*) FROM public.bestandsprotokoll b WHERE b.tabelle = p_tab AND b.datensatz_id = p_id AND b.aktion <> 'INSERT'
 $f$;
 
 -- Überwachte Spalten eines z_protokoll_aendern-Triggers (Trigger-Argumente aus pg_trigger.tgargs).
@@ -843,7 +845,7 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('protokoll_kind_tenant:' || r.tab,
         v_n || '|' || coalesce((SELECT string_agg(coalesce(b.tenant_id::text, 'NULL') || '/' || b.aktion, ',')
                                   FROM public.bestandsprotokoll b
-                                 WHERE b.tabelle = r.tab
+                                 WHERE b.tabelle = r.tab AND b.aktion <> 'INSERT'   -- KAN-332: Anlage der Beispielzeile zählt nicht
                                    -- KAN-88: behandlung_grundstuecke hat keine id-Spalte – Zeile über den Inhalt
                                    AND CASE WHEN v_z ? 'id' THEN b.datensatz_id = (v_z ->> 'id')::uuid ELSE b.alt @> v_z END), '(keine Zeile)'),
         '1|' || v_b::text || '/DELETE');
@@ -879,7 +881,7 @@ BEGIN
   PERFORM set_config('s112.loeschen_erlaubt', '', true);
   v_erg := v_erg || pg_temp.s112_erwarte('bypass_postgres_betrieb_b_protokolliert',
     v_txt || '/' || pg_temp.t20_bp('keller_umzuege', v_ku_b1) || '/' || pg_temp.t20_bp('keller_umzuege', v_ku_b2)
-      || '/' || (SELECT count(*) FROM public.bestandsprotokoll WHERE datensatz_id IN (v_ku_b1, v_ku_b2) AND tenant_id = v_b),
+      || '/' || (SELECT count(*) FROM public.bestandsprotokoll WHERE datensatz_id IN (v_ku_b1, v_ku_b2) AND tenant_id = v_b AND aktion <> 'INSERT'),
     'ok/ok/1/1/2');
 
   -- authenticated: auf bestandsprotokoll nur SELECT, und nur SA/TA (m_w sieht nichts)

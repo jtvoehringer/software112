@@ -73,6 +73,7 @@ const NAV: NavGroup[] = [
       { href: '/dashboard/weingarten', label: 'Weingarten & Ernte',  keywords: 'rieden lese checkliste wartefristen' },
       { href: '/dashboard/fristen',    label: 'Meldungen & Fristen', keywords: 'termine meldung uva erntemeldung ampel' },
       { href: '/dashboard/morgenbericht', label: 'Morgenbericht',    keywords: 'wetter regen prognose spritzfenster scan befunde empfehlungen rieden' },
+      { href: '/dashboard/journal',    label: 'Journal',             keywords: 'protokoll verlauf meine buchungen transaktionen vorgänge wer hat was geändert angelegt storniert gelöscht' },   // KAN-332
     ],
   },
   {
