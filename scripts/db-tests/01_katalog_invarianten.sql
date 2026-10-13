@@ -185,48 +185,49 @@ DECLARE
                             'tenants={bio_status,updated_at}/23/schutz_plattformfelder/O';
   -- z_protokoll_aendern: überwachte Spalten je Tabelle (Trigger-Argumente = UPDATE OF …, alphabetisch, Stand
   -- 28.09.2026). Kommt eine Spalte per Migration dazu, hier nachziehen – fehlt eine, feuert das Protokoll nicht mehr.
+  -- KAN-332 (13.10.2026): + name, bezeichnung, beschreibung, notizen, soweit vorhanden (Journal zeigt jede Bearbeitung).
   c_protokoll_aendern constant text[] := ARRAY[
-    'ama_erntemeldungen=ama_referenznr,bestaetigt_am,eingereicht_am,gesamtmenge_hl,gesamtmenge_kg,jahrgang_id,status,tenant_id,version',   -- KAN-148 C2
+    'ama_erntemeldungen=ama_referenznr,bestaetigt_am,eingereicht_am,gesamtmenge_hl,gesamtmenge_kg,jahrgang_id,notizen,status,tenant_id,version',   -- KAN-148 C2
     'ama_meldepositionen=meldung_id,menge_hl,menge_kg',
     'behandlung_grundstuecke=behandlung_id,flaeche_ha,grundstueck_id',   -- KAN-88
-    'behandlungen=anwender_name,art,art_verwendung,aufwandmenge,aufwandmenge_einheit,betriebsmittel_id,datum,datum_bis,duengemittel_id,durchgefuehrt_von,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,storniert_am,storno_grund,tenant_id,uhrzeit_bis,uhrzeit_von,wasseraufwand_l_ha,weingarten_id',   -- KAN-167: + betriebsmittel_id; KAN-88: + Storno, Uhrzeiten, Anwender, Art der Verwendung
-    'ea_transaktionen=betrag_netto,datum,is_locked,kategorie_id,storniert_am,storno_grund,tenant_id,typ,ust_satz',   -- KAN-149 D2
+    'behandlungen=anwender_name,art,art_verwendung,aufwandmenge,aufwandmenge_einheit,betriebsmittel_id,datum,datum_bis,duengemittel_id,durchgefuehrt_von,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,notizen,psm_id,storniert_am,storno_grund,tenant_id,uhrzeit_bis,uhrzeit_von,wasseraufwand_l_ha,weingarten_id',   -- KAN-167: + betriebsmittel_id; KAN-88: + Storno, Uhrzeiten, Anwender, Art der Verwendung
+    'ea_transaktionen=beschreibung,betrag_netto,datum,is_locked,kategorie_id,notizen,storniert_am,storno_grund,tenant_id,typ,ust_satz',   -- KAN-149 D2
     'ea_belege=dateiname,ea_transaktion_id,status,storage_pfad,tenant_id',   -- KAN-149 D3
     'ea_monatsabschluss=jahr,monat,tenant_id',   -- KAN-149 D3
-    'ea_uva=gesperrt,gesperrt_am,jahr,tenant_id,ust_gesamt,vst_gesamt,zahllast,zeitraum',   -- KAN-149 D3
-    'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,storniert_am,storno_grund,tenant_id,typ',   -- KAN-88: + Storno
-    'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,weingarten_id',
-    'fuellung_chargen=anteil_liter,fuellung_id,tenant_id,weinausbau_id',
-    'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,dac_antrag_id,datum,erzeugnis,flaschengroesse_ml,herkunft_code,jahrgang,land_iso,menge_liter_gefuellt,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinart,weinausbau_id,zusatzbezeichnung',   -- KAN-150 F1a: + dac_antrag_id; KAN-186: + erzeugnis, land_iso, weinart, zusatzbezeichnung
-    'psm_lager_bewegungen=datum,einheit,menge,psm_id,storniert_am,storno_grund,tenant_id,typ',   -- KAN-88: + Storno
-    'keller_behandlungen=behaelter_id,datum,einheit,menge,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',
-    'lesen=art,beginn,ende,jahrgang_id,lfd_nr,tenant_id',
-    'keller_umzuege=brutto_liter,datum,menge_liter,nach_behaelter_id,nach_weinausbau_id,schwund_liter,storniert_am,storno_grund,tenant_id,umzug_batch_id,umzug_typ,von_behaelter_id,von_weinausbau_id,zeilen_typ',
-    'pressung_behaelter=behaelter_id,menge_liter,pressung_id,storniert_am,storno_grund,weinausbau_id',
-    'pressung_weingaerten=ernte_datum,grundstueck_id,kmw,mostgewicht_einheit,oechsle,pressung_id,storniert_am,storno_grund,trauben_kg,weingarten_id,zukauf_posten_id',
-    'pressungen=datum,jahrgang_id,kmw_grad,lese_id,most_liter_gesamt,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id',
-    'traubenverkauf=datum,firma_id,grundstueck_id,jahrgang_id,kmw_grad,kontakt_id,lese_id,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,verkaufsposten_id,weingarten_id,zukauf_posten_id',   -- KAN-150 F1a: + kontakt_id, firma_id
-    'verkauf_positionen=einheit,fuellung_id,menge,pressung_behaelter_id,tenant_id,traubenverkauf_id,typ,verkaufsposten_id,weinausbau_id,zukauf_id',
-    'verkaufsposten=aktiv,datum,firma_id,kontakt_id,storniert,storniert_am,storniert_von,storno_grund,tenant_id,zh_kontakt_id',   -- KAN-149 D1; KAN-150 F1a: + kontakt_id, firma_id, zh_kontakt_id
-    'konto_umbuchungen=betrag,datum,nach_konto_id,storniert_am,storno_grund,tenant_id,von_konto_id',   -- KAN-149 D2
-    'zahlungen=betrag,datum,konto_id,storniert_am,storno_grund,tenant_id,verkaufsposten_id',   -- KAN-149 D2
-    'rechnungen=aktiv,datum,firma_id,kontakt_id,rechnungsnummer,storniert,storniert_am,storniert_von,storno_grund,tenant_id,zh_kontakt_id',   -- KAN-102
+    'ea_uva=gesperrt,gesperrt_am,jahr,notizen,tenant_id,ust_gesamt,vst_gesamt,zahllast,zeitraum',   -- KAN-149 D3
+    'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,notizen,storniert_am,storno_grund,tenant_id,typ',   -- KAN-88: + Storno
+    'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,notizen,oechsle,storniert_am,storno_grund,weingarten_id',
+    'fuellung_chargen=anteil_liter,fuellung_id,notizen,tenant_id,weinausbau_id',
+    'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,bezeichnung,dac_antrag_id,datum,erzeugnis,flaschengroesse_ml,herkunft_code,jahrgang,land_iso,menge_liter_gefuellt,name,notizen,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinart,weinausbau_id,zusatzbezeichnung',   -- KAN-150 F1a: + dac_antrag_id; KAN-186: + erzeugnis, land_iso, weinart, zusatzbezeichnung
+    'psm_lager_bewegungen=datum,einheit,menge,notizen,psm_id,storniert_am,storno_grund,tenant_id,typ',   -- KAN-88: + Storno
+    'keller_behandlungen=behaelter_id,datum,einheit,menge,notizen,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',
+    'lesen=art,beginn,bezeichnung,ende,jahrgang_id,lfd_nr,notizen,tenant_id',
+    'keller_umzuege=brutto_liter,datum,menge_liter,nach_behaelter_id,nach_weinausbau_id,notizen,schwund_liter,storniert_am,storno_grund,tenant_id,umzug_batch_id,umzug_typ,von_behaelter_id,von_weinausbau_id,zeilen_typ',
+    'pressung_behaelter=behaelter_id,menge_liter,notizen,pressung_id,storniert_am,storno_grund,weinausbau_id',
+    'pressung_weingaerten=ernte_datum,grundstueck_id,kmw,mostgewicht_einheit,notizen,oechsle,pressung_id,storniert_am,storno_grund,trauben_kg,weingarten_id,zukauf_posten_id',
+    'pressungen=datum,jahrgang_id,kmw_grad,lese_id,most_liter_gesamt,mostgewicht_einheit,notizen,oechsle,storniert_am,storno_grund,tenant_id',
+    'traubenverkauf=datum,firma_id,grundstueck_id,jahrgang_id,kmw_grad,kontakt_id,lese_id,menge_kg,mostgewicht_einheit,notizen,oechsle,storniert_am,storno_grund,tenant_id,verkaufsposten_id,weingarten_id,zukauf_posten_id',   -- KAN-150 F1a: + kontakt_id, firma_id
+    'verkauf_positionen=einheit,fuellung_id,menge,name,pressung_behaelter_id,tenant_id,traubenverkauf_id,typ,verkaufsposten_id,weinausbau_id,zukauf_id',
+    'verkaufsposten=aktiv,datum,firma_id,kontakt_id,notizen,storniert,storniert_am,storniert_von,storno_grund,tenant_id,zh_kontakt_id',   -- KAN-149 D1; KAN-150 F1a: + kontakt_id, firma_id, zh_kontakt_id
+    'konto_umbuchungen=beschreibung,betrag,datum,nach_konto_id,storniert_am,storno_grund,tenant_id,von_konto_id',   -- KAN-149 D2
+    'zahlungen=betrag,datum,konto_id,notizen,storniert_am,storno_grund,tenant_id,verkaufsposten_id',   -- KAN-149 D2
+    'rechnungen=aktiv,datum,firma_id,kontakt_id,notizen,rechnungsnummer,storniert,storniert_am,storniert_von,storno_grund,tenant_id,zh_kontakt_id',   -- KAN-102
     'verschneidung_quellen=menge_liter,quell_weinausbau_id,verschneidung_id',
-    'verschneidungen=datum,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id',
-    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,erzeugnis,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,land_iso,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart,weingarten_id,zusatzbezeichnung',   -- KAN-150 F1a: + weingarten_id; KAN-186: + erzeugnis, land_iso, zusatzbezeichnung
-    'zukauf_posten=aktiv,art,datum,einheit,erzeugnis,kmw,land_iso,lieferant_firma_id,lieferant_kontakt_id,menge,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tbs_jahr_lieferant,tbs_nummer_lieferant,tenant_id,zh_kontakt_id,ziel_weinausbau_id,zusatzbezeichnung',   -- KAN-90: + tbs_jahr_lieferant, tbs_nummer_lieferant;   -- KAN-186: + erzeugnis, land_iso, zusatzbezeichnung;   -- KAN-150 F1a: + lieferant_kontakt_id, lieferant_firma_id, zh_kontakt_id
+    'verschneidungen=datum,notizen,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id',
+    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,erzeugnis,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,land_iso,menge_liter,mostgewicht_einheit,name,notizen,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart,weingarten_id,zusatzbezeichnung',   -- KAN-150 F1a: + weingarten_id; KAN-186: + erzeugnis, land_iso, zusatzbezeichnung
+    'zukauf_posten=aktiv,art,datum,einheit,erzeugnis,kmw,land_iso,lieferant_firma_id,lieferant_kontakt_id,menge,mostgewicht_einheit,notizen,oechsle,storniert_am,storno_grund,tbs_jahr_lieferant,tbs_nummer_lieferant,tenant_id,zh_kontakt_id,ziel_weinausbau_id,zusatzbezeichnung',   -- KAN-90: + tbs_jahr_lieferant, tbs_nummer_lieferant;   -- KAN-186: + erzeugnis, land_iso, zusatzbezeichnung;   -- KAN-150 F1a: + lieferant_kontakt_id, lieferant_firma_id, zh_kontakt_id
     -- KAN-150 F1a: Stammdaten – Deaktivieren (aktiv) und Umhängen protokolliert
-    'weingarten=aktiv,tenant_id', 'grundstuecke=aktiv,deaktiviert_am,tenant_id,weingarten_id', 'pflanzenschutzmittel=aktiv,tenant_id',
-    'duengemittel=aktiv,tenant_id', 'ea_kategorien=aktiv,tenant_id', 'ea_dauerauftraege=aktiv,tenant_id',
+    'weingarten=aktiv,name,notizen,tenant_id', 'grundstuecke=aktiv,deaktiviert_am,notizen,tenant_id,weingarten_id', 'pflanzenschutzmittel=aktiv,name,notizen,tenant_id',
+    'duengemittel=aktiv,name,notizen,tenant_id', 'ea_kategorien=aktiv,name,tenant_id', 'ea_dauerauftraege=aktiv,beschreibung,notizen,tenant_id',
     -- KAN-150 F2a: Anträge und Aufzeichnungen (Status, Prüfnummer, Mengen, Messwerte, formular_daten, EMCS, Storno)
-    'dac_antrag=aktiv,alkohol_prozent,bescheid_am,dac_region,eingereicht_am,jahrgang,menge_liter,pruefnummer,rebsorte,status,storniert_am,storno_grund,tenant_id,weinausbau_id',
-    'weinanalysen=alkohol_vol,analyse_datum,apfelsaeure_gl,dichte,extrakt_gl,flüchtige_saeure_gl,freie_so2_mgl,gesamt_so2_mgl,gesamtalkohol_vol,gesamtsaeure_gl,labor,milchsaeure_gl,ph_wert,probe_nr,restzucker_gl,storniert_am,storno_grund,tenant_id,weinausbau_id,weinsaeure_gl',
+    'dac_antrag=aktiv,alkohol_prozent,bescheid_am,bezeichnung,dac_region,eingereicht_am,jahrgang,menge_liter,notizen,pruefnummer,rebsorte,status,storniert_am,storno_grund,tenant_id,weinausbau_id',
+    'weinanalysen=alkohol_vol,analyse_datum,apfelsaeure_gl,dichte,extrakt_gl,flüchtige_saeure_gl,freie_so2_mgl,gesamt_so2_mgl,gesamtalkohol_vol,gesamtsaeure_gl,labor,milchsaeure_gl,notizen,ph_wert,probe_nr,restzucker_gl,storniert_am,storno_grund,tenant_id,weinausbau_id,weinsaeure_gl',
     'pruefnummernantraege=dac_antrag_id,formular_daten,storniert_am,storno_grund,tenant_id',
     'transportbescheinigungen=formular_daten,storniert_am,storno_grund,tenant_id,verkaufsposten_id',
-    'exportauftraege=aktiv,datum,destination_land,emcs_arc_nummer,emcs_datum,emcs_status,firma_id,kontakt_id,lieferdatum,status,storniert_am,storno_grund,tenant_id',
+    'exportauftraege=aktiv,datum,destination_land,emcs_arc_nummer,emcs_datum,emcs_status,firma_id,kontakt_id,lieferdatum,notizen,status,storniert_am,storno_grund,tenant_id',
     -- KAN-167: Betriebsmittel (Stammdaten: aktiv; Lagerbuchungen: Mengen, Einkaufsdaten, Storno)
-    'betriebsmittel=aktiv,tenant_id',
-    'betriebsmittel_lager_bewegungen=betrag_netto,betriebsmittel_id,datum,einheit,lieferant_firma_id,menge,storniert_am,storno_grund,tenant_id,typ,ust_satz'];
+    'betriebsmittel=aktiv,name,notizen,tenant_id',
+    'betriebsmittel_lager_bewegungen=betrag_netto,betriebsmittel_id,datum,einheit,lieferant_firma_id,menge,notizen,storniert_am,storno_grund,tenant_id,typ,ust_satz'];
   -- echte Prüfaufrufe (auf Quelltext ohne Kommentare)
   c_re_ptz constant text := 'PERFORM\s+(public\.)?pruefe_tenant_zugriff\s*\(\s*p_tenant_id\M';
   c_re_abo constant text := 'PERFORM\s+(public\.)?s112_pruefe_abo_schreibsperre\s*\(';

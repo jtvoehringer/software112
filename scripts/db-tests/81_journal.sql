@@ -2,9 +2,10 @@
 -- @ziel: Eine Neuanlage auf einer Kopf-Tabelle schreibt eine Protokollzeile INSERT mit Benutzer und Kennung (Name …), ohne
 -- @ziel: ganze Zeile (alt/neu leer); Änderungen tragen die Kennung des neuen Stands. Ein Mitarbeiter (winzer) liest nur
 -- @ziel: seine eigenen Zeilen im eigenen Betrieb, die Betriebsleitung alle, Leser und fremde Betriebe keine. Kindtabellen
--- @ziel: (Positionen, Anteile …) haben keinen Anlage-Trigger.
+-- @ziel: (Positionen, Anteile …) haben keinen Anlage-Trigger. Umbenennen und Notizen (Nachtrag 13.10.2026) sind Änderungen.
 -- @mutation ohne_anlegen: Trigger z_protokoll_anlegen auf pflanzenschutzmittel entfernt | rot: anlegen_.*
 -- @mutation ohne_eigene: Policy bestandsprotokoll_eigene entfernt | rot: winzer_sieht_eigene
+-- @mutation ohne_name: z_protokoll_aendern auf weinausbau ohne name und notizen (Stand vor KAN-332 Nachtrag) | rot: umbenennen_protokolliert
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 81 (Stand 13.10.2026, KAN-332).
 -- Personas aus s112_aufbau (Betrieb B mit b_w, b_ta, b_l; Musterhof-Winzer m_w) – alles zurückgerollt.
@@ -38,6 +39,9 @@ BEGIN
   -- ── Mutationen ───────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_mutiere('ohne_anlegen', 'DROP TRIGGER z_protokoll_anlegen ON public.pflanzenschutzmittel');
   PERFORM pg_temp.s112_mutiere('ohne_eigene', 'DROP POLICY bestandsprotokoll_eigene ON public.bestandsprotokoll');
+  PERFORM pg_temp.s112_mutiere('ohne_name', $m$DROP TRIGGER z_protokoll_aendern ON public.weinausbau;
+     CREATE TRIGGER z_protokoll_aendern AFTER UPDATE OF menge_liter, status ON public.weinausbau
+       FOR EACH ROW EXECUTE FUNCTION public.bestandsprotokoll_schreiben('menge_liter', 'status')$m$);
 
   -- ── 1. Neuanlage als Mitarbeiter (winzer) ─────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
@@ -61,6 +65,19 @@ BEGIN
     (SELECT count(*)::text || '/' || coalesce(min(b.kennung ->> 'name'), '-')
        FROM public.bestandsprotokoll b WHERE b.tabelle = 'pflanzenschutzmittel' AND b.datensatz_id = v_id AND b.aktion = 'UPDATE'),
     '1/S112TEST Journal Mittel');
+
+  -- ── 2b. Abnahme 13.10.2026: Umbenennen und Notiz einer Charge erscheinen als Änderung ─────────────────
+  v_txt := pg_temp.s112_beispiel('weinausbau', v_b, v_bw, '{"name": "S112TEST Journal Charge"}') ->> 'id';
+  PERFORM pg_temp.s112_als(v_bw);
+  v_erg := v_erg || pg_temp.s112_erwarte('umbenennen_winzer',
+    pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET name = %L, notizen = %L WHERE id = %L',
+      'S112TEST Journal Charge neu', 'S112TEST Notiz', v_txt)), 'ok');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('umbenennen_protokolliert',
+    (SELECT count(*)::text || '/' || coalesce(min(array_to_string(b.geaenderte_spalten, ',')), '-') || '/' || coalesce(min(b.neu ->> 'name'), '-')
+            || '/' || coalesce(min(b.alt ->> 'name'), '-') || '/' || coalesce(min(b.kennung ->> 'name'), '-') || '/' || (min(b.benutzer_id::text) = v_bw::text)::text
+       FROM public.bestandsprotokoll b WHERE b.tabelle = 'weinausbau' AND b.datensatz_id = v_txt::uuid AND b.aktion = 'UPDATE'),
+    '1/name,notizen/S112TEST Journal Charge neu/S112TEST Journal Charge/S112TEST Journal Charge neu/true');
 
   -- ── 3. Neuanlage der Betriebsleitung ──────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bta);
@@ -104,5 +121,5 @@ BEGIN
     (SELECT p.roles::text FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = 'bestandsprotokoll' AND p.policyname = 'bestandsprotokoll_eigene'),
     '{authenticated}');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 12);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 14);
 END $test$;
