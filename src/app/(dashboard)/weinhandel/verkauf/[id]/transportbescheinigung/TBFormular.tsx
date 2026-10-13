@@ -6,6 +6,7 @@ import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { saveTB, tbAusstellen } from './actions'
 import { useRouter } from 'next/navigation'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
 import { fehlerText } from '@/lib/fehler'
 import { TB_FREEZE_GRUND } from '@/lib/behoerden/tbPflicht'
@@ -176,6 +177,7 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
           </button>
           </>)}
           {gespeichert && <span className="text-xs text-s112-ok-fg self-center">Gespeichert</span>}
+          <AbbrechenKnopf standard={`/weinhandel/verkauf/${verkaufspostenId}`} className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-s112-bg">Zurück</AbbrechenKnopf>{/* KAN-333 */}
           <button
             onClick={() => window.print()}
             className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-s112-bg"

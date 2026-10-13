@@ -1,6 +1,6 @@
 'use client'
 
-import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
+import { hierBleiben, zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
@@ -39,7 +39,9 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
     const fd = new FormData(e.currentTarget)
     try {
       await action(fd)
-      router.push(zielNachVorgang('/weingarten', 'gespeichert'))   // KAN-224: zurück, woher man kam
+      // KAN-334: Bearbeiten auf der Detailseite bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
+      if (weingarten) { router.replace(hierBleiben()); setSaving(false) }
+      else router.push(zielNachVorgang('/weingarten', 'gespeichert'))
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Unbekannter Fehler'))

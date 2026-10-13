@@ -21,8 +21,10 @@ test('Ausgangswerte der bereinigten Regeln stehen auf 0', () => {
 })
 
 test('Abbrechen navigiert ohne Neuladen; Konstante auf Modulebene', () => {
-  assert.match(quelle('src/app/(dashboard)/erntemeldung/neu/NeueLeseForm.tsx'), /<Link href="\/erntemeldung"/)
-  assert.match(quelle('src/app/(dashboard)/lagen/[id]/page.tsx'), /<Link href="\/lagen"/)
+  // KAN-333: AbbrechenKnopf (router.push, ohne Neuladen) führt dorthin, woher man kam – Standard ist die Liste
+  assert.match(quelle('src/app/(dashboard)/erntemeldung/neu/NeueLeseForm.tsx'), /<AbbrechenKnopf standard="\/erntemeldung"/)
+  assert.match(quelle('src/app/(dashboard)/lagen/[id]/page.tsx'), /<AbbrechenKnopf standard="\/lagen"/)
+  assert.match(quelle('src/components/navigation/Abbrechen.tsx'), /router\.push\(zurueckZiel\(standard\)\)/)
   assert.match(quelle('src/components/SessionTimeout.tsx'), /^const WARN_BEFORE = /m)
 })
 

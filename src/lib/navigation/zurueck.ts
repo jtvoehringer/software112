@@ -105,6 +105,40 @@ export function vorherigeSeite(verlauf: readonly string[], aktuell: string): str
   return null
 }
 
+// ── Ziel nach dem Speichern: nur im selben Bereich (KAN-334, 13.10.2026) ──────────────────────────────────────
+// Rückmeldung Jörgen 13.10.2026: nach „Speichern“ im gleichen Bereich bleiben, nicht willkürlich abspringen. Die
+// vorherige Seite im Verlauf war oft das Dashboard, der Kellerplan oder die Seite, auf der Strg K geöffnet wurde.
+// Regel: Die vorherige Seite ist nur Ziel, wenn sie im selben Bereich (Hauptreiter der Navigation) liegt wie das
+// Formular; sonst die Liste des Bereichs (`standard`). Ein ausdrücklicher zurueck-Parameter (mitZurueck an einem
+// bewusst bereichsübergreifenden Einstieg, z. B. Charge → Füllung) gilt immer.
+
+/** Bereich der Navigation (Hauptreiter) mit den Pfaden seiner Seiten */
+export type Bereich = { key: string; hrefs: readonly string[] }
+
+/** Bereich eines Pfads: der Bereich mit dem längsten passenden Navigationspfad (gleich lang: der erste); sonst null */
+export function bereichVon(bereiche: readonly Bereich[], pfad: string): string | null {
+  const p = nurPfad(pfad).replace(/\/+$/, '') || '/'
+  let best: { key: string; len: number } | null = null
+  for (const b of bereiche) {
+    for (const roh of b.hrefs) {
+      const h = nurPfad(roh).replace(/\/+$/, '') || '/'
+      if (h === '/') continue
+      if ((p === h || p.startsWith(`${h}/`)) && (!best || h.length > best.len)) best = { key: b.key, len: h.length }
+    }
+  }
+  return best?.key ?? null
+}
+
+/**
+ * Ziel nach dem Speichern: `herkunft` (vorherige Seite), wenn sie im selben Bereich liegt wie das Formular
+ * (`aktuell`, ersatzweise `standard`), sonst `standard`.
+ */
+export function zielImBereich(bereiche: readonly Bereich[], herkunft: string | null, aktuell: string, standard: string): string {
+  if (!herkunft) return standard
+  const formular = bereichVon(bereiche, aktuell) ?? bereichVon(bereiche, standard)
+  return formular !== null && bereichVon(bereiche, herkunft) === formular ? herkunft : standard
+}
+
 /**
  * Übergeordnete Seite laut Navigation: der längste Navigationspunkt, unter dem der Pfad liegt; null, wenn der Pfad
  * selbst ein Navigationspunkt ist (Hauptseite – dort kein „Zurück“).

@@ -6,6 +6,7 @@ import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
+import { mitZurueck } from '@/lib/navigation/zurueck'
 import { Pencil } from 'lucide-react'
 import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import { GEBINDE_MATERIALIEN } from '@/lib/keller/gebindeMaterial'
@@ -522,7 +523,7 @@ export default async function GebindePage({
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         {parseFloat(e.menge_liter) > 0.01 && (
-                          <Link href={`/weinhandel/fuellungen/neu?charge=${e.id}`}
+                          <Link href={mitZurueck(`/weinhandel/fuellungen/neu?charge=${e.id}`, `/kellerbuch/gebinde?tab=${tab}`)}   // KAN-334: zurück ins Kellerbuch
                             className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors whitespace-nowrap mr-2">
                             Abfüllen
                           </Link>

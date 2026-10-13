@@ -8,6 +8,8 @@ import { fmtNum } from '@/lib/format'
 import { versandFehler } from '@/lib/kellerbuch/lohnversektung'
 import { lohnversektungVersenden } from '../actions'
 import { fehlerText } from '@/lib/fehler'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 
 type Charge = { id: string; name: string; liter: number; gebinde: string | null }
 type Firma = { id: string; name: string }
@@ -30,7 +32,7 @@ export default function VersandForm({ chargen, firmen, heute, vorauswahl }: { ch
     starten(async () => {
       try {
         await lohnversektungVersenden({ weinausbauId, firmaId, datum, notizen })
-        router.push('/kellerbuch/lohnversektung')
+        router.push(zielNachVorgang('/kellerbuch/lohnversektung', 'gespeichert'))   // KAN-334: zurück im selben Bereich (z. B. Charge)
       } catch (err) {
         setFehler(fehlerText(err))
       }
@@ -64,7 +66,10 @@ export default function VersandForm({ chargen, firmen, heute, vorauswahl }: { ch
         <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={2} className={feld} />
       </label>
       {fehler && <p className="text-sm text-s112-err-fg" role="alert">{fehler}</p>}
-      <button type="submit" disabled={laeuft} className="btn-primary disabled:opacity-50">{laeuft ? 'Wird gebucht …' : 'Versand buchen'}</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={laeuft} className="btn-primary disabled:opacity-50">{laeuft ? 'Wird gebucht …' : 'Versand buchen'}</button>
+        <AbbrechenKnopf standard="/kellerbuch/lohnversektung" />{/* KAN-333 */}
+      </div>
     </form>
   )
 }

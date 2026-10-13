@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 import Link from '@/components/ui/Link'
 import { createAnalyse } from '@/app/(dashboard)/kellerbuch/actions'
 import { fehlerText } from '@/lib/fehler'
@@ -60,7 +62,7 @@ export default function AnalyseNeuPage({ params }: Props) {
 
     try {
       await createAnalyse(fd)
-      router.push(`/kellerbuch/weinausbau/${weinausbauId}/analysen`)
+      router.push(zielNachVorgang(`/kellerbuch/weinausbau/${weinausbauId}/analysen`, 'gespeichert'))   // KAN-334: zurück im selben Bereich (Charge, DAC, Behälter)
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Unbekannter Fehler'))
@@ -170,12 +172,7 @@ export default function AnalyseNeuPage({ params }: Props) {
           >
             {saving ? 'Wird gespeichert …' : 'Analyse speichern'}
           </button>
-          <Link
-            href={`/kellerbuch/weinausbau/${weinausbauId}/analysen`}
-            className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors"
-          >
-            Abbrechen
-          </Link>
+          <AbbrechenKnopf standard={`/kellerbuch/weinausbau/${weinausbauId}/analysen`} />{/* KAN-333 */}
         </div>
       </form>
     </div>

@@ -13,6 +13,7 @@ import type { MemberWithEmail } from '../../benutzer/actions'
 import { PAKETE, preisText, istPaketKey } from '@/lib/pakete'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 import KontrastHinweis from '@/components/ui/KontrastHinweis'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 
 const BIO_STATUS_OPTS = [
   { value: 'konventionell', label: 'Konventionell' },
@@ -52,6 +53,7 @@ export default function EinstellungenClient({
   return (
     <div>
       <div className="mb-6">
+        <AbbrechenKnopf standard="/dashboard" className="mb-2 inline-flex items-center gap-1.5 text-sm text-s112-text-2 hover:text-s112-blue-700 transition-colors">← Zurück</AbbrechenKnopf>{/* KAN-333 */}
         <h1 className="text-2xl font-semibold text-s112-text">{daten.tenantName}</h1>
         <p className="text-sm text-s112-muted mt-0.5">
           {/* Kundennummer (Migration 209) - bitte bei Support-Anfragen angeben */}

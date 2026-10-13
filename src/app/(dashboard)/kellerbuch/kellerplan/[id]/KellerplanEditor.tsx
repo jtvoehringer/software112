@@ -2,6 +2,7 @@
 
 import { useState, useRef, useTransition, useCallback } from 'react'
 import Link from '@/components/ui/Link'
+import { mitZurueck } from '@/lib/navigation/zurueck'
 import { ArrowDownWideNarrow, ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -712,7 +713,7 @@ export default function KellerplanEditor({
               )}
               {dialogWein && dialogWein.weinausbauId ? (
                 <Link
-                  href={`/weinhandel/fuellungen/neu?charge=${dialogWein.weinausbauId}`}
+                  href={mitZurueck(`/weinhandel/fuellungen/neu?charge=${dialogWein.weinausbauId}`, `/kellerbuch/kellerplan/${plan.id}`)}   // KAN-334: zurück zum Kellerplan
                   onClick={() => setDialogBehaelterId(null)}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-s112-text-1"
                 >

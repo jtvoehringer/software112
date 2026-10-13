@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
+import { hierBleiben, zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { fehlerText } from '@/lib/fehler'
 
 type BehaelterRow = {
@@ -31,7 +31,9 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
     setSaving(true)
     try {
       await action(new FormData(e.currentTarget))
-      router.push(zielNachVorgang('/kellerbuch', 'gespeichert'))   // KAN-224: zurück, woher man kam
+      // KAN-334: Bearbeiten auf der Detailseite bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
+      if (behaelter) { router.replace(hierBleiben()); setSaving(false) }
+      else router.push(zielNachVorgang('/kellerbuch', 'gespeichert'))
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Fehler beim Speichern'))

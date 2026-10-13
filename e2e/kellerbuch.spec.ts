@@ -170,3 +170,22 @@ test.describe('Kellerbuch (schreibend)', () => {
     await expect.poll(literDerCharge, { message: 'Charge nach dem Storno', timeout: 30_000 }).toBeCloseTo(vorher, 2)
   })
 })
+
+// KAN-334 (13.10.2026): Bearbeiten auf der Detailseite bleibt dort. Vorher sprang „Speichern“ zur vorherigen Seite im Tab
+// (hier: Dashboard). Gespeichert wird unverändert – die Charge bleibt wie sie ist.
+test('Charge über das Dashboard öffnen und speichern: bleibt auf der Charge mit Bestätigung', async ({ page, rolle }) => {
+  schreibend()
+  test.skip(rolle !== 'tenant_admin', 'als Betriebs-Manager')
+  page.on('dialog', d => d.accept())
+  await formularOeffnen(page)
+  const charge = (await optionen(auswahl(page, QUELLE_LEER))).find(o => o.wert)?.wert
+  test.skip(!charge, 'keine Charge mit Bestand auf Staging')
+  await page.goto('/dashboard')
+  await page.waitForLoadState('networkidle')
+  await page.goto(`/kellerbuch/weinausbau/${charge}`)
+  await page.waitForLoadState('networkidle')
+  const formular = page.locator('form', { has: page.locator('textarea[name="notizen"]') })
+  await formular.getByRole('button', { name: 'Speichern', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Gespeichert.' })).toBeVisible({ timeout: 20_000 })
+  await expect(page).toHaveURL(url => url.pathname === `/kellerbuch/weinausbau/${charge}`)
+})
