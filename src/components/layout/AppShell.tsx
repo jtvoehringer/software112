@@ -65,14 +65,17 @@ export default function AppShell({
   const buildSha = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-s112-bg">
+    // KAN-335/336 (13.10.2026): overflow-clip statt overflow-hidden – ein overflow-hidden-Rahmen ist per Programm scrollbar.
+    // Nach „Speichern“ (router.replace) scrollte Next.js mit scrollIntoView auch diesen Rahmen: Kopfleiste und Reiter
+    // rutschten aus dem Bild, unten blieb ein leerer Streifen. Gescrollt wird nur in <main>.
+    <div className="h-screen flex flex-col overflow-clip bg-s112-bg">
       <Topbar userEmail={userEmail} userName={userName} roleLabel={roleLabel} branding={branding} betriebCount={betriebCount} />
       <CommandPalette groups={groups} darfSchreiben={darfSchreiben} branding={branding} betriebCount={betriebCount} />
       <TabNav groups={groups} />
       {/* KAN-181: unter 768 px Bereiche über das Menü (Knopf links in der Kopfleiste) */}
       <MobileNav groups={groups} />
 
-      <div className="flex-1 min-h-0 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-clip">
         {/* Inhaltsbreite: 1280 px, auf großen Bildschirmen (≥ 1536 px, Tailwind 2xl)
             1600 px (Vergleich mit voller Breite am 18.9.2026: "erschlägt einen"): auf 19–21"-Monitoren bei 100 % blieb
             links und rechts ein Drittel leer. Kopfzeile und Navigation ziehen mit. */}
