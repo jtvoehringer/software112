@@ -83,14 +83,15 @@ describe('KAN-334: Ziel nach dem Speichern nur im selben Bereich', nurMitHooks, 
 
 describe('KAN-334: Bearbeiten auf Detailseiten bleibt auf der Seite', () => {
   test('Charge, Ried, Behälter, DAC, Anlage, Umziehen-Widget, Mandant', () => {
-    assert.match(quelle('src/components/kellerbuch/WeinausbauForm.tsx'), /router\.replace\(hierBleiben\(\)\)/)
+    // KAN-335/336: ohne Next.js-Scroll (scrollIntoView verschob Rahmen bzw. Dokument)
+    assert.match(quelle('src/components/kellerbuch/WeinausbauForm.tsx'), /router\.replace\(hierBleiben\(\), \{ scroll: false \}\)/)
     assert.doesNotMatch(quelle('src/components/kellerbuch/WeinausbauForm.tsx'), /zielNachVorgang\(/)
     for (const [datei, bedingung] of [
       ['src/components/weingarten/WeingartenForm.tsx', 'weingarten'],
       ['src/components/kellerbuch/BehaelterForm.tsx', 'behaelter'],
       ['src/components/dac/DacForm.tsx', 'dac'],
-    ]) assert.match(quelle(datei), new RegExp(`if \\(${bedingung}\\) \\{ router\\.replace\\(hierBleiben\\(\\)\\); setSaving\\(false\\) \\}`), datei)
-    assert.match(quelle(`${D}/buchhaltung/anlagen/AnlageForm.tsx`), /if \(form\.id\) router\.replace\(hierBleiben\(\)\)/)
+    ]) assert.match(quelle(datei), new RegExp(`if \\(${bedingung}\\) \\{ router\\.replace\\(hierBleiben\\(\\), \\{ scroll: false \\}\\); setSaving\\(false\\) \\}`), datei)
+    assert.match(quelle(`${D}/buchhaltung/anlagen/AnlageForm.tsx`), /if \(form\.id\) router\.replace\(hierBleiben\(\), \{ scroll: false \}\)/)
     const u = quelle('src/components/kellerbuch/UmziehenWidget.tsx')
     assert.doesNotMatch(u, /zielNachVorgang/)
     assert.match(u, /setErfolg\(gebucht\)\n\s+router\.refresh\(\)/)

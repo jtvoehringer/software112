@@ -87,8 +87,8 @@ describe('KAN-224: Verdrahtung', () => {
   })
   test('Formulare führen nach Speichern/Abbrechen zurück statt fest verdrahtet', () => {
     const client = {
-      // KAN-334: Bearbeiten der Charge bleibt auf der Charge (router.replace(hierBleiben()))
-      'src/components/kellerbuch/WeinausbauForm.tsx': `router.replace(hierBleiben())`,
+      // KAN-334/335: Bearbeiten der Charge bleibt auf der Charge, ohne Next.js-Scroll
+      'src/components/kellerbuch/WeinausbauForm.tsx': `router.replace(hierBleiben(), { scroll: false })`,
       'src/components/kellerbuch/BehaelterForm.tsx': `zielNachVorgang('/kellerbuch', 'gespeichert')`,
       [`${D}/kellerbuch/umziehen/UmziehenClient.tsx`]: `zielNachVorgang('/kellerbuch', 'umzug')`,
       // KAN-334: Umzug auf der Charge bleibt dort, Bestätigung im Formular

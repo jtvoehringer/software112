@@ -40,7 +40,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
     try {
       await action(fd)
       // KAN-334: Bearbeiten auf der Detailseite bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
-      if (weingarten) { router.replace(hierBleiben()); setSaving(false) }
+      if (weingarten) { router.replace(hierBleiben(), { scroll: false }); setSaving(false) }
       else router.push(zielNachVorgang('/weingarten', 'gespeichert'))
       router.refresh()
     } catch (err) {

@@ -103,7 +103,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         await action(normalized)
       }
       // KAN-334: Bearbeiten auf der Charge bleibt auf der Charge (mit Bestätigung), statt zur vorherigen Seite zu springen
-      router.replace(hierBleiben())
+      router.replace(hierBleiben(), { scroll: false })
       setSaving(false)
       router.refresh()
     } catch (err) {

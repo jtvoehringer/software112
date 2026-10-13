@@ -24,6 +24,12 @@ export default function ZurueckLeiste({ navHrefs }: { navHrefs: string[] }) {
   }, [pathname, suche])
 
   const erledigt = erledigtText(sp.get(ERLEDIGT_PARAM))
+  // KAN-335/336: Bestätigung sichtbar machen – nur den Inhaltsbereich <main id="inhalt"> scrollen. Formulare, die auf der
+  // Seite bleiben, navigieren mit { scroll: false }: Next.js' scrollIntoView verschob sonst auch Rahmen bzw. Dokument
+  // (Kopfleiste weg, leerer Streifen unten, nach dem Neuladen von Chrome wiederhergestellt).
+  useEffect(() => {
+    if (erledigt) document.getElementById('inhalt')?.scrollTo({ top: 0 })
+  }, [erledigt])
   const schliessen = () => {
     const p = new URLSearchParams(suche)
     p.delete(ERLEDIGT_PARAM)

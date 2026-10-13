@@ -656,7 +656,7 @@ export default function KellerplanEditor({
       {dialogBehaelter && (
         <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setDialogBehaelterId(null)}>
-          <div {...dlgBehaelter} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
+          <div {...dlgBehaelter} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-s112-text">{dialogBehaelter.name}</h3>
             <p className="text-xs text-s112-muted mt-0.5 mb-4">

@@ -41,7 +41,7 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setOpen(false)}>
-          <div {...dialog} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md"
+          <div {...dialog} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-s112-text mb-4">Gebinde bearbeiten</h3>
             <form data-ungespeichert action={handleSubmit} className="space-y-3">

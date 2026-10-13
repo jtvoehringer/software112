@@ -114,7 +114,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
       })
       if (!r.ok) { setFehler(r.fehler); return }
       // KAN-334: Bearbeiten auf der Anlage bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
-      if (form.id) router.replace(hierBleiben())
+      if (form.id) router.replace(hierBleiben(), { scroll: false })
       else router.push(zielNachVorgang('/buchhaltung/anlagen', 'gespeichert'))
       router.refresh()
     })

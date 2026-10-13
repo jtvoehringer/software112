@@ -106,7 +106,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
     try {
       await action(normalized)
       // KAN-334: Bearbeiten auf der Detailseite bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
-      if (dac) { router.replace(hierBleiben()); setSaving(false) }
+      if (dac) { router.replace(hierBleiben(), { scroll: false }); setSaving(false) }
       else router.push(zielNachVorgang('/dac', 'gespeichert'))
       router.refresh()
     } catch (err) {

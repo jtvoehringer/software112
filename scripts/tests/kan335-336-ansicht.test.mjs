@@ -21,6 +21,26 @@ test('App-Rahmen ist nicht scrollbar (overflow-clip), gescrollt wird nur im Inha
   assert.doesNotMatch(vorMain, /className="[^"]*\boverflow-hidden\b[^"]*"/)
 })
 
+test('Nachbesserung: Dokument scrollt nicht, Bleiben ohne Next.js-Scroll, Bestätigung scrollt nur <main>', () => {
+  const css = quelle('src/app/globals.css')
+  assert.match(css, /@media screen \{\n  html:has\(main#inhalt\) \{\n    height: 100%;\n    overflow: hidden;\n  \}\n  html:has\(main#inhalt\) body \{\n    height: 100%;\n    overflow: clip;\n  \}/)
+  // Druck hebt die Sperre auf (Mehrseitendruck)
+  assert.match(css, /@media print \{[\s\S]*html, body \{\n    height: auto !important;\n    overflow: visible !important;/)
+  for (const f of ['src/components/kellerbuch/WeinausbauForm.tsx', 'src/components/weingarten/WeingartenForm.tsx', 'src/components/kellerbuch/BehaelterForm.tsx',
+    'src/components/dac/DacForm.tsx', 'src/app/(dashboard)/buchhaltung/anlagen/AnlageForm.tsx']) {
+    const s = quelle(f)
+    assert.match(s, /router\.replace\(hierBleiben\(\), \{ scroll: false \}\)/, f)
+    assert.doesNotMatch(s, /router\.replace\(hierBleiben\(\)\)/, f)
+  }
+  assert.match(quelle('src/components/layout/ZurueckLeiste.tsx'), /if \(erledigt\) document\.getElementById\('inhalt'\)\?\.scrollTo\(\{ top: 0 \}\)/)
+})
+
+test('Dialoge (Gebinde, Kellerplan) haben einen eigenen Scrollbereich', () => {
+  for (const f of ['src/components/kellerbuch/GebindeClient.tsx', 'src/components/kellerbuch/KellerplanEditModal.tsx',
+    'src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanBuchen.tsx', 'src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx'])
+    assert.match(quelle(f), /rounded-xl shadow-xl p-6 w-full max-w-(md|sm) max-h-\[calc\(100dvh-2rem\)\] overflow-y-auto"/, f)
+})
+
 test('Charge: Titel nimmt den Platz, Knöpfe rechts brechen um', () => {
   const s = quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/page.tsx')
   assert.match(s, /<div className="min-w-0 sm:flex-1">\n\s+<h1 className="text-2xl font-semibold text-s112-text break-words">\{weinausbau\.name\}<\/h1>/)
