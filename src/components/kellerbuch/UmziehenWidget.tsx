@@ -3,7 +3,6 @@
 import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 import { AlertTriangle } from 'lucide-react'
 import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -141,10 +140,9 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         } else {
           // Bleibt auf derselben Charge - ein bloßer Push auf dieselbe URL lädt in Next.js
           // keine frischen Serverdaten nach, hier ist das explizite refresh() nötig.
-          // KAN-224 (Rückmeldung Jörgen 07.10.2026): nach dem Buchen dorthin zurück, woher man zur Charge kam – mit
-          // Bestätigung; ohne bekannte Herkunft bleibt es bei der Charge (Bestätigung im Formular)
+          // KAN-334 (Rückmeldung Jörgen 13.10.2026): nach dem Buchen auf der Charge bleiben – die Bestätigung zeigt das
+          // Formular (setErfolg); früher ging es zur vorherigen Seite (KAN-224) und damit oft aus dem Kellerbuch hinaus
           setErfolg(gebucht)
-          router.push(zielNachVorgang(`/kellerbuch/weinausbau/${chargeId}`, 'umzug'))
           router.refresh()
         }
       } catch (err) {

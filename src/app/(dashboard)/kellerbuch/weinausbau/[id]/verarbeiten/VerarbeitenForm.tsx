@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { verarbeitungBuchen } from '../../../actions'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum, zahlAus } from '@/lib/format'
@@ -108,10 +109,13 @@ export default function VerarbeitenForm({ chargeId, bestand, heute, produkte = [
         <input id="verarbeitung-notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
           placeholder="z. B. Abnehmer, Beleg" className={inputCls} />
       </div>
+      <div className="flex flex-wrap items-center gap-2">
       <button type="submit" disabled={pending}
         className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
         {pending ? 'Wird gebucht …' : 'Verarbeitung buchen'}
       </button>
+      <AbbrechenKnopf standard={`/kellerbuch/weinausbau/${chargeId}`}>Zurück</AbbrechenKnopf>{/* KAN-333 */}
+      </div>
     </form>
   )
 }

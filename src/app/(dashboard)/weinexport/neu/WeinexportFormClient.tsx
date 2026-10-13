@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { Trash2 } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog
@@ -243,9 +244,9 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
             {saving ? 'Speichern…' : 'Exportauftrag anlegen'}
           </button>
-          <Link href="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
+          <AbbrechenKnopf standard="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
             Abbrechen
-          </Link>
+          </AbbrechenKnopf>{/* KAN-333: zurück, woher man kam */}
         </div>
       </form>
     </div>

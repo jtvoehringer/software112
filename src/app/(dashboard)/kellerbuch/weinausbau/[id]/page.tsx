@@ -7,6 +7,7 @@ import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
+import { mitZurueck } from '@/lib/navigation/zurueck'
 import { notFound } from 'next/navigation'
 import WeinausbauForm from '@/components/kellerbuch/WeinausbauForm'
 import { updateWeinausbau, schwundBuchen } from '../../actions'
@@ -641,7 +642,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           {/* KAN-181: am Handy als umbrechende Knopfzeile; ab sm wie bisher (Block, mt der Knöpfe gilt) */}
           <div className="flex flex-wrap gap-2 mt-2 sm:block sm:mt-0 max-sm:*:mt-0">
           {writeOk && aktuell > 0.01 && (
-            <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
+            <Link href={mitZurueck(`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`, `/kellerbuch/weinausbau/${weinausbau.id}`)}   // KAN-334: nach dem Abfüllen zurück zur Charge
               className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-s112-teal/90 transition-colors">
               <Wine size={13} strokeWidth={1.75} />Abfüllen
             </Link>

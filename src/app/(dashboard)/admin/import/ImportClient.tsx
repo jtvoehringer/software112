@@ -13,6 +13,7 @@ import { parseCsv } from '@/lib/import/csvLesen'
 import { wienHeute } from '@/lib/csv'
 import { eroeffnungsStichtagGrenzen, standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import EroeffnungImport from './EroeffnungImport'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
@@ -256,6 +257,7 @@ export default function ImportClient({
         <span>/</span>
         <span className="text-s112-text-1 font-medium">Datenimport</span>
       </div>
+      <AbbrechenKnopf standard="/dashboard" className="mb-2 inline-flex items-center gap-1.5 text-sm text-s112-text-2 hover:text-s112-blue-700 transition-colors">← Zurück</AbbrechenKnopf>{/* KAN-333 */}
       <h1 className="text-2xl font-semibold text-s112-text mb-2 flex items-center gap-2">
         <Upload className="w-6 h-6" /> Datenimport
       </h1>

@@ -3,11 +3,12 @@
 // ── Abbrechen und Rückkehr-Feld (KAN-224, 07.10.2026) ──
 // AbbrechenKnopf: führt dorthin zurück, woher man kam (zurueck-Parameter → vorherige Seite im Verlauf → `standard`),
 // statt auf eine fest verdrahtete Seite. ZurueckFeld: verstecktes Formularfeld `zurueck` für Server Actions, die nach
-// dem Speichern per redirect(zielNachAbschluss(formData.get('zurueck'), …)) zurückführen.
+// dem Speichern per redirect(zielNachAbschluss(formData.get('zurueck'), …)) zurückführen – seit KAN-334 nur im selben
+// Bereich (zielNachSpeichern), Abbrechen weiterhin dorthin, woher man kam.
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { zurueckZiel } from '@/lib/navigation/zurueckBrowser'
+import { zielNachSpeichern, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 
 export function AbbrechenKnopf({ standard, className, children = 'Abbrechen' }: {
   standard: string
@@ -26,6 +27,6 @@ export function AbbrechenKnopf({ standard, className, children = 'Abbrechen' }: 
 export function ZurueckFeld({ standard }: { standard: string }) {
   const [wert, setWert] = useState(standard)
   // eslint-disable-next-line react-hooks/set-state-in-effect -- Ziel steht erst im Browser fest (sessionStorage)
-  useEffect(() => { setWert(zurueckZiel(standard)) }, [standard])
+  useEffect(() => { setWert(zielNachSpeichern(standard)) }, [standard])   // KAN-334: nur im selben Bereich
   return <input type="hidden" name="zurueck" value={wert} />
 }

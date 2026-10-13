@@ -127,7 +127,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
       setSaved(true)
-      setTimeout(() => router.push('/admin/mandanten'), 800)
+      router.refresh()   // KAN-334: auf dem Mandanten bleiben (früher nach 0,8 s zur Liste)
     })
   }
 

@@ -13,6 +13,7 @@ import { Upload, CheckCircle2, AlertTriangle, MapPin } from 'lucide-react'
 import { PROJ_MGI_AUSTRIA_LAMBERT, feldstueckAusFeature, schlagAusFeature, flaecheHa, type EamaFeldstueck, type EamaSchlag } from '@/lib/geo/eama'
 import { vorschauEamaGis, uebernehmeEamaGis, type Vorschau } from './actions'
 import { fehlerText } from '@/lib/fehler'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 
 type Feature = { properties: Record<string, unknown>; geometry: unknown }
 
@@ -105,6 +106,7 @@ export default function ImportGisClient() {
         {laden && <p className="text-xs text-s112-muted mt-3">{laden}</p>}
         <div className="mt-4 flex items-center gap-3">
           <button type="button" onClick={vorschauLaden} disabled={!feldstuecke || pending} className="btn-primary text-sm py-2">{pending && !vorschau ? 'Prüfe Zuordnung …' : 'Zuordnung prüfen'}</button>
+          <AbbrechenKnopf standard="/weingarten" />{/* KAN-333 */}
           {feldstuecke && !vorschau && <span className="text-xs text-s112-muted">Es wird noch nichts gespeichert.</span>}
         </div>
       </div>

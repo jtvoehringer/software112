@@ -7,6 +7,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum, zahlAus } from '@/lib/format'
@@ -256,6 +257,7 @@ export default function ProduktionForm({ chargen, gebinde, mittel, heute, quelle
         {schritt < 3
           ? <button type="submit" disabled={pending} className="btn-primary inline-flex items-center gap-1">Weiter <ChevronRight size={15} aria-hidden /></button>
           : <button type="submit" disabled={pending} className="btn-primary">{pending ? 'Bucht …' : 'Produktion buchen'}</button>}
+        <AbbrechenKnopf standard="/kellerbuch/produktion" />{/* KAN-333 */}
       </div>
     </form>
   )

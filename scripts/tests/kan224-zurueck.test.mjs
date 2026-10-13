@@ -87,10 +87,12 @@ describe('KAN-224: Verdrahtung', () => {
   })
   test('Formulare führen nach Speichern/Abbrechen zurück statt fest verdrahtet', () => {
     const client = {
-      'src/components/kellerbuch/WeinausbauForm.tsx': `zielNachVorgang('/kellerbuch', 'gespeichert')`,
+      // KAN-334: Bearbeiten der Charge bleibt auf der Charge (router.replace(hierBleiben()))
+      'src/components/kellerbuch/WeinausbauForm.tsx': `router.replace(hierBleiben())`,
       'src/components/kellerbuch/BehaelterForm.tsx': `zielNachVorgang('/kellerbuch', 'gespeichert')`,
       [`${D}/kellerbuch/umziehen/UmziehenClient.tsx`]: `zielNachVorgang('/kellerbuch', 'umzug')`,
-      'src/components/kellerbuch/UmziehenWidget.tsx': `'umzug'))`,
+      // KAN-334: Umzug auf der Charge bleibt dort, Bestätigung im Formular
+      'src/components/kellerbuch/UmziehenWidget.tsx': `setErfolg(gebucht)`,
       [`${D}/weinhandel/fuellungen/neu/FuellungFormClient.tsx`]: `zielNachVorgang('/weinhandel', 'abfuellung')`,
       [`${D}/weinhandel/fuellungen/[id]/edit/FuellungEditFormular.tsx`]: `zielNachVorgang('/weinhandel', 'gespeichert')`,
       [`${D}/weinhandel/fuellungen/[id]/edit/SchwundAusbuchenKnopf.tsx`]: `zielNachVorgang('/weinhandel', 'schwund')`,

@@ -84,6 +84,7 @@ export default function BelegBuchenForm({
     startTransition(async () => {
       const result = await verbucheBeleg(belegId, fd)
       if (result?.error) { setSubmitError(result.error); return }
+      // zurueck-ausnahme: Verbuchen schließt den Beleg ab – zurück zur Belegliste (nächster Beleg), nicht bleiben
       router.push(zielNachVorgang('/buchhaltung/belege', 'gespeichert'))   // KAN-224
     })
   }

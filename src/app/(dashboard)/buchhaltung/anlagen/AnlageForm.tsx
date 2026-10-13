@@ -2,7 +2,7 @@
 // Anlage erfassen / bearbeiten (Migration 200). Zeigt beim Tippen den
 // AfA-Plan, damit man sieht, was die Eingaben bedeuten.
 
-import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
+import { hierBleiben, zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -113,7 +113,9 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
         transaktion_id: form.transaktion_id || null, notizen: form.notizen || null,
       })
       if (!r.ok) { setFehler(r.fehler); return }
-      router.push(zielNachVorgang('/buchhaltung/anlagen', 'gespeichert'))   // KAN-224: zurück, woher man kam
+      // KAN-334: Bearbeiten auf der Anlage bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
+      if (form.id) router.replace(hierBleiben())
+      else router.push(zielNachVorgang('/buchhaltung/anlagen', 'gespeichert'))
       router.refresh()
     })
   }

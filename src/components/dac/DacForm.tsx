@@ -1,6 +1,6 @@
 'use client'
 
-import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
+import { hierBleiben, zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
@@ -105,7 +105,9 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
     })
     try {
       await action(normalized)
-      router.push(zielNachVorgang('/dac', 'gespeichert'))   // KAN-224: zurück, woher man kam
+      // KAN-334: Bearbeiten auf der Detailseite bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
+      if (dac) { router.replace(hierBleiben()); setSaving(false) }
+      else router.push(zielNachVorgang('/dac', 'gespeichert'))
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Fehler beim Speichern'))

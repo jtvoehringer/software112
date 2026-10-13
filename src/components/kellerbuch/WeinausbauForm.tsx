@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
+import { hierBleiben, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
@@ -102,7 +102,9 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         normalized.set('pn_bestaetigt', '1')
         await action(normalized)
       }
-      router.push(zielNachVorgang('/kellerbuch', 'gespeichert'))   // KAN-224: zurück, woher man kam
+      // KAN-334: Bearbeiten auf der Charge bleibt auf der Charge (mit Bestätigung), statt zur vorherigen Seite zu springen
+      router.replace(hierBleiben())
+      setSaving(false)
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Fehler beim Speichern'))

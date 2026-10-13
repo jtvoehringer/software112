@@ -294,6 +294,11 @@ function fuerDoppik(g: NavGroup): NavGroup {
   return { ...g, label: 'Belege & BMD', items }
 }
 
+/** Alle Bereiche mit ihren Pfaden, ungefiltert – für das Ziel nach dem Speichern (KAN-334, zielImBereich) */
+export function bereichsPfade(): { key: string; hrefs: string[] }[] {
+  return NAV.map(g => ({ key: g.key, hrefs: g.items.map(it => it.href) }))
+}
+
 /** Bereich, zu dem der aktuelle Pfad gehört (Fallback: erster Bereich) */
 export function activeGroup(groups: NavGroup[], pathname: string): NavGroup | undefined {
   // Längster passender href gewinnt (z.B. /weinhandel/offene-posten kommt in

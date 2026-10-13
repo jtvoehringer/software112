@@ -5,7 +5,7 @@ import { redirect, notFound } from 'next/navigation'
 import { updateLage } from '../actions'
 import type { Metadata } from 'next'
 import SendenKnopf from '@/components/ui/SendenKnopf'
-import Link from '@/components/ui/Link'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 
 export const metadata: Metadata = { title: 'Ried bearbeiten' }
 
@@ -74,9 +74,9 @@ export default async function EditLagePage({ params }: Props) {
               className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Speichern
             </SendenKnopf>
-            <Link href="/lagen" className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
+            <AbbrechenKnopf standard="/lagen" className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
               Abbrechen
-            </Link>
+            </AbbrechenKnopf>{/* KAN-333: zurück, woher man kam */}
           </div>
         </form>
       </div>
