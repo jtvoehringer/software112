@@ -88,7 +88,7 @@ export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zie
   const Icon = bewertung.art === 'verschnitt' ? GitMerge : ArrowLeftRight
   return (
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" onClick={onClose}>
-      <div {...dlg} onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+      <div {...dlg} onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
       <form onSubmit={buchen} className="space-y-4">
         <div className="flex items-start gap-2">
           <h3 className="font-semibold text-s112-text flex-1">{quellGebinde.name} → {ziel.name}</h3>

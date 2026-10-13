@@ -164,6 +164,22 @@
   }
 }
 
+/* ─── App-Rahmen: nur <main> scrollt (KAN-335/336, 13.10.2026) ──────────────── */
+/* Auf Seiten mit dem App-Rahmen (main#inhalt) darf das Dokument selbst nicht scrollen. Sonst verschob Next.js'
+   scrollIntoView nach dem Speichern das ganze Dokument: Kopfleiste weg, leerer Streifen unten – und Chrome stellte
+   diese Position beim Neuladen wieder her. html hidden (keine Weitergabe an den Viewport), body clip (kein Scrollbereich).
+   Seiten ohne App-Rahmen (Login, Weinpass, Druckansichten) scrollen wie bisher. */
+@media screen {
+  html:has(main#inhalt) {
+    height: 100%;
+    overflow: hidden;
+  }
+  html:has(main#inhalt) body {
+    height: 100%;
+    overflow: clip;
+  }
+}
+
 /* ─── Print / PDF ──────────────────────────────────────────────────────────── */
 @media print {
   /* Sidebar, Header und UI-Elemente ausblenden */

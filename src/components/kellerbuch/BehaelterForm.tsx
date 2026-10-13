@@ -32,7 +32,7 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
     try {
       await action(new FormData(e.currentTarget))
       // KAN-334: Bearbeiten auf der Detailseite bleibt dort (mit Bestätigung), Neuanlage zurück im selben Bereich
-      if (behaelter) { router.replace(hierBleiben()); setSaving(false) }
+      if (behaelter) { router.replace(hierBleiben(), { scroll: false }); setSaving(false) }
       else router.push(zielNachVorgang('/kellerbuch', 'gespeichert'))
       router.refresh()
     } catch (err) {

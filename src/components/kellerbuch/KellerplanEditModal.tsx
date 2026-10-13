@@ -38,7 +38,7 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setOpen(false)}>
-          <div {...dialog} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
+          <div {...dialog} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-s112-text mb-4">Kellerplan bearbeiten</h3>
             <form action={handleSubmit} className="space-y-3">
