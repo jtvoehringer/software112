@@ -183,7 +183,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
 
       {/* Fehler */}
       {fehler && (
-        <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl p-4 mb-6">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-xl p-4 mb-6">
           <p className="text-sm text-s112-err-fg font-medium">Fehler</p>
           <p className="text-sm text-s112-err-fg mt-1">{fehler}</p>
         </div>

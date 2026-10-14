@@ -253,7 +253,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {gst ? 'Grundstück bearbeiten' : 'Grundstück hinzufügen'}
       </h3>
       {error && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-sm">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-sm">
           <strong>Fehler:</strong> {error}
         </div>
       )}

@@ -908,7 +908,7 @@ export default function BehandlungEditForm({
       </div>
 
       {error && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">{error}</div>
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">{error}</div>
       )}
 
       {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}

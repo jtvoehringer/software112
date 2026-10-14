@@ -429,7 +429,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
       {/* Rebsorten-Ergebnis-Preview */}
       {rebsortenPreview && (
-        <div className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm border ${
+        <div role="status" className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm border ${
           rebsortenPreview.typ === 'unveraendert'
             ? 'bg-s112-ok-bg border-s112-ok/30 text-s112-ok-fg'
             : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
@@ -484,7 +484,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         </div>
       )}
 
-      {error && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}

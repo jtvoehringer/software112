@@ -168,7 +168,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
       <h2 className="font-semibold text-s112-text mb-3">Umziehen</h2>
       <div className="card space-y-4">
         {error && (
-          <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-4 py-2.5 text-sm">{error}</div>
+          <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-4 py-2.5 text-sm">{error}</div>
         )}
         {verschnitt && (
           <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-lg px-4 py-2.5 text-sm space-y-1">

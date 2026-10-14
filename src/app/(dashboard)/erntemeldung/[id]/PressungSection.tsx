@@ -773,7 +773,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
 
                       {/* Bestehende Chargen */}
                       {existing.length > 0 && (
-                        <div className={`rounded-sm px-2 py-1.5 border ${isFarbmix ? 'bg-s112-err-bg border-s112-err/30' : isMix ? 'bg-s112-warn-bg border-s112-warn/30' : 'bg-white border-s112-border'}`}>
+                        <div role="alert" className={`rounded-sm px-2 py-1.5 border ${isFarbmix ? 'bg-s112-err-bg border-s112-err/30' : isMix ? 'bg-s112-warn-bg border-s112-warn/30' : 'bg-white border-s112-border'}`}>
                           <p className={`font-medium mb-1 ${isFarbmix ? 'text-s112-err-fg' : isMix ? 'text-s112-warn-fg' : 'text-s112-text-2'}`}>
                             {isFarbmix ? 'Rotwein/Weißwein-Mischung nicht erlaubt!' : isMix ? 'Rebsortenverschnitt' : 'Enthält bereits'}
                           </p>

@@ -38,8 +38,8 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
 
   return (
     <div className="space-y-4">
-      {error   && <div className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
-      {success && <div className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
+      {error   && <div role="alert" className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
+      {success && <div role="status" className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">

@@ -107,7 +107,7 @@ export default function BelegBuchenForm({
         <p className="text-xs text-s112-muted">Erkennungssicherheit: {e.konfidenz === 'mittel' ? 'mittel' : 'niedrig'} – bitte Werte vor dem Buchen prüfen.</p>
       )}
       {submitError && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2.5 rounded-lg">{submitError}</div>
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2.5 rounded-lg">{submitError}</div>
       )}
 
       {/* ── Lieferanten-Zuordnung ─────────────────────────────────────────── */}

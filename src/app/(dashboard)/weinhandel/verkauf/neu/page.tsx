@@ -656,7 +656,7 @@ export default function NeuerVerkaufPage() {
                   </div>
                 )}
 
-                {/* Trauben-Felder */}
+                {/* Trauben-Felder – meldung-ausnahme: grün hinterlegte Eingabefelder, keine Meldung */}
                 {pos.typ === 'trauben' && (
                   <div className="col-span-2 sm:col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-s112-ok-bg rounded-lg border border-s112-ok/30">
                     <div>

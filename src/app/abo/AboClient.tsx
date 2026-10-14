@@ -220,7 +220,7 @@ export default function AboClient({
 
         <div className="card space-y-4">
           {hardBlocked && trialAbgelaufen ? (
-            <div className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
+            <div role="alert" className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
               <p className="font-semibold mb-1">Testphase abgelaufen</p>
               <p>
                 Ihre kostenlose 14-tägige Testphase ist beendet. Bitte hinterlegen Sie Ihre Zahlungsdaten,
@@ -229,7 +229,7 @@ export default function AboClient({
               </p>
             </div>
           ) : hardBlocked ? (
-            <div className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
+            <div role="alert" className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
               <p className="font-semibold mb-1">Nur-Lesen-Modus</p>
               <p>
                 Ihr Betrieb hat aktuell kein aktives Abo{statusLabel ? ` (Status: ${statusLabel})` : ''}.
@@ -245,7 +245,7 @@ export default function AboClient({
               </p>
             </div>
           ) : (
-            <div className="px-4 py-3 rounded-lg bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg text-sm">
+            <div role="status" className="px-4 py-3 rounded-lg bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg text-sm">
               <p className="font-semibold">Ihr Abo ist aktiv.</p>
               {planLabel && <p className="mt-0.5">Aktueller Plan: {planLabel}</p>}
             </div>

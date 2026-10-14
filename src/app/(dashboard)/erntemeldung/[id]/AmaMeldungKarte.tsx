@@ -211,7 +211,7 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
           {fehlerBox}
 
           {amaMeldung.n8n_fehler && (
-            <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3">
+            <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3">
               Fehler: {amaMeldung.n8n_fehler}
             </div>
           )}

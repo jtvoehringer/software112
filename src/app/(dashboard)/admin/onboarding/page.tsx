@@ -194,7 +194,7 @@ export default function OnboardingPage() {
       ))}
 
       {pct === 100 && (
-        <div className="bg-s112-ok-bg border border-s112-ok/30 rounded-xl p-5 text-center">
+        <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 rounded-xl p-5 text-center">
           <p className="font-semibold text-s112-ok-fg">{mandant ? `${mandant} ist` : 'Der Mandant ist'} vollständig eingerichtet!</p>
           <p className="text-sm text-s112-ok-fg mt-1">Alle Pflichtschritte erledigt. software:112 ist bereit für den Produktivbetrieb.</p>
         </div>

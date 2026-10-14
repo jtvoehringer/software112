@@ -276,7 +276,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
 
   return (
     <form onSubmit={handleSubmit} className="card p-5 space-y-5">
-      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-4 py-2 text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-4 py-2 text-sm">{error}</div>}
 
       {/* Art des Vorgangs */}
       <div>
@@ -392,7 +392,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
             </p>
           </div>
         ) : success ? (
-          <div className="flex items-center justify-center gap-2 bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm font-semibold">
+          <div role="status" className="flex items-center justify-center gap-2 bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm font-semibold">
             <CheckCircle2 size={16} strokeWidth={1.75} />Gespeichert – weiterleiten…
           </div>
         ) : (

@@ -234,7 +234,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
           <textarea rows={3} className={`${inp} resize-none`} value={form.notizen} onChange={e => set('notizen', e.target.value)} placeholder="Seriennummer, Lieferant, Rechnungsnummer …" disabled={ro} />
         </div>
 
-        {fehler && <p className="text-s112-err-fg text-sm bg-s112-err-bg border border-s112-err/30 px-3 py-2 rounded-lg">{fehler}</p>}
+        {fehler && <p role="alert" className="text-s112-err-fg text-sm bg-s112-err-bg border border-s112-err/30 px-3 py-2 rounded-lg">{fehler}</p>}
 
         <div className="flex flex-wrap gap-3">
           <AbbrechenKnopf standard="/buchhaltung/anlagen" className="px-4 py-2 rounded-lg text-[13px] font-medium text-s112-text-1 border border-s112-line-str bg-white hover:bg-s112-bg" />

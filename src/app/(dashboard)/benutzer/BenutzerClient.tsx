@@ -156,12 +156,12 @@ export default function BenutzerClient({ members, limit }: Props) {
   return (
     <>
       {error && (
-        <div className="mb-4 p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">
+        <div role="alert" className="mb-4 p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-4 p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">
+        <div role="status" className="mb-4 p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">
           {success}
         </div>
       )}

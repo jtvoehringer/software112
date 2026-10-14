@@ -126,7 +126,7 @@ export default async function ZukaufPage({
       </div>
 
       {traubenzukaufsgrenze && (
-        <div className={`rounded-xl px-4 py-3 text-sm border ${
+        <div role="alert" className={`rounded-xl px-4 py-3 text-sm border ${
           traubenzukaufsgrenze.ueberschritten
             ? 'bg-s112-err-bg border-s112-err/30 text-s112-err-fg'
             : 'bg-s112-bg border-s112-border text-s112-text-2'

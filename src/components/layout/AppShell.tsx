@@ -18,6 +18,7 @@ import AssistantPanel from './AssistantPanel'
 import CommandPalette from '@/components/CommandPalette'
 import { APP_VERSION } from '@/lib/version'
 import ZurueckLeiste from './ZurueckLeiste'
+import MeldungsPopup from '@/components/MeldungsPopup'
 import { MostgewichtEinheitProvider } from '@/components/wein/MostgewichtEinheit'
 import { buildNav } from '@/lib/navigation'
 import type { UserRole } from '@/lib/auth/roles'
@@ -110,6 +111,8 @@ export default function AppShell({
           </footer>
         </main>
 
+        {/* KAN-338: neue Fehler/Bestätigungen außer Sicht zusätzlich als Pop-up rechts unten */}
+        <MeldungsPopup />
         {/* Assistent-Panel (rechts, Design-Phase D – UI-Hülle) */}
         <AssistantPanel />
       </div>

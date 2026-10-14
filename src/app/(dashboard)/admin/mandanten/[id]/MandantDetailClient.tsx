@@ -307,8 +307,8 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
 
   return (
     <div className="space-y-4">
-      {error   && <div className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
-      {success && <div className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
+      {error   && <div role="alert" className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
+      {success && <div role="status" className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
@@ -997,12 +997,12 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
     <div className="space-y-6 max-w-lg">
       {/* Rückmeldung vom OAuth-Callback */}
       {m365Ok && (
-        <div className="p-4 rounded-xl border border-s112-ok/30 bg-s112-ok-bg text-sm text-s112-ok-fg">
+        <div role="status" className="p-4 rounded-xl border border-s112-ok/30 bg-s112-ok-bg text-sm text-s112-ok-fg">
           Verbindung erfolgreich hergestellt.
         </div>
       )}
       {m365Error && (
-        <div className="p-4 rounded-xl border border-s112-err/30 bg-s112-err-bg text-sm text-s112-err-fg space-y-1">
+        <div role="alert" className="p-4 rounded-xl border border-s112-err/30 bg-s112-err-bg text-sm text-s112-err-fg space-y-1">
           <p className="font-semibold">Verbindung fehlgeschlagen</p>
           <p className="text-xs break-all">{m365Error}</p>
           {(m365Error.includes('AADSTS500113') || m365Error.includes('AADSTS50011')) && (
@@ -1020,7 +1020,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       )}
 
       {/* Status */}
-      <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
+      <div role="status" className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
         {isConnected && tokenOk
           ? <CheckCircle2 className="w-6 h-6 text-s112-ok-fg shrink-0" />
           : <AlertTriangle className="w-6 h-6 text-s112-warn-fg shrink-0" />}
@@ -1492,7 +1492,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 /** `hint` nur bei offenem Punkt; `info` immer (z. B. Einstellungen mit Standardwert, die man abstimmen sollte) */
 function CheckItem({ ok, label, hint, info }: { ok: boolean; label: string; hint?: string; info?: string }) {
   return (
-    <div className={`flex gap-3 p-3 rounded-xl border ${ok ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
+    <div role="status" className={`flex gap-3 p-3 rounded-xl border ${ok ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
       {ok
         ? <CheckCircle2 className="w-5 h-5 text-s112-ok-fg shrink-0 mt-0.5" />
         : <AlertTriangle className="w-5 h-5 text-s112-warn-fg shrink-0 mt-0.5" />}
@@ -1525,7 +1525,7 @@ function ChecklisteTab({ tenant, settings, members }: {
   return (
     <div className="space-y-4 max-w-lg">
       {allOk && (
-        <div className="p-4 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg font-medium flex items-center gap-2">
+        <div role="status" className="p-4 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg font-medium flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 shrink-0" />
           Dieser Mandant ist vollständig konfiguriert und einsatzbereit!
         </div>
@@ -1679,7 +1679,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
           </div>
         </div>
 
-        {errMsg && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{errMsg}</p>}
+        {errMsg && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{errMsg}</p>}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={status === 'saving'}
@@ -1835,7 +1835,7 @@ function StripeTab({ tenant, verbund }: { tenant: TenantDetail; verbund: Verbund
 
   return (
     <div className="space-y-6">
-      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">{error}</div>}
 
       {/* Status-Karte */}
       <div className="card p-4 space-y-3">

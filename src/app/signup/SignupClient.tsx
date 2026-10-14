@@ -141,7 +141,7 @@ export default function SignupClient() {
             </label>
 
             {error && (
-              <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2 rounded-lg">{error}</div>
+              <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2 rounded-lg">{error}</div>
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full mt-2">

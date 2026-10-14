@@ -523,7 +523,7 @@ export default function FuellungFormClient({
 
         {/* Schwund-Box (nicht bei der Rückkehr aus der Lohnversektung – dort zählt der Grundwein-Anteil) */}
         {!lohnversektung && schwund !== null && berechneteLiter !== null && (
-          <div className={`rounded-lg px-4 py-3 text-sm ${
+          <div role="status" className={`rounded-lg px-4 py-3 text-sm ${
             ueberabfuellung
               ? 'bg-s112-err-bg border border-s112-err/30 text-s112-err-fg'
               : schwundWarning
@@ -660,7 +660,7 @@ export default function FuellungFormClient({
       </div>
 
       {error && (
-        <p className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-4 py-2">{error}</p>
+        <p role="alert" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-4 py-2">{error}</p>
       )}
 
       <div className="flex gap-3">

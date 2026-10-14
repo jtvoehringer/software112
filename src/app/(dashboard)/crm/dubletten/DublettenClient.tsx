@@ -157,7 +157,7 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
         )}
       </div>
       {meldung && (
-        <div className={`text-sm px-3 py-2 rounded-lg ${meldung.art === 'ok' ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-err-bg text-s112-err-fg'}`}>{meldung.text}</div>
+        <div role="status" className={`text-sm px-3 py-2 rounded-lg ${meldung.art === 'ok' ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-err-bg text-s112-err-fg'}`}>{meldung.text}</div>
       )}
 
       {sichtbar.length === 0 && <p className="text-sm text-s112-muted py-6 text-center">Keine Gruppe passt zum Filter.</p>}

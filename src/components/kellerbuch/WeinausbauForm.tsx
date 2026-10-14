@@ -124,7 +124,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
 
   return (
     <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
-      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
+      {error && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
       {pnSperre === 'eingereicht' && (
         <GesperrtHinweis grund={CHARGE_FREEZE_GRUND} erlaubt={['Bezeichnung', 'Status', 'Gebinde (per Umzug)', 'Einstandspreis', 'Notizen']} />

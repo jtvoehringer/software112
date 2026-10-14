@@ -158,6 +158,7 @@ function BeitraegeTab({ v, p, opt, setOpt, einkuenfteVorjahr, einkuenfte, darfOp
         </div>
       </div>
 
+      {/* meldung-ausnahme: Vergleichskachel der SVS-Option, grün = günstiger – keine Meldung */}
       {v.option && (
         <div className={`bg-white border border-s112-line rounded-xl p-[18px] flex items-start gap-3 ${guenstiger === 'option' ? 'bg-s112-ok-bg' : 'bg-s112-bg'}`}>
           <CheckCircle2 size={20} className="text-s112-blue-700 mt-0.5 shrink-0" />

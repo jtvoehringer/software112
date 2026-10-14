@@ -403,7 +403,7 @@ export default async function GebindePage({
           </p>
 
           {err && (
-            <div className="rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-3 text-sm text-s112-err-fg">
+            <div role="alert" className="rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-3 text-sm text-s112-err-fg">
               <strong>Fehler beim Speichern:</strong> {err}
             </div>
           )}

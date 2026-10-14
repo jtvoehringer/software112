@@ -86,7 +86,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
       {gesperrt && (
         <div className="no-print"><GesperrtHinweis grund={gesperrt.grund} seit={gesperrt.seit} /></div>
       )}
-      {fehler && <div className="no-print bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {fehler}</div>}
+      {fehler && <div role="alert" className="no-print bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {fehler}</div>}
       {/* Toolbar */}
       <div className="flex flex-wrap items-start gap-3 no-print">
         {!gesperrt && (

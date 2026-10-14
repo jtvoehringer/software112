@@ -625,7 +625,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
           </div>
         </div>
 
-        {errMsg && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{errMsg}</p>}
+        {errMsg && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{errMsg}</p>}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={status === 'saving'}
