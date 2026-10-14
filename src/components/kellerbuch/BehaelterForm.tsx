@@ -43,7 +43,7 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
 
   return (
     <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
-      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
+      {error && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>

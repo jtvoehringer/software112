@@ -36,7 +36,7 @@ export default function SchluesselClient() {
         Postfach-Passwörter und Microsoft-Tokens werden verschlüsselt gespeichert. Mit gesetztem EMAIL_CRYPT_SECRET_V2 schreibt die App das neue Format (AES-GCM);
         dieser Schritt stellt alle noch alten Werte einmalig um. Danach kann EMAIL_CRYPT_SECRET in Vercel entfernt werden.
       </p>
-      {fehler && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm mb-3">{fehler}</div>}
+      {fehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm mb-3">{fehler}</div>}
       {status && (
         <div className="bg-white border border-s112-border rounded-xl px-4 py-3 text-sm space-y-1">
           <p>

@@ -136,9 +136,9 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
         </p>
       )}
 
-      {fehler && <p className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{fehler}</p>}
+      {fehler && <p role="alert" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{fehler}</p>}
       {!fehler && tenantId && !ergebnis && (
-        <p className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">Lese, Charge oder Füllung nicht gefunden.</p>
+        <p role="alert" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">Lese, Charge oder Füllung nicht gefunden.</p>
       )}
 
       {ergebnis && ergebnis.warnungen.map((w, i) => (

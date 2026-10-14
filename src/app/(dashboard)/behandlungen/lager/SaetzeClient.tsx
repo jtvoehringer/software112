@@ -42,7 +42,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
-      {fehler && <div className="p-2.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">{fehler}</div>}
+      {fehler && <div role="alert" className="p-2.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">{fehler}</div>}
       <h3 className="text-sm font-semibold text-s112-text">
         {satz ? 'Satz bearbeiten' : 'Neuen Satz anlegen'}
       </h3>

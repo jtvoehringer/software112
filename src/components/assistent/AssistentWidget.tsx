@@ -189,7 +189,7 @@ export default function AssistentWidget() {
               </div>
             )}
             {(fehler || sprache.fehler) && (
-              <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg">
+              <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg">
                 {fehler ?? sprache.fehler}
               </div>
             )}

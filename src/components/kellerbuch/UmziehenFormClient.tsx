@@ -226,7 +226,7 @@ export default function UmziehenFormClient({
 
       {/* SCHWUND-BOX */}
       {sumBrutto > 0 && (
-        <div className={`rounded-lg border px-4 py-2.5 text-sm ${ueberschuss ? 'bg-s112-err-bg border-s112-err/30' : 'bg-s112-bg border-s112-border'}`}>
+        <div role="alert" className={`rounded-lg border px-4 py-2.5 text-sm ${ueberschuss ? 'bg-s112-err-bg border-s112-err/30' : 'bg-s112-bg border-s112-border'}`}>
           <div className="flex justify-between">
             <span className="text-s112-muted">Gesamt brutto:</span>
             <span className="font-medium tabular-nums">{fmtNum(sumBrutto, { max: 2 })} L</span>

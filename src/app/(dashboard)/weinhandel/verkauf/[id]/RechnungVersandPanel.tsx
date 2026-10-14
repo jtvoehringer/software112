@@ -72,7 +72,7 @@ export default function RechnungVersandPanel({
               placeholder="z.B. anbei erhalten Sie die Rechnung wie besprochen."
               className="form-input text-sm w-full resize-none" />
           </div>
-          {error && <p className="text-s112-err-fg text-sm bg-s112-err-bg px-3 py-2 rounded-lg">{error}</p>}
+          {error && <p role="alert" className="text-s112-err-fg text-sm bg-s112-err-bg px-3 py-2 rounded-lg">{error}</p>}
           <div className="flex gap-2">
             <button onClick={handleSend} disabled={sending}
               className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">

@@ -101,7 +101,7 @@ ${ersetzt === 1 ? 'Die abweichende AfA-Buchung wird' : `${ersetzt} abweichende A
       {laufend && !status.komplett && !dezemberGesperrt && !doppik && (
         <Note className="mb-3">{jahr} läuft noch. Die AfA wird üblicherweise nach dem Jahresende gebucht, sobald alle Anschaffungen und Abgänge erfasst sind – buchen ist trotzdem jederzeit möglich, Abweichungen zeigt diese Karte später an.</Note>
       )}
-      {fehler && <p className="mb-3 text-[12.5px] text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{fehler}</p>}
+      {fehler && <p role="alert" className="mb-3 text-[12.5px] text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{fehler}</p>}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

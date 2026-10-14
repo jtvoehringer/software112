@@ -28,7 +28,7 @@ export default function KontrastHinweis({ primary, secondary, name, onUebernehme
           ? ` – für die Lesbarkeit mit ${kopf.flaeche}` : ''}{kopf.schrift.toUpperCase() !== secondary.trim().toUpperCase() ? `, Schrift ${kopf.schrift === '#FFFFFF' ? 'Weiß' : 'Schwarz'}` : ''}
       </p>
     </div>
-    <div className={`text-xs rounded-lg px-3 py-2 border ${ok ? 'bg-s112-ok-bg border-s112-ok/30 text-s112-ok-fg' : 'bg-s112-warn-bg border-s112-warn/30 text-s112-warn-fg'}`}>
+    <div role="status" className={`text-xs rounded-lg px-3 py-2 border ${ok ? 'bg-s112-ok-bg border-s112-ok/30 text-s112-ok-fg' : 'bg-s112-warn-bg border-s112-warn/30 text-s112-warn-fg'}`}>
       <div className="flex items-center gap-3 flex-wrap">
         <span className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold" style={{ background: vorschlag, color: secondary }}>Beispiel-Schaltfläche</span>
         <span>

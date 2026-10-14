@@ -1006,7 +1006,7 @@ export default function ReportsClient({
                 </button>
               </div>
             </form>
-            {bFehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{bFehler}</div>}
+            {bFehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{bFehler}</div>}
             {bResult && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between bg-s112-bg rounded-xl px-4 py-3">
@@ -1145,7 +1145,7 @@ export default function ReportsClient({
               </div>
             </form>
 
-            {vsFehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{vsFehler}</div>}
+            {vsFehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{vsFehler}</div>}
 
             {vsResult && (
               vsResult.zeilen.length === 0 ? (
@@ -1259,7 +1259,7 @@ export default function ReportsClient({
               </div>
             </form>
 
-            {wbFehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{wbFehler}</div>}
+            {wbFehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{wbFehler}</div>}
 
             {wbResult && (
               wbResult.chargen.length === 0 ? (

@@ -34,10 +34,10 @@ export default function SmokeTestClient() {
       <p className="text-xs text-s112-muted mb-3">
         Prüft im Demo-Betrieb je Rolle (Betriebs-Manager, Mitarbeiter mit Vorlage „Rieden & Keller“ bzw. „Vertrieb“, Leser), ob Lesen, Schreiben je Modul, Mandantentrennung und Sperre so greifen wie im Benutzerkonzept vorgesehen. Alle Schreibvorgänge werden in der Datenbank zurückgerollt.
       </p>
-      {fehler && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm mb-3">{fehler}</div>}
+      {fehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm mb-3">{fehler}</div>}
       {zeilen && (
         <div className="bg-white border border-s112-border rounded-xl overflow-hidden">
-          <div className={`px-4 py-2 text-sm font-medium ${nok.length ? 'bg-s112-err-bg text-s112-err-fg' : 'bg-s112-bg text-s112-text'}`}>
+          <div role="alert" className={`px-4 py-2 text-sm font-medium ${nok.length ? 'bg-s112-err-bg text-s112-err-fg' : 'bg-s112-bg text-s112-text'}`}>
             {nok.length === 0 ? `Alle ${zeilen.length} Prüfungen bestanden` : `${nok.length} von ${zeilen.length} Prüfungen fehlgeschlagen`} · {dauer} ms
           </div>
           <table className="w-full text-sm">

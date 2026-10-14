@@ -109,7 +109,7 @@ export function FirmaForm({
   return (
     <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-s112-text">{initial ? 'Firma bearbeiten' : 'Neue Firma'}</h3>
-      {saveError && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{saveError}</p>}
+      {saveError && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{saveError}</p>}
       {dubletteWarnung && (
         <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm">
           <p className="font-medium text-s112-warn-fg mb-1 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Mögliche Dublette</p>

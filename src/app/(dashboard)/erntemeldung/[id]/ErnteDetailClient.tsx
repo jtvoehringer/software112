@@ -1013,7 +1013,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
 
       {/* Hektarhöchstertrag-Prüfung (alle Stufen ab Landwein, betriebsweit – KAN-79) – reine Info-/Warnfunktion */}
       {hektarhoechstertrag.gesamtKg > 0 && (
-        <div className={`rounded-xl px-4 py-3 text-sm border ${
+        <div role="alert" className={`rounded-xl px-4 py-3 text-sm border ${
           hektarhoechstertrag.ueberschritten
             ? 'bg-s112-err-bg border-s112-err/30 text-s112-err-fg'
             : 'bg-s112-bg border-s112-border text-s112-text-2'

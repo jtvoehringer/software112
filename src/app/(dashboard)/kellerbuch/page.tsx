@@ -137,6 +137,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
     const auslastung = kapazitaet && kapazitaet > 0 ? (literImBehaelter / kapazitaet) * 100 : null
     const farbe = WEINART_FARBE[vorherrschendeWeinart(chargen.map((w: R) => ({ weinart: w.weinart, liter: parseFloat(w.menge_liter) || 0 })))]
     const lp = pickerlText(b.lp_pickerl)
+    // meldung-ausnahme: Listenzeile eines Gebindes, rot nur bei negativem Inhalt – keine Meldung
     return (
       <div key={b.id} className={`flex items-center gap-3 px-3 py-2 text-sm ${literImBehaelter < 0 ? 'bg-s112-err-bg' : ''}`}>
         <span title={auslastung === null ? 'ohne Kapazität' : `${Math.round(auslastung)} % gefüllt`}>

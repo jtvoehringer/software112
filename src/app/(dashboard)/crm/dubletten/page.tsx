@@ -70,7 +70,7 @@ export default async function DublettenPage() {
       </div>
 
       {fehler && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm mb-4">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm mb-4">
           Dubletten konnten nicht geladen werden: {fehler}
         </div>
       )}

@@ -142,7 +142,7 @@ export default function VisitkartenScannerPage() {
       </div>
 
       {fehler && (
-        <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl p-3 text-sm text-s112-err-fg flex justify-between">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-xl p-3 text-sm text-s112-err-fg flex justify-between">
           {fehler}
           <button aria-label="Meldung schließen" onClick={() => { setFehler(null); setPhase('start') }} className="text-s112-err hover:text-s112-err-fg"><X className="w-4 h-4" /></button>
         </div>

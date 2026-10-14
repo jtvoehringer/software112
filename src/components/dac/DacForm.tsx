@@ -121,7 +121,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <GesperrtHinweis grund={sperre.grund} seit={datumDe(sperre.seit)}
           erlaubt={aenderbar.map(f => PN_FELD_LABEL[f] ?? f)} betriebsleitung={betriebsleitung} />
       )}
-      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
+      {error && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
       {/* Antragsdaten */}
       <div className="card space-y-4">

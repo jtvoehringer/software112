@@ -896,7 +896,7 @@ function ZeitachseView({
                 {viewAkt.ist_privat  && <p className="text-s112-tertiary text-xs inline-flex items-center gap-1"><Lock size={11} />Privater Termin</p>}
               </div>
               {saveErr && (
-                <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 mb-3">{saveErr}</p>
+                <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 mb-3">{saveErr}</p>
               )}
               {viewAkt.typ === 'aktivitaet' && viewAkt.art === 'aufgabe' && (
                 <div className="mb-4 border-t border-s112-border/40 pt-3">
@@ -1219,7 +1219,7 @@ function ZeitachseView({
             </label>
 
             {saveErr && (
-              <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{saveErr}</p>
+              <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{saveErr}</p>
             )}
 
             <div className="flex gap-2 pt-1">

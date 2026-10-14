@@ -340,12 +340,12 @@ export default function ImportClient({
           </p>
 
           {ebOk && (
-            <div className="mb-4 rounded-lg border border-s112-ok/30 bg-s112-ok-bg px-4 py-3 text-sm text-s112-ok-fg">
+            <div role="status" className="mb-4 rounded-lg border border-s112-ok/30 bg-s112-ok-bg px-4 py-3 text-sm text-s112-ok-fg">
               Anfangsbestand wurde gespeichert.
             </div>
           )}
           {ebErr && (
-            <div className="mb-4 rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-3 text-sm text-s112-err-fg">
+            <div role="alert" className="mb-4 rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-3 text-sm text-s112-err-fg">
               <strong>Fehler beim Speichern:</strong> {ebErr}
             </div>
           )}
@@ -511,13 +511,13 @@ export default function ImportClient({
           </button>
 
           {errorMsg && (
-            <div className="mt-4 p-4 rounded-xl border bg-s112-err-bg border-s112-err/30">
+            <div role="alert" className="mt-4 p-4 rounded-xl border bg-s112-err-bg border-s112-err/30">
               <p className="font-semibold text-sm text-s112-err-fg">Import fehlgeschlagen: {errorMsg}</p>
             </div>
           )}
 
           {result && (
-            <div className={`mt-4 p-4 rounded-xl border ${result.fehler === 0 ? 'bg-s112-ok-bg border-s112-ok/30' : 'bg-s112-warn-bg border-s112-warn/30'}`}>
+            <div role="status" className={`mt-4 p-4 rounded-xl border ${result.fehler === 0 ? 'bg-s112-ok-bg border-s112-ok/30' : 'bg-s112-warn-bg border-s112-warn/30'}`}>
               <p className="font-semibold text-sm">
                 {result.ok} erfolgreich · {result.fehler} Fehler
                 {(result.duplikate?.length ?? 0) > 0 && ` · ${result.duplikate!.length} Duplikate übersprungen`}

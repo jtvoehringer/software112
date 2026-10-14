@@ -151,7 +151,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
                 Absender <b className="text-s112-text">{mail.von}</b> ist noch nicht im CRM. Daten prüfen, Segment wählen und als Lead speichern.
                 {kiModell ? ' Vorbelegung durch KI – bitte kontrollieren.' : ' Vorbelegung ohne KI (Anzeigename und Adresse).'}
               </p>
-              {fehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg">{fehler}</div>}
+              {fehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg">{fehler}</div>}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className={labelCls}>Vorname</label><input aria-label="Vorname" value={vorname} onChange={e => setVorname(e.target.value)} className={inputCls} /></div>
@@ -224,7 +224,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
 
         {phase === 'fertig' && ergebnis && (
           <div className="p-6 space-y-4">
-            <div className="bg-s112-ok-bg border border-s112-ok/30 rounded-lg px-4 py-3 text-sm text-s112-ok-fg">
+            <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 rounded-lg px-4 py-3 text-sm text-s112-ok-fg">
               Lead <b>{ergebnis.name}</b> wurde angelegt{ergebnis.firmaId ? ' und mit der Firma verknüpft' : ''}. Die E-Mail liegt in der Historie des Kontakts.
             </div>
             <div className="flex flex-wrap gap-2">

@@ -325,7 +325,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
 
       {/* Fehler aus der Liste (z. B. Löschen) – im Formular steht er dort */}
       {error && !showForm && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-sm flex items-start justify-between gap-3">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-sm flex items-start justify-between gap-3">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} className="text-xs underline shrink-0">Schließen</button>
         </div>
@@ -338,7 +338,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
             {editRow ? 'Traubenverkauf bearbeiten' : 'Neuer Traubenverkauf'}
           </h2>
           {error && (
-            <div className="mb-3 bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs">
+            <div role="alert" className="mb-3 bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs">
               {error}
             </div>
           )}

@@ -83,7 +83,7 @@ export default async function BehaelterBewegungsPage({
               <span className="hidden print:inline">Bewegungsbuch · {zeitraumAnzeige({ von, bis })} · Stand {wienHeute().split('-').reverse().join('.')}</span>
             </div>
             {aktuell < 0 && (
-              <div className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-s112-err-fg text-xs font-medium">
+              <div role="alert" className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-s112-err-fg text-xs font-medium">
                 Negativer Bestand: {fmtLiter(aktuell)} — Buchungsfehler prüfen
               </div>
             )}

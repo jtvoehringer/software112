@@ -52,7 +52,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">
           <strong>Fehler:</strong> {error}
         </div>
       )}
