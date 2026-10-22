@@ -237,6 +237,8 @@ export default function NeuerVerkaufPage() {
   const [sonstigeArtikel, setSonstigeArtikel] = useState<SonstigesArtikelData[]>([])
   const [weingaerten,     setWeingaerten]     = useState<Weingarten[]>([])
   const [lesen,           setLesen]           = useState<LeseOption[]>([])
+  // KAN-353: Kunde direkt aus der Suche anlegen – Schreibrecht CRM kommt vom Server (/api/verkauf-stammdaten)
+  const [crmSchreiben,    setCrmSchreiben]    = useState(false)
   const [grundstuecke,    setGrundstuecke]    = useState<Grundstueck[]>([])
   const [loading,         setLoading]         = useState(true)
   const [ustStandard,     setUstStandard]     = useState(13)
@@ -299,6 +301,7 @@ export default function NeuerVerkaufPage() {
         setWeingaerten(json.weingaerten ?? [])
         setLesen(json.lesen ?? [])
         setGrundstuecke(json.grundstuecke ?? [])
+        setCrmSchreiben(json.crm_schreiben === true)
         const ust = json.ust_satz_standard ?? 13
         setUstStandard(ust)
         setPositionen([{ ...newEmptyPosition(), ust_satz: String(ust), rabatt_aktiv: false }])
@@ -505,6 +508,8 @@ export default function NeuerVerkaufPage() {
                 }}
                 placeholder="Name oder Firma suchen…"
                 disabled={loading}
+                anlegen={crmSchreiben}
+                anlageRolle="kunde"
               />
               <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
             </div>
@@ -519,6 +524,8 @@ export default function NeuerVerkaufPage() {
                   onChange={id => setZhKontaktId(id)}
                   placeholder="Ansprechpartner suchen…"
                   disabled={loading}
+                  anlegen={crmSchreiben}
+                  anlageRolle="kunde"
                 />
                 <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname“</p>
               </div>

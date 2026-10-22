@@ -70,7 +70,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
   const { lese: leseParam, erfassen } = await searchParams
   // Pilot 30.09.2026: Laden gemeinsam mit den Pressungen im Kellerbuch (leseKontext.ts)
   const {
-    jg, writeOk, adminOk, betrieb, csvErlaubt, bkiErlaubt, lesen, lesenMitSperre, aktiveLese, aktiveLeseMitSperre,
+    jg, writeOk, adminOk, crmSchreiben, betrieb, csvErlaubt, bkiErlaubt, lesen, lesenMitSperre, aktiveLese, aktiveLeseMitSperre,
     alleParzellen, parzellen, nachStichtag, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen,
     verkauefe, tvQuelleOptions, zukaufTrauben,
   } = await ladeLeseKontext(id, leseParam)
@@ -140,6 +140,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
             zukaufOptions={zukaufTrauben.filter(z => z.art !== 'maische')}   // KAN-41: Maische wird nicht weiterverkauft
             writeOk={writeOk}
             adminOk={adminOk}
+            crmSchreiben={crmSchreiben}
           />
         </div>
       )}

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { NextResponse } from 'next/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
 import { leseTitel } from '@/lib/wein/lesen'
@@ -206,6 +206,8 @@ export async function GET() {
       jahrgaenge:  (jahrgaenge ?? []) as any[],
       grundstuecke: grundstueckeMitKg,
       lesen,
+      // KAN-353: Kunde direkt aus der Partner-Suche anlegen – nur mit Schreibrecht CRM (canWrite nie im Client)
+      crm_schreiben: !!membership && canWrite(membership, 'crm'),
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
