@@ -16,7 +16,7 @@ import { alle } from '@/lib/supabase/alle'
 import type { Ctx, R } from '@/app/(dashboard)/dashboard/_shared/data'
 import { toDateStr, ladeOffenePosten } from '@/app/(dashboard)/dashboard/_shared/data'
 import { anlagenspiegel, buchwertAm, type Anlage } from '@/lib/ea/anlagen'
-import { ladeUmsatzRechnungen, umsatzNetto } from '@/lib/verkauf/umsatz'
+import { ladeUmsatzRechnungen, rechnungenOhneBmdExport, umsatzNetto } from '@/lib/verkauf/umsatz'
 
 export type Monat = { monat: number; einnahmen: number; ausgaben: number; einnahmenVj: number; ausgabenVj: number }
 export type KategorieZeile = { name: string; betrag: number; vj: number }
@@ -216,8 +216,9 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   if (opts.art === 'doppik') {
     const letzteProt = ((prot as R).data ?? [])[0] as R | undefined
     uebergabe = {
-      // KAN-346: Rechnungen ohne BMD-Übergabe (vorher Lieferscheine – auch nicht berechnete)
-      rechnungenOffen: vp.filter(p => !p.bmd_export_id).length,
+      // KAN-346/375: Rechnungen ohne BMD-Übergabe (vorher Lieferscheine – auch nicht berechnete); dieselbe Zählung wie
+      // die Dashboard-Frist „BMD-Übergabe“ (rechnungenOhneBmdExport)
+      rechnungenOffen: rechnungenOhneBmdExport(vp).length,
       belegeOffen: tx.filter(t => t.typ === 'ausgabe' && !t.bmd_export_id).length,
       letzte: letzteProt ? { art: letzteProt.art, erstelltAm: letzteProt.erstellt_am, anzahl: Number(letzteProt.anzahl ?? 0) } : null,
     }

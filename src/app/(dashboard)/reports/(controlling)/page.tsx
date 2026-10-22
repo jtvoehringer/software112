@@ -9,7 +9,7 @@ import {
   ART_LABEL, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, mittelmenge, mittelName, spritzbruehe,
 } from '@/lib/behoerden/psm'
 import { cuBilanz } from '@/lib/behoerden/cu'
-import { ladeUmsatzRechnungen, umsatzJeMonat } from '@/lib/verkauf/umsatz'
+import { ladeOffenePostenListe, ladeUmsatzRechnungen, offenePostenSumme, umsatzJeMonat, type OffenerPosten } from '@/lib/verkauf/umsatz'
 import { heuteWien, lokalerTag, wienJetzt, tageSeit } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Reports' }
@@ -79,10 +79,9 @@ export default async function ReportsPage() {
     tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname, accountnummer, aktiv')
       .eq('aktiv', true).eq('is_lead', false).order('nachname').limit(50)),
-    alle(tf((supabase.from('verkaufsposten') as any)
-      .select('id, datum, rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)
-      .order('datum', { ascending: true }).order('id'))),   // alle(): Summe offener Posten über alle, nicht die ältesten 1.000
+    // KAN-375: offene Posten zentral wie die Seite „Offene Posten“, Dashboard und Finanzübersicht – nur Rechnungen, offener
+    // Betrag nach nicht stornierten Zahlungen, Fälligkeit nach Kundenziel (vorher Lieferscheine, brutto, ohne Teilzahlungen)
+    tenantId ? ladeOffenePostenListe(supabase, tenantId, heuteWien(heute)) : Promise.resolve({ data: [] as OffenerPosten[], error: null }),
     // Bewusst NICHT auf aktiv=true eingeschränkt, damit auch historische
     // (inzwischen inaktive/ausverkaufte) Füllungen filterbar bleiben.
     alle(tf((supabase.from('fuellungen') as any).select('jahrgang, rebsorte, bezeichnung').order('id'))),
@@ -96,7 +95,7 @@ export default async function ReportsPage() {
   const lagerRaw = geladen(lagerRawRes, 'Füllungen')
   const pipelineRaw = geladen(pipelineRawRes, 'Pipeline')
   const kontakteRaw = geladen(kontakteRawRes, 'Kontakte')
-  const offeneRaw = geladen(offeneRawRes, 'Verkäufe')
+  const offeneRaw = geladen(offeneRawRes, 'Rechnungen')
   const vsFuellungenRaw = geladen(vsFuellungenRawRes, 'Füllungen')
   const filterwerteRaw = geladen(filterwerteRawRes, 'Filterwerte')
   const wbChargenRaw = geladen(wbChargenRawRes, 'Chargen')
@@ -163,7 +162,9 @@ export default async function ReportsPage() {
   }
 
   // ── Offene Posten ─────────────────────────────────────────────────────────
-  const offene = (offeneRaw ?? []) as R[]
+  // KAN-375: älteste Rechnung zuerst (wie geladen), Summe nach Teilzahlungen über offenePostenSumme
+  const offene = ((offeneRaw ?? []) as OffenerPosten[]).filter(p => !p.bezahlt)
+  const offeneSumme = offenePostenSumme(offene)
 
   // ── Verkaufsstatistik: Filteroptionen ───────────────────────────────────
   const vsFuellungen = (vsFuellungenRaw ?? []) as R[]
@@ -202,6 +203,7 @@ export default async function ReportsPage() {
       pipeline={pipeline}
       kontaktFrequenz={kontaktFrequenz}
       offene={offene}
+      offeneSumme={offeneSumme}
       heute={heuteWien(heute)}
       vsJahrgaenge={vsJahrgaenge}
       vsSorten={vsSorten}

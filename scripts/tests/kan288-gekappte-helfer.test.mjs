@@ -40,7 +40,9 @@ describe('Regression: die gefundenen Stellen laufen über alle()', () => {
 
   test('Dashboard-Daten: Gebinde, Chargen, Flaschen, Grundstücke, Maßnahmen der Saison, BMD-Belege, AfA – ohne .limit()', () => {
     const d = quelle('src/app/(dashboard)/dashboard/_shared/data.ts')
-    for (const t of ['behaelter', 'weinausbau', 'fuellungen', 'grundstuecke', 'behandlungen', 'verkaufsposten', 'ea_transaktionen']) {
+    // KAN-375: Rechnungen ohne BMD-Übergabe über ladeRechnungenOhneBmdExport (umsatz.ts, alle()) statt verkaufsposten
+    assert.match(d, /ladeRechnungenOhneBmdExport\(ctx\.supabase, ctx\.tenantId, seit, ctx\.heuteStr\)/)
+    for (const t of ['behaelter', 'weinausbau', 'fuellungen', 'grundstuecke', 'behandlungen', 'ea_transaktionen']) {
       assert.match(d, new RegExp(`alle<R>\\(ctx\\.tf\\(ctx\\.q\\('${t}'\\)`), t)
     }
     assert.doesNotMatch(d, /BEHANDLUNG_RIEDEN_SELECT\}`\)[^\n]*\.limit\(500\)/)
