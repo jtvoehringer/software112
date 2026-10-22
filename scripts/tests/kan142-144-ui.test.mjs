@@ -52,14 +52,15 @@ function ohneAusdruck(q, anfang) {
 const regexText = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 describe('KAN-142: Menüpfade unter „Rieden“', () => {
-  test('Reihenfolge: Rieden · • Rebsorten prüfen (KAN-89) · Maßnahmen · • Behandlungsprotokoll · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · • Rückverfolgung (KAN-108) · Betriebsmittel', () => {
+  // KAN-360 (22.10.2026): Rückverfolgung als Hauptpunkt ans Ende (letzter Punkt vor den Behördenmeldungen, wie im Kellerbuch)
+  test('Reihenfolge: Rieden · • Rebsorten prüfen (KAN-89) · Maßnahmen · • Behandlungsprotokoll · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · Betriebsmittel · Rückverfolgung (KAN-360)', () => {
     const nav = quelle('src/lib/navigation/index.ts')
     const start = nav.indexOf("key: 'rieden'")
     assert.ok(start >= 0, 'Gruppe „rieden“ fehlt')
     const gruppe = nav.slice(start, nav.indexOf("key: '", start + 1))
     const punkte = [...gruppe.matchAll(/\{ href: '[^']+',\s*label: '([^']+)'([^}]*)\}/g)]
       .map(m => (/\bchild: true\b/.test(m[2]) ? '• ' : '') + m[1])
-    assert.deepEqual(punkte, ['Rieden', '• Rebsorten prüfen', 'Maßnahmen', '• Behandlungsprotokoll', '• Cu-Bilanz', '• Nährstoffbilanz', 'Lese', '• AMA-Erntemeldung', '• Rückverfolgung', 'Betriebsmittel'])
+    assert.deepEqual(punkte, ['Rieden', '• Rebsorten prüfen', 'Maßnahmen', '• Behandlungsprotokoll', '• Cu-Bilanz', '• Nährstoffbilanz', 'Lese', '• AMA-Erntemeldung', 'Betriebsmittel', 'Rückverfolgung'])
   })
 
   test('FAQ, Handbuch und Onboarding nennen keine flachen Pfade (Pflichtmeldungen ohne „Maßnahmen“, AMA ohne „Lese“)', () => {

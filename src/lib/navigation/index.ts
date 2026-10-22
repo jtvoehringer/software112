@@ -59,6 +59,9 @@ export type NavGroup = {
   auswertungen?: boolean
 }
 
+/** Stichwörter der Rückverfolgung in allen Modulen (KAN-360, Befehlspalette Strg K) */
+export const RV_STICHWORTE = 'rückverfolgung rückruf rückruf-liste rückrufliste rv lieferkette'
+
 // Bereiche (Zeile 1) mit ihren Seiten (Zeile 2). Der Bereich "Übersicht" trägt
 // die fünf Sichten des neuen Dashboards (Übersicht · Kellerbuch · Verkauf & CRM ·
 // Weingarten & Ernte · Meldungen & Fristen) – die Tab-Leiste des Dashboard-PoC
@@ -93,9 +96,11 @@ const NAV: NavGroup[] = [
       // Unterpunkt bleibt bei seinem Hauptpunkt (Variante von Jörgen gewählt).
       { href: '/erntemeldung',       label: 'Lese',           phase: 1, keywords: 'ernte jahrgang lesedaten erntemeldung neue lese eiswein hauptlese' },
       { href: '/reports/ama',        label: 'AMA-Erntemeldung', child: true, pflichtmeldung: true, keywords: 'weinerntemeldung lesedaten weinbestandsmeldung bestandsmeldung stichtag weindatenbank behörde meldung druck csv' },
-      // KAN-108: Rückverfolgung Weingarten (Maßnahmen je Lese-Grundstück, Wartezeiten) – Unterpunkt der Lese
-      { href: '/weingarten/rueckverfolgung', label: 'Rückverfolgung', child: true, keywords: 'wartezeit pflanzenschutz lese grundstück maßnahmen ernte bis ernte lebensmittelsicherheit bki csv' },
       { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1, keywords: 'psm lager dünger weinbehandlungsmittel produktionsmittel korken flaschen bindedraht einkauf' },
+      // KAN-108: Rückverfolgung Weingarten (Maßnahmen je Lese-Grundstück, Wartezeiten). KAN-360 (22.10.2026): in jedem
+      // Modul an derselben Stelle – Hauptpunkt, letzter Punkt vor den Behördenmeldungen (Rieden: ans Ende; die
+      // Pflichtmeldungen bleiben als Unterpunkte bei Maßnahmen bzw. Lese), gleiche Bezeichnung und Stichwörter (RV_STICHWORTE).
+      { href: '/weingarten/rueckverfolgung', label: 'Rückverfolgung', phase: 1, keywords: `${RV_STICHWORTE} wartezeit pflanzenschutz lese grundstück maßnahmen ernte bis ernte lebensmittelsicherheit bki csv` },
     ],
   },
   {
@@ -108,12 +113,13 @@ const NAV: NavGroup[] = [
       { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1, keywords: 'trauben most wein einkauf zukauf' },
       { href: '/kellerbuch/kellerplan',      label: 'Kellerplan',     phase: 1, keywords: 'grundriss' },
       { href: '/dac',                        label: 'Prüfnummer',     phase: 1, keywords: 'dac antrag staatliche prüfnummer' },
-      { href: '/kellerbuch/rueckverfolgung', label: 'Rückverfolgung', phase: 1, keywords: 'herkunft charge grundstück' },
       // KAN-40 E1: Bewegungsjournal (nur lesen) mit Journal-Konsistenz
       { href: '/kellerbuch/journal',         label: 'Bewegungsjournal', phase: 1, keywords: 'journal buchungen beleg konsistenz bestand storno umstufung korrektur' },
       // KAN-44 Teil 1: BKI-Blätter Lagerstand zum Datum und Lagerbewegungen (Reiter auf der Seite)
       { href: '/kellerbuch/lagerstand',      label: 'Lagerstand (BKI)', phase: 1, keywords: 'lagerstand stichtag lagerbewegungen bki schnittstelle weindatenbank bestand flaschen etikettiert csv' },
       { href: '/kellerbuch/besondere-konten', label: 'Besondere Konten', phase: 1, keywords: 'besondere konten stoffkonto zucker saccharose rtk ktm säuerung entsäuerung kellermittel' },   // KAN-107
+      // KAN-360 (22.10.2026): letzter Punkt vor den Behördenmeldungen – wie unter Rieden
+      { href: '/kellerbuch/rueckverfolgung', label: 'Rückverfolgung', phase: 1, keywords: `${RV_STICHWORTE} herkunft charge grundstück` },
       { href: '/reports/weinbuecher-sammlung', label: 'Weinbuch-Sammlung', pflichtmeldung: true, keywords: 'weinbuch kellerbuch aufzeichnungen bki prüfung behörde meldung druck pdf csv' },
       // KAN-43 Etappe 2: BSM nach Buchungsarten je Weinwirtschaftsjahr (Kontrolljournal auf derselben Seite)
       { href: '/reports/bestandsmeldung-bsm', label: 'Bestandsmeldung (BSM)', pflichtmeldung: true, keywords: 'bsm weinbestandsmeldung bestand buchungsarten weinwirtschaftsjahr abwertung zugang abgang kontrolljournal weindatenbank behörde meldung druck csv' },
