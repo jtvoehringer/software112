@@ -11,7 +11,7 @@ import { AktionsFehler } from '@/lib/fehler'
 import { VERWALTUNG_ROLLEN } from '@/lib/auth/pflichtmeldung'
 import type { UserRole } from '@/lib/auth/roles'
 import { folgetag, wienTagesbeginnUtc } from '@/lib/behoerden/kellerbuch-hilfen'
-import { JOURNAL_BEREICHE, journalZeilen, nachAktion, type JournalFilter, type JournalZeile } from './journal'
+import { JOURNAL_BEREICHE, JOURNAL_NACHLADEN, journalZeilen, nachAktion, nachzuladendeIds, type JournalFilter, type JournalZeile } from './journal'
 
 type R = Record<string, any>
 
@@ -70,10 +70,32 @@ export async function ladeJournal(
     for (const p of (data ?? []) as R[]) namen.set(p.id, (p.full_name || p.display_name || 'Benutzer') as string)
   }
 
-  const zeilen = nachAktion(journalZeilen(prot.data, namen), f.aktion)
+  const daten = await ladeJournalDaten(supabase, ctx.tenantId, prot.data)
+  const zeilen = nachAktion(journalZeilen(prot.data, namen, daten), f.aktion)
   const benutzer = alleSichtbar
     ? mitglieder.data.map(m => ({ id: m.user_id as string, name: namen.get(m.user_id) ?? 'Benutzer' }))
         .sort((a, b) => a.name.localeCompare(b.name, 'de'))
     : []
   return { zeilen, alleSichtbar, benutzer }
+}
+
+/**
+ * KAN-376: Datensätze zu den Protokollzeilen nachladen (JOURNAL_NACHLADEN) – für Links über den Elterndatensatz und die
+ * Schwundmenge. Je Tabelle in Blöcken, nur der eigene Betrieb (tenant_id bzw. über die eingebettete Elternzeile, !inner).
+ * Gelöschte bzw. nicht (mehr) sichtbare Datensätze fehlen in der Map und bleiben ohne Link.
+ */
+export async function ladeJournalDaten(supabase: any, tenantId: string, roh: readonly R[]): Promise<Map<string, Map<string, R>>> {
+  const ergebnis = new Map<string, Map<string, R>>()
+  await Promise.all([...nachzuladendeIds(roh)].map(async ([tabelle, ids]) => {
+    const { spalten, mandant } = JOURNAL_NACHLADEN[tabelle]
+    // tenant-isolation-ignore: Tabelle aus JOURNAL_NACHLADEN, Betriebsfilter über `mandant` (tenant_id bzw. Elternzeile)
+    const { data, error } = await inBloecken<R>(ids, b => alle<R>((supabase.from(tabelle) as any)
+      .select(spalten)
+      .eq(mandant, tenantId)
+      .in('id', b)
+      .order('id', { ascending: true })))
+    if (error) throw new AktionsFehler(`Journal: ${tabelle} konnte nicht geladen werden: ${error.message}`)
+    ergebnis.set(tabelle, new Map((data ?? []).map(z => [z.id as string, z])))
+  }))
+  return ergebnis
 }

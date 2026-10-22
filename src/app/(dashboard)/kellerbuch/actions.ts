@@ -872,43 +872,10 @@ export async function schwundBuchen(weinausbauId: string, formData: FormData) {
   revalidatePath('/kellerbuch/behaelter', 'layout')
 }
 
-// MANUELLER SCHWUND (Nachbuchung im Behälter-Bewegungsbuch)
-// Bucht eine Schwund-Zeile (umzug_typ 'schwund') über die RPC schwund_buchen mit
-// p_bestand_mindern = false: nur die datierte Zeile im Bewegungsbuch, menge_liter der Charge
-// bleibt unverändert – für Restmengen, die im Bewegungsbuch stehen, im Bestand der Charge
-// aber schon fehlen (z. B. abgeschlossene 0-L-Chargen). Seit KAN-35 gleicht kein Seitenaufruf
-// den Bestand mehr nachträglich an; echter Schwund läuft über schwundBuchen (Chargen-Seite).
-// Die Zeile landet im aktuellen Gebinde der Charge (nach_behaelter_id).
-
-export async function manuellSchwundBuchen(formData: FormData) {
-  const supabase     = await createSupabaseServerClient()
-  const tenantId     = await kellerbuchSchreibrecht(['kellerbuch', 'warenwirtschaft'])   // KAN-241
-
-  const behaelterId  = formData.get('behaelter_id')  as string
-  const weinausbauId = formData.get('weinausbau_id') as string
-  const menge        = zahlAus(formData.get('menge')) ?? 0
-  const datum        = formData.get('datum') as string
-
-  if (!behaelterId || !weinausbauId || menge < 0.01 || !datum) {
-    throw new AktionsFehler('Ungültige Eingabe: alle Felder sind erforderlich, die Menge muss mindestens 0,01 L betragen')
-  }
-
-  // Mit dem Benutzer-Client und Parameternamen – sonst fehlt der Benutzer im Protokoll
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.rpc as any)('schwund_buchen', {
-    p_tenant_id:       tenantId,
-    p_weinausbau_id:   weinausbauId,
-    p_liter:           rund2(menge),
-    p_datum:           datum,
-    p_notiz:           'Manueller Schwund (Nachbuchung)',
-    p_bestand_mindern: false,
-  })
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Schwund konnte nicht gebucht werden'))
-
-  revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
-  revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}`)
-  revalidatePath('/kellerbuch')
-}
+// KAN-376 (Entscheidung Jörgen 22.10.2026): Die „Nachbuchung“ ohne Bestandsminderung (manuellSchwundBuchen,
+// p_bestand_mindern = false) gibt es in der App nicht mehr. Der Journal-Trigger buchte auch diese Zeile als SCHWUND –
+// glich ein Benutzer damit eine Bestandskorrektur aus, die das Bewegungsbuch nicht zeigte, war die Menge im Journal
+// doppelt abgezogen. Schwund im Behälter-Bewegungsbuch läuft jetzt über schwundBuchen (mindert immer den Bestand).
 
 // KELLERBEHANDLUNG
 //

@@ -36,7 +36,7 @@ describe('ZukunftsDatum', () => {
     assert.match(k, /aria-describedby=\{beschrieben\}/)
     assert.doesNotMatch(k, /\bmax=|setCustomValidity/)
   })
-  test('an den Ereignisfeldern eingesetzt (Stichprobe je Bereich), insgesamt 30', () => {
+  test('an den Ereignisfeldern eingesetzt (Stichprobe je Bereich), insgesamt 29', () => {
     const stichprobe = [
       'src/components/kellerbuch/UmziehenWidget.tsx', `${D}kellerbuch/weinausbau/[id]/SchwundBuchenForm.tsx`,
       `${D}erntemeldung/[id]/PressungSection.tsx`, `${D}weinhandel/fuellungen/neu/FuellungFormClient.tsx`,
@@ -51,7 +51,7 @@ describe('ZukunftsDatum', () => {
     const alle = [
       'src/components/kellerbuch/UmziehenFormClient.tsx', 'src/components/kellerbuch/UmziehenWidget.tsx', 'src/components/kellerbuch/VerschneidungForm.tsx',
       `${D}kellerbuch/umziehen/UmziehenClient.tsx`, `${D}kellerbuch/weinausbau/[id]/SchwundBuchenForm.tsx`, `${D}kellerbuch/behaelter/[id]/behandlungen/page.tsx`,
-      `${D}kellerbuch/weinausbau/[id]/analysen/neu/page.tsx`, `${D}kellerbuch/behaelter/[id]/bewegungen/page.tsx`, `${D}erntemeldung/[id]/ErnteDetailClient.tsx`,
+      `${D}kellerbuch/weinausbau/[id]/analysen/neu/page.tsx`, `${D}erntemeldung/[id]/ErnteDetailClient.tsx`,
       `${D}erntemeldung/[id]/PressungSection.tsx`, `${D}erntemeldung/[id]/TraubenverkaufSection.tsx`, `${D}weinhandel/fuellungen/neu/FuellungFormClient.tsx`,
       `${D}weinhandel/fuellungen/[id]/edit/page.tsx`, `${D}weinhandel/verkauf/neu/page.tsx`, 'src/components/handel/ZahlungErfassen.tsx',
       `${D}weinhandel/zukauf/neu/page.tsx`, `${D}weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx`, `${D}weinhandel/traubenverkauf/TraubenverkaufClient.tsx`,
@@ -61,6 +61,8 @@ describe('ZukunftsDatum', () => {
       `${D}admin/zeiterfassung/ZeiterfassungClient.tsx`,
     ]
     const anzahl = alle.reduce((s, d) => s + (lies(d).match(/<ZukunftsDatum\b/g) ?? []).length, 0)
-    assert.equal(anzahl, 30)   // KAN-355: Verkaufsseite und Offene Posten teilen sich ZahlungErfassen
+    // KAN-355: Verkaufsseite und Offene Posten teilen sich ZahlungErfassen; KAN-376: das Bewegungsbuch des Gebindes hat
+    // kein eigenes Datumsfeld mehr (Schwund über SchwundBuchenForm, oben schon gezählt)
+    assert.equal(anzahl, 29)
   })
 })

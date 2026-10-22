@@ -5,8 +5,8 @@ import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
-import { manuellSchwundBuchen } from '../../../actions'
-import AktionsFormular from '@/components/ui/AktionsFormular'
+import { schwundBuchen } from '../../../actions'
+import SchwundBuchenForm from '../../../weinausbau/[id]/SchwundBuchenForm'
 import { Boxes, Droplet } from 'lucide-react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
@@ -15,9 +15,6 @@ import { istTag, zeitraumAnzeige } from '@/lib/behoerden/kellerbuch-hilfen'
 import { wienHeute } from '@/lib/csv'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
 import ZeitraumFormular from '../../../_behoerden/ZeitraumFormular'
-import { rundText } from '@/lib/zahl/runden'
-import SendenKnopf from '@/components/ui/SendenKnopf'
-import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch' }
 export const dynamic = 'force-dynamic'
@@ -58,7 +55,6 @@ export default async function BehaelterBewegungsPage({
 
   const kapazitaet = bh.volumen_liter ? bh.volumen_liter : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null
-  const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
   const mitZeitraum = !!(von || bis)
   const endSaldo = bewegungenMitSaldo.length > 0 ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo : 0
 
@@ -155,63 +151,30 @@ export default async function BehaelterBewegungsPage({
         </section>
       )}
 
-      {writeOk && nichtVerbuchterSchwund >= 0.01 && chargenRaw.length > 0 && (
-        <section className="card p-5 border-s112-warn/30 bg-s112-warn-bg space-y-3 print:hidden">
+      {/* KAN-376: Schwund mindert immer den Bestand der Charge (schwundBuchen wie auf der Chargen-Seite) – keine
+          „Nachbuchung“ ohne Bestandsminderung mehr; eine Differenz Saldo ↔ Bestand ist nur ein Prüfhinweis */}
+      {Math.abs(nichtVerbuchterSchwund) >= 0.01 && chargenRaw.length > 0 && (
+        <section role="status" className="card p-4 border-s112-warn/30 bg-s112-warn-bg print:hidden">
           <div className="flex items-start gap-2">
             <Droplet className="w-5 h-5 text-s112-warn-fg shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-s112-warn-fg">Schwund ausbuchen (Nachbuchung)</p>
-              <p className="text-xs text-s112-warn-fg mt-0.5">
-                Laut Bewegungsbuch sind noch <strong>{fmtLiter(finalSaldo)}</strong> im Gebinde, gebucht
-                sind <strong>{fmtLiter(gebuchterBestand)}</strong> – also{' '}
-                <strong>{fmtLiter(nichtVerbuchterSchwund)}</strong> nicht verbuchter Schwund. Hier kann die
-                Differenz als datierte Schwundzeile nachgebucht werden; der Bestand der Charge ändert sich
-                dabei nicht. Echten Schwund einer Charge bitte über „Schwund buchen“ auf der Chargen-Seite erfassen.
-              </p>
-            </div>
+            <p className="text-xs text-s112-warn-fg">
+              Laut Bewegungsbuch sind <strong>{fmtLiter(finalSaldo)}</strong> im Gebinde, gebucht
+              sind <strong>{fmtLiter(gebuchterBestand)}</strong> (Differenz <strong>{fmtLiter(nichtVerbuchterSchwund)}</strong>).
+              Bitte die Buchungen der Chargen prüfen. Eine Schwundbuchung gleicht diese Differenz nicht aus – sie mindert
+              Bewegungsbuch und Bestand gleichermaßen.
+            </p>
           </div>
-          <AktionsFormular action={manuellSchwundBuchen} className="grid grid-cols-2 gap-3 items-end sm:flex sm:flex-wrap"
-            erfolgsMeldung="Schwund nachgebucht." fehlerErsatz="Schwund konnte nicht gebucht werden">
-            <input type="hidden" name="behaelter_id" value={id} />
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Charge</label>
-              <select aria-label="Charge" name="weinausbau_id" required className={`w-full sm:w-auto ${inputCls}`}>
-                {chargenRaw.map((c: R) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{!c.aktiv ? ' abgeschlossen' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (L)</label>
-              <input aria-label="Menge (L)"
-                name="menge"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0.01"
-                max={rundText(nichtVerbuchterSchwund, 2)}
-                defaultValue={rundText(nichtVerbuchterSchwund, 2)}
-                required
-                className={`w-full sm:w-28 ${inputCls}`}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-              <ZukunftsDatum aria-label="Datum"
-                name="datum"
-                defaultValue={wienHeute()}
-                required
-                className={`w-full sm:w-auto ${inputCls}`}
-              />
-            </div>
-            <SendenKnopf
-              className="col-span-2 sm:col-span-1 w-full sm:w-auto bg-s112-warn-fg text-white px-4 py-3 sm:py-2 rounded-lg text-base sm:text-sm font-semibold hover:opacity-90 transition-colors"
-            >
-              Schwund nachbuchen
-            </SendenKnopf>
-          </AktionsFormular>
+        </section>
+      )}
+
+      {writeOk && aktiveChargen.length > 0 && (
+        <section className="space-y-3 print:hidden">
+          {aktiveChargen.map((c: R) => (
+            <SchwundBuchenForm key={c.id}
+              titel={aktiveChargen.length > 1 ? `Schwund buchen – ${c.name}` : 'Schwund buchen'}
+              bestandLiter={Math.max(0, parseFloat(c.menge_liter) || 0)}
+              action={schwundBuchen.bind(null, c.id as string)} />
+          ))}
         </section>
       )}
 

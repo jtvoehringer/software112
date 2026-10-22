@@ -20,9 +20,11 @@ import { rueckfrage } from '@/lib/ui/rueckfrage'
 interface Props {
   bestandLiter: number
   action: (formData: FormData) => Promise<void>
+  /** KAN-376: Überschrift, z. B. mit Chargenname im Behälter-Bewegungsbuch */
+  titel?: string
 }
 
-export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
+export default function SchwundBuchenForm({ bestandLiter, action, titel = 'Schwund buchen' }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [fehler, setFehler] = useState<string | null>(null)
@@ -72,7 +74,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
   return (
     <details className="card p-5">
       <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none inline-flex items-center gap-1.5">
-        <Droplet size={15} strokeWidth={1.75} className="text-s112-warn-fg" />Schwund buchen
+        <Droplet size={15} strokeWidth={1.75} className="text-s112-warn-fg" />{titel}
       </summary>
       <p className="text-xs text-s112-muted mt-2">
         Verlust (z. B. Verdunstung, Trub, Verlust beim Ausbau) als datierte Buchung erfassen – der Bestand der Charge

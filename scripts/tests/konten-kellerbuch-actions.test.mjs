@@ -93,7 +93,8 @@ describe('Kellerbuch: Schreibrecht vorab in jeder Action (KAN-241)', nurMitHooks
     ['Charge bearbeiten', () => keller.updateWeinausbau('w', formular({})), ['kellerbuch', 'rieden']],
     ['Analyse anlegen', () => keller.createAnalyse(formular({})), ['kellerbuch']],
     ['Schwund buchen', () => keller.schwundBuchen('w', formular({})), ['kellerbuch', 'warenwirtschaft']],
-    ['Schwund manuell', () => keller.manuellSchwundBuchen(formular({})), ['kellerbuch', 'warenwirtschaft']],
+    // KAN-376: „Schwund manuell“ (manuellSchwundBuchen, Nachbuchung ohne Bestandsminderung) entfällt – das
+    // Bewegungsbuch des Gebindes bucht Schwund über schwundBuchen (Fall oben)
     ['Kellerplan anlegen', () => plan.createKellerplan(formular({ name: 'Keller' })), ['kellerbuch']],
   ]
   for (const [name, aufruf, erlaubt] of faelle) {
