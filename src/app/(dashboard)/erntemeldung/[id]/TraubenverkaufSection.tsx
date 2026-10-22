@@ -84,8 +84,10 @@ const fmtDate = (d: string) =>
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, onDone }: {
+function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchreiben, onDone }: {
   jahrgangId: string
+  /** KAN-353: Schreibrecht CRM – Käufer direkt aus der Suche anlegen */
+  crmSchreiben: boolean
   /** KAN-129: gewählte Lese (Reiter) – ein neuer Verkauf aus eigener Ernte landet in ihr */
   leseId: string | null
   tv?: Traubenverkauf
@@ -345,9 +347,11 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, onDone }
         </div>
         {/* Suche statt Auswahlliste (05.10.2026): Gebeshuber hat 8.290 Kontakte und 4.652 Firmen */}
         {buyerType === 'firma' ? (
-          <PartnerSuche art="firma" value={firmaId} onChange={id => setFirma(id)} placeholder="Firma suchen (Name, Ort, Kundennr.) …" />
+          <PartnerSuche art="firma" value={firmaId} onChange={id => setFirma(id)} placeholder="Firma suchen (Name, Ort, Kundennr.) …"
+            anlegen={crmSchreiben} anlageRolle="kunde" />
         ) : (
-          <PartnerSuche art="kontakt" value={kontaktId} onChange={id => setKontakt(id)} placeholder="Person suchen (Name, Ort, Kundennr.) …" />
+          <PartnerSuche art="kontakt" value={kontaktId} onChange={id => setKontakt(id)} placeholder="Person suchen (Name, Ort, Kundennr.) …"
+            anlegen={crmSchreiben} anlageRolle="kunde" />
         )}
       </div>
 
@@ -387,7 +391,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, onDone }
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, leseId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, writeOk,
+  jahrgangId, leseId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, writeOk, crmSchreiben,
 }: {
   jahrgangId: string
   /** KAN-129: gewählte Lese (Reiter der Jahrgangsseite) */
@@ -400,6 +404,8 @@ export default function TraubenverkaufSection({
   quelleOptions: TVQuelleOption[]
   zukaufOptions: ZukaufTraubenOpt[]
   writeOk: boolean; adminOk: boolean
+  /** KAN-353: Schreibrecht CRM – Käufer direkt aus der Partner-Suche anlegen */
+  crmSchreiben: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
@@ -471,7 +477,7 @@ export default function TraubenverkaufSection({
       </div>
 
       {showForm && !editId && (
-        <TVForm jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
+        <TVForm jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions} crmSchreiben={crmSchreiben}
           onDone={() => setShowForm(false)} />
       )}
 
@@ -485,7 +491,7 @@ export default function TraubenverkaufSection({
           {sichtbare.map(v => (
             <div key={v.id}>
               {editId === v.id ? (
-                <TVForm tv={v} jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
+                <TVForm tv={v} jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions} crmSchreiben={crmSchreiben}
                   onDone={() => setEditId(null)} />
               ) : (
                 <div className={`group border border-s112-border rounded-xl p-3 ${v.storno ? 'text-s112-muted opacity-70' : ''}`}>

@@ -49,6 +49,8 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
   if (!membership || !tenantId) notFound()
+  // KAN-353: Käufer im Traubenverkauf direkt aus der Partner-Suche anlegen – nur mit Schreibrecht CRM
+  const crmSchreiben = canWrite(membership, 'crm')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => query.eq('tenant_id', tenantId)
 
@@ -495,7 +497,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   }))
 
   return {
-    jg: jg as AR, writeOk, adminOk, betrieb, csvErlaubt, bkiErlaubt,
+    jg: jg as AR, writeOk, adminOk, crmSchreiben, betrieb, csvErlaubt, bkiErlaubt,
     lesen, lesenMitSperre, aktiveLese, aktiveLeseMitSperre,
     alleParzellen, parzellen, nachStichtag, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag,
     pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge,

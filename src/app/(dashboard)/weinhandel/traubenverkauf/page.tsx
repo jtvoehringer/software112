@@ -180,6 +180,7 @@ export default async function TraubenverkaufPage() {
         zukaufOptions={zukaufOptions}
         writeOk={writeOk}
         bkiErlaubt={bkiErlaubt}
+        crmSchreiben={canWrite(membership, 'crm')}
       />
     </div>
   )

@@ -86,6 +86,8 @@ export default function ZukaufNeuPage() {
   // KAN-186: Ursprungsland (kat_land), Österreich vorbelegt
   const [landIso,       setLandIso]       = useState('AT')
   const [laender,       setLaender]       = useState<Land[]>([])
+  // KAN-353: Lieferant direkt aus der Suche anlegen – Schreibrecht CRM kommt vom Server (/api/zukauf-stammdaten)
+  const [crmSchreiben,  setCrmSchreiben]  = useState(false)
   // Eigene Weinbaugebiete des Betriebs (wie am GST, ladeCustomWeinbaugebiete) – null = noch nicht geladen
   const [eigeneGebiete, setEigeneGebiete] = useState<CustomWeinbaugebiet[] | null>(null)
   const [anreicherung,  setAnreicherung]  = useState(false)
@@ -135,7 +137,7 @@ export default function ZukaufNeuPage() {
         // werden seit 17.9.2026 serverseitig gesucht (PartnerSuche) - hier nur noch
         // Behälter/Chargen laden.
         const r2 = await fetch('/api/zukauf-stammdaten')
-        if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []); setLaender(j2.laender ?? []) }
+        if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []); setLaender(j2.laender ?? []); setCrmSchreiben(j2.crm_schreiben === true) }
       } catch { /* ignore */ } finally { setLoading(false) }
     }
     load()
@@ -330,6 +332,8 @@ export default function ZukaufNeuPage() {
                 }}
                 placeholder="Name oder Firma suchen…"
                 disabled={loading}
+                anlegen={crmSchreiben}
+                anlageRolle="lieferant"
               />
               <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
               {lieferantHinweis && lieferantInfo && (
@@ -351,6 +355,8 @@ export default function ZukaufNeuPage() {
                   onChange={id => setLieferantZh(id)}
                   placeholder="Ansprechpartner suchen…"
                   disabled={loading}
+                  anlegen={crmSchreiben}
+                  anlageRolle="lieferant"
                 />
               </div>
             )}
