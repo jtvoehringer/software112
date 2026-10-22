@@ -9,6 +9,7 @@ import {
   ART_LABEL, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, mittelmenge, mittelName, spritzbruehe,
 } from '@/lib/behoerden/psm'
 import { cuBilanz } from '@/lib/behoerden/cu'
+import { ladeUmsatzRechnungen, umsatzJeMonat } from '@/lib/verkauf/umsatz'
 import { heuteWien, lokalerTag, wienJetzt, tageSeit } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Reports' }
@@ -65,10 +66,9 @@ export default async function ReportsPage() {
     filterwerteRawRes,
     wbChargenRawRes,
   ] = await Promise.all([
-    alle(tf((supabase.from('verkaufsposten') as any)
-      .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('storniert', false)
-      .gte('datum', von12).lte('datum', bis12).order('datum').order('id'))),
+    // KAN-346: Umsatz netto nach Rechnungsdatum über die zentrale Umsatzfunktion (wie /api/reports/umsatz, Dashboard und
+    // Finanzübersicht; vorher brutto nach Lieferdatum über alle Lieferscheine)
+    tenantId ? ladeUmsatzRechnungen(supabase, tenantId, von12, bis12) : Promise.resolve({ data: [], error: null }),
     alle(tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true).order('bestand_flaschen', { ascending: false }).order('id'))),
@@ -91,7 +91,7 @@ export default async function ReportsPage() {
     // auffindbar machen soll.
     alle(tf((supabase.from('weinausbau') as any).select('jahrgang, rebsorte, name').order('id'))),
   ])
-  const umsatzRaw = geladen(umsatzRawRes, 'Verkäufe')
+  const umsatzRaw = geladen(umsatzRawRes, 'Rechnungen')
   const lagerRaw = geladen(lagerRawRes, 'Füllungen')
   const pipelineRaw = geladen(pipelineRawRes, 'Pipeline')
   const kontakteRaw = geladen(kontakteRawRes, 'Kontakte')
@@ -100,29 +100,17 @@ export default async function ReportsPage() {
   const filterwerteRaw = geladen(filterwerteRawRes, 'Filterwerte')
   const wbChargenRaw = geladen(wbChargenRawRes, 'Chargen')
 
-  // ── Monats-Umsatz (12 Monate rückwärts) ─────────────────────────────────
-  const brutto = (p: R) => ((p.verkauf_positionen ?? []) as R[]).reduce((ps: number, pos: R) => {
-    const b = (Number(pos.preis_brutto) || 0) * (Number(pos.menge) || 0)
-    return ps + b * (1 - (Number(pos.rabatt_pct) || 0) / 100) * (1 - (Number(pos.sonderrabatt_pct) || 0) / 100)
-  }, 0)
-  const umsatzProMonat: Record<string, { umsatz: number; anzahl: number }> = {}
-  for (const p of (umsatzRaw ?? []) as R[]) {
-    const k = String(p.datum ?? '').slice(0, 7)
-    if (!umsatzProMonat[k]) umsatzProMonat[k] = { umsatz: 0, anzahl: 0 }
-    umsatzProMonat[k].umsatz += brutto(p)
-    umsatzProMonat[k].anzahl += 1
-  }
-  const umsatzMonate: { monat: string; umsatz: number; anzahl: number; von: string; bis: string }[] = []
+  // ── Monats-Umsatz (12 Monate rückwärts, netto nach Rechnungsdatum – KAN-346) ──────────────────────
+  const monate12: { d: Date; von: string; bis: string }[] = []
   for (let i = 11; i >= 0; i--) {
     const d = new Date(thisYear, thisMonth - i, 1)
-    const von = lokalerTag(new Date(d.getFullYear(), d.getMonth(), 1))
-    const bis = lokalerTag(new Date(d.getFullYear(), d.getMonth() + 1, 0))
-    const m = umsatzProMonat[von.slice(0, 7)] ?? { umsatz: 0, anzahl: 0 }
-    umsatzMonate.push({
-      monat: d.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short', year: '2-digit' }),
-      umsatz: m.umsatz, anzahl: m.anzahl, von, bis,
-    })
+    monate12.push({ d, von: lokalerTag(new Date(d.getFullYear(), d.getMonth(), 1)), bis: lokalerTag(new Date(d.getFullYear(), d.getMonth() + 1, 0)) })
   }
+  const jeMonat = umsatzJeMonat((umsatzRaw ?? []) as R[], monate12.map(m => m.von.slice(0, 7)))
+  const umsatzMonate: { monat: string; umsatz: number; anzahl: number; von: string; bis: string }[] = monate12.map(({ d, von, bis }) => {
+    const m = jeMonat.get(von.slice(0, 7)) ?? { umsatz: 0, anzahl: 0 }
+    return { monat: d.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short', year: '2-digit' }), umsatz: m.umsatz, anzahl: m.anzahl, von, bis }
+  })
 
   // ── Lagerbestand ─────────────────────────────────────────────────────────
   const lager = (lagerRaw ?? []) as R[]

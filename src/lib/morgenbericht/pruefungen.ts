@@ -4,7 +4,7 @@
 // Läuft mit dem Dashboard-Kontext (Session) oder einem Service-Role-Kontext
 // (Cron, siehe erstellen.ts).
 
-import { ladeFristen, ladeKeller, ZAHLUNGSZIEL_TAGE, posSum, type Ctx, type R } from '@/app/(dashboard)/dashboard/_shared/data'
+import { ladeFristen, ladeKeller, ladeOffenePosten, type Ctx, type R } from '@/app/(dashboard)/dashboard/_shared/data'
 import type { Befund } from '@/lib/wetter/regeln'
 import { alle } from '@/lib/supabase/alle'
 import { ereignisseLaden } from '@/lib/system/ereignis'
@@ -12,8 +12,9 @@ import { weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import { betriebeOhneMorgenberichtAmVortag } from './vortag'
 import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
-import { tageBis, wienTag } from '@/lib/datum/wien'
+import { tageBis, tagPlus, wienTag } from '@/lib/datum/wien'
 import { AktionsFehler } from '@/lib/fehler'
+import { faelligText } from '@/lib/verkauf/faelligkeit'
 
 export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
@@ -24,16 +25,17 @@ const datumDe = (iso: string) => new Date(iso).toLocaleDateString('de-AT', { tim
 export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { istBasis: boolean }): Promise<Befund[]> {
   const befunde: Befund[] = []
   const heute = ctx.heute
-  const seit90 = new Date(heute.getTime() - 90 * 86400000).toISOString().slice(0, 10)
-  const seit7 = new Date(heute.getTime() - 7 * 86400000).toISOString().slice(0, 10)
-  const seit365 = new Date(heute.getTime() - 365 * 86400000).toISOString().slice(0, 10)
+  // KAN-374: Wiener Kalendertage (vorher Millisekunden und toISOString() – der UTC-Tag, zwischen 0 und 2 Uhr der Vortag)
+  const seit90 = tagPlus(ctx.heuteStr, -90)
+  const seit7 = tagPlus(ctx.heuteStr, -7)
+  const seit365 = tagPlus(ctx.heuteStr, -365)
 
-  const [fristen, keller, { data: offeneVp, error: offeneVpErr }, { data: ohneKat, error: ohneKatErr }, { count: belegeErkannt, error: belegeErkanntErr }, { data: txJahr, error: txJahrErr }, { data: fuellNeg, error: fuellNegErr }, { data: chargenNeg, error: chargenNegErr }, { data: dublettenRaw, error: dublettenRawErr }, { data: tenant, error: tenantErr }, { data: wartefristen, error: wartefristenErr }, { data: pressungen, error: pressungenErr }] = await Promise.all([
+  const [fristen, keller, offenePosten, { data: ohneKat, error: ohneKatErr }, { count: belegeErkannt, error: belegeErkanntErr }, { data: txJahr, error: txJahrErr }, { data: fuellNeg, error: fuellNegErr }, { data: chargenNeg, error: chargenNegErr }, { data: dublettenRaw, error: dublettenRawErr }, { data: tenant, error: tenantErr }, { data: wartefristen, error: wartefristenErr }, { data: pressungen, error: pressungenErr }] = await Promise.all([
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     ladeKeller(ctx, einst.messintervallTage),
-    // Sweep 93 (KAN-288): Anzahl und Summe überfälliger Rechnungen vollständig – vorher .limit(500)
-    alle<R>(ctx.tf(ctx.q('verkaufsposten').select('id, rechnungsnummer, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('storniert', false).eq('bezahlt', false).lt('datum', new Date(heute.getTime() - ZAHLUNGSZIEL_TAGE * 86400000).toISOString().slice(0, 10))).order('id')),
+    // KAN-346/374: offene Posten zentral (lib/verkauf/umsatz) – Rechnungen, offener Betrag nach Teilzahlungen, überfällig ab
+    // der Fälligkeit nach Kundenziel (vorher Lieferscheine, älter als 30 Tage nach UTC-Datum, brutto ohne Zahlungen)
+    ladeOffenePosten(ctx),
     einst.modulEa ? ctx.tf(ctx.q('ea_transaktionen').select('id').is('kategorie_id', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', seit90).limit(200)) : Promise.resolve({ data: [], error: null }),
     einst.modulEa ? ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')) : Promise.resolve({ count: 0, error: null }),
     einst.modulEa ? alle(ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, kategorie_id, typ').gte('datum', seit365).is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).order('datum').order('id'))) : Promise.resolve({ data: [], error: null }),   // Sweep 20.9.: .limit(5000) wurde bei 1.000 gekappt
@@ -44,10 +46,10 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
     ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
     // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
-    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
+    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('ernte_fruehesteins', tagPlus(ctx.heuteStr, -60)).limit(500)),
     ctx.tf(ctx.q('pressungen').select('id, datum, weinbezeichnung').gte('datum', `${heute.getFullYear()}-01-01`).limit(500)),
   ])
-  if ((offeneVpErr ?? ohneKatErr ?? belegeErkanntErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(offeneVpErr ?? ohneKatErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr).message}`)
+  if ((offenePosten.fehler ?? ohneKatErr ?? belegeErkanntErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${offenePosten.fehler ?? (ohneKatErr ?? belegeErkanntErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr)?.message}`)
 
   // 1. Fristen: überfällig = hoch, fällig = mittel (UVA, BMD-Übergabe, Erntemeldung, AfA, eigene Fristen)
   for (const f of fristen) {
@@ -64,12 +66,12 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     href: '/dashboard/kellerbuch',
   })
 
-  // 3. Rechnungen über Zahlungsziel
-  const ueberf = (offeneVp ?? []) as R[]
+  // 3. Rechnungen über Zahlungsziel (KAN-374: ab Fälligkeit nach Kundenziel)
+  const ueberf = offenePosten.liste.filter(p => p.ueberfaellig)
   if (ueberf.length) befunde.push({
     key: 'verkauf:ueberfaellig', bereich: 'Verkauf', stufe: ueberf.length >= 5 ? 'hoch' : 'mittel',
-    titel: `${ueberf.length} ${ueberf.length === 1 ? 'Rechnung' : 'Rechnungen'} über Zahlungsziel (${ZAHLUNGSZIEL_TAGE} Tage)`,
-    detail: `${eur(posSum(ueberf))} offen · älteste ${datumDe([...ueberf].sort((a, b) => String(a.datum).localeCompare(String(b.datum)))[0].datum)}`,
+    titel: `${ueberf.length} ${ueberf.length === 1 ? 'Rechnung' : 'Rechnungen'} überfällig`,
+    detail: `${eur(offenePosten.ueberfaelligSumme)} offen · am längsten ${faelligText([...ueberf].sort((a, b) => b.verzugTage - a.verzugTage)[0])}`,
     href: '/weinhandel/offene-posten',
   })
 

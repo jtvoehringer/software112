@@ -56,7 +56,8 @@ describe('Verdrahtung', () => {
     const d = quelle('src/app/(dashboard)/dashboard/_shared/data.ts')
     assert.match(d, /const heute = wienJetzt\(\)/)
     assert.match(d, /export function toDateStr\(d: Date\) \{\s*return lokalerTag\(d\)/)
-    assert.match(d, /tage: tageSeit\(v\.datum, ctx\.heute\)/)
+    // KAN-374: offene Posten über ladeOffenePostenListe mit dem Wiener Kalendertag (Verzug ab Fälligkeit)
+    assert.match(d, /ladeOffenePostenListe\(ctx\.supabase, ctx\.tenantId, ctx\.heuteStr\)/)
     assert.doesNotMatch(d, /toISOString\(\)\.split\('T'\)/)
   })
 

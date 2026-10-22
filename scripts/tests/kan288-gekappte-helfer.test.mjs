@@ -30,9 +30,12 @@ describe('check-alle: Helfer q()/ctx.q() und ctx.tf()', () => {
 })
 
 describe('Regression: die gefundenen Stellen laufen über alle()', () => {
+  // KAN-346/374: offene Posten und Umsatzreihe über die zentralen Lader (alle() in lib/verkauf/umsatz.ts)
   test('Verkaufs-Dashboard: offene Posten und Umsatzreihe', () => {
     const p = quelle('src/app/(dashboard)/dashboard/verkauf/page.tsx')
-    assert.equal((p.match(/alle<R>\(tf\(q\('verkaufsposten'\)/g) ?? []).length, 2)
+    assert.match(p, /ladeUmsatzRechnungen\(supabase, tenantId, absatzVon, absatzBis\)/)
+    assert.match(p, /ladeOffenePosten\(ctx\)/)
+    assert.doesNotMatch(p, /q\('verkaufsposten'\)\s*\n?\s*\.select\('id, datum/)
   })
 
   test('Dashboard-Daten: Gebinde, Chargen, Flaschen, Grundstücke, Maßnahmen der Saison, BMD-Belege, AfA – ohne .limit()', () => {
@@ -47,7 +50,7 @@ describe('Regression: die gefundenen Stellen laufen über alle()', () => {
   test('Finanzübersicht, Morgenbericht, Anlagen, Lager-Lieferanten', () => {
     assert.match(quelle('src/lib/finanzen/uebersicht.ts'), /alle<R>\(ctx\.tf\(ctx\.q\('konto_umbuchungen'\)/)
     const m = quelle('src/lib/morgenbericht/pruefungen.ts')
-    assert.match(m, /alle<R>\(ctx\.tf\(ctx\.q\('verkaufsposten'\)\.select\('id, rechnungsnummer, datum/)
+    assert.match(m, /ladeOffenePosten\(ctx\),/)   // KAN-346/374: zentral, vollständig über alle()
     assert.match(quelle('src/app/(dashboard)/buchhaltung/anlagen/daten.ts'), /alle<R>\(ctx\.tf\(ctx\.q\('ea_transaktionen'\)/)
     const l = quelle('src/app/(dashboard)/behandlungen/lager/page.tsx')
     assert.match(l, /alle<AR>\(tf\(\(supabase\.from\('firmen'\) as any\)\n\s*\.select\('id, name'\)\.eq\('ist_lieferant', true\)\.eq\('aktiv', true\)\)\.order\('name'\)\.order\('id'\)\)/)

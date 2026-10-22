@@ -48,6 +48,15 @@ export function tageZwischen(von: string, bis: string): number {
   return Math.round((utc(bis) - utc(von)) / 86400000)   // datum-ok: beide Seiten Date.UTC (Zeile davor), reine Datumsrechnung
 }
 
+/** Tag ('JJJJ-MM-TT…') um `tage` Kalendertage verschoben, als 'JJJJ-MM-TT' – reine Datumsrechnung über UTC-Mitternacht
+ *  (KAN-374: statt new Date(heute.getTime() − n · 86400000).toISOString(), das den UTC-Tag eines Wiener Zeitpunkts nahm) */
+export function tagPlus(tag: string, tage: number): string {
+  const [j, m, t] = String(tag).slice(0, 10).split('-').map(Number)
+  const d = new Date(Date.UTC(j, m - 1, t))
+  d.setUTCDate(d.getUTCDate() + tage)
+  return `${String(d.getUTCFullYear()).padStart(4, '0')}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
 /** Heute als 'JJJJ-MM-TT' in Wiener Zeit (KAN-237: statt new Date().toISOString().slice(0, 10), das bis 1 bzw. 2 Uhr
  *  den UTC-Vortag lieferte – auf dem Server wie im Browser) */
 export function heuteWien(jetzt: Date = new Date()): string {

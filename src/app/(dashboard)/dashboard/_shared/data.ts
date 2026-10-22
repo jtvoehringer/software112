@@ -17,6 +17,7 @@ import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { fristAus, psmErfassungFrist, PSM_FRIST_STANDARD_H, type PsmErfassungZeile } from '@/lib/behandlungen/erfassungsfrist'
 import { geladen } from '@/lib/supabase/geladen'
+import { ladeOffenePostenListe, offenePostenSumme, type OffenerPosten } from '@/lib/verkauf/umsatz'
 
 // Sweep 87 (KAN-279): jede Abfrage über geladen() – ein Lesefehler zeigt die Fehlergrenze des Dashboards statt falscher
 // Kennzahlen (Bestand, Kapazität, Fläche) oder fehlender Fristen (UVA, AfA, Erntemeldung). Ausnahme: offene Posten melden
@@ -75,41 +76,25 @@ export async function getCtx(): Promise<Ctx> {
 
 // ── Verkauf ──────────────────────────────────────────────────────────────────
 
-/** Netto-Umsatz aus Verkaufspositionen inkl. Rabatt/Sonderrabatt (wie bisheriges Dashboard) */
-export function posSum(posten: R[]): number {
-  return (posten ?? []).reduce((s: number, p: R) => {
-    const pos = (p.positionen ?? p.verkauf_positionen ?? []) as R[]
-    return s + pos.reduce((ps: number, x: R) => {
-      const brutto = (Number(x.preis_brutto) || 0) * (Number(x.menge) || 0)
-      return ps + brutto * (1 - (Number(x.rabatt_pct) || 0) / 100) * (1 - (Number(x.sonderrabatt_pct) || 0) / 100)
-    }, 0)
-  }, 0)
-}
-
-// Zahlungsziel-Annahme für "überfällig" (kein eigenes Fälligkeitsfeld im Datenmodell)
-export const ZAHLUNGSZIEL_TAGE = 30
-
+/**
+ * Offene Posten für Dashboard, Finanzübersicht und Morgenbericht – über ladeOffenePostenListe (lib/verkauf/umsatz):
+ * nur Rechnungen, offener Betrag nach Teilzahlungen, überfällig ab der Fälligkeit nach Kundenziel (KAN-346/374;
+ * vorher Lieferscheine, Brutto ohne Zahlungen und „überfällig“ ab 30 Tagen nach dem Belegdatum).
+ */
 export async function ladeOffenePosten(ctx: Ctx) {
-  // KAN-157: alle offenen Rechnungen (vorher .limit(300) – Summe und Anzahl wären darüber zu niedrig); auch Quelle der Finanzübersicht
-  const { data, error } = await alle<R>(ctx.tf(ctx.q('verkaufsposten')
-    .select('id, datum, rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-    .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).order('id')))
-  const liste = ((data ?? []) as R[]).map(v => ({
-    id: v.id as string,
-    datum: v.datum as string,
-    rechnungsnummer: (v.rechnungsnummer ?? null) as string | null,
-    kunde: v.kontakt ? [v.kontakt.vorname, v.kontakt.nachname].filter(Boolean).join(' ') : (v.firma?.name ?? '–') as string,
-    betrag: posSum([v]),
-    tage: tageSeit(v.datum, ctx.heute),   // KAN-158: Kalendertage in Wien
-  }))
-  const ueberfaellig = liste.filter(v => v.tage > ZAHLUNGSZIEL_TAGE)
+  const { data, error } = ctx.tenantId
+    ? await ladeOffenePostenListe(ctx.supabase, ctx.tenantId, ctx.heuteStr)
+    : { data: [] as OffenerPosten[], error: null }
+  const liste = data.filter(p => !p.bezahlt)
+  const summe = offenePostenSumme(liste)
   return {
     liste,
-    summe: liste.reduce((s, v) => s + v.betrag, 0),
-    anzahl: liste.length,
-    ueberfaellig: ueberfaellig.length,
-    ueberfaelligSumme: ueberfaellig.reduce((s, v) => s + v.betrag, 0),
-    avgTage: liste.length ? Math.round(liste.reduce((s, v) => s + v.tage, 0) / liste.length) : 0,
+    summe: summe.summe,
+    anzahl: summe.anzahl,
+    ueberfaellig: summe.ueberfaellig,
+    ueberfaelligSumme: summe.ueberfaelligSumme,
+    /** Ø Rechnungsalter (Tage seit Rechnungsdatum) – nicht der Verzug */
+    avgAlterTage: summe.avgAlterTage,
     /** KAN-158: Datenbankfehler – Summen sind dann unvollständig */
     fehler: error ? String((error as R).message ?? error) : null,
   }

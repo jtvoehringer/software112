@@ -71,9 +71,12 @@ describe('KAN-105: Leser auf rechnungen', () => {
   test('Rechnungsausgangsjournal: Quelle rechnungen', () => {
     assert.match(quelle('src/lib/behoerden/rechnungsausgang.ts'), /alle<R>\(\(supabase\.from\('rechnungen'\) as any\)/)
   })
+  // seit KAN-346/374 zentral in lib/verkauf/umsatz.ts (ladeOffenePostenListe)
   test('Offene Posten: Rechnungen, Zahlungen je Rechnung', () => {
     const o = quelle('src/app/(dashboard)/weinhandel/offene-posten/page.tsx')
-    assert.match(o, /supabase\.from\('rechnungen'\) as any\)/)
-    assert.match(o, /\.select\('rechnung_id, betrag'\)\n\s+\.in\('rechnung_id', b\)/)
+    assert.match(o, /ladeOffenePostenListe\(supabase, tenantId, heuteWien\(\), \{ mitBezahlten: true \}\)/)
+    const u = quelle('src/lib/verkauf/umsatz.ts')
+    assert.match(u, /alle<R>\(supabase\.from\('rechnungen'\)\n\s+\.select\(OFFENE_POSTEN_SELECT\)/)
+    assert.match(u, /\.select\('id, rechnung_id, betrag'\)\n\s+\.eq\('tenant_id', tenantId\)\n\s+\.in\('rechnung_id', b\)/)
   })
 })

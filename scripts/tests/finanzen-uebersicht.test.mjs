@@ -9,7 +9,7 @@
 // E&A-Buchungen aller Jahre, Umbuchungen), UVA-Stand monatlich/quartalsweise samt Fälligkeit,
 // Monatsabschluss, Belege, Doppik-Übergabe, abgelaufenes Jahr, Mandantenfilter (über getCtx),
 // Verhalten bei Datenbankfehlern, Datumsgrenzen (Stichtag und Vorjahres-Stichtag einschließlich,
-// Zeitraum 1.1. Vorjahr bis 31.12., Zahlungsziel 30 Tage) und die Zeitzonen-Abhängigkeit von
+// Zeitraum 1.1. Vorjahr bis 31.12., Fälligkeit nach Zahlungsziel des Kunden – KAN-374) und die Zeitzonen-Abhängigkeit von
 // Fälligkeit, Jahr und Stichtag.
 //
 // Aufruf: npm run -s test:csv  (Node ≥ 22.15 wegen module.registerHooks)
@@ -34,8 +34,15 @@ const tx = (id, datum, typ, netto, teil) => ({
   bmd_export_id: null, anlage_id: null, kategorie: kat('Sonstiges', 7800), ...teil,
 })
 const vpos = (preis_brutto, menge, ust_satz, teil) => ({ preis_brutto, menge, rabatt_pct: 0, sonderrabatt_pct: 0, ust_satz, ...teil })
-// verkauf_positionen für ladeFinanzen, positionen (Alias) für ladeOffenePosten – Quelle der Forderungen seit KAN-157
-const vp = (id, datum, positionen, teil) => ({ id, tenant_id: T, datum, bezahlt: false, aktiv: true, storniert: false, bmd_export_id: null, verkauf_positionen: positionen, positionen, kontakt: null, firma: null, rechnungsnummer: null, ...teil })
+// KAN-346/374: Umsatz und Forderungen lesen Rechnungen (rechnungen) mit den Positionen ihrer Lieferscheine – ohne
+// Kontakt/Firma gilt das Standard-Zahlungsziel 14 Tage
+const vp = (id, datum, positionen, teil) => ({
+  id, tenant_id: T, datum, bezahlt: false, aktiv: true, storniert: false, bmd_export_id: null, rechnungsnummer: null,
+  kontakt: null, firma: null, partner_daten: null,
+  lieferscheine: [{ id: `ls-${id}`, lieferscheinnummer: `L-${id}`, datum, verkauf_positionen: positionen }], ...teil,
+})
+// Kunde mit 30 Tagen Zahlungsziel (Grenzfälle der Fälligkeit)
+const ziel30 = { kontakt: { id: 'kz30', vorname: 'Ziel', nachname: 'Dreißig', zahlungsziel_tage: 30 } }
 
 const tabellen = () => ({
   tenants: [{ id: T, name: 'Weingut Test' }],
@@ -54,7 +61,7 @@ const tabellen = () => ({
     tx('t12', '2025-06-01', 'ausgabe', 500, { kategorie: kat('Betriebsausstattung', '0400') }),            // Anlagenkauf Vorjahr
     tx('t13', '2020-01-01', 'ausgabe', 10, { betrag_brutto: 10, konto_id: 'k1' }),
   ],
-  verkaufsposten: [
+  rechnungen: [
     vp('vp1', '2026-03-01', [vpos(11.3, 10, 13)]),                                                     // netto 100, brutto 113, überfällig
     vp('vp2', '2026-09-20', [vpos(24, 5, 20, { rabatt_pct: 10 })]),                                    // brutto 108, netto 90
     vp('vp3', '2026-05-01', [vpos(120, 1, 20)], { bezahlt: true, bmd_export_id: 'x' }),                // netto 100
@@ -188,7 +195,8 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
   })
 
   // KAN-157 (vorher Befund: nur Rechnungen ab 1.1. des Vorjahres – die Kachel wich von „Offene Posten“ ab)
-  test('KAN-157: Forderungen wie „Offene Posten“ (ladeOffenePosten) – ohne Datumsgrenze, brutto, überfällig nach 30 vollen Tagen', async () => {
+  // KAN-374: überfällig ab Fälligkeit – ohne Kunde Standardziel 14 Tage (vp2 vom 20.09. ist am 28.09. noch nicht fällig)
+  test('KAN-157: Forderungen wie „Offene Posten“ (ladeOffenePosten) – ohne Datumsgrenze, brutto, überfällig ab Fälligkeit', async () => {
     const { r, db } = await lade()
     assert.equal(r.forderungen.anzahl, 5, 'vp1, vp2, vp6, vp7 und die alte Rechnung vp9 aus 2024')
     assert.equal(Math.round(r.forderungen.summe * 100) / 100, 841)
@@ -202,9 +210,9 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
   })
 
   // Datumsgrenzen: jede Buchung/Rechnung liegt GENAU auf einer Grenze (Stichtag einschließlich,
-  // Vorjahres-Stichtag einschließlich, Zeitraum 1.1. Vorjahr bis 31.12., Zahlungsziel 30 Tage).
+  // Vorjahres-Stichtag einschließlich, Zeitraum 1.1. Vorjahr bis 31.12., Kunde mit Zahlungsziel 30 Tage – KAN-374).
   // Der erste Test läuft mit heute = 28.09.2026, 00:00:00.000 UTC (Server in UTC): nur exakt zu diesem
-  // Zeitpunkt ist r3 (30 Tage) noch nicht überfällig – das deckt die Grenze > gegen >= ab. Das
+  // Zeitpunkt ist r3 (fällig am 28.09.) noch nicht überfällig – das deckt die Grenze > gegen >= ab. Das
   // Verhalten im Betrieb (mit Uhrzeit) und die Zeitzonen-Grenze kurz nach Mitternacht in Wien prüfen
   // die beiden Befund-Tests danach.
   const grenzen = () => ({
@@ -220,15 +228,15 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
       tx('k1', '2026-09-28', 'ausgabe', 500, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Stichtag
       tx('k2', '2025-09-28', 'ausgabe', 300, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Vorjahres-Stichtag
     ],
-    verkaufsposten: [
+    rechnungen: [
       vp('r1', '2026-09-28', [vpos(120, 1, 20)], { bezahlt: true }),                                   // Stichtag, netto 100
       vp('r2', '2025-09-28', [vpos(110, 1, 10)], { bezahlt: true }),                                   // Vorjahres-Stichtag, netto 100
-      vp('r3', '2026-08-29', [vpos(12, 1, 20)]),                                                       // 30 Tage alt: nur exakt um Mitternacht UTC nicht überfällig
-      vp('r4', '2026-08-28', [vpos(24, 1, 20)]),                                                       // 31 Tage alt: überfällig
+      vp('r3', '2026-08-29', [vpos(12, 1, 20)], ziel30),                                               // fällig 28.09.: am Fälligkeitstag nicht überfällig
+      vp('r4', '2026-08-28', [vpos(24, 1, 20)], ziel30),                                               // fällig 27.09.: 1 Tag überfällig
     ],
   })
 
-  test('Datumsgrenzen: Stichtag und Vorjahres-Stichtag zählen mit, Zeitraum 1.1. Vorjahr bis 31.12., überfällig erst nach 30 vollen Tagen (exakt 00:00:00.000 UTC)', async () => {
+  test('Datumsgrenzen: Stichtag und Vorjahres-Stichtag zählen mit, Zeitraum 1.1. Vorjahr bis 31.12., überfällig erst nach dem Fälligkeitstag (exakt 00:00:00.000 UTC)', async () => {
     const { r } = await lade({ art: 'doppik', heute: new Date('2026-09-28T00:00:00.000Z') }, grenzen())
     assert.equal(r.stichtag, '2026-09-28')
     // YTD-Ausgaben: nur der Anlagenkauf k1 (auch Anlagenkäufe sind Ausgaben der Übersicht); Vorjahr: g4 + k2
@@ -238,14 +246,14 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [20, 500, 300])
     assert.equal(r.anlagen.ergebnisNachAfaVjGesamt, 707 + 300)
     assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [130, 100], 'r1 + r3 + r4 (100 + 10 + 20) bzw. r2')
-    assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, 'r3 exakt 30 Tage: nicht überfällig')
+    assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, 'r3 am Fälligkeitstag: nicht überfällig')
     // Ausgaben ohne BMD-Export im ganzen Zeitraum: g4, g5 (31.12.), a1, a2, k1, k2
     assert.deepEqual([r.uebergabe.belegeOffen, r.uebergabe.rechnungenOffen], [6, 4])
   })
 
   // KAN-157: Überfälligkeit wie „Offene Posten“ nach vollen Tagen (vorher Befund: nach Zeitpunkt – r3 war
-  // schon am 30. Kalendertag mit Uhrzeit überfällig).
-  test('KAN-157: Überfälligkeit nach vollen Tagen – am 30. Tag mit Uhrzeit ist r3 noch nicht überfällig (UTC und Wien)', async () => {
+  // schon am 30. Kalendertag mit Uhrzeit überfällig). KAN-374: Grenze ist der Fälligkeitstag (Ziel 30 Tage).
+  test('KAN-157: Überfälligkeit nach vollen Tagen – am Fälligkeitstag mit Uhrzeit ist r3 noch nicht überfällig (UTC und Wien)', async () => {
     for (const [zone, heute] of [['UTC', '2026-09-28T00:00:01.000Z'], ['UTC', '2026-09-28T12:00:00.000Z'], ['Europe/Vienna', '2026-09-28T12:00:00.000Z']]) {
       process.env.TZ = zone
       const { r } = await lade({ heute: new Date(heute) }, grenzen())
@@ -256,7 +264,7 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
 
   // KAN-158 (vorher Befund: Stichtag aus toISOString = UTC-Datum 27.09.): 28.09.2026 00:30 Wiener Zeit
   // (27.09. 22:30 UTC) ist in Wien schon der 28.09. – egal, ob der Server in UTC (Vercel) oder Wien läuft.
-  // Überfällig nach Wiener Kalendertagen: r4 ist 31 Tage alt, r3 30.
+  // Überfällig nach Wiener Kalendertagen: r4 ist seit 27.09. fällig, r3 erst am 28.09.
   test('KAN-158: Wien, 28.09. 00:30 – Stichtag 28.09. auf UTC- und Wiener Server, Überfälligkeit nach Kalendertagen', async () => {
     for (const zone of ['UTC', 'Europe/Vienna']) {
       process.env.TZ = zone
@@ -267,7 +275,7 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
       assert.equal(r.belege.buchungenJahr, 2, zone)
       assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [20, 500, 300], zone)
       assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [130, 100], zone)
-      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, `${zone}: r4 (31 Tage) überfällig, r3 (30) nicht`)
+      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, `${zone}: r4 (fällig 27.09.) überfällig, r3 (fällig 28.09.) nicht`)
     }
   })
 
@@ -361,7 +369,7 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.deepEqual(ohneMandant(db, T), ['select tenants'])
     const tenants = db.aufrufe.find(a => a.tabelle === 'tenants')
     assert.ok(tenants.filter.some(f => f[0] === 'eq' && f[1] === 'id' && f[2] === T))
-    const verkauf = db.aufrufe.find(a => a.tabelle === 'verkaufsposten')
+    const verkauf = db.aufrufe.find(a => a.tabelle === 'rechnungen')
     for (const [k, v] of [['aktiv', true], ['storniert', false]]) assert.ok(verkauf.filter.some(f => f[0] === 'eq' && f[1] === k && f[2] === v), k)
   })
 
@@ -385,7 +393,7 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     const ea = await lade({}, tabellen(), { vorher: fehlerBei('ea_transaktionen', 'select', { message: 'timeout' }) })
     assert.equal(ea.r.ytd.einnahmen, 0)
     assert.ok(ea.r.unvollstaendig.includes('Buchungen (E&A)'), ea.r.unvollstaendig.join())
-    const vp = await lade({}, tabellen(), { vorher: fehlerBei('verkaufsposten', 'select', { message: 'timeout' }) })
+    const vp = await lade({}, tabellen(), { vorher: fehlerBei('rechnungen', 'select', { message: 'timeout' }) })
     assert.ok(vp.r.unvollstaendig.includes('Rechnungen') || vp.r.unvollstaendig.includes('Offene Posten'), vp.r.unvollstaendig.join())
   })
 

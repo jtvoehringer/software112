@@ -14,6 +14,7 @@ import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
 import { CU_GRENZWERT_KG_HA_JAHR, type CuStatus } from '@/lib/behoerden/cu'
 import { tageSeit } from '@/lib/datum/wien'
 import { fehlerText } from '@/lib/fehler'
+import { UMSATZ_BESCHRIFTUNG } from '@/lib/verkauf/umsatz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -61,7 +62,7 @@ interface Props {
 }
 
 const TABS = [
-  { id: 'umsatz',     label: 'Umsatz',         title: 'Monatsumsatz Warenwirtschaft (12 Monate)' },
+  { id: 'umsatz',     label: 'Umsatz',         title: `${UMSATZ_BESCHRIFTUNG} (12 Monate)` },
   { id: 'lager',      label: 'Lager',           title: 'Lagerbestand' },
   { id: 'behandlung', label: 'Behandlungen',    title: 'Behandlungsübersicht ' + new Date().getFullYear() },
   { id: 'pipeline',   label: 'Pipeline',         title: 'Lead-Pipeline' },
@@ -150,13 +151,12 @@ export default function ReportsClient({
   const [umsatzExpand, setUmsatzExpand] = useState<string | null>(null)
   const [monatDetail, setMonatDetail]   = useState<R[]>([])
   const [monatLoading, setMonatLoading] = useState(false)
+  const [monatFehler, setMonatFehler]   = useState<string | null>(null)
 
   // Umsatz: Zeitraum-Auswahl (Standard = die serverseitig geladenen letzten 12 Monate)
   // und Monatsvergleich (zwei frei wählbare, nicht zwingend zusammenhängende Monate).
   type UmsatzModus = 'standard' | 'benutzerdefiniert' | 'vergleich'
   const [umsatzModus, setUmsatzModus]     = useState<UmsatzModus>('standard')
-  // KAN-105: Umsatz nach Lieferdatum (Lieferscheine, wie bisher) oder nach Rechnungsdatum (Rechnungen)
-  const [umsatzBasis, setUmsatzBasis]     = useState<'lieferung' | 'rechnung'>('lieferung')
   const [umsatzData, setUmsatzData]       = useState(umsatzMonate)
   const [umsatzLoading, setUmsatzLoading] = useState(false)
   const [umsatzFehler, setUmsatzFehler]   = useState<string | null>(null)
@@ -202,33 +202,20 @@ export default function ReportsClient({
   const offeneSum  = offene.reduce((s, p) => s + posSum(p), 0)
 
   // ── Umsatz: Zeitraum & Vergleich ────────────────────────────────────────────
-  async function umsatzLetzte12(basis = umsatzBasis) {
+  // KAN-346: Umsatz immer netto nach Rechnungsdatum (die Wahl „nach Lieferdatum“ aus KAN-105 entfällt) – die letzten
+  // 12 Monate kommen fertig vom Server
+  function umsatzLetzte12() {
     setUmsatzModus('standard')
     setUmsatzExpand(null)
     setUmsatzFehler(null)
-    if (basis === 'lieferung') { setUmsatzData(umsatzMonate); return }
-    setUmsatzLoading(true)
-    try {
-      const res = await fetch('/api/reports/umsatz?basis=rechnung')
-      const json = await res.json()
-      if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
-      setUmsatzData(json.monate ?? [])
-    } catch { setUmsatzFehler('Fehler beim Laden.') }
-    finally { setUmsatzLoading(false) }
+    setUmsatzData(umsatzMonate)
   }
 
-  function umsatzBasisWechseln(basis: 'lieferung' | 'rechnung') {
-    setUmsatzBasis(basis)
-    if (umsatzModus === 'benutzerdefiniert') void umsatzZeitraumAnwenden(basis)
-    else if (umsatzModus === 'vergleich') void umsatzVergleichen(basis)
-    else void umsatzLetzte12(basis)
-  }
-
-  async function umsatzZeitraumAnwenden(basis = umsatzBasis) {
+  async function umsatzZeitraumAnwenden() {
     if (!vonMonat || !bisMonat) return
     setUmsatzLoading(true); setUmsatzFehler(null)
     try {
-      const res = await fetch(`/api/reports/umsatz?von=${vonMonat}&bis=${bisMonat}&basis=${basis}`)
+      const res = await fetch(`/api/reports/umsatz?von=${vonMonat}&bis=${bisMonat}`)
       const json = await res.json()
       if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
       setUmsatzData(json.monate ?? [])
@@ -238,11 +225,11 @@ export default function ReportsClient({
     finally { setUmsatzLoading(false) }
   }
 
-  async function umsatzVergleichen(basis = umsatzBasis) {
+  async function umsatzVergleichen() {
     if (!vergleichA || !vergleichB) return
     setUmsatzLoading(true); setUmsatzFehler(null)
     try {
-      const res = await fetch(`/api/reports/umsatz?monate=${vergleichA},${vergleichB}&basis=${basis}`)
+      const res = await fetch(`/api/reports/umsatz?monate=${vergleichA},${vergleichB}`)
       const json = await res.json()
       if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
       setVergleichData(json.monate ?? [])
@@ -267,17 +254,24 @@ export default function ReportsClient({
   }
 
   // ── Umsatz Drill-down ─────────────────────────────────────────────────────
+  // KAN-348: Antwort auswerten – vorher wurde ein Fehler still verschluckt (leeres catch) und der Monat zeigte
+  // „Keine Verkäufe“; Ladezustand über finally (Projektregel Sweep 82)
   async function toggleUmsatzDrill(monat: string, von: string, bis: string) {
-    if (umsatzExpand === monat) { setUmsatzExpand(null); setMonatDetail([]); return }
+    if (umsatzExpand === monat) { setUmsatzExpand(null); setMonatDetail([]); setMonatFehler(null); return }
     setUmsatzExpand(monat)
     setMonatLoading(true)
     setMonatDetail([])
+    setMonatFehler(null)
     try {
-      const res = await fetch(`/api/reports/umsatz-detail?von=${von}&bis=${bis}&basis=${umsatzBasis}`)
-      const json = await res.json()
+      const res = await fetch(`/api/reports/umsatz-detail?von=${von}&bis=${bis}`)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setMonatFehler(json.fehler ?? 'Belege konnten nicht geladen werden.'); return }
       setMonatDetail(json.posten ?? [])
-    } catch { /* silent */ }
-    setMonatLoading(false)
+    } catch (e) {
+      setMonatFehler(fehlerText(e, 'Belege konnten nicht geladen werden.'))
+    } finally {
+      setMonatLoading(false)
+    }
   }
 
   // ── CSV-Exports ───────────────────────────────────────────────────────────
@@ -317,8 +311,8 @@ export default function ReportsClient({
       quelle.map(m => ({ monat: m.monat, umsatz: runden(m.umsatz, 2), anzahl: m.anzahl })),
       [
         { key: 'monat',  header: 'Monat',           typ: 'text' },
-        { key: 'umsatz', header: 'Umsatz (€)',      typ: 'betrag' },
-        { key: 'anzahl', header: 'Anzahl Verkäufe', typ: 'ganzzahl' },
+        { key: 'umsatz', header: 'Umsatz netto nach Rechnungsdatum (€)', typ: 'betrag' },
+        { key: 'anzahl', header: 'Anzahl Rechnungen', typ: 'ganzzahl' },
       ],
       csvDateiname(['Umsatz-Monatsübersicht']).utf8,
     )
@@ -509,7 +503,7 @@ export default function ReportsClient({
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-semibold text-s112-text">
             {tab === 'umsatz'
-              ? (umsatzModus === 'vergleich' ? 'Umsatzvergleich' : umsatzModus === 'benutzerdefiniert' ? 'Monatsumsatz Warenwirtschaft (Zeitraum)' : current.title)
+              ? (umsatzModus === 'vergleich' ? 'Umsatzvergleich' : umsatzModus === 'benutzerdefiniert' ? `${UMSATZ_BESCHRIFTUNG} (Zeitraum)` : current.title)
               : current.title}
           </h2>
           {tab === 'lager'  && <CsvBtn onClick={csvLager} />}
@@ -523,15 +517,6 @@ export default function ReportsClient({
           <div className="space-y-4">
             {/* Zeitraum- & Vergleichs-Steuerung */}
             <div className="flex flex-wrap items-end gap-x-4 gap-y-2 pb-4 mb-2 border-b border-s112-border/60 print:hidden">
-              {/* KAN-105: Basis Liefer- oder Rechnungsdatum */}
-              <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs" role="group" aria-label="Umsatz nach">
-                {([['lieferung', 'nach Lieferdatum'], ['rechnung', 'nach Rechnungsdatum']] as const).map(([b, text]) => (
-                  <button key={b} type="button" aria-pressed={umsatzBasis === b} onClick={() => umsatzBasisWechseln(b)}
-                    className={`px-2.5 py-1.5 font-medium transition-colors ${umsatzBasis === b ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
-                    {text}
-                  </button>
-                ))}
-              </div>
               <button
                 onClick={() => umsatzLetzte12()}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${umsatzModus === 'standard' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
@@ -581,7 +566,7 @@ export default function ReportsClient({
                 </button>
               </div>
 
-              {umsatzFehler && <span className="text-xs text-s112-err">{umsatzFehler}</span>}
+              {umsatzFehler && <span role="alert" className="text-xs text-s112-err">{umsatzFehler}</span>}
             </div>
 
             {umsatzModus === 'vergleich' ? (
@@ -595,7 +580,7 @@ export default function ReportsClient({
                       <div key={i} className="bg-s112-bg rounded-xl p-4">
                         <p className="text-xs text-s112-muted">{m.monat}</p>
                         <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{eur(m.umsatz)}</p>
-                        <p className="text-xs text-s112-muted mt-0.5">{m.anzahl} Verkäufe</p>
+                        <p className="text-xs text-s112-muted mt-0.5">{m.anzahl} Rechnungen</p>
                       </div>
                     ))}
                   </div>
@@ -612,7 +597,7 @@ export default function ReportsClient({
                             {positiv ? '+' : ''}{eur(diff)} ({positiv ? '+' : ''}{fmtNum(pct, 1)} %)
                           </p>
                         </div>
-                        <p className="text-xs text-s112-muted">{a.anzahl} → {b.anzahl} Verkäufe</p>
+                        <p className="text-xs text-s112-muted">{a.anzahl} → {b.anzahl} Rechnungen</p>
                       </div>
                     )
                   })()}
@@ -623,9 +608,9 @@ export default function ReportsClient({
               <>
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   {[
-                    { label: umsatzModus === 'standard' ? 'Akt. Monat' : 'Letzter Monat', val: eur(umsatzData[umsatzData.length - 1]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 1]?.anzahl ?? 0} Verkäufe` },
-                    { label: 'Vormonat',       val: eur(umsatzData[umsatzData.length - 2]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 2]?.anzahl ?? 0} Verkäufe` },
-                    { label: umsatzModus === 'standard' ? '12-Monats-Summe' : `Summe (${umsatzData.length} Monate)`, val: eur(umsatzData.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzData.reduce((s,m)=>s+m.anzahl,0)} Verkäufe` },
+                    { label: umsatzModus === 'standard' ? 'Akt. Monat' : 'Letzter Monat', val: eur(umsatzData[umsatzData.length - 1]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 1]?.anzahl ?? 0} Rechnungen` },
+                    { label: 'Vormonat',       val: eur(umsatzData[umsatzData.length - 2]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 2]?.anzahl ?? 0} Rechnungen` },
+                    { label: umsatzModus === 'standard' ? '12-Monats-Summe' : `Summe (${umsatzData.length} Monate)`, val: eur(umsatzData.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzData.reduce((s,m)=>s+m.anzahl,0)} Rechnungen` },
                   ].map(kpi => (
                     <div key={kpi.label} className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">{kpi.label}</p>
@@ -640,7 +625,10 @@ export default function ReportsClient({
                   {umsatzData.map(m => (
                     <div key={`${m.monat}-${m.von}`}>
                       <button
+                        type="button"
                         onClick={() => toggleUmsatzDrill(m.monat, m.von, m.bis)}
+                        aria-expanded={umsatzExpand === m.monat}
+                        aria-label={`Belege ${m.monat} ${umsatzExpand === m.monat ? 'ausblenden' : 'anzeigen'}`}
                         className="w-full flex items-center gap-3 hover:bg-s112-bg/50 rounded-lg px-1 py-0.5 transition-colors group"
                       >
                         <span className="text-xs text-s112-muted w-12 shrink-0 text-right tabular-nums">{m.monat}</span>
@@ -650,16 +638,18 @@ export default function ReportsClient({
                         </div>
                         <span className="text-xs font-semibold text-s112-text-1 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
                         <span className="text-xs text-s112-muted w-8 text-right">{m.anzahl}</span>
-                        <span className="text-xs text-s112-muted group-hover:text-s112-blue-700 w-4">{umsatzExpand === m.monat ? '▲' : '▼'}</span>
+                        <span className="text-xs font-medium text-s112-blue-700 group-hover:underline shrink-0 whitespace-nowrap">{umsatzExpand === m.monat ? 'Belege ausblenden ▲' : 'Belege anzeigen ▼'}</span>
                       </button>
 
-                      {/* Drill-down: Verkäufe dieses Monats */}
+                      {/* Drill-down: Rechnungen dieses Monats (KAN-348) */}
                       {umsatzExpand === m.monat && (
                         <div className="ml-16 mt-1 mb-2 border border-s112-border/50 rounded-xl overflow-hidden">
                           {monatLoading ? (
                             <div className="px-4 py-3 text-xs text-s112-muted">Lade…</div>
+                          ) : monatFehler ? (
+                            <div role="alert" className="px-4 py-3 text-xs text-s112-err-fg bg-s112-err-bg">{monatFehler}</div>
                           ) : monatDetail.length === 0 ? (
-                            <div className="px-4 py-3 text-xs text-s112-muted italic">Keine Verkäufe in diesem Monat.</div>
+                            <div className="px-4 py-3 text-xs text-s112-muted italic">Keine Rechnungen in diesem Monat.</div>
                           ) : (
                             <table className="w-full text-xs">
                               <thead>
@@ -667,7 +657,7 @@ export default function ReportsClient({
                                   <th className="text-left px-3 py-1.5 font-medium">Datum</th>
                                   <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
                                   <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
-                                  <th className="text-right px-3 py-1.5 font-medium">Betrag</th>
+                                  <th className="text-right px-3 py-1.5 font-medium">Netto</th>
                                   <th className="text-center px-3 py-1.5 font-medium">Status</th>
                                 </tr>
                               </thead>
@@ -679,7 +669,7 @@ export default function ReportsClient({
                                       <Link href={p.href ?? `/weinhandel/verkauf/${p.id}`} className="text-s112-blue-700 hover:underline font-mono">{p.rechnungsnummer ?? '–'}</Link>
                                     </td>
                                     <td className="px-3 py-1.5 font-medium text-s112-text">{kundenName(p)}</td>
-                                    <td className="px-3 py-1.5 text-right font-semibold text-s112-blue-700 tabular-nums">{eur(posSum(p))}</td>
+                                    <td className="px-3 py-1.5 text-right font-semibold text-s112-blue-700 tabular-nums">{eur(Number(p.netto) || 0)}</td>
                                     <td className="px-3 py-1.5 text-center">
                                       {p.storniert ? <span className="text-s112-err">Storno</span>
                                         : p.bezahlt ? <span className="text-s112-ok-fg">Bezahlt</span>
