@@ -125,7 +125,8 @@ export default function MeldungsPopup() {
   }
 
   return (
-    <div ref={wurzel} aria-live="off" className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 w-[min(26rem,calc(100vw-2rem))] print:hidden" data-meldungs-popup>
+    // KAN-371: unter md oben unter der Kopfleiste – unten lägen am Handy die fixierten Speichern-/Summenleisten der Formulare
+    <div ref={wurzel} aria-live="off" className="fixed top-16 inset-x-4 md:inset-x-auto md:top-auto md:bottom-4 md:right-4 z-[60] flex flex-col gap-2 md:w-[min(26rem,calc(100vw-2rem))] print:hidden" data-meldungs-popup>
       {popups.map(p => (
         <div key={p.id} className={`flex items-start gap-2.5 rounded-xl border shadow-lg px-4 py-3 text-sm ${
           p.art === 'fehler' ? 'bg-s112-err-bg border-s112-err/40 text-s112-err-fg' : 'bg-s112-ok-bg border-s112-ok/40 text-s112-ok-fg'}`}>

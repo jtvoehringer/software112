@@ -64,10 +64,10 @@ export default async function BehaelterBewegungsPage({
 
   return (
     <div className="max-w-4xl space-y-8">
-      <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-s112-muted print:hidden">
         <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-s112-text-1 font-medium">{bh.name}</span>
+        <Link href={`/kellerbuch/behaelter/${id}`} className="text-s112-text-1 font-medium hover:text-s112-blue-700 transition-colors">{bh.name}</Link>
         <span>/</span>
         <span className="text-s112-text-2">Bewegungsbuch</span>
       </div>
@@ -102,7 +102,12 @@ export default async function BehaelterBewegungsPage({
             )}
           </div>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex flex-wrap gap-2 print:hidden">
+          {/* KAN-372: die Kacheln der Schnellerfassung stehen nur auf der Gebindeseite */}
+          <Link href={`/kellerbuch/behaelter/${id}`} data-schnellerfassung
+            className="text-xs border border-s112-line text-s112-text-2 px-3 py-1.5 rounded-lg hover:border-s112-teal hover:text-s112-blue-700 font-medium">
+            Schnellerfassung
+          </Link>
           {writeOk && (
             <>
               <Link href={`/kellerbuch/umziehen?neu=1&von=${id}`}   /* KAN-174 B: Quelle vorbelegt */

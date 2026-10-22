@@ -69,7 +69,10 @@ export default function AppShell({
     // KAN-335/336 (13.10.2026): overflow-clip statt overflow-hidden – ein overflow-hidden-Rahmen ist per Programm scrollbar.
     // Nach „Speichern“ (router.replace) scrollte Next.js mit scrollIntoView auch diesen Rahmen: Kopfleiste und Reiter
     // rutschten aus dem Bild, unten blieb ein leerer Streifen. Gescrollt wird nur in <main>.
-    <div className="h-screen flex flex-col overflow-clip bg-s112-bg">
+    // KAN-370/371/341 (22.10.2026): Höhe 100dvh statt 100vh – am Handy ist 100vh die Höhe ohne Browserleiste, der Rahmen
+    // ragte unter die Leiste, und weil das Dokument nicht scrollt, blendet sie sich nie aus: das untere Ende jeder Seite
+    // war unerreichbar. h-screen bleibt als Rückfall für Browser ohne dvh. Unten unter md Abstand für die Home-Leiste.
+    <div className="h-screen supports-[height:100dvh]:h-dvh flex flex-col overflow-clip bg-s112-bg max-md:pb-[env(safe-area-inset-bottom)]">
       <Topbar userEmail={userEmail} userName={userName} roleLabel={roleLabel} branding={branding} betriebCount={betriebCount} />
       <CommandPalette groups={groups} darfSchreiben={darfSchreiben} branding={branding} betriebCount={betriebCount} />
       <TabNav groups={groups} />
@@ -80,7 +83,9 @@ export default function AppShell({
         {/* Inhaltsbreite: 1280 px, auf großen Bildschirmen (≥ 1536 px, Tailwind 2xl)
             1600 px (Vergleich mit voller Breite am 18.9.2026: "erschlägt einen"): auf 19–21"-Monitoren bei 100 % blieb
             links und rechts ein Drittel leer. Kopfzeile und Navigation ziehen mit. */}
-        <main id="inhalt" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto focus:outline-hidden">
+        {/* KAN-371: waagrecht ausdrücklich scrollbar – Überbreites (Tabellen, Formulare) bleibt verschiebbar; das Dokument
+            selbst scrollt seit KAN-335/336 nicht mehr. */}
+        <main id="inhalt" tabIndex={-1} className="flex-1 min-w-0 overflow-x-auto overflow-y-auto focus:outline-hidden">
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 2xl:py-5">
             {/* KAN-224: „Zurück“ auf Unterseiten und Bestätigung nach dem Abschluss (useSearchParams braucht Suspense) */}
             <Suspense fallback={null}><ZurueckLeiste navHrefs={navHrefs} /></Suspense>
