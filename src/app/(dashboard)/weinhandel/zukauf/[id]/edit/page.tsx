@@ -6,6 +6,7 @@ import ZukaufEditForm from './ZukaufEditForm'
 import { folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText } from '../../sperren'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import { herkunftVorbelegung } from '@/lib/zukauf/ware'
+import { zukaufMerkmaleFest, zukaufMerkmalSperrGrund } from '@/lib/zukauf/merkmalSperre'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import type { Metadata } from 'next'
 
@@ -64,6 +65,11 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
     ladeCustomWeinbaugebiete(),   // KAN-80 Nachtrag: eigene Weinbaugebiete wie am GST
   ])
   const hatBewegungen = folge.length > 0
+  // KAN-351: Merkmale fest – dieselbe Bedingung wie updateZukauf und der Trigger a_freeze; das Formular sperrt die
+  // Felder, statt die Änderung erst nach dem Speichern abzulehnen
+  const merkmalLage = { art: z.art, zielWeinausbauId, folgebuchungen: folge.length }
+  const merkmaleFest = zukaufMerkmaleFest(merkmalLage)
+  const merkmalSperrGrund = zukaufMerkmalSperrGrund(merkmalLage)
   // KAN-41 Paket 2b: Weinlager-Artikel des Flaschenzukaufs (je Zukauf höchstens einer)
   let flaschenArtikel: { id: string; name: string; bestand: number } | null = null
   if (z.art === 'flaschen') {
@@ -111,6 +117,8 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         staatliche_pruefnummer:   z.staatliche_pruefnummer ?? '',
       }}
       hatBewegungen={hatBewegungen}
+      merkmaleFest={merkmaleFest}
+      merkmalSperrGrund={merkmalSperrGrund}
       sperrHinweis={hatBewegungen ? zielchargeText(folge) : null}
       traubenGebunden={{
         kg:   verweise.verpresstKg + verweise.verkauftKg,

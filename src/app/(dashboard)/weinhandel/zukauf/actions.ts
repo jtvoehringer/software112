@@ -31,6 +31,7 @@ import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
 import { heuteWien } from '@/lib/datum/wien'
+import { zukaufMerkmaleFest } from '@/lib/zukauf/merkmalSperre'
 import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -590,7 +591,8 @@ export async function updateZukauf(id: string, formData: FormData) {
     }
     const vorherBestand: AR = { menge_liter: c.menge_liter, status: c.status, aktiv: c.aktiv }
 
-    if (folge.length > 0) {
+    // KAN-351: dieselbe Bedingung wie die Bearbeiten-Seite (Merkmal-Felder gesperrt) und der Trigger a_freeze
+    if (zukaufMerkmaleFest({ art: a.art, zielWeinausbauId: chargeId, folgebuchungen: folge.length })) {
       // Folgebuchungen: Beleg (Menge, Einheit), Gebinde und Art bleiben gesperrt. Die Stammdaten
       // der Charge (Rebsorte, Jahrgang, Weinart, Qualitätsstufe) werden NICHT mehr mitgezogen –
       // ein Verschnitt oder eine Zusammenführung kann sie inzwischen geändert (abgestuft) haben,

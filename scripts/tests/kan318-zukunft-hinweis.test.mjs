@@ -36,7 +36,7 @@ describe('ZukunftsDatum', () => {
     assert.match(k, /aria-describedby=\{beschrieben\}/)
     assert.doesNotMatch(k, /\bmax=|setCustomValidity/)
   })
-  test('an den Ereignisfeldern eingesetzt (Stichprobe je Bereich), insgesamt 31', () => {
+  test('an den Ereignisfeldern eingesetzt (Stichprobe je Bereich), insgesamt 30', () => {
     const stichprobe = [
       'src/components/kellerbuch/UmziehenWidget.tsx', `${D}kellerbuch/weinausbau/[id]/SchwundBuchenForm.tsx`,
       `${D}erntemeldung/[id]/PressungSection.tsx`, `${D}weinhandel/fuellungen/neu/FuellungFormClient.tsx`,
@@ -53,14 +53,14 @@ describe('ZukunftsDatum', () => {
       `${D}kellerbuch/umziehen/UmziehenClient.tsx`, `${D}kellerbuch/weinausbau/[id]/SchwundBuchenForm.tsx`, `${D}kellerbuch/behaelter/[id]/behandlungen/page.tsx`,
       `${D}kellerbuch/weinausbau/[id]/analysen/neu/page.tsx`, `${D}kellerbuch/behaelter/[id]/bewegungen/page.tsx`, `${D}erntemeldung/[id]/ErnteDetailClient.tsx`,
       `${D}erntemeldung/[id]/PressungSection.tsx`, `${D}erntemeldung/[id]/TraubenverkaufSection.tsx`, `${D}weinhandel/fuellungen/neu/FuellungFormClient.tsx`,
-      `${D}weinhandel/fuellungen/[id]/edit/page.tsx`, `${D}weinhandel/verkauf/neu/page.tsx`, `${D}weinhandel/verkauf/[id]/page.tsx`,
+      `${D}weinhandel/fuellungen/[id]/edit/page.tsx`, `${D}weinhandel/verkauf/neu/page.tsx`, 'src/components/handel/ZahlungErfassen.tsx',
       `${D}weinhandel/zukauf/neu/page.tsx`, `${D}weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx`, `${D}weinhandel/traubenverkauf/TraubenverkaufClient.tsx`,
-      `${D}weinhandel/offene-posten/OffenePostenClient.tsx`, `${D}behandlungen/lager/BetriebsmittelLagerClient.tsx`, `${D}behandlungen/lager/DuengerLagerClient.tsx`,
+      `${D}behandlungen/lager/BetriebsmittelLagerClient.tsx`, `${D}behandlungen/lager/DuengerLagerClient.tsx`,
       `${D}behandlungen/lager/LagerClient.tsx`, `${D}buchhaltung/neu/page.tsx`, `${D}buchhaltung/belege/[id]/BelegBuchenForm.tsx`,
       `${D}konten/[id]/abstimmung/AbstimmungClient.tsx`, `${D}konten/neu/page.tsx`, `${D}buchhaltung/anlagen/AnlageForm.tsx`,
       `${D}admin/zeiterfassung/ZeiterfassungClient.tsx`,
     ]
     const anzahl = alle.reduce((s, d) => s + (lies(d).match(/<ZukunftsDatum\b/g) ?? []).length, 0)
-    assert.equal(anzahl, 31)
+    assert.equal(anzahl, 30)   // KAN-355: Verkaufsseite und Offene Posten teilen sich ZahlungErfassen
   })
 })

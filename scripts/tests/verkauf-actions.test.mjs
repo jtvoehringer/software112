@@ -185,10 +185,11 @@ describe('Storno und Zahlungen', nurMitHooks, () => {
 
   test('Zahlung erfassen: Betrag > 0, Datum ohne Angabe = heute in Wien, danach E&A-Abgleich', async () => {
     let d = db(); globalThis.__serverFake = d
-    for (const b of ['', '0', '-5', 'abc']) await assert.rejects(v.createZahlung(P1, formular({ betrag: b })), /Ungültiger Betrag/)
+    // KAN-355: erwartbare Ablehnung als { error } (Meldung im Formular), nicht geworfen
+    for (const b of ['', '0', '-5', 'abc']) assert.match((await v.createZahlung(P1, formular({ betrag: b }))).error, /Ungültiger Betrag/)
     assert.deepEqual(schreibzugriffe(d), [])
     const { heuteWien } = await laden('lib/datum/wien.ts')
-    await v.createZahlung(P1, formular({ betrag: '12,50', art: 'bar' }))
+    assert.deepEqual(await v.createZahlung(P1, formular({ betrag: '12,50', art: 'bar' })), { ok: true })
     const z = d.tabellen.zahlungen.at(-1)
     assert.deepEqual([z.betrag, z.art, z.datum, z.verkaufsposten_id, z.tenant_id], [12.5, 'bar', heuteWien(), P1, T])
     assert.deepEqual(globalThis.__eaSync, [P1])

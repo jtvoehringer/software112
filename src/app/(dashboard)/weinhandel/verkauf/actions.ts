@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
-import { AktionsFehler, dbFehlerText, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, erwarteteDbAblehnung, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
@@ -737,10 +737,14 @@ export async function createSonstigesArtikel(
 }
 
 // ── Zahlungen ─────────────────────────────────────────────────────────────────
+// KAN-355 (22.10.2026): Erwartbare Ablehnungen (ungültiger Betrag, Datum in einem abgeschlossenen Monat bzw. per UVA
+// übermittelten Zeitraum – Trigger a_ea_periodensperre) kommen als { error } zurück: Die Formulare (ZahlungErfassen,
+// Offene Posten) zeigen sie als Meldung, die Eingaben bleiben stehen. Vorher warf die Action – das reine
+// <form action> führte auf die Fehlerseite, und das Systemprotokoll zählte die Ablehnung als Systemfehler.
 export async function createZahlung(
   verkaufspostenId: string,
   formData: FormData
-): Promise<void> {
+): Promise<{ error: string } | { ok: true }> {
   'use server'
   const supabase = await createSupabaseServerClient()
   const tenantId = await getZahlungsKontext()   // KAN-239
@@ -749,7 +753,7 @@ export async function createZahlung(
   const datum    = formData.get('datum') as string
   const notizen  = (formData.get('notizen') as string) || null
   const konto_id = (formData.get('konto_id') as string) || null
-  if (isNaN(betrag) || betrag <= 0) throw new AktionsFehler('Ungültiger Betrag')
+  if (isNaN(betrag) || betrag <= 0) return { error: 'Ungültiger Betrag – bitte einen Betrag größer als 0 eingeben.' }
   const { error } = await (supabase.from('zahlungen') as any).insert({
     tenant_id: tenantId,
     verkaufsposten_id: verkaufspostenId,
@@ -758,7 +762,11 @@ export async function createZahlung(
     datum: datum || heuteWien(),
     notizen, konto_id,
   })
-  if (error) throw new AktionsFehler(dbFehlerText(error))
+  if (error) {
+    // Sperre/Prüfregel der Datenbank: Meldung im Formular, kein Systemfehler; Unerwartetes weiter werfen (protokolliert)
+    if (erwarteteDbAblehnung(error)) return { error: dbFehlerText(error, 'Zahlung konnte nicht gespeichert werden') }
+    throw new AktionsFehler(dbFehlerText(error))
+  }
 
   const ea = await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 
@@ -766,6 +774,7 @@ export async function createZahlung(
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath('/buchhaltung')
   eaErgebnisPruefen(ea, 'gespeichert')
+  return { ok: true }
 }
 
 // Zahlung stornieren statt löschen (KAN-149 D2b): Die Zahlung bleibt mit Datum, Benutzer und Grund stehen und zählt
