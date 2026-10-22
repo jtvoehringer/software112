@@ -673,4 +673,14 @@ describe('aenderungsprotokoll', () => {
     const f = sb.log.find(l => l.tabelle === 'bestandsprotokoll').filter
     assert.deepEqual(f.filter(x => x[1] === 'erstellt_am'), [['gte', 'erstellt_am', '2026-03-28T23:00:00.000Z'], ['lt', 'erstellt_am', '2026-03-31T22:00:00.000Z']])
   })
+
+  // KAN-350 (22.10.2026): nur die Bildschirmansicht schaltet auf „neueste zuerst“ – die CSV (Pflichtaufzeichnung) bleibt chronologisch
+  test('KAN-350: CSV bleibt chronologisch (älteste zuerst), auch bei umgekehrt gespeicherten Zeilen', async () => {
+    const d = daten()
+    d.bestandsprotokoll.reverse()
+    const r = await aend.ladeAenderungsprotokoll(attrappe(d), T, { role: 'tenant_admin' }, { von: null, bis: null }, { emailsLaden: async () => new Map() })
+    assert.deepEqual(r.zeilen.map(z => z.id), [7, 10, 8])
+    const zeiten = r.zeilen.map(z => z.zeitpunkt)
+    assert.deepEqual(zeiten, [...zeiten].sort())
+  })
 })

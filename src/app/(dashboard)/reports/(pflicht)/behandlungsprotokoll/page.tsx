@@ -15,6 +15,8 @@ import {
   ART_LABEL, artAus, aufwandEinheitText, datumDe, gstAnzahl, jahrAus, ladePsmAufzeichnung, mittelmenge, mittelName,
   riedenMitLage, spritzbruehe, windText, witterungText, type PsmBehandlung,
 } from '@/lib/behoerden/psm'
+import SortierungUmschalter from '@/components/SortierungUmschalter'
+import { PROTOKOLL_SORT_LABEL, PROTOKOLL_SORT_VORGABE, inAnzeigeReihenfolge, protokollSortAus } from '@/lib/protokoll/sortierung'
 
 export const metadata: Metadata = { title: 'Behandlungsprotokoll' }
 export const dynamic = 'force-dynamic'
@@ -41,8 +43,54 @@ function mengenText(b: PsmBehandlung): string | null {
   const bruehe = spritzbruehe(b)
   return `Mittel ${menge}${bruehe !== null ? ` · Brühe ${fmtNum(bruehe, { max: 3 })} l` : ''}`
 }
-export default async function BehandlungsprotokollPage({ searchParams }: { searchParams: Promise<{ jahr?: string; art?: string }> }) {
-  const { jahr: jahrParam, art: artParam } = await searchParams
+/** Eine Zeile des Protokolls (Bildschirm und Druck); i = Position für die Streifen */
+function zeile(b: PsmBehandlung, i: number) {
+  const rieden = riedenMitLage(b)
+  const nGst = gstAnzahl(b)
+  const wetter = [witterungText(b.witterung), b.temperaturC !== null ? `${fmtNum(b.temperaturC, { max: 1 })} °C` : null, windText(b.wind)].filter(Boolean).join(', ')
+  const mengen = mengenText(b)
+  return (
+    <tr key={b.id} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
+      <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
+        {datumDe(b.datum)}{b.datumBis && b.datumBis !== b.datum ? <><br />– {datumDe(b.datumBis)}</> : null}
+      </td>
+      <td className="px-2 py-1.5 border border-s112-line">{ART_LABEL[b.art] ?? b.art}</td>
+      <td className="px-2 py-1.5 border border-s112-line">
+        {/* Rückmeldung 30.09.2026: ab vier Rieden kompakt – die vollständige Liste (je Grundstück) steht im CSV */}
+        {rieden.length === 0 ? '–' : rieden.length <= 3 ? rieden.join(', ') : `${rieden.length} Rieden · Details siehe CSV`}
+        {b.anwender && <span className="block text-[10px] text-s112-tertiary">Anwender: {b.anwender}</span>}
+      </td>
+      <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums whitespace-nowrap">
+        {b.flaecheHa !== null ? fmtNum(b.flaecheHa, { min: 2, max: 4 }) : '–'}
+        {nGst > 0 && <span className="block text-[10px] text-s112-tertiary">{nGst} GST</span>}
+      </td>
+      <td className="px-2 py-1.5 border border-s112-line">
+        {mittelName(b) ?? '–'}
+        {b.psm?.zulassungsnr && <span className="block text-[10px] text-s112-tertiary">Zul.-Nr. {b.psm.zulassungsnr}</span>}
+      </td>
+      <td className="px-2 py-1.5 border border-s112-line text-s112-text-2">{b.psm?.wirkstoff ?? '–'}</td>
+      <td className="px-2 py-1.5 border border-s112-line">{b.schaderreger ?? '–'}</td>
+      <td className="px-2 py-1.5 border border-s112-line text-center">{b.bbch ?? '–'}</td>
+      <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
+        {b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${aufwandEinheitText(b.aufwandEinheit)}` : '–'}
+        {mengen && <span className="block text-[10px] text-s112-tertiary">{mengen}</span>}
+        {b.wasserLHa !== null && <span className="block text-[10px] text-s112-tertiary">Wasser {fmtNum(b.wasserLHa, { max: 1 })} l/ha</span>}
+      </td>
+      <td className="px-2 py-1.5 border border-s112-line text-center whitespace-nowrap">
+        {b.psm?.wartezeitTage ? `${b.psm.wartezeitTage} T` : '–'}
+        {b.fruehesterLesetermin && b.psm?.wartezeitTage ? <span className="block text-[10px] text-s112-tertiary">ab {datumDe(b.fruehesterLesetermin)}</span> : null}
+      </td>
+      <td className="px-2 py-1.5 border border-s112-line text-center">{(b.psm?.oeko ?? b.duengemittel?.oeko) ? 'Ja' : ''}</td>
+      <td className="px-2 py-1.5 border border-s112-line text-s112-text-2">{wetter || '–'}</td>
+      <td className="px-2 py-1.5 border border-s112-line text-s112-text-2">{b.notiz ?? ''}</td>
+    </tr>
+  )
+}
+
+export default async function BehandlungsprotokollPage({ searchParams }: { searchParams: Promise<{ jahr?: string; art?: string; sort?: string }> }) {
+  const { jahr: jahrParam, art: artParam, sort: sortParam } = await searchParams
+  // KAN-350: Bildschirm neueste zuerst (Vorgabe) oder chronologisch – Druck und CSV immer chronologisch
+  const sort = protokollSortAus(sortParam)
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) redirect('/dashboard')
   const tenantId = membership.tenantId
@@ -65,7 +113,9 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
   ])
   const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
 
+  // behandlungen kommt chronologisch (ladeBehandlungen: datum, id aufsteigend) – so bleibt es für Druck und CSV
   const { behandlungen, zeilen, warnungen } = aufzeichnung
+  const anzeige = inAnzeigeReihenfolge(behandlungen, sort)
   const s = (settingsRaw as R | null) ?? {}
   // Brotkrume wie die Navigation (Rieden › Maßnahmen › …) – die Tab-Leiste zeigt diese Seite
   // immer unter „Rieden“, auch mit Modul Controlling (Review 25.09.2026)
@@ -96,10 +146,12 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
               <option value="">Alle Maßnahmen</option>
               {Object.entries(ART_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
+            {sort !== PROTOKOLL_SORT_VORGABE && <input type="hidden" name="sort" value={sort} />}
             <button type="submit" aria-label="Anzeigen" title="Anzeigen" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">
               ↻
             </button>
           </form>
+          <SortierungUmschalter sort={sort} pfad="/reports/behandlungsprotokoll" parameter={{ jahr: aktJahr, art }} />
           <PrintButton />
           <CsvExportKnopf href={csvPfad('psm-aufzeichnung', { jahr: aktJahr, art })} />
           {/* KAN-87: maschinenlesbare Aufzeichnung (DVO (EU) 2023/564), nur Pflanzenschutzmittel */}
@@ -136,54 +188,25 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
               ))}
             </tr>
           </thead>
-          <tbody>
-            {behandlungen.map((b, i) => {
-              const rieden = riedenMitLage(b)
-              const nGst = gstAnzahl(b)
-              const wetter = [witterungText(b.witterung), b.temperaturC !== null ? `${fmtNum(b.temperaturC, { max: 1 })} °C` : null, windText(b.wind)].filter(Boolean).join(', ')
-              const mengen = mengenText(b)
-              return (
-                <tr key={b.id} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
-                  <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
-                    {datumDe(b.datum)}{b.datumBis && b.datumBis !== b.datum ? <><br />– {datumDe(b.datumBis)}</> : null}
-                  </td>
-                  <td className="px-2 py-1.5 border border-s112-line">{ART_LABEL[b.art] ?? b.art}</td>
-                  <td className="px-2 py-1.5 border border-s112-line">
-                    {/* Rückmeldung 30.09.2026: ab vier Rieden kompakt – die vollständige Liste (je Grundstück) steht im CSV */}
-                    {rieden.length === 0 ? '–' : rieden.length <= 3 ? rieden.join(', ') : `${rieden.length} Rieden · Details siehe CSV`}
-                    {b.anwender && <span className="block text-[10px] text-s112-tertiary">Anwender: {b.anwender}</span>}
-                  </td>
-                  <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums whitespace-nowrap">
-                    {b.flaecheHa !== null ? fmtNum(b.flaecheHa, { min: 2, max: 4 }) : '–'}
-                    {nGst > 0 && <span className="block text-[10px] text-s112-tertiary">{nGst} GST</span>}
-                  </td>
-                  <td className="px-2 py-1.5 border border-s112-line">
-                    {mittelName(b) ?? '–'}
-                    {b.psm?.zulassungsnr && <span className="block text-[10px] text-s112-tertiary">Zul.-Nr. {b.psm.zulassungsnr}</span>}
-                  </td>
-                  <td className="px-2 py-1.5 border border-s112-line text-s112-text-2">{b.psm?.wirkstoff ?? '–'}</td>
-                  <td className="px-2 py-1.5 border border-s112-line">{b.schaderreger ?? '–'}</td>
-                  <td className="px-2 py-1.5 border border-s112-line text-center">{b.bbch ?? '–'}</td>
-                  <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
-                    {b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${aufwandEinheitText(b.aufwandEinheit)}` : '–'}
-                    {mengen && <span className="block text-[10px] text-s112-tertiary">{mengen}</span>}
-                    {b.wasserLHa !== null && <span className="block text-[10px] text-s112-tertiary">Wasser {fmtNum(b.wasserLHa, { max: 1 })} l/ha</span>}
-                  </td>
-                  <td className="px-2 py-1.5 border border-s112-line text-center whitespace-nowrap">
-                    {b.psm?.wartezeitTage ? `${b.psm.wartezeitTage} T` : '–'}
-                    {b.fruehesterLesetermin && b.psm?.wartezeitTage ? <span className="block text-[10px] text-s112-tertiary">ab {datumDe(b.fruehesterLesetermin)}</span> : null}
-                  </td>
-                  <td className="px-2 py-1.5 border border-s112-line text-center">{(b.psm?.oeko ?? b.duengemittel?.oeko) ? 'Ja' : ''}</td>
-                  <td className="px-2 py-1.5 border border-s112-line text-s112-text-2">{wetter || '–'}</td>
-                  <td className="px-2 py-1.5 border border-s112-line text-s112-text-2">{b.notiz ?? ''}</td>
-                </tr>
-              )
-            })}
+          {/* KAN-350: Bildschirm in der gewählten Reihenfolge; ist sie „neueste zuerst“, druckt ein eigener Tabellenkörper
+              chronologisch (Pflichtaufzeichnung) */}
+          <tbody className={sort === 'alt' ? undefined : 'print:hidden'}>
+            {anzeige.map((b, i) => zeile(b, i))}
           </tbody>
+          {sort !== 'alt' && (
+            <tbody className="hidden print:table-row-group">
+              {behandlungen.map((b, i) => zeile(b, i))}
+            </tbody>
+          )}
         </table>
         </div>
 
         {behandlungen.length === 0 && <p className="text-center text-s112-muted py-12">Keine Behandlungen für {aktJahr} erfasst.</p>}
+        {behandlungen.length > 1 && (
+          <p className="text-xs text-s112-tertiary mt-2 print:hidden">
+            Anzeige: {PROTOKOLL_SORT_LABEL[sort].toLowerCase()} – Druck und CSV sind immer chronologisch.
+          </p>
+        )}
 
         {warnungen.length > 0 && (
           <ul className="text-xs text-s112-warn-fg mt-3 list-disc pl-4 space-y-0.5">

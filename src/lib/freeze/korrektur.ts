@@ -28,7 +28,8 @@ export const KORREKTUR_FELDER: Readonly<Record<string, readonly KorrekturFeld[]>
     { spalte: 'bescheid_am', label: 'Bescheid am', typ: 'datum' },
     { spalte: 'antragsnummer', label: 'Antragsnummer', typ: 'text' },
     { spalte: 'untersuchungsnummer', label: 'Untersuchungsnummer', typ: 'text' },
-    { spalte: 'bezeichnung', label: 'Bezeichnung', typ: 'text', pflicht: true },
+    // KAN-349 (22.10.2026): die Bezeichnung des Antrags – der Chargenname bleibt an der Charge änderbar
+    { spalte: 'bezeichnung', label: 'Bezeichnung (Antrag)', typ: 'text', pflicht: true },
     { spalte: 'jahrgang', label: 'Jahrgang', typ: 'zahl' },
     { spalte: 'rebsorte', label: 'Rebsorte', typ: 'text' },
     { spalte: 'menge_liter', label: 'Menge (l)', typ: 'zahl' },
@@ -73,6 +74,14 @@ export const KORREKTUR_FELDER: Readonly<Record<string, readonly KorrekturFeld[]>
     { spalte: 'temperatur_c', label: 'Temperatur (°C)', typ: 'zahl' },
     { spalte: 'anwender_name', label: 'Anwender', typ: 'text' },
   ],
+}
+
+/**
+ * Fester Zusatzhinweis im Dialog je Tabelle (KAN-349, Entscheidung Jörgen 22.10.2026): Beim Prüfnummernantrag ist die
+ * Charge nicht korrigierbar (Gültigkeit je Charge, KAN-99) – die Bezeichnung im Dialog ist die des Antrags.
+ */
+export const KORREKTUR_ZUSATZ: Readonly<Record<string, string>> = {
+  dac_antrag: 'Die Charge ist nicht änderbar.',
 }
 
 /** Seiten, die nach einer Korrektur neu geladen werden ('[id]' = Datensatz) */
