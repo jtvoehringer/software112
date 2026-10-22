@@ -20,6 +20,7 @@ import { ladeMailAusPostfach } from '@/lib/email/mailLaden'
 import { titelAusFormular, titelNachgestelltAusFormular } from '@/lib/crm/titel'
 import { lieferadresseAus, lieferadresseFehler } from '@/lib/crm/lieferadressen'
 import { schnellAnlagePruefen, schnellTreffer, type SchnellPartnerEingabe, type SchnellTreffer } from '@/lib/crm/schnellAnlage'
+import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -185,11 +186,20 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
   }
 }
 
+/** Weinbau-Betriebsnummer eines Kontakts/einer Firma (optional): dieselbe Prüfung wie in der Schnellanlage
+ *  (KAN-353, Entscheidung Jörgen 22.10.2026) – nur Ziffern, höchstens 10 Stellen, nicht „0“; leer = null. */
+function betriebNrFeld(formData: FormData): { fehler: string } | { fehler?: undefined; wert: string | null } {
+  const p = weinbauBetriebsnummerPruefen(formData.get('betrieb_nr') ?? '', 'weinhaendler')
+  return p.ok ? { wert: p.wert } : { fehler: p.fehler }
+}
+
 /** Anlage eines Kontakts – gemeinsam für das CRM-Formular und die Schnellanlage aus der Partner-Suche (KAN-353).
  *  Betrieb der Seite, Schreibsperre und Schreibrecht prüft der Aufrufer vorher (getTenantId); Prüfungen werfen AktionsFehler. */
 async function kontaktEinfuegen(supabase: AR, tenantId: string, formData: FormData): Promise<{ error?: string; id?: string; accountnummer?: string | null }> {
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     const payload: AR = {
       ...kontaktPositionQuelle(formData),
       ...kontaktTitel(formData),
@@ -208,7 +218,7 @@ async function kontaktEinfuegen(supabase: AR, tenantId: string, formData: FormDa
       plz:         (formData.get('plz')     as string) || null,
       ort:         (formData.get('ort')     as string) || null,
       land:        landPruefen(formData.get('land')),
-      betrieb_nr:  (formData.get('betrieb_nr') as string) || null,
+      betrieb_nr:  bnr.wert,
       stammkunde:  formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
@@ -233,6 +243,8 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     const tenantId = await getTenantId()
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
     const { data: titelAlt, error: titelErr } = await (supabase.from('kontakte') as any).select('titel').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
     if (titelErr) return { error: dbFehlerText(titelErr, 'Kontakt konnte nicht geladen werden') }
@@ -253,7 +265,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       plz:        (formData.get('plz')     as string) || null,
       ort:        (formData.get('ort')     as string) || null,
       land:       landPruefen(formData.get('land')),
-      betrieb_nr: (formData.get('betrieb_nr') as string) || null,   // fehlte bis 02.10.2026 (Änderung ging verloren)
+      betrieb_nr: bnr.wert,   // fehlte bis 02.10.2026 (Änderung ging verloren); Prüfung seit KAN-353
       stammkunde: formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
       rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null,
@@ -397,6 +409,8 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
 async function firmaEinfuegen(supabase: AR, tenantId: string, formData: FormData): Promise<{ error?: string; id?: string; accountnummer?: string | null }> {
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     const payload: AR = {
       tenant_id:          tenantId,
       name:               formData.get('name') as string,
@@ -413,7 +427,7 @@ async function firmaEinfuegen(supabase: AR, tenantId: string, formData: FormData
       email_weitere:      em.email_weitere,
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
-      betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
+      betrieb_nr:         bnr.wert,
       debitor_nr:         (formData.get('debitor_nr') as string) || null,
       zahlungsziel_tage:  parseZahlungszielTage(formData),
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
@@ -445,6 +459,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
     const tenantId = await getTenantId()
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     const payload: AR = nurGesendeteFelder(formData, {
       name:               formData.get('name') as string,
       segment:            formData.get('segment') as string,
@@ -460,7 +476,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       email_weitere:      em.email_weitere,
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
-      betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
+      betrieb_nr:         bnr.wert,
       debitor_nr:         (formData.get('debitor_nr') as string) || null,
       ...(formData.has('zahlungsziel_tage') ? { zahlungsziel_tage: parseZahlungszielTage(formData) } : {}),
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
