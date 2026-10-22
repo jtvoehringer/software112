@@ -19,6 +19,12 @@
 //
 // KAN-77 (03.10.2026): „Verschneidung von …“ nennt das Quellgebinde am Tag des Verschnitts (lib/kellerbuch/quellGebinde.ts,
 // auch bei einer Zwischencharge im Ziel-Tank) statt des heutigen Gebindes der Quell-Charge.
+//
+// KAN-376 (22.10.2026): Direkte Mengenänderungen einer Charge ohne Bewegung bucht der nächtliche Abgleich als
+// INV_PLUS/INV_MIN ins Journal (kellerbuch_buchungen, quelle_tabelle 'weinausbau_bestand'). Diese Bestandskorrekturen
+// stehen jetzt als eigene Zeile „Bestandskorrektur (Inventur + / −)“ im Bewegungsbuch des Gebindes (nur solange die
+// Charge darin lag, korrekturenImGebinde) und der Charge – sonst wich der Saldo vom Bestand ab, und ein „Schwund“ zum
+// Ausgleich zog die Menge im Journal ein zweites Mal ab. Bestandsmeldung/BSM (ladeBewegungenBetrieb) bleiben unverändert.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
@@ -42,7 +48,7 @@ import { AktionsFehler } from '@/lib/fehler'
 export type BewegungsArt =
   | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
   | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus' | 'schwund'
-  | 'verarbeitung' | 'zugangskorrektur' | 'produktion_aus' | 'produktion_ein' | 'lohnversektung'
+  | 'verarbeitung' | 'zugangskorrektur' | 'produktion_aus' | 'produktion_ein' | 'lohnversektung' | 'bestandskorrektur'
 
 export const BEWEGUNGSART_LABEL: Record<BewegungsArt, string> = {
   uebertrag:         'Übertrag',
@@ -64,6 +70,7 @@ export const BEWEGUNGSART_LABEL: Record<BewegungsArt, string> = {
   produktion_aus:    'Produktion (Abgang)',   // KAN-118
   produktion_ein:    'Produktion (Zugang)',   // KAN-118
   lohnversektung:    'Lohnversektung (Rückkehr als Sekt)',   // KAN-232
+  bestandskorrektur: 'Bestandskorrektur',   // KAN-376: INV_PLUS/INV_MIN aus dem Abgleich Ist ↔ Journal
 }
 
 export type Bewegung = {
@@ -111,6 +118,8 @@ type Roh = {
   produktionAus: R[]
   /** KAN-118: Produktionen in eine Zielcharge (ZU_PROD) samt Eingängen */
   produktionEin: R[]
+  /** KAN-376: Bestandskorrekturen des Journals (kellerbuch_buchungen, quelle_tabelle 'weinausbau_bestand', INV_PLUS/INV_MIN) */
+  bestandskorrekturen: R[]
   verschnAus: R[]
   verschnEin: R[]
   quelleByBatch: Record<string, R[]>
@@ -180,7 +189,29 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
   for (const u of umzuegeEin) if (u.nach_weinausbau_id) chargeIds.add(u.nach_weinausbau_id)
   for (const p of pressungen) if (p.weinausbau_id) chargeIds.add(p.weinausbau_id)
   for (const u of umzuegeVon) if (u.von_weinausbau_id) chargeIds.add(u.von_weinausbau_id)
-  return ladeRohDerChargen(supabase, tenantId, { pressungen, umzuegeEin, chargen, behandlungen }, Array.from(chargeIds))
+  const roh = await ladeRohDerChargen(supabase, tenantId, { pressungen, umzuegeEin, chargen, behandlungen }, Array.from(chargeIds))
+  // KAN-376: Bestandskorrekturen nur, solange die Charge in diesem Gebinde lag (Belegung aus den übrigen Bewegungen)
+  const belegungen = belegungszeitraeume(ohneStornoPaare(bewegungenAus({ ...roh, bestandskorrekturen: [] })), chargen)
+  return { ...roh, bestandskorrekturen: korrekturenImGebinde(roh.bestandskorrekturen, belegungen, chargen) }
+}
+
+/**
+ * KAN-376: Bestandskorrekturen (Journalzeilen) der Chargen, die zum Buchungsdatum in diesem Gebinde lagen.
+ * Charge liegt heute im Gebinde (`chargenImGebinde`): jede Korrektur, außer vor dem ersten Tag ihrer Belegung hier.
+ * Charge liegt heute woanders: nur Korrekturen innerhalb ihrer Belegung hier (erster bis letzter Bewegungstag).
+ * Storno-Zeilen (storno_von_id) folgen ihrer Korrektur.
+ */
+export function korrekturenImGebinde(korrekturen: readonly R[], belegungen: readonly Belegung[], chargenImGebinde: readonly R[]): R[] {
+  const hier = new Set(chargenImGebinde.map(c => c.id as string))
+  const belegung = new Map(belegungen.map(b => [b.chargeId, b]))
+  const drin = (k: R): boolean => {
+    const d = tag(k.datum)
+    const b = belegung.get(k.weinausbau_id as string)
+    if (hier.has(k.weinausbau_id as string)) return !b || !d || d >= b.von
+    return !!b && !!d && d >= b.von && (b.bis === null || d <= b.bis)
+  }
+  const behalten = new Set(korrekturen.filter(k => !k.storno_von_id && drin(k)).map(k => k.id as string))
+  return korrekturen.filter(k => (k.storno_von_id ? behalten.has(k.storno_von_id as string) || (!korrekturen.some(o => o.id === k.storno_von_id) && drin(k)) : behalten.has(k.id as string)))
 }
 
 /**
@@ -229,9 +260,9 @@ async function ladeRohDerChargen(
 ): Promise<Roh> {
   const { pressungen, umzuegeEin, chargen, behandlungen } = basis
   let umzuegeAus: R[] = [], fuellungen: R[] = [], verkauf: R[] = [], zukauf: R[] = [], verschnAus: R[] = [], verschnEin: R[] = []
-  let verarbeitungen: R[] = [], zugangskorrekturen: R[] = [], produktionAus: R[] = [], produktionEin: R[] = []
+  let verarbeitungen: R[] = [], zugangskorrekturen: R[] = [], produktionAus: R[] = [], produktionEin: R[] = [], bestandskorrekturen: R[] = []
   if (ids.length > 0) {
-    ;[umzuegeAus, fuellungen, verkauf, zukauf, verschnAus, verschnEin, verarbeitungen, zugangskorrekturen, produktionAus, produktionEin] = await Promise.all([
+    ;[umzuegeAus, fuellungen, verkauf, zukauf, verschnAus, verschnEin, verarbeitungen, zugangskorrekturen, produktionAus, produktionEin, bestandskorrekturen] = await Promise.all([
       liste((supabase.from('keller_umzuege') as any)
         .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, transaktions_nr, nach_behaelter:nach_behaelter_id(name), von_weinausbau_id, von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id, storniert_am, storno_grund, storniert_von_name')
         // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
@@ -302,8 +333,19 @@ async function ladeRohDerChargen(
         .in('ziel_weinausbau_id', ids)
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'produktionen'),
+      // KAN-376: Bestandskorrekturen aus dem Abgleich Ist ↔ Journal (direkte Mengenänderung ohne Bewegung) – sonst
+      // fehlen sie hier und der Saldo weicht vom Bestand ab (Befund Musterhof: Saldo 210 L statt 160 L)
+      liste((supabase.from('kellerbuch_buchungen') as any)
+        .select('id, beleg_nr, pos, datum, buchungsart_code, weinausbau_id, menge_liter, storno_von_id, charge_name, hinweis')
+        .eq('tenant_id', tenantId)
+        .eq('quelle_tabelle', 'weinausbau_bestand')
+        .eq('bestand', 'offen')
+        .in('weinausbau_id', ids)
+        .order('datum', { ascending: true })
+        .order('beleg_nr', { ascending: true })
+        .order('id', { ascending: true }), 'kellerbuch_buchungen'),
     ])
-    verschnAus = verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId)
+    verschnAus =verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId)
   }
 
   const einZielBatchIds = [...new Set(umzuegeEin.filter(u => u.zeilen_typ === 'ziel' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
@@ -352,7 +394,7 @@ async function ladeRohDerChargen(
     ? await quellGebindeDesVerschnitts(supabase, tenantId, verschnEin.map(verschnittGebinde))
     : new Map<string, Quellgebinde>()
 
-  return { pressungen, umzuegeEin, chargen, umzuegeAus, fuellungen, verkauf, zukauf, behandlungen, verarbeitungen, zugangskorrekturen, produktionAus, produktionEin, verschnAus, verschnEin, quelleByBatch, zielByBatch, chargeNamen, quellGebinde }
+  return { pressungen, umzuegeEin, chargen, umzuegeAus, fuellungen, verkauf, zukauf, behandlungen, verarbeitungen, zugangskorrekturen, produktionAus, produktionEin, bestandskorrekturen, verschnAus, verschnEin, quelleByBatch, zielByBatch, chargeNamen, quellGebinde }
 }
 
 /** Verschnitt-Zeile → Eingabe für das Quellgebinde (KAN-77) */
@@ -738,6 +780,31 @@ function bewegungenAus(roh: Roh): Bewegung[] {
     })
   }
 
+  // KAN-376: Bestandskorrektur aus dem Abgleich Ist ↔ Journal (INV_PLUS/INV_MIN) – eine Storno-Zeile des Journals
+  // (storno_von_id) wird zum Storno-Vermerk ihrer Korrektur, die Gegenbuchung entsteht unten wie bei allen Buchungen
+  const korrekturStorno = new Map<string, R>()
+  for (const k of roh.bestandskorrekturen) if (k.storno_von_id) korrekturStorno.set(k.storno_von_id, k)
+  const korrekturIds = new Set(roh.bestandskorrekturen.map(k => k.id as string))
+  for (const k of roh.bestandskorrekturen) {
+    if (k.storno_von_id && korrekturIds.has(k.storno_von_id)) continue
+    const l = num(k.menge_liter)
+    if (!k.datum || Math.abs(l) < 0.005) continue
+    const s = korrekturStorno.get(k.id)
+    bewegungen.push({
+      datum: tag(k.datum),
+      art: 'bestandskorrektur',
+      beschreibung: `${k.storno_von_id ? 'Storno: ' : ''}${bestandskorrekturText(k.buchungsart_code, l)}`,
+      menge: liter(l),
+      extra: text(k.hinweis) ?? undefined,
+      chargeId: k.weinausbau_id ?? null,
+      charge: name(k.weinausbau_id) ?? text(k.charge_name),
+      gegenstelle: null,
+      beleg: k.beleg_nr != null ? `Journal ${k.beleg_nr}` : null,
+      quelleId: k.id,
+      ...(s ? { storno: { am: tag(s.datum), grund: text(s.hinweis), von: null } } : {}),
+    })
+  }
+
   // KAN-145: Gegenbuchung am Storno-Tag (umgekehrte Menge) – die Buchung selbst bleibt an ihrem Tag stehen
   for (const b of [...bewegungen]) {
     if (!b.storno || b.menge === 0) continue   // ohne Menge (Kellerbehandlung) genügt der Vermerk
@@ -755,6 +822,12 @@ function bewegungenAus(roh: Roh): Bewegung[] {
   // Stabil nach Datum (innerhalb eines Tages die Reihenfolge oben – wie bisher; Gegenbuchungen danach)
   bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
   return bewegungen
+}
+
+/** KAN-376: Vorgangstext einer Bestandskorrektur – nach Buchungsart, ohne Code nach dem Vorzeichen der Menge */
+export function bestandskorrekturText(code: unknown, menge: number): string {
+  const plus = code === 'INV_PLUS' ? true : code === 'INV_MIN' ? false : menge >= 0
+  return `Bestandskorrektur (Inventur ${plus ? '+' : '−'})`
 }
 
 /** Storno-Angaben einer Zeile als Bewegungsfeld (Kalendertag in Wien) */
@@ -964,6 +1037,9 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
     zugangskorrekturen,
     produktionAus,
     produktionEin,
+    // KAN-376: Bestandskorrekturen nur im Bewegungsbuch je Gebinde bzw. Charge – Bestandsmeldung und BSM rechnen
+    // mit ihrer eigenen Logik (BSM ab Journalbeginn aus kellerbuch_buchungen) und bleiben unverändert
+    bestandskorrekturen: [],
     verschnAus: verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId),
     verschnEin,
     quelleByBatch,
@@ -1084,6 +1160,7 @@ export async function ladeBewegungsbuch(
   for (const pe of roh.produktionAus) if (!istStorniert((pe.produktion ?? {}) as R)) plus(pe.weinausbau_id, -num(pe.menge))   // KAN-118
   for (const p of roh.produktionEin) if (!istStorniert(p)) plus(p.ziel_weinausbau_id, num(p.ziel_menge))
   for (const b of roh.behandlungen) if (!istStorniert(b) && num(b.zugang_liter) > 0) plus(b.weinausbau_id, num(b.zugang_liter))
+  for (const k of roh.bestandskorrekturen) plus(k.weinausbau_id, num(k.menge_liter))   // KAN-376 (Storno-Zeilen mit umgekehrtem Vorzeichen)
 
   const aktiveChargen = roh.chargen.filter(c => c.aktiv && !c.ist_eroeffnungsbestand && (literByCharge[c.id] ?? num(c.menge_liter)) > 0.001)
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + num(c.menge_liter), 0)

@@ -7,6 +7,9 @@
 //
 // Reine Funktionen ohne '@/'-Importe (Tests laden die Datei direkt mit Node): Bereich je Tabelle, Aktion, Beschreibung,
 // Link zum Datensatz, Filter aus der URL und die CSV-Spalten. Laden: lib/journal/laden.ts.
+//
+// KAN-376 (22.10.2026): Mengen von 0 erscheinen nicht mehr („0 L“), eine Schwundbuchung zeigt ihre Schwundmenge; Links
+// auch für Tabellen ohne eigene Seite über den Elterndatensatz (JOURNAL_NACHLADEN, nachgeladen in laden.ts).
 
 import type { CsvSpalte } from '../csv'
 
@@ -108,12 +111,21 @@ const zahl = (v: unknown, stellen = 2) => {
   const rest = (k ?? '').replace(/0+$/, '')
   return `${n < 0 ? '−' : ''}${g.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}${rest ? `,${rest}` : ''}`
 }
+/** KAN-376: Zahl nur, wenn sie (gerundet) nicht 0 ist – zahl(0) ist der String "0" und damit truthy („22.10.2026 · 0 L“) */
+const zahlOhneNull = (v: unknown, stellen = 2) => {
+  const z = zahl(v, stellen)
+  return z && z !== '0' && z !== '−0' ? z : null
+}
 const tag = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)}` : null
 const txt = (v: unknown) => typeof v === 'string' && v.trim() !== '' ? v.trim() : (typeof v === 'number' ? String(v) : null)
 
-/** Kurzbeschreibung eines Datensatzes aus Kennung (seit KAN-332) bzw. alt/neu (ältere Zeilen) */
-export function beschreibung(kennung: R | null, alt: R | null = null, neu: R | null = null): string {
-  const q: R = { ...(alt ?? {}), ...(neu ?? {}), ...(kennung ?? {}) }
+/** Kurzbeschreibung eines Datensatzes aus Kennung (seit KAN-332) bzw. alt/neu (ältere Zeilen); KAN-376: `daten` = der
+ *  nachgeladene Datensatz (niedrigster Vorrang – die Kennung hält den Stand zum Zeitpunkt der Buchung) */
+export function beschreibung(kennung: R | null, alt: R | null = null, neu: R | null = null, daten: R | null = null): string {
+  const q: R = { ...(daten ?? {}), ...(alt ?? {}), ...(neu ?? {}), ...(kennung ?? {}) }
+  // KAN-376: Schwundbuchung (keller_umzuege, umzug_typ 'schwund') hat menge_liter 0 – die Menge steht in schwund_liter
+  // bzw. brutto_liter; umzug_typ und Mengen kommen aus dem nachgeladenen Datensatz (die Kennung hat nur datum/menge_liter)
+  const schwund = q.umzug_typ === 'schwund' ? zahlOhneNull(q.schwund_liter) ?? zahlOhneNull(q.brutto_liter) : null
   const teile: string[] = []
   const name = ['name', 'bezeichnung', 'rechnungsnummer', 'transaktions_nr', 'liefernummer', 'tbs_nummer', 'belegnummer',
     'pruefnummer', 'beschreibung', 'dateiname'].map(k => txt(q[k])).find(Boolean)
@@ -124,20 +136,89 @@ export function beschreibung(kennung: R | null, alt: R | null = null, neu: R | n
   else if (q.zeitraum != null && q.jahr != null) teile.push(`${q.zeitraum} ${q.jahr}`)
   const d = tag(q.datum) ?? tag(q.ernte_datum)
   if (d) teile.push(d)
-  if (q.menge_liter != null && zahl(q.menge_liter)) teile.push(`${zahl(q.menge_liter)} L`)
-  if (q.menge_kg != null && zahl(q.menge_kg)) teile.push(`${zahl(q.menge_kg)} kg`)
-  if (q.anzahl_flaschen != null && zahl(q.anzahl_flaschen, 0)) teile.push(`${zahl(q.anzahl_flaschen, 0)} Fl.`)
-  if (q.menge != null && q.menge_liter == null && q.menge_kg == null && zahl(q.menge)) teile.push(`Menge ${zahl(q.menge)}`)
+  if (schwund) teile.push(`Schwund ${schwund} L`)
+  else if (zahlOhneNull(q.menge_liter)) teile.push(`${zahlOhneNull(q.menge_liter)} L`)
+  if (zahlOhneNull(q.menge_kg)) teile.push(`${zahlOhneNull(q.menge_kg)} kg`)
+  if (zahlOhneNull(q.anzahl_flaschen, 0)) teile.push(`${zahlOhneNull(q.anzahl_flaschen, 0)} Fl.`)
+  if (q.menge_liter == null && q.menge_kg == null && zahlOhneNull(q.menge)) teile.push(`Menge ${zahlOhneNull(q.menge)}`)
   const betrag = q.betrag_brutto ?? q.betrag ?? q.betrag_netto
-  if (betrag != null && zahl(betrag)) teile.push(`€ ${zahl(betrag)}`)
+  if (zahlOhneNull(betrag)) teile.push(`€ ${zahlOhneNull(betrag)}`)
   if (txt(q.status) && !teile.length) teile.push(`Status ${q.status}`)
   return teile.join(' · ') || '–'
 }
 
-/** Link zum Datensatz (nur, wenn er noch existieren kann und eine Seite dafür da ist) */
-export function journalLink(tabelle: string, id: string | null, aktion: JournalAktion): string | null {
+/**
+ * KAN-376: Datensätze, die laden.ts nach dem Laden der Protokollzeilen je Tabelle nachlädt (in Blöcken, nur der eigene
+ * Betrieb) – für den Link über den Elterndatensatz und Zusatzfelder der Beschreibung (Schwundmenge). `mandant` ist die
+ * Spalte für den Betriebsfilter (bei Tabellen ohne tenant_id über die eingebettete Elternzeile, !inner).
+ */
+// storno-sichtbar: nur Verweise auf Charge, Pressung bzw. Lese für den Link – auch stornierte Zeilen haben eine Seite
+export const JOURNAL_NACHLADEN: Readonly<Record<string, { spalten: string; mandant: string }>> = {
+  keller_umzuege: { spalten: 'id, von_weinausbau_id, nach_weinausbau_id, umzug_typ, menge_liter, schwund_liter, brutto_liter', mandant: 'tenant_id' },
+  verschneidungen: { spalten: 'id, ziel_weinausbau_id', mandant: 'tenant_id' },
+  verschneidung_quellen: { spalten: 'id, verschneidung:verschneidung_id!inner(tenant_id, ziel_weinausbau_id)', mandant: 'verschneidung.tenant_id' },
+  keller_behandlungen: { spalten: 'id, weinausbau_id, behaelter_id', mandant: 'tenant_id' },
+  fuellung_chargen: { spalten: 'id, fuellung_id', mandant: 'tenant_id' },
+  fuellung_bewegungen: { spalten: 'id, fuellung_id', mandant: 'tenant_id' },
+  verkauf_positionen: { spalten: 'id, verkaufsposten_id', mandant: 'tenant_id' },
+  zahlungen: { spalten: 'id, verkaufsposten_id, rechnung_id', mandant: 'tenant_id' },
+  transportbescheinigungen: { spalten: 'id, verkaufsposten_id', mandant: 'tenant_id' },
+  pressungen: { spalten: 'id, jahrgang_id, lese_id', mandant: 'tenant_id' },
+  pressung_behaelter: { spalten: 'id, weinausbau_id, pressung:pressung_id!inner(tenant_id, jahrgang_id, lese_id, storniert_am)', mandant: 'pressung.tenant_id' },
+  pressung_weingaerten: { spalten: 'id, pressung:pressung_id!inner(tenant_id, jahrgang_id, lese_id, storniert_am)', mandant: 'pressung.tenant_id' },
+  ernte_parzellen: { spalten: 'id, jahrgang_id, lese_id, jahrgang:weinjahrgaenge!ernte_parzellen_jahrgang_id_fkey!inner(tenant_id)', mandant: 'jahrgang.tenant_id' },
+  lesen: { spalten: 'id, jahrgang_id', mandant: 'tenant_id' },
+  traubenverkauf: { spalten: 'id, verkaufsposten_id', mandant: 'tenant_id' },
+  ama_erntemeldungen: { spalten: 'id, jahrgang_id', mandant: 'tenant_id' },
+  weinanalysen: { spalten: 'id, weinausbau_id', mandant: 'tenant_id' },
+  pruefnummernantraege: { spalten: 'id, dac_antrag_id', mandant: 'tenant_id' },
+  grundstuecke: { spalten: 'id, weingarten_id', mandant: 'tenant_id' },
+}
+
+const sid = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null)
+const charge = (id: unknown) => (sid(id) ? `/kellerbuch/weinausbau/${id}` : null)
+const pressungSeite = (p: R | null | undefined) =>
+  sid(p?.jahrgang_id) ? `/kellerbuch/pressungen?jahrgang=${p!.jahrgang_id}${sid(p!.lese_id) ? `&lese=${p!.lese_id}` : ''}` : null
+const leseSeite = (jahrgang: unknown, lese: unknown) => (sid(jahrgang) ? `/erntemeldung/${jahrgang}${sid(lese) ? `?lese=${lese}` : ''}` : null)
+
+/** Link zum Datensatz (nur, wenn er noch existieren kann und eine Seite dafür da ist). KAN-376: `d` = der nachgeladene
+ *  Datensatz (JOURNAL_NACHLADEN) – Tabellen ohne eigene Seite verlinken über ihren Elterndatensatz; fehlt er (gelöscht,
+ *  nicht geladen), gibt es keinen Link. */
+export function journalLink(tabelle: string, id: string | null, aktion: JournalAktion, d: R | null = null): string | null {
   if (!id || aktion === 'loeschung') return null
   switch (tabelle) {
+    // KAN-376: über den Elterndatensatz
+    case 'keller_umzuege': return charge(d?.von_weinausbau_id) ?? charge(d?.nach_weinausbau_id)
+    case 'verschneidungen': return charge(d?.ziel_weinausbau_id)
+    case 'verschneidung_quellen': return charge((d?.verschneidung as R | null)?.ziel_weinausbau_id)
+    case 'keller_behandlungen': return charge(d?.weinausbau_id) ?? (sid(d?.behaelter_id) ? `/kellerbuch/behaelter/${d!.behaelter_id}/behandlungen` : null)
+    case 'fuellung_chargen':
+    case 'fuellung_bewegungen': return sid(d?.fuellung_id) ? `/weinhandel/fuellungen/${d!.fuellung_id}/edit` : null
+    case 'verkauf_positionen': return sid(d?.verkaufsposten_id) ? `/weinhandel/verkauf/${d!.verkaufsposten_id}` : null
+    case 'zahlungen': return sid(d?.verkaufsposten_id) ? `/weinhandel/verkauf/${d!.verkaufsposten_id}` : sid(d?.rechnung_id) ? `/weinhandel/rechnungen/${d!.rechnung_id}` : null
+    case 'transportbescheinigungen': return sid(d?.verkaufsposten_id) ? `/weinhandel/verkauf/${d!.verkaufsposten_id}/transportbescheinigung` : '/weinhandel/transportbescheinigungen'
+    case 'pressungen': return pressungSeite(d)
+    case 'pressung_behaelter': return charge(d?.weinausbau_id) ?? pressungSeite(d?.pressung as R | null)
+    case 'pressung_weingaerten': return pressungSeite(d?.pressung as R | null)
+    case 'ernte_parzellen': return leseSeite(d?.jahrgang_id, d?.lese_id)
+    case 'lesen': return leseSeite(d?.jahrgang_id, id)
+    case 'traubenverkauf': return sid(d?.verkaufsposten_id) ? `/weinhandel/verkauf/${d!.verkaufsposten_id}` : '/weinhandel/traubenverkauf'
+    case 'ama_erntemeldungen': return sid(d?.jahrgang_id) ? `/erntemeldung/${d!.jahrgang_id}` : null
+    case 'weinanalysen': return sid(d?.weinausbau_id) ? `/kellerbuch/weinausbau/${d!.weinausbau_id}/analysen` : null
+    case 'pruefnummernantraege': return sid(d?.dac_antrag_id) ? `/dac/${d!.dac_antrag_id}/antrag` : null
+    case 'grundstuecke': return sid(d?.weingarten_id) ? `/weingarten/${d!.weingarten_id}` : null
+    // KAN-376: Listen ohne Einzelseite
+    case 'ea_transaktionen': return '/buchhaltung'
+    case 'ea_uva': return '/buchhaltung/uva'
+    case 'ea_monatsabschluss': return '/buchhaltung/monatsabschluss'
+    case 'ea_kategorien': return '/buchhaltung/kategorien'
+    case 'ea_dauerauftraege': return '/buchhaltung/dauerauftraege'
+    case 'psm_lager_bewegungen':
+    case 'duengemittel_lager_bewegungen':
+    case 'betriebsmittel_lager_bewegungen':
+    case 'pflanzenschutzmittel':
+    case 'duengemittel':
+    case 'betriebsmittel': return '/behandlungen/lager'
     case 'weinausbau': return `/kellerbuch/weinausbau/${id}`
     case 'verkaufsposten': return `/weinhandel/verkauf/${id}`
     case 'rechnungen': return `/weinhandel/rechnungen/${id}`
@@ -170,14 +251,31 @@ export type JournalZeile = {
 
 const AKTION_TEXT: Record<JournalAktion, string> = Object.fromEntries(JOURNAL_AKTIONEN.map(a => [a.key, a.label])) as Record<JournalAktion, string>
 
-/** Protokollzeilen → Journalzeilen (reine Umformung) */
-export function journalZeilen(roh: readonly R[], namen: ReadonlyMap<string, string>): JournalZeile[] {
+/** KAN-376: nachgeladene Datensätze je Tabelle und id (JOURNAL_NACHLADEN) */
+export type JournalDaten = ReadonlyMap<string, ReadonlyMap<string, R>>
+
+/** KAN-376: welche Datensätze laden.ts nachladen muss – je Tabelle aus JOURNAL_NACHLADEN die ids (ohne Löschungen) */
+export function nachzuladendeIds(roh: readonly R[]): Map<string, string[]> {
+  const m = new Map<string, Set<string>>()
+  for (const p of roh) {
+    const id = sid(p.datensatz_id)
+    if (!id || p.aktion === 'DELETE' || !JOURNAL_NACHLADEN[p.tabelle]) continue
+    if (!m.has(p.tabelle)) m.set(p.tabelle, new Set())
+    m.get(p.tabelle)!.add(id)
+  }
+  return new Map([...m].map(([t, ids]) => [t, [...ids].sort()]))
+}
+
+/** Protokollzeilen → Journalzeilen (reine Umformung); KAN-376: `daten` = nachgeladene Datensätze für Link und Beschreibung */
+export function journalZeilen(roh: readonly R[], namen: ReadonlyMap<string, string>, daten: JournalDaten = new Map()): JournalZeile[] {
   return roh.map(p => {
     const spalten = Array.isArray(p.geaenderte_spalten) ? (p.geaenderte_spalten as string[]) : null
     const neu = (p.neu ?? null) as R | null
     const alt = (p.alt ?? null) as R | null
     const aktion = aktionDerZeile(p.aktion, spalten, neu)
     const benutzerId = typeof p.benutzer_id === 'string' ? p.benutzer_id : null
+    const datensatzId = typeof p.datensatz_id === 'string' ? p.datensatz_id : null
+    const d = aktion === 'loeschung' || !datensatzId ? null : (daten.get(p.tabelle)?.get(datensatzId) ?? null)
     return {
       id: p.id,
       zeitpunkt: p.erstellt_am,
@@ -185,12 +283,12 @@ export function journalZeilen(roh: readonly R[], namen: ReadonlyMap<string, stri
       vorgang: TABELLE_LABEL[p.tabelle] ?? p.tabelle,
       aktion,
       aktionText: AKTION_TEXT[aktion],
-      beschreibung: beschreibung((p.kennung ?? null) as R | null, aktion === 'loeschung' ? alt : null, neu),
+      beschreibung: beschreibung((p.kennung ?? null) as R | null, aktion === 'loeschung' ? alt : null, neu, d),
       felder: aktion === 'aenderung' && spalten?.length ? spalten.join(', ') : null,
       grund: typeof p.grund === 'string' && p.grund.trim() ? p.grund.trim() : null,
       benutzerId,
       benutzer: benutzerId ? (namen.get(benutzerId) ?? 'ehemaliges Mitglied') : 'System',
-      link: journalLink(p.tabelle, typeof p.datensatz_id === 'string' ? p.datensatz_id : null, aktion),
+      link: journalLink(p.tabelle, datensatzId, aktion, d),
     }
   })
 }

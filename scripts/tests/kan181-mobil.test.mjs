@@ -81,8 +81,8 @@ describe('Kellerbuch (Etappe 3)', () => {
     `${KB}/weinausbau/[id]/analysen/neu/page.tsx`,
   ]
   const RASTER = [
+    // KAN-376: das Bewegungsbuch des Gebindes nutzt dasselbe Formular (keine eigene Nachbuchung mehr)
     `${KB}/weinausbau/[id]/SchwundBuchenForm.tsx`,
-    `${KB}/behaelter/[id]/bewegungen/page.tsx`,
   ]
   test('16 px am Handy in allen Kellerbuch-Formularen (kein iOS-Zoom)', () => {
     for (const f of [...STICKY, ...RASTER]) assert.match(quelle(f), /text-base sm:text-sm/, f)
