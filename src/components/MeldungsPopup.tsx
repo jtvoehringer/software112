@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
-import { meldungsArt, popupText, popupZeigen, vollSichtbar, OK_DAUER_MS, type MeldungsArt } from '@/lib/ui/meldungen'
+import { meldungsArt, meldungsZiel, popupText, popupZeigen, vollSichtbar, OK_DAUER_MS, type MeldungsArt } from '@/lib/ui/meldungen'
 
 type Popup = { id: number; art: MeldungsArt; text: string; ziel: WeakRef<Element> }
 
@@ -119,8 +119,15 @@ export default function MeldungsPopup() {
   }, [popups.length])
 
   const schliessen = (id: number) => setPopups(alt => alt.filter(p => p.id !== id))
+  // KAN-355: ein inzwischen ersetzter Kasten (isConnected false) führt nicht mehr ins Leere – neu suchen, sonst offen lassen
   const zurMeldung = (p: Popup) => {
-    p.ziel.deref()?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const gemerkt = p.ziel.deref()
+    const kandidaten = Array.from(document.querySelectorAll(KANDIDATEN))
+      .filter(el => !wurzel.current?.contains(el))
+      .map(el => ({ el, art: art(el), text: el.textContent ?? '', angezeigt: el.getClientRects().length > 0 }))
+    const ziel = meldungsZiel(gemerkt ? { el: gemerkt, verbunden: gemerkt.isConnected } : null, kandidaten, p)
+    if (!ziel) return
+    ziel.scrollIntoView({ block: 'center', behavior: 'smooth' })
     schliessen(p.id)
   }
 

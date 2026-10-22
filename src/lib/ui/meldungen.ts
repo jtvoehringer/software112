@@ -81,3 +81,19 @@ export function vollSichtbar(r: { top: number; bottom: number; height: number },
   if (r.height === 0) return false
   return r.top >= 0 && r.bottom <= fensterHoehe
 }
+
+/**
+ * KAN-355 (22.10.2026): Ziel für „Zur Meldung“. Das gemerkte Element gilt nur, solange es im DOM hängt – React ersetzt
+ * einen Meldungskasten beim Neurendern oft durch einen neuen (Befund: „Zur Meldung“ tat still nichts). Sonst eine
+ * angezeigte Meldung derselben Art mit demselben Text, sonst die erste angezeigte derselben Art; null = keine mehr da
+ * (das Pop-up bleibt dann offen, statt still zu verschwinden).
+ */
+export function meldungsZiel<T>(
+  gemerkt: { el: T; verbunden: boolean } | null,
+  kandidaten: readonly { el: T; art: MeldungsArt | null; text: string; angezeigt: boolean }[],
+  popup: { art: MeldungsArt; text: string },
+): T | null {
+  if (gemerkt?.verbunden) return gemerkt.el
+  const passend = kandidaten.filter(k => k.angezeigt && k.art === popup.art)
+  return (passend.find(k => popupText(k.text) === popup.text) ?? passend[0])?.el ?? null
+}

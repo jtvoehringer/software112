@@ -252,7 +252,17 @@ export const PAKETMODUL_AUS_MELDUNG =
 
 /** KAN-129: Trigger a_lese_zuordnen (23502, HINT 'lese_waehlen') – Jahrgang mit mehreren Lesen, keine Lese angegeben */
 /** KAN-248: Ein UPDATE, das die RLS nicht zulässt oder dessen Zeile fehlt, ändert still 0 Zeilen – statt „gespeichert“ */
-export const NICHT_GESPEICHERT = 'Nicht gespeichert – der Datensatz wurde nicht gefunden oder die Berechtigung fehlt. Bitte die Seite neu laden.'
+/** KAN-355 (22.10.2026): erwartbare Ablehnung durch die Datenbank – Sperre (42501, z. B. Periodensperre
+ *  a_ea_periodensperre), Prüfregel (23514), Fremdschlüssel (23503) oder eigene deutsche Meldung aus Trigger/RPC
+ *  (22023, P0001, P0002, 55000). Kein Systemfehler: Die Action gibt sie als `{ error }` zurück, statt zu werfen –
+ *  geworfene Fehler meldet instrumentation.ts (onRequestError) ins Systemprotokoll. */
+export function erwarteteDbAblehnung(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && ['42501', '23514', '23503', '22023', 'P0001', 'P0002', '55000'].includes(code)
+}
+
+export const NICHT_GESPEICHERT ='Nicht gespeichert – der Datensatz wurde nicht gefunden oder die Berechtigung fehlt. Bitte die Seite neu laden.'
 
 export const LESE_WAEHLEN_MELDUNG =
   'Der Jahrgang hat mehrere Lesen und das Datum passt zu keiner – bitte oben auf der Jahrgangsseite die Lese (Reiter) wählen und erneut speichern.'

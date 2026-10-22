@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { losText } from '@/lib/handel/losnummer'
 import Link from '@/components/ui/Link'
-import { stornoVerkauf, createZahlung, stornoZahlung, rechnungErstellen, rechnungStornieren } from '../actions'
+import { stornoVerkauf, stornoZahlung, rechnungErstellen, rechnungStornieren } from '../actions'
 import StornoButton from '@/components/StornoButton'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import StornoKnopf from './StornoKnopf'
@@ -21,9 +21,7 @@ import { lieferadresseKurz, lieferadresseZeilen, type LieferadresseMoment } from
 import { landAnzeige } from '@/lib/katalog/laender'
 import { tbsText } from '@/lib/handel/tbsNummer'
 import { TB_POSITIONSTYPEN } from '@/lib/behoerden/transportbescheinigung'
-import { heuteWien } from '@/lib/datum/wien'
-import SendenKnopf from '@/components/ui/SendenKnopf'
-import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import ZahlungErfassen from '@/components/handel/ZahlungErfassen'
 
 export const dynamic = 'force-dynamic'
 
@@ -247,7 +245,6 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     gutschrift: 'Gutschrift', sonstig: 'Sonstiges',
   }
 
-  const createZahlungBound  = createZahlung.bind(null, id)
 
   return (
     <div className="space-y-6 print:space-y-3 max-w-3xl">
@@ -693,38 +690,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
           {/* Zahlung erfassen */}
           {writeOk && !vollBezahlt && (
-            <form action={createZahlungBound} className="border border-s112-border rounded-lg p-3 space-y-3">
-              <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Zahlung erfassen</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <ZukunftsDatum aria-label="Datum" name="datum" defaultValue={heuteWien()} className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Art</label>
-                  <select aria-label="Art" name="art" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full">
-                    <option value="bar">Bar</option>
-                    <option value="karte">Karte</option>
-                    <option value="bank">Bank</option>
-                    <option value="gutschrift">Gutschrift</option>
-                    <option value="sonstig">Sonstiges</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
-                  <input aria-label="Betrag (€)" name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
-                  <input aria-label="Notiz" name="notizen" type="text" placeholder="Optional…" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <SendenKnopf className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
-                  Zahlung buchen
-                </SendenKnopf>
-              </div>
-            </form>
+            // KAN-355: Client-Formular – Ablehnungen (z. B. Monat abgeschlossen) als Meldung statt Fehlerseite
+            <ZahlungErfassen verkaufspostenId={id} />
           )}
         </div>
       )}
