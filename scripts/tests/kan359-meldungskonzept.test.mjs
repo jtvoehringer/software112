@@ -229,3 +229,46 @@ describe('KAN-359: Wächter check-rueckfragen', () => {
     assert.match(aus, /✓ check-rueckfragen: keine Browser-Dialoge/)
   })
 })
+
+// UAT 22.10.2026: Prüfnummer mit zu kurzem Grund → Fehler-Hinweis nicht weggeklickt, danach korrekt gespeichert (grünes
+// Pop-up) – der alte Hinweis „Fehlermeldung außer Sicht“ blieb stehen, „Zur Meldung“ tat nichts.
+describe('KAN-359 Nachtrag: veralteter Fehler-Hinweis verschwindet', () => {
+  const m = () => import('../../src/lib/ui/meldungen.ts')
+  const hinweis = { erstellt: 1_000, art: 'fehler', text: 'Grund mindestens 10 Zeichen' }
+  const angezeigt = { el: 'kasten', art: 'fehler', text: 'Grund mindestens 10 Zeichen', angezeigt: true }
+  test('Erfolg nach dem Hinweis → ungültig, auch wenn der Fehlerkasten noch dasteht', async () => {
+    const { hinweisGueltig } = await m()
+    assert.equal(hinweisGueltig(hinweis, { el: 'kasten', verbunden: true, angezeigt: true }, [angezeigt], 1_500), false)
+    assert.equal(hinweisGueltig(hinweis, null, [angezeigt], 1_000), false, 'gleichzeitig zählt als danach')
+  })
+  test('Erfolg vor dem Hinweis bzw. keiner → gültig, solange die Meldung angezeigt wird', async () => {
+    const { hinweisGueltig } = await m()
+    assert.equal(hinweisGueltig(hinweis, { el: 'kasten', verbunden: true, angezeigt: true }, [], 500), true)
+    assert.equal(hinweisGueltig(hinweis, null, [angezeigt], null), true)
+    assert.equal(hinweisGueltig(hinweis, { el: 'alt', verbunden: false, angezeigt: false }, [angezeigt], null), true, 'ersetzter Kasten')
+  })
+  test('keine angezeigte Fehlermeldung mehr → ungültig', async () => {
+    const { hinweisGueltig } = await m()
+    assert.equal(hinweisGueltig(hinweis, { el: 'kasten', verbunden: true, angezeigt: false }, [], null), false, 'ausgeblendet')
+    assert.equal(hinweisGueltig(hinweis, { el: 'kasten', verbunden: false, angezeigt: false }, [{ ...angezeigt, angezeigt: false }], null), false, 'entfernt')
+    assert.equal(hinweisGueltig(hinweis, null, [{ el: 'ok', art: 'ok', text: 'Gespeichert', angezeigt: true }], null), false, 'nur Erfolg da')
+  })
+  test('zeigeErfolg merkt den Zeitpunkt (auch bei gleichem Text), leerer Text nicht', () => {
+    const vorher = e.letzterErfolgZeit()
+    e.zeigeErfolg('   ')
+    assert.equal(e.letzterErfolgZeit(), vorher)
+    const t0 = Date.now()
+    const id = e.zeigeErfolg('Antrag eingereicht.')
+    assert.ok(e.letzterErfolgZeit() >= t0)
+    e.zeigeErfolg('Antrag eingereicht.')
+    assert.ok(e.letzterErfolgZeit() >= t0)
+    e.schliesseErfolg(id)
+  })
+  test('MeldungsPopup: Hinweis mit Zeitpunkt, Bereinigung im Beobachter und bei neuem Erfolg', () => {
+    const p = quelle('src/components/MeldungsPopup.tsx')
+    assert.match(p, /ziel: new WeakRef\(el\), erstellt: Date\.now\(\)/)
+    assert.match(p, /hinweisGueltig\(p, [\s\S]*?letzterErfolgZeit\(\)\)/)
+    assert.match(p, /kandidaten\.forEach\(pruefe\)\n[^\n]*\n\s*setPopups\(alt => \(alt\.length === 0 \? alt : alt\.filter\(p => gueltig\(p, wurzel\.current\)\)\)\)/)
+    assert.match(p, /useEffect\(\(\) => \{\n\s*if \(erfolge\.length === 0\) return[\s\S]*?alt\.filter\(p => gueltig\(p, wurzel\.current\)\)[\s\S]*?\}, \[erfolge\]\)/)
+  })
+})

@@ -83,10 +83,28 @@ export function vollSichtbar(r: { top: number; bottom: number; height: number },
 }
 
 /**
+ * KAN-359 Nachtrag (UAT 22.10.2026): Gilt ein Fehler-Hinweis („Fehlermeldung außer Sicht“) noch?
+ * Nein, sobald
+ *  - nach ihm eine Erfolgsmeldung erschienen ist (der Benutzer hat korrekt weitergemacht), oder
+ *  - keine passende Fehlermeldung mehr angezeigt wird (Kasten entfernt bzw. ausgeblendet).
+ * Befund: Ein alter Hinweis blieb stehen, „Zur Meldung“ tat nichts, darüber stand schon die grüne Bestätigung.
+ */
+export function hinweisGueltig<T>(
+  hinweis: { erstellt: number; art: MeldungsArt; text: string },
+  gemerkt: { el: T; verbunden: boolean; angezeigt: boolean } | null,
+  kandidaten: readonly { el: T; art: MeldungsArt | null; text: string; angezeigt: boolean }[],
+  letzterErfolg: number | null,
+): boolean {
+  if (letzterErfolg !== null && letzterErfolg >= hinweis.erstellt) return false
+  if (gemerkt?.verbunden && gemerkt.angezeigt) return true
+  return meldungsZiel(null, kandidaten, hinweis) !== null
+}
+
+/**
  * KAN-355 (22.10.2026): Ziel für „Zur Meldung“. Das gemerkte Element gilt nur, solange es im DOM hängt – React ersetzt
  * einen Meldungskasten beim Neurendern oft durch einen neuen (Befund: „Zur Meldung“ tat still nichts). Sonst eine
  * angezeigte Meldung derselben Art mit demselben Text, sonst die erste angezeigte derselben Art; null = keine mehr da
- * (das Pop-up bleibt dann offen, statt still zu verschwinden).
+ * (seit KAN-359 Nachtrag schließt sich das Pop-up dann – der Hinweis ist veraltet).
  */
 export function meldungsZiel<T>(
   gemerkt: { el: T; verbunden: boolean } | null,

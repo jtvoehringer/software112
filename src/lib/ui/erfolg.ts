@@ -23,6 +23,8 @@ export type Erfolg = {
 
 let liste: readonly Erfolg[] = []
 let naechsteId = 1
+/** Zeitpunkt der letzten Erfolgsmeldung (KAN-359 Nachtrag: ältere Fehler-Hinweise verfallen damit) */
+let letzterErfolg: number | null = null
 const hoerer = new Set<() => void>()
 const melden = () => hoerer.forEach(h => h())
 
@@ -36,6 +38,7 @@ export function erfolgText(text: string): string {
 export function zeigeErfolg(text: string | null | undefined, o?: { vorgelesen?: boolean }): number | null {
   const t = erfolgText(text ?? '')
   if (!t) return null
+  letzterErfolg = Date.now()
   const da = liste.find(e => e.text === t)
   if (da) return da.id
   const neu: Erfolg = { id: naechsteId++, text: t, vorgelesen: o?.vorgelesen === true }
@@ -48,6 +51,11 @@ export function schliesseErfolg(id: number): void {
   if (!liste.some(e => e.id === id)) return
   liste = liste.filter(e => e.id !== id)
   melden()
+}
+
+/** Zeitpunkt der letzten Erfolgsmeldung oder null */
+export function letzterErfolgZeit(): number | null {
+  return letzterErfolg
 }
 
 /** Die angezeigten Erfolge (stabile Referenz für useSyncExternalStore) */
