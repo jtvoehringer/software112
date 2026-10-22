@@ -9,6 +9,8 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import LandOptionen from '@/components/crm/LandOptionen'
 import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, setzeKontaktAktiv, createAktivitaet, createPipelineEintrag } from '../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
@@ -484,15 +486,17 @@ function KontaktKarte({
   const [showPipeline, setShowPipeline] = useState(false)
   const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
 
   const name = sortBy === 'nachname'
     ? kontaktAnzeigename(kontakt, 'nachname')
     : kontaktAnzeigename(kontakt, 'vorname')
 
-  function handleDelete() {
-    if (!confirm(`Kontakt "${name}" wirklich löschen?`)) return
+  async function handleDelete() {
+    if (!(await rueckfrage({ titel: `Kontakt „${name}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
+    setFehler(null)
     // KAN-150 F1: mit Verkäufen/Zukäufen … nur deaktivieren
-    startTransition(async () => { await loeschenOderDeaktivieren(() => deleteKontakt(kontakt.id), () => setzeKontaktAktiv(kontakt.id, false)) })
+    startTransition(async () => { await loeschenOderDeaktivieren(() => deleteKontakt(kontakt.id), () => setzeKontaktAktiv(kontakt.id, false), { frage: rueckfrage, fehler: setFehler }) })
   }
 
   if (editing) return (
@@ -573,6 +577,7 @@ function KontaktKarte({
           </div>
         )}
       </div>
+      <FehlerMeldung text={fehler} className="mt-3" />
 
       {/* Aktivitäten */}
       <div className="mt-3 border-t border-s112-border/60 pt-2">

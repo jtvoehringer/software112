@@ -21,6 +21,7 @@ import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { korrekturErlaubt } from '../../../../freeze-korrektur-actions'
 import { behandlungPnGesperrt, BEHANDLUNG_FREEZE_GRUND, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 import { heuteWien } from '@/lib/datum/wien'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type R = Record<string, any>
@@ -285,7 +286,7 @@ export default function KellerbehandlungenPage() {
       try {
         let r = await speichereKellerbehandlung(fd)
         if (r.bestaetigung) {
-          if (!window.confirm(r.bestaetigung)) return
+          if (!(await serverRueckfrage(r.bestaetigung, 'Trotzdem speichern'))) return
           fd.set('pn_bestaetigt', '1')
           r = await speichereKellerbehandlung(fd)
         }

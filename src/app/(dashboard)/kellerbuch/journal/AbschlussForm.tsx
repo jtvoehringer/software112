@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { kellerbuchAbschliessen } from './actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 /** KAN-192: Kellerbuch bis zu einem Stichtag abschließen (nur Betriebsleitung, unwiderruflich) */
 export default function AbschlussForm({ vorschlag, maxDatum }: { vorschlag: string; maxDatum: string }) {
@@ -11,10 +12,15 @@ export default function AbschlussForm({ vorschlag, maxDatum }: { vorschlag: stri
 
   const datumAT = (d: string) => (d ? d.split('-').reverse().join('.') : '')
 
-  function abschicken() {
+  async function abschicken() {
     setFehler(null)
     if (!bis) { setFehler('Bitte ein Datum wählen.'); return }
-    if (!window.confirm(`Kellerbuch bis ${datumAT(bis)} abschließen? Danach sind Bewegungen mit einem Datum bis zu diesem Tag nicht mehr möglich (anlegen, ändern, löschen); Stornos buchen am Storno-Tag. Das ist nicht rückgängig zu machen.`)) return
+    if (!(await rueckfrage({
+      titel: `Kellerbuch bis ${datumAT(bis)} abschließen?`,
+      text: 'Danach sind Bewegungen mit einem Datum bis zu diesem Tag nicht mehr möglich (anlegen, ändern, löschen); Stornos buchen am Storno-Tag. Das lässt sich nicht rückgängig machen.',
+      bestaetigen: 'Abschließen',
+      gefaehrlich: true,
+    }))) return
     starten(async () => {
       const r = await kellerbuchAbschliessen(bis, bemerkung)
       if (!r.ok) setFehler(r.error ?? 'Abschließen fehlgeschlagen.')

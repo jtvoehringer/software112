@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { GEAENDERT_ATTR, MELDUNG, SCHUTZ_ATTR, ausserFuerLink, offeneAenderungen, schutzFormular, verlaesstSeite } from '@/lib/ui/ungespeichert'
+import { GEAENDERT_ATTR, MELDUNG, MELDUNG_TITEL, SCHUTZ_ATTR, ausserFuerLink, offeneAenderungen, schutzFormular, verlaesstSeite } from '@/lib/ui/ungespeichert'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // Sweep 119: Rückfrage vor dem Verlassen eines geänderten, nicht abgesendeten Formulars – Begründung in
 // src/lib/ui/ungespeichert.ts. Ein Baustein für die ganze App; Formulare melden sich mit data-ungespeichert an.
@@ -23,8 +24,16 @@ export default function UngespeichertSchutz() {
       if (!a) return
       const offen = offeneAenderungen(document, ausserFuerLink(a))   // KAN-330: data-verlaesst-formular fragt auch im eigenen Formular
       if (offen.length === 0 || !verlaesstSeite(e, a, window.location.href)) return
-      if (window.confirm(MELDUNG)) offen.forEach(f => f.removeAttribute(GEAENDERT_ATTR))
-      else { e.preventDefault(); e.stopPropagation() }
+      // KAN-359: Rückfrage im eigenen Dialog (asynchron) – den Klick erst anhalten; nach „Verlassen“ sind die Formulare
+      // wieder sauber, der erneute Klick auf den Link geht dann ungehindert durch (auch an next/link)
+      e.preventDefault()
+      e.stopPropagation()
+      void rueckfrage({ titel: MELDUNG_TITEL, text: MELDUNG, bestaetigen: 'Verlassen', abbrechen: 'Weiter bearbeiten', gefaehrlich: true })
+        .then(ok => {
+          if (!ok) return
+          offen.forEach(f => f.removeAttribute(GEAENDERT_ATTR))
+          if (a.isConnected) a.click()
+        })
     }
     document.addEventListener('input', geaendert, true)
     document.addEventListener('change', geaendert, true)

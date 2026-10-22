@@ -86,7 +86,7 @@ export default async function KellerplanListPage() {
                   {adminOk && (
                     <LoeschenButton
                       action={deleteKellerplan.bind(null, p.id)}
-                      bestaetigung={`Kellerplan "${p.name}" wirklich löschen? Alle Positionen werden entfernt.`} />
+                      bestaetigung={`Kellerplan „${p.name}“ löschen? Alle Positionen werden entfernt.`} />
                   )}
                 </div>
               )}

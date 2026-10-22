@@ -40,6 +40,7 @@ import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 import KontrastHinweis from '@/components/ui/KontrastHinweis'
 import { EINHEIT_ZEICHEN, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import SubdomainFeld from './SubdomainFeld'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -284,8 +285,8 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
     })
   }
 
-  function handleRemove(m: TenantMember) {
-    if (!confirm(`"${m.email}" aus diesem Mandanten entfernen?`)) return
+  async function handleRemove(m: TenantMember) {
+    if (!(await rueckfrage({ titel: `„${m.email}“ aus diesem Mandanten entfernen?`, bestaetigen: 'Entfernen', gefaehrlich: true }))) return
     setError(null)
     startTransition(async () => {
       const r = await removeMemberAdmin(m.id, tenant.id)
@@ -1280,20 +1281,20 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
     })
   }
 
-  function handleReset() {
+  async function handleReset() {
     const neu = parseInt(resetVal)
     if (isNaN(neu) || neu < 1) return
-    if (!confirm(`Rechnungs-Zähler auf ${neu} zurücksetzen?`)) return
+    if (!(await rueckfrage({ titel: `Rechnungs-Zähler auf ${neu} zurücksetzen?`, text: 'Die nächste Rechnung bekommt diese Nummer.', bestaetigen: 'Zurücksetzen', gefaehrlich: true }))) return
     startTransition(async () => {
       await resetRechnungsZaehler(tenant.id, neu)
       setZaehler(neu)
     })
   }
 
-  function handleKundenReset() {
+  async function handleKundenReset() {
     const neu = parseInt(kResetVal)
     if (isNaN(neu) || neu < 1) return
-    if (!confirm(`Kunden-Zähler auf ${neu} zurücksetzen?`)) return
+    if (!(await rueckfrage({ titel: `Kunden-Zähler auf ${neu} zurücksetzen?`, text: 'Der nächste neue Kunde bekommt diese Nummer.', bestaetigen: 'Zurücksetzen', gefaehrlich: true }))) return
     startTransition(async () => {
       await resetKundenZaehler(tenant.id, neu)
       setKZaehler(neu)
@@ -1823,9 +1824,9 @@ function StripeTab({ tenant, verbund }: { tenant: TenantDetail; verbund: Verbund
     })
   }
 
-  function handleCancel() {
+  async function handleCancel() {
     if (!tenant.stripe_subscription_id) return
-    if (!confirm('Abo wirklich sofort kündigen?')) return
+    if (!(await rueckfrage({ titel: 'Abo sofort kündigen?', text: 'Das Stripe-Abo endet sofort.', bestaetigen: 'Kündigen', gefaehrlich: true }))) return
     startTransition(async () => {
       const r = await cancelStripeSubscription(tenant.id)
       if (r?.error) setError(r.error)

@@ -11,6 +11,7 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { heuteWien } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 
 type Konto = {
   id: string
@@ -25,7 +26,7 @@ function fmt(n: number) {
   return fmtEur(n)
 }
 
-function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string; writeOk: boolean }) {
+function BewegungsZeile({ b, kontoId, writeOk, onFehler }: { b: Bewegung; kontoId: string; writeOk: boolean; onFehler: (text: string | null) => void }) {
   const [pending, startTransition] = useTransition()
 
   return (
@@ -52,7 +53,7 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
           type="checkbox"
           checked={b.abgeglichen}
           disabled={!writeOk || pending || !!b.gegenzeile}
-          onChange={() => startTransition(async () => { const r = await setzeAbgeglichen(kontoId, b.quelle, b.id, !b.abgeglichen); if (r && 'error' in r && r.error) alert(r.error) })}
+          onChange={() => { onFehler(null); startTransition(async () => { const r = await setzeAbgeglichen(kontoId, b.quelle, b.id, !b.abgeglichen); if (r && 'error' in r && r.error) onFehler(r.error) }) }}
           className="rounded-sm accent-s112-teal cursor-pointer disabled:cursor-not-allowed"
           title="Gegen Kontoauszug abgeglichen"
         />
@@ -88,6 +89,8 @@ export default function AbstimmungClient({
 }) {
   const [umbExpanded, setUmbExpanded] = useState(false)
   const [richtung, setRichtung] = useState<'von' | 'nach'>('von')
+  const [umbFehler, setUmbFehler] = useState<string | null>(null)
+  const [listenFehler, setListenFehler] = useState<string | null>(null)
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -149,13 +152,15 @@ export default function AbstimmungClient({
                 const ziel = formData.get('ziel_konto_id') as string
                 formData.set(richtung === 'von' ? 'von_konto_id' : 'nach_konto_id', konto.id)
                 formData.set(richtung === 'von' ? 'nach_konto_id' : 'von_konto_id', ziel)
+                setUmbFehler(null)
                 const result = await createUmbuchung(formData)
                 if (!result?.error) setUmbExpanded(false)
-                else alert(result.error)
+                else setUmbFehler(result.error)
               }}
               className="space-y-3"
             >
               <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Umbuchung erfassen</p>
+              <FehlerMeldung text={umbFehler} />
               <div className="flex gap-3">
                 <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                   <input type="radio" name="richtung" checked={richtung === 'von'} onChange={() => setRichtung('von')} className="accent-s112-teal" />
@@ -205,6 +210,8 @@ export default function AbstimmungClient({
           Noch keine Bewegungen auf diesem Konto seit dem Eröffnungsdatum.
         </div>
       ) : (
+        <div className="space-y-3">
+        <FehlerMeldung text={listenFehler} />
         <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
           <table className="w-full">
             <thead>
@@ -219,10 +226,11 @@ export default function AbstimmungClient({
             </thead>
             <tbody>
               {bewegungen.map(b => (
-                <BewegungsZeile key={`${b.quelle}-${b.id}`} b={b} kontoId={konto.id} writeOk={writeOk} />
+                <BewegungsZeile key={`${b.quelle}-${b.id}`} b={b} kontoId={konto.id} writeOk={writeOk} onFehler={setListenFehler} />
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
     </div>

@@ -42,17 +42,21 @@ export default function RueckfrageDialog() {
         return
       }
       if (e.key !== 'Tab') return
-      // Fokusfalle: nur die zwei Knöpfe (Reihenfolge im DOM: Abbrechen, Bestätigen)
+      // Fokusfalle: nur die zwei Knöpfe (Reihenfolge im DOM: Abbrechen, Bestätigen). Tab gehört allein der Rückfrage –
+      // die Fokusfalle eines Dialogs darunter (useDialog) darf ihn nicht herausziehen.
+      e.stopPropagation()
       const erstes = abbrechenRef.current, letztes = bestaetigenRef.current
       if (!erstes || !letztes) return
       if (e.shiftKey && document.activeElement === erstes) { e.preventDefault(); letztes.focus() }
       else if (!e.shiftKey && document.activeElement === letztes) { e.preventDefault(); erstes.focus() }
       else if (!panel.current?.contains(document.activeElement)) { e.preventDefault(); erstes.focus() }
     }
-    document.addEventListener('keydown', taste, true)
+    // Capture an window: läuft vor den Capture-Handlern am document (useDialog eines Dialogs darunter, MeldungsPopup) –
+    // Esc schließt nur die Rückfrage, nicht auch den Dialog, aus dem sie kam
+    window.addEventListener('keydown', taste, true)
     return () => {
       window.clearTimeout(t)
-      document.removeEventListener('keydown', taste, true)
+      window.removeEventListener('keydown', taste, true)
       if (vorher && document.contains(vorher)) vorher.focus()
     }
   }, [id, gefaehrlich])

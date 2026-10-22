@@ -5,17 +5,18 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { premiumSupportBuchenAction, premiumSupportKuendigenAction } from './actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function PremiumSupportKnopf({ gebucht, preisNetto, monatsende }: { gebucht: boolean; preisNetto: number; monatsende: string }) {
   const router = useRouter()
   const [fehler, setFehler] = useState<string | null>(null)
   const [laeuft, starten] = useTransition()
 
-  const ausfuehren = () => {
+  const ausfuehren = async () => {
     const frage = gebucht
-      ? `Premium-Support zum Monatsende (${monatsende}) kündigen? Bis dahin bleibt er aktiv.`
-      : `Premium-Support für ${preisNetto} € netto pro Monat buchen? Der laufende Monat wird anteilig verrechnet; monatlich kündbar.`
-    if (!confirm(frage)) return
+      ? { titel: `Premium-Support zum Monatsende (${monatsende}) kündigen?`, text: 'Bis dahin bleibt er aktiv.', bestaetigen: 'Kündigen', gefaehrlich: true }
+      : { titel: `Premium-Support für ${preisNetto} € netto pro Monat buchen?`, text: 'Der laufende Monat wird anteilig verrechnet; monatlich kündbar.', bestaetigen: 'Buchen' }
+    if (!(await rueckfrage(frage))) return
     setFehler(null)
     starten(async () => {
       const r = gebucht ? await premiumSupportKuendigenAction() : await premiumSupportBuchenAction()

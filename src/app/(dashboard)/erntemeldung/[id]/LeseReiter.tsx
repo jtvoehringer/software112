@@ -8,6 +8,7 @@ import { fehlerText } from '@/lib/fehler'
 import { leseArtText, leseNummer, leseZeitraumText, type Lese } from '@/lib/wein/lesen'
 import { deleteLese, updateLese } from '../actions'
 import LeseFelder from '../LeseFelder'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export type LeseMitSperre = Lese & {
   /** warum die Lese nicht gelöscht werden kann (null = löschbar), gleiche Regeln wie deleteLese */
@@ -38,9 +39,13 @@ export default function LeseReiter({ jahrgangId, jahrgang, lesen, aktiv, writeOk
     })
   }
 
-  function loeschen() {
+  async function loeschen() {
     if (aktiv.loeschsperre) { setFehler(aktiv.loeschsperre); return }
-    if (!confirm(`Lese ${leseNummer(jahrgang, aktiv.lfd_nr)} (${leseArtText(aktiv.art)}) wirklich löschen?`)) return
+    if (!(await rueckfrage({
+      titel: `Lese ${leseNummer(jahrgang, aktiv.lfd_nr)} (${leseArtText(aktiv.art)}) löschen?`,
+      bestaetigen: 'Löschen',
+      gefaehrlich: true,
+    }))) return
     setFehler(null)
     startTransition(async () => {
       try {

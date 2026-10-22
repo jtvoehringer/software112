@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
 import { fehlerText } from '@/lib/fehler'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { TB_FREEZE_GRUND } from '@/lib/behoerden/tbPflicht'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { tbAlkoholGehalt, tbKmwFormblatt, tbMostgewichtFelder, tbPositionMitMostgewicht, tbPositionMostgewicht } from '@/lib/behoerden/tbMostgewicht'
@@ -138,9 +139,14 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
   }
 
   // KAN-209: Ausstellen – Pflichtangaben prüfen, laufende Nummer vergeben, danach fest
-  function handleAusstellen() {
+  async function handleAusstellen() {
     if (mgFehlerText) return
-    if (!window.confirm('Transportbescheinigung jetzt ausstellen? Danach ist sie nicht mehr änderbar – Korrektur nur über Storno und eine neue Bescheinigung.')) return
+    if (!(await rueckfrage({
+      titel: 'Transportbescheinigung jetzt ausstellen?',
+      text: 'Danach ist sie nicht mehr änderbar – Korrektur nur über Storno und eine neue Bescheinigung.',
+      bestaetigen: 'Ausstellen',
+      gefaehrlich: true,
+    }))) return
     setFehler(null)
     startTransition(async () => {
       try {

@@ -48,22 +48,30 @@ export function StoffAnlegen() {
 export function StoffArtWahl({ id, art, name }: { id: string; art: StoffArt; name: string }) {
   const router = useRouter()
   const [pending, start] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)   // KAN-359: Fehler an der Auswahl statt Browser-Dialog (span – steht in einer Inline-Zeile)
   return (
-    <select aria-label={`Art von ${name}`} value={art} disabled={pending} className="form-input w-auto! text-xs py-0.5"
-      onChange={e => { const neu = e.target.value; start(async () => { try { await stoffArtSetzen(id, neu); router.refresh() } catch (err) { window.alert(fehlerText(err)) } }) }}>
-      {STOFF_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-    </select>
+    <>
+      <select aria-label={`Art von ${name}`} value={art} disabled={pending} className="form-input w-auto! text-xs py-0.5"
+        onChange={e => { const neu = e.target.value; setFehler(null); start(async () => { try { await stoffArtSetzen(id, neu); router.refresh() } catch (err) { setFehler(fehlerText(err, 'Art konnte nicht geändert werden')) } }) }}>
+        {STOFF_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+      </select>
+      {fehler && <span role="alert" className="text-xs text-s112-err-fg">{fehler}</span>}
+    </>
   )
 }
 
 export function StoffAktiv({ id, aktiv }: { id: string; aktiv: boolean }) {
   const router = useRouter()
   const [pending, start] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)   // KAN-359: Fehler am Knopf statt Browser-Dialog
   return (
-    <button type="button" disabled={pending} className="text-xs text-s112-blue-700 hover:underline disabled:opacity-50"
-      onClick={() => start(async () => { try { await stoffAktivSetzen(id, !aktiv); router.refresh() } catch (e) { window.alert(fehlerText(e)) } })}>
-      {aktiv ? 'deaktivieren' : 'aktivieren'}
-    </button>
+    <>
+      <button type="button" disabled={pending} className="text-xs text-s112-blue-700 hover:underline disabled:opacity-50"
+        onClick={() => { setFehler(null); start(async () => { try { await stoffAktivSetzen(id, !aktiv); router.refresh() } catch (e) { setFehler(fehlerText(e, aktiv ? 'Deaktivieren fehlgeschlagen' : 'Aktivieren fehlgeschlagen')) } }) }}>
+        {aktiv ? 'deaktivieren' : 'aktivieren'}
+      </button>
+      {fehler && <span role="alert" className="text-xs text-s112-err-fg">{fehler}</span>}
+    </>
   )
 }
 

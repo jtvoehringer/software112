@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { inviteSystemAdmin, removeSystemAdmin } from './systemAdminActions'
 import type { SystemAdminUser } from './page'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function SystemAdminClient({ admins, canInvite = true }: { admins: SystemAdminUser[]; canInvite?: boolean }) {
   const [showInvite, setShowInvite]   = useState(false)
@@ -27,8 +28,13 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
     })
   }
 
-  function handleRemove(m: SystemAdminUser) {
-    if (!confirm(`Super-Admin-Rolle von "${m.email}" im Betrieb "${m.tenantName}" entfernen? Mit der letzten Rolle endet auch der Plattform-Admin.`)) return
+  async function handleRemove(m: SystemAdminUser) {
+    if (!(await rueckfrage({
+      titel: `Super-Admin-Rolle von „${m.email}“ entfernen?`,
+      text: `Betrieb „${m.tenantName}“. Mit der letzten Rolle endet auch der Plattform-Admin.`,
+      bestaetigen: 'Entfernen',
+      gefaehrlich: true,
+    }))) return
     setError(null)
     startTransition(async () => {
       const result = await removeSystemAdmin(m.membershipId)

@@ -17,6 +17,7 @@ import { zweiFaktorErfuellt } from '@/lib/auth/mfa'
 import PasskeyVerwaltung from '@/components/PasskeyVerwaltung'
 import { authFehlerText } from '@/lib/auth/authFehler'
 import { fehlerText } from '@/lib/fehler'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
 type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
@@ -98,7 +99,7 @@ function ZweiFaktor() {
   }
 
   const entfernen = async () => {
-    if (!faktor || !confirm('Zwei-Faktor-Anmeldung wirklich entfernen? Das Konto ist dann nur noch durch das Passwort geschützt.')) return
+    if (!faktor || !(await rueckfrage({ titel: 'Zwei-Faktor-Anmeldung entfernen?', text: 'Dein Konto ist dann nur noch durch das Passwort geschützt.', bestaetigen: 'Entfernen', gefaehrlich: true }))) return
     setLaeuft(true);
     try { setFehler(null)
     const { error } = await supabase.auth.mfa.unenroll({ factorId: faktor.id })

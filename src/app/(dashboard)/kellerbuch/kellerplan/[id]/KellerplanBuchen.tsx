@@ -15,6 +15,7 @@ import { fmtNum, zahlAus } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { useDialog } from '@/components/ui/useDialog'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { bewerteZiel, ZIEL_FARBE, type PlanCharge, type PlanGebinde } from '@/lib/keller/kellerplanZiehen'
 
 export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zielChargen, onClose, onGebucht }: {
@@ -66,7 +67,7 @@ export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zie
         let r = await umziehen(fd)
         if (r?.bestaetigung) {
           // Prüfnummer bzw. Rot/Weiß: erst nach Bestätigung buchen (beide in derselben Rückfrage)
-          if (!window.confirm(r.bestaetigung)) return
+          if (!(await serverRueckfrage(r.bestaetigung))) return
           fd.set('pn_bestaetigt', '1')
           fd.set('rotweiss_bestaetigt', '1')
           r = await umziehen(fd)

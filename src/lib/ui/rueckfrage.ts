@@ -77,6 +77,25 @@ export function rueckfrage(o: RueckfrageOptionen): Promise<boolean> {
   })
 }
 
+/**
+ * Rückfrage des Servers: Die Server Action antwortet `{ bestaetigung }` (Prüfnummer-Schaden KAN-100, Rot/Weiß, Bio …);
+ * bei true sendet der Client erneut mit `pn_bestaetigt=1`. Der Text kommt vom Server, Titel und Knopf von hier.
+ */
+export function serverRueckfrage(text: string, bestaetigen = 'Trotzdem buchen'): Promise<boolean> {
+  return rueckfrage({ titel: 'Bitte bestätigen', text, bestaetigen, gefaehrlich: true })
+}
+
+/**
+ * Ein bisheriger confirm-Text („Beleg verwerfen? Die Datei wird endgültig gelöscht …“) als Titel und Text: Titel bis
+ * zum ersten Fragezeichen, der Rest als Erklärung. Ohne Fragezeichen ist alles Titel.
+ */
+export function frageAufteilen(meldung: string): { titel: string; text: string | null } {
+  const m = /^([\s\S]*?\?)(?=\s|$)([\s\S]*)$/.exec(meldung.trim())
+  if (!m) return { titel: meldung.trim(), text: null }
+  const rest = m[2].trim()
+  return { titel: m[1].trim(), text: rest || null }
+}
+
 /** Für Komponenten, die lieber einen Hook verwenden – liefert dieselbe Funktion */
 export function useRueckfrage(): (o: RueckfrageOptionen) => Promise<boolean> {
   return rueckfrage

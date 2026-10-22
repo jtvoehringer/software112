@@ -33,9 +33,11 @@ test.describe('CRM – Kontakt anlegen und löschen (schreibend)', () => {
     // innerste Karte um den Link (bei verschachtelten .card-Containern die letzte)
     const karte = page.locator('.card', { has: link }).last()
 
-    // Löschen bestätigt ein window.confirm
-    page.once('dialog', d => d.accept())
+    // Löschen bestätigt der Rückfrage-Dialog (KAN-359, statt window.confirm)
     await karte.getByRole('button', { name: 'Löschen' }).click()
+    const rueckfrage = page.getByRole('alertdialog', { name: /löschen\?/ })
+    await expect(rueckfrage).toBeVisible()
+    await rueckfrage.getByRole('button', { name: 'Löschen', exact: true }).click()
 
     await expect(async () => {
       await page.goto(`/crm/kontakte?q=${encodeURIComponent(nachname)}`)

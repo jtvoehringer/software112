@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { releaseNotesGesehenZaehler, releaseNoteErneutAnzeigen } from './actions'
 import { dbFehlerText } from '@/lib/fehler'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // readOnly=true für die Sandbox-Sonderfreigabe (siehe isSandboxAdminUnlock in
@@ -33,7 +34,7 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
   // „Erneut anzeigen“ (19.9.2026): das Fenster erscheint pro Benutzer nur einmal -
   // nach einer nachträglichen Ergänzung des Textes damit für alle zurücksetzen
   async function erneutAnzeigen(n: R) {
-    if (!confirm(`Version ${n.version} allen Benutzern beim nächsten Einstieg erneut anzeigen?`)) return
+    if (!(await rueckfrage({ titel: `Version ${n.version} erneut anzeigen?`, text: 'Alle Benutzer sehen sie beim nächsten Einstieg noch einmal.', bestaetigen: 'Erneut anzeigen' }))) return
     const res = await releaseNoteErneutAnzeigen(n.id)
     setMeldung(res.error ? `Fehler: ${res.error}` : `Version ${n.version} wird ${res.anzahl ?? 0} Benutzer${res.anzahl === 1 ? '' : 'n'} erneut angezeigt.`)
     laden()

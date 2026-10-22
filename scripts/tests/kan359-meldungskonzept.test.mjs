@@ -62,6 +62,54 @@ describe('KAN-359: Rückfrage (Zustand)', () => {
   test('useRueckfrage liefert dieselbe Funktion', () => {
     assert.equal(r.useRueckfrage(), r.rueckfrage)
   })
+  test('frageAufteilen: Titel bis zum ersten Fragezeichen, Rest als Erklärung', () => {
+    assert.deepEqual(r.frageAufteilen('Beleg verwerfen? Die Datei wird endgültig gelöscht.'), { titel: 'Beleg verwerfen?', text: 'Die Datei wird endgültig gelöscht.' })
+    assert.deepEqual(r.frageAufteilen('Eintrag löschen?'), { titel: 'Eintrag löschen?', text: null })
+    assert.deepEqual(r.frageAufteilen('Kein Fragezeichen'), { titel: 'Kein Fragezeichen', text: null })
+    // „?“ mitten im Wort (z. B. URL) trennt nicht
+    assert.deepEqual(r.frageAufteilen('Link /a?b=1 öffnen? Jetzt.'), { titel: 'Link /a?b=1 öffnen?', text: 'Jetzt.' })
+  })
+  test('serverRueckfrage: Text vom Server, gefährlich, Knopf „Trotzdem buchen“ bzw. eigener', async () => {
+    const abmelden = r.wirtAnmelden()
+    try {
+      const p = r.serverRueckfrage('Die Prüfnummer erlischt.\nFortfahren?')
+      const f = r.offeneRueckfrage()
+      assert.equal(f.text, 'Die Prüfnummer erlischt.\nFortfahren?')
+      assert.equal(f.bestaetigen, 'Trotzdem buchen')
+      assert.equal(f.gefaehrlich, true)
+      r.beantworte(f.id, true)
+      assert.equal(await p, true)
+      const q = r.serverRueckfrage('x', 'Trotzdem speichern')
+      assert.equal(r.offeneRueckfrage().bestaetigen, 'Trotzdem speichern')
+      r.beantworte(r.offeneRueckfrage().id, false)
+      assert.equal(await q, false)
+    } finally { abmelden() }
+  })
+})
+
+describe('KAN-359: gemeinsame Bausteine ohne Browser-Dialog', () => {
+  test('ConfirmDeleteForm fängt den Klick ab, fragt und sendet nach „ja“ mit demselben Knopf', () => {
+    const c = quelle('src/components/ui/ConfirmDeleteForm.tsx')
+    assert.match(c, /e\.preventDefault\(\)\n\s*const knopf = e\.currentTarget/)
+    assert.match(c, /if \(!\(await rueckfrage\(\{ titel, text, bestaetigen: bestaetigen \?\? title \?\? 'Bestätigen', gefaehrlich \}\)\)\) return\n\s*knopf\.form\?\.requestSubmit\(knopf\)/)
+    assert.doesNotMatch(c, /confirm\(/)
+  })
+  test('LoeschenButton fragt im Dialog mit dem Verb des Knopfs', () => {
+    const c = quelle('src/components/kellerbuch/LoeschenButton.tsx')
+    assert.match(c, /if \(!\(await rueckfrage\(\{ \.\.\.frageAufteilen\(bestaetigung\), bestaetigen: label, gefaehrlich: true \}\)\)\) return/)
+    assert.doesNotMatch(c, /window\.confirm/)
+  })
+  test('UngespeichertSchutz: Klick anhalten, im Dialog fragen, nach „Verlassen“ sauber und erneut klicken', () => {
+    const c = quelle('src/components/UngespeichertSchutz.tsx')
+    assert.match(c, /e\.preventDefault\(\)\n\s*e\.stopPropagation\(\)\n\s*void rueckfrage\(\{ titel: MELDUNG_TITEL, text: MELDUNG, bestaetigen: 'Verlassen', abbrechen: 'Weiter bearbeiten', gefaehrlich: true \}\)/)
+    assert.match(c, /offen\.forEach\(f => f\.removeAttribute\(GEAENDERT_ATTR\)\)\n\s*if \(a\.isConnected\) a\.click\(\)/)
+    assert.doesNotMatch(c, /window\.confirm/)
+  })
+  test('Rückfrage aus einem Dialog heraus: Esc/Tab zuerst an window (vor useDialog am document)', () => {
+    const d = quelle('src/components/RueckfrageDialog.tsx')
+    assert.match(d, /window\.addEventListener\('keydown', taste, true\)/)
+    assert.match(d, /if \(e\.key !== 'Tab'\) return\n(\s*\/\/.*\n)*\s*e\.stopPropagation\(\)/)
+  })
 })
 
 describe('KAN-359: Erfolg (Zustand)', () => {

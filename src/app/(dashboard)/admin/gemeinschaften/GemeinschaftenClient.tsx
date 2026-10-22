@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Users, Trash2 } from 'lucide-react'
 import type { FreigabeRow } from './page'
 import { createFreigabe, setFreigabeAktiv, deleteFreigabe, type GemeinschaftArt } from './actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 type Tenant = { id: string; name: string }
 const inputCls = 'w-full border border-s112-line-str rounded-lg px-3 py-2 text-sm text-s112-text focus:outline-hidden focus:ring-2 focus:ring-s112-teal focus:border-transparent bg-white'
@@ -100,7 +101,7 @@ export default function GemeinschaftenClient({ art, rows, tenants }: { art: Geme
                   </button>
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <button onClick={() => { if (confirm(`Freigabe ${r.eigentuemer_name} → ${r.nutzer_name} löschen? ${t.loeschen}`)) startTransition(async () => { const x = await deleteFreigabe(art, r.id); if (x.error) setFehler(x.error); router.refresh() }) }}
+                  <button onClick={async () => { if (await rueckfrage({ titel: `Freigabe ${r.eigentuemer_name} → ${r.nutzer_name} löschen?`, text: t.loeschen, bestaetigen: 'Löschen', gefaehrlich: true })) startTransition(async () => { const x = await deleteFreigabe(art, r.id); if (x.error) setFehler(x.error); router.refresh() }) }}
                     className="text-s112-tertiary hover:text-s112-err" title="Freigabe löschen"><Trash2 className="w-4 h-4" /></button>
                 </td>
               </tr>

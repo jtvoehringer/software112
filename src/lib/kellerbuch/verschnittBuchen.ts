@@ -33,7 +33,8 @@ import { rund } from '../zahl/runden.ts'
 //
 // KAN-111 (04.10.2026): Lässt die Herkunft nur noch Landwein bzw. Wein zu (ermittleHerkunft), steht die Rückfrage
 // herkunftQualitaetFrage in derselben `bestaetigung` – bestätigt über dasselbe Formularfeld rotweiss_bestaetigt=1
-// (alle Clients setzen es nach window.confirm). Die Rückfragen stehen deshalb erst nach der Berechnung fest.
+// (alle Clients setzen es nach der Bestätigung im Rückfrage-Dialog, serverRueckfrage – KAN-359). Die Rückfragen stehen
+// deshalb erst nach der Berechnung fest.
 
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'

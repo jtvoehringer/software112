@@ -14,6 +14,7 @@ import { fmtLiter, zahlAus } from '@/lib/format'
 import { SCHWUND_STORNO_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 interface Props {
   bestandLiter: number
@@ -34,7 +35,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
   const restNachher = liter != null ? bestandLiter - liter : null
   const schliesstAb = restNachher != null && restNachher <= 0.01 && !zuViel
 
-  function absenden(e: React.FormEvent<HTMLFormElement>) {
+  async function absenden(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setFehler(null)
     setOk(null)
@@ -42,7 +43,12 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
     const gf = schwundGrundFehler(notiz)   // KAN-174 D: Begründung Pflicht
     if (gf) { setFehler(gf); return }
     if (zuViel) { setFehler(`Die Schwundmenge übersteigt den Bestand der Charge (${fmtLiter(bestandLiter)}).`); return }
-    if (schliesstAb && !window.confirm('Nach diesem Schwund ist die Charge leer und wird abgeschlossen. Fortfahren?')) return
+    if (schliesstAb && !(await rueckfrage({
+      titel: 'Charge abschließen?',
+      text: 'Nach diesem Schwund ist die Charge leer und wird abgeschlossen.',
+      bestaetigen: 'Schwund buchen',
+      gefaehrlich: true,
+    }))) return
     const fd = new FormData()
     fd.set('menge', menge)
     fd.set('datum', datum)

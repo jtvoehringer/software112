@@ -9,6 +9,7 @@ import { fmtNum, zahlAus } from '@/lib/format'
 import { ABSTUFEN_GRUND_MIN, abstufenFehler, abstufenStufen, teilmengeFehler, type ChargeMerkmale } from '@/lib/kellerbuch/abstufen'
 import { QUALITAET_OPTS, qualitaetAnzeige } from '@/lib/wein/qualitaet'
 import { HERKUNFT_LABEL } from '@/lib/herkunft'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 
 type Option = { value: string; label: string }
 
@@ -58,7 +59,7 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
       try {
         let r = await chargeAbstufen(fd)
         if (r.bestaetigung) {
-          if (!window.confirm(r.bestaetigung)) return
+          if (!(await serverRueckfrage(r.bestaetigung, 'Trotzdem abstufen'))) return
           fd.set('pn_bestaetigt', '1')
           r = await chargeAbstufen(fd)
         }

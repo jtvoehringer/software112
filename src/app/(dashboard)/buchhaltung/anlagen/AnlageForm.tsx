@@ -12,6 +12,7 @@ import { Th, Td, Note } from '@/app/(dashboard)/dashboard/_shared/ui'
 import { speichereAnlage, loescheAnlage } from './actions'
 import type { BuchungsKandidat } from './daten'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export type AnlageInput = {
   id?: string
@@ -119,9 +120,9 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
       router.refresh()
     })
   }
-  function loeschen() {
+  async function loeschen() {
     if (!form.id) return
-    if (!confirm('Anlage wirklich löschen? Der AfA-Plan geht damit verloren.')) return
+    if (!(await rueckfrage({ titel: 'Anlage löschen?', text: 'Der AfA-Plan geht damit verloren.', bestaetigen: 'Löschen', gefaehrlich: true }))) return
     start(async () => {
       const r = await loescheAnlage(form.id!)
       if (!r.ok) { setFehler(r.fehler ?? 'Löschen fehlgeschlagen'); return }

@@ -11,6 +11,7 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { reifeVerlauf, type ReifeMessung } from '@/lib/wein/reifemessung'
 import { zahlLokal } from '@/lib/format'
 import { reifemessungLoeschen, reifemessungSpeichern } from '../actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 const zahl = (v: unknown, stellen: number) =>
   v == null || v === '' ? '–' : zahlLokal(Number(v), { minimumFractionDigits: stellen, maximumFractionDigits: stellen })
@@ -42,8 +43,8 @@ export default function ReifeMessungen({ weingartenId, messungen, writeOk, heute
     })
   }
 
-  function loeschen(id: string, datum: string) {
-    if (!window.confirm(`Reife-Messung vom ${datumText(datum)} löschen?`)) return
+  async function loeschen(id: string, datum: string) {
+    if (!(await rueckfrage({ titel: `Reife-Messung vom ${datumText(datum)} löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
     setFehler(null)
     starte(async () => {
       const r = await reifemessungLoeschen(weingartenId, id)

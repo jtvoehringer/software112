@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { FileText, ImagePlus, Trash2 } from 'lucide-react'
 import { BILD_ARTEN, BILD_LABEL, bildFehler, type BildArt } from '@/lib/handel/datenblatt'
 import { fehlerText } from '@/lib/fehler'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function DatenblattKarte({ fuellungId, bilder, schreiben }: {
   fuellungId: string
@@ -47,9 +48,9 @@ export default function DatenblattKarte({ fuellungId, bilder, schreiben }: {
     })
   }
 
-  function entfernen(art: BildArt) {
+  async function entfernen(art: BildArt) {
     setFehler(null)
-    if (!window.confirm(`Bild „${BILD_LABEL[art]}“ entfernen?`)) return
+    if (!(await rueckfrage({ titel: `Bild „${BILD_LABEL[art]}“ entfernen?`, bestaetigen: 'Entfernen', gefaehrlich: true }))) return
     startTransition(async () => {
       try {
         await antwortPruefen(await fetch(`${basis}/bilder?art=${art}`, { method: 'DELETE' }), 'Das Bild konnte nicht entfernt werden.')
