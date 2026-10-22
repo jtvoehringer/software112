@@ -12,9 +12,10 @@ import PartnerSuche from '@/components/crm/PartnerSuche'
 import BehoerdenUebersicht from '@/components/behoerden/BehoerdenUebersicht'
 import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
 import { CU_GRENZWERT_KG_HA_JAHR, type CuStatus } from '@/lib/behoerden/cu'
-import { tageSeit } from '@/lib/datum/wien'
 import { fehlerText } from '@/lib/fehler'
 import { umsatzBeschriftung, type UmsatzBasis } from '@/lib/verkauf/umsatzBasis'
+import { faelligText } from '@/lib/verkauf/faelligkeit'
+import type { OffenerPosten, OffenePostenSumme } from '@/lib/verkauf/umsatz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -47,7 +48,10 @@ interface Props {
   cu: CuKachel | null
   pipeline: R[]
   kontaktFrequenz: { id: string; name: string; accountnummer: string | null; letzterKontakt: string | null; tage: number }[]
-  offene: R[]
+  /** KAN-375: offene Rechnungen aus ladeOffenePostenListe (wie die Seite „Offene Posten“), älteste zuerst */
+  offene: OffenerPosten[]
+  /** KAN-375: Kennzahlen über offenePostenSumme – offener Betrag nach Teilzahlungen, überfällig ab Fälligkeit */
+  offeneSumme: OffenePostenSumme
   heute: string
   vsJahrgaenge: number[]
   vsSorten: string[]
@@ -89,11 +93,9 @@ function eur(n: number) { return fmtEur(n) }
 function eur2(n: number) { return fmtEur(n) }
 function fmtDate(d: string | null) { return d ? new Date(d).toLocaleDateString('de-AT') : '–' }
 
-function posSum(p: R): number {
-  return ((p.verkauf_positionen ?? []) as R[]).reduce((s: number, pos: R) => {
-    const b = (Number(pos.preis_brutto)||0) * (Number(pos.menge)||0)
-    return s + b * (1 - (Number(pos.rabatt_pct)||0)/100) * (1 - (Number(pos.sonderrabatt_pct)||0)/100)
-  }, 0)
+/** KAN-375: Link eines offenen Postens wie auf der Seite „Offene Posten“ – Sammelrechnung → Rechnung, sonst Lieferschein */
+function offenerPostenHref(p: OffenerPosten): string {
+  return p.verkaufspostenIds.length > 1 || !p.verkaufspostenIds[0] ? `/weinhandel/rechnungen/${p.id}` : `/weinhandel/verkauf/${p.verkaufspostenIds[0]}`
 }
 
 function kundenName(p: R) {
@@ -136,7 +138,7 @@ function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: s
 }
 
 export default function ReportsClient({
-  umsatzMonate, lager, lagerWert, behandlungen, cu, pipeline, kontaktFrequenz, offene,
+  umsatzMonate, lager, lagerWert, behandlungen, cu, pipeline, kontaktFrequenz, offene, offeneSumme,
   vsJahrgaenge, vsSorten, vsBezeichnungen, vsOrte, vsLaender,
   wbJahrgaenge, wbSorten, wbBezeichnungen, behoerden,
 }: Props) {
@@ -203,7 +205,6 @@ export default function ReportsClient({
   const maxUmsatz  = Math.max(...umsatzData.map(m => m.umsatz), 1)
   const belegWort  = umsatzBasis === 'lieferung' ? 'Lieferscheine' : 'Rechnungen'
   const pipelineAktiv = pipeline.filter(p => !p.erledigt && p.stufe !== 'verloren')
-  const offeneSum  = offene.reduce((s, p) => s + posSum(p), 0)
 
   // ── Umsatz: Zeitraum & Vergleich ────────────────────────────────────────────
   // Basis Rechnungsdatum: die letzten 12 Monate kommen fertig vom Server; Lieferdatum über die Route
@@ -338,19 +339,26 @@ export default function ReportsClient({
 
   function csvOffene() {
     exportCSV(
+      // KAN-375: Beträge und Verzug aus ladeOffenePostenListe (Fälligkeit nach Kundenziel, „heute“ = Wiener Tag des Servers)
       offene.map(p => ({
-        datum:    p.datum ?? null,
-        rechnung: p.rechnungsnummer ?? null,
-        kunde:    kundenName(p),
-        betrag:   runden(posSum(p), 2),
-        tage:     tageSeit(p.datum, new Date()),   // Sweep 101: Kalendertage (Browser = Wiener Zeit)
+        datum:    p.datum,
+        rechnung: p.rechnungsnummer,
+        kunde:    p.kunde,
+        brutto:   p.brutto,
+        gezahlt:  p.gezahlt,
+        offen:    p.offen,
+        faellig:  p.faelligAm,
+        verzug:   p.verzugTage,
       })),
       [
-        { key: 'datum',    header: 'Datum',           typ: 'datum' },
-        { key: 'rechnung', header: 'Rechnungsnummer', typ: 'code' },
-        { key: 'kunde',    header: 'Kunde',           typ: 'text' },
-        { key: 'betrag',   header: 'Betrag (€)',      typ: 'betrag' },
-        { key: 'tage',     header: 'Tage offen',      typ: 'ganzzahl' },
+        { key: 'datum',    header: 'Rechnungsdatum',     typ: 'datum' },
+        { key: 'rechnung', header: 'Rechnungsnummer',    typ: 'code' },
+        { key: 'kunde',    header: 'Kunde',              typ: 'text' },
+        { key: 'brutto',   header: 'Betrag brutto (€)',  typ: 'betrag' },
+        { key: 'gezahlt',  header: 'Bereits erhalten (€)', typ: 'betrag' },
+        { key: 'offen',    header: 'Offen (€)',          typ: 'betrag' },
+        { key: 'faellig',  header: 'Fällig am',          typ: 'datum' },
+        { key: 'verzug',   header: 'Tage überfällig',    typ: 'ganzzahl' },
       ],
       csvDateiname(['Offene-Posten']).utf8,
     )
@@ -940,14 +948,20 @@ export default function ReportsClient({
         {/* ── OFFENE POSTEN ────────────────────────────────────────────── */}
         {tab === 'offen' && (
           <div>
-            <div className="grid grid-cols-2 gap-4 mb-5">
+            {/* KAN-375: Kennzahlen wie Seite „Offene Posten“, Dashboard und Finanzübersicht (offenePostenSumme) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Anzahl offene Rechnungen</p>
-                <p className="text-xl font-semibold text-s112-warn-fg mt-1">{offene.length}</p>
+                <p className="text-xl font-semibold text-s112-warn-fg mt-1">{offeneSumme.anzahl}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Offener Gesamtbetrag</p>
-                <p className="text-xl font-semibold text-s112-warn-fg mt-1 tabular-nums">{eur(offeneSum)}</p>
+                <p className="text-xl font-semibold text-s112-warn-fg mt-1 tabular-nums">{eur(offeneSumme.summe)}</p>
+              </div>
+              <div className="bg-s112-bg rounded-xl p-4">
+                <p className="text-xs text-s112-muted">Davon überfällig (ab Fälligkeit)</p>
+                <p className="text-xl font-semibold text-s112-err-fg mt-1 tabular-nums">{eur(offeneSumme.ueberfaelligSumme)}</p>
+                <p className="text-xs text-s112-muted mt-0.5">{offeneSumme.ueberfaellig} {offeneSumme.ueberfaellig === 1 ? 'Rechnung' : 'Rechnungen'}</p>
               </div>
             </div>
             {offene.length === 0 ? (
@@ -958,28 +972,30 @@ export default function ReportsClient({
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-left px-3 py-2 font-semibold">Rechnung</th>
                   <th className="text-left px-3 py-2 font-semibold">Kunde</th>
-                  <th className="text-right px-3 py-2 font-semibold">Betrag</th>
-                  <th className="text-right px-3 py-2 font-semibold">Tage offen</th>
+                  <th className="text-right px-3 py-2 font-semibold">Offen</th>
+                  <th className="text-right px-3 py-2 font-semibold">Fällig</th>
                 </tr></thead>
                 <tbody>
-                  {offene.map((p,i) => {
-                    const tage = tageSeit(p.datum, new Date())
-                    return (
-                      <tr key={p.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
-                        <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(p.datum)}</td>
-                        <td className="px-3 py-2 font-mono text-xs">
-                          <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-blue-700 hover:underline">{p.rechnungsnummer??'–'}</Link>
-                        </td>
-                        <td className="px-3 py-2 font-medium text-s112-text">{kundenName(p)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-s112-blue-700 tabular-nums">{eur(posSum(p))}</td>
-                        <td className="px-3 py-2 text-right">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums ${tage>30?'bg-s112-err-bg text-s112-err-fg':tage>14?'bg-s112-warn-bg text-s112-warn-fg':'bg-[#F2F3F5] text-s112-text-2'}`}>
-                            {tage}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {offene.map((p,i) => (
+                    <tr key={p.id} className={`border-b border-s112-border/40 ${p.ueberfaellig ? 'bg-s112-err-bg/30' : i%2===1 ? 'bg-s112-bg/30' : ''}`}>
+                      <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(p.datum)}</td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        <Link href={offenerPostenHref(p)} className="text-s112-blue-700 hover:underline">{p.rechnungsnummer??'–'}</Link>
+                      </td>
+                      <td className="px-3 py-2 font-medium text-s112-text">{p.kunde}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-s112-blue-700 tabular-nums">
+                        {eur(p.offen)}
+                        {p.gezahlt > 0 && (
+                          <span className="block text-[11px] font-normal text-s112-muted">von {eur(p.brutto)} · {eur(p.gezahlt)} bereits erhalten</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${p.ueberfaellig ? 'bg-s112-err-bg text-s112-err-fg' : 'bg-[#F2F3F5] text-s112-text-2'}`}>
+                          {faelligText(p)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}

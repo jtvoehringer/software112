@@ -17,7 +17,7 @@ import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { fristAus, psmErfassungFrist, PSM_FRIST_STANDARD_H, type PsmErfassungZeile } from '@/lib/behandlungen/erfassungsfrist'
 import { geladen } from '@/lib/supabase/geladen'
-import { ladeOffenePostenListe, offenePostenSumme, type OffenerPosten } from '@/lib/verkauf/umsatz'
+import { ladeOffenePostenListe, ladeRechnungenOhneBmdExport, offenePostenSumme, type OffenerPosten } from '@/lib/verkauf/umsatz'
 
 // Sweep 87 (KAN-279): jede Abfrage über geladen() – ein Lesefehler zeigt die Fehlergrenze des Dashboards statt falscher
 // Kennzahlen (Bestand, Kapazität, Fläche) oder fehlender Fristen (UVA, AfA, Erntemeldung). Ausnahme: offene Posten melden
@@ -298,7 +298,9 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').is('storniert_am', null).gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
     // Sweep 93 (KAN-288): nicht übergebene Belege werden je Periode gezählt – vollständig statt .limit(1000)
-    doppik ? alle<R>(ctx.tf(ctx.q('verkaufsposten').select('id, datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit)).order('id')) : Promise.resolve({ data: [], error: null }),
+    // KAN-375: Rechnungen ohne BMD-Übergabe nach Rechnungsdatum – dieselbe Zählung wie die Finanzübersicht
+    // (rechnungenOhneBmdExport); vorher Lieferscheine ohne bmd_export_id, auch nicht berechnete
+    doppik && ctx.tenantId ? ladeRechnungenOhneBmdExport(ctx.supabase, ctx.tenantId, seit, ctx.heuteStr) : Promise.resolve({ data: [], error: null }),
     // storno-sichtbar: BMD-Übergabe überträgt Stornos und Gegenbuchungen bewusst mit (KAN-149)
     doppik ? alle<R>(ctx.tf(ctx.q('ea_transaktionen').select('id, datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit)).order('id')) : Promise.resolve({ data: [], error: null }),
   ])
@@ -307,7 +309,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   const jgRaw = geladen(jgRes, 'Jahrgang')
   const dacRaw = geladen(dacRes, 'Prüfnummernanträge')
   const wfRaw = geladen(wfRes, 'Wartefristen')
-  const offenVpRaw = geladen(offenVpRes, 'Verkäufe ohne BMD-Übergabe')
+  const offenVpRaw = geladen(offenVpRes, 'Rechnungen ohne BMD-Übergabe')
   const offenEaRaw = geladen(offenEaRes, 'Ausgaben ohne BMD-Übergabe')
 
   const fristen: Frist[] = []

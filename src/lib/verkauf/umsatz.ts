@@ -259,3 +259,32 @@ export async function ladeOffenePostenListe(
   }
   return { data: belege.map(r => offenerPosten(r, gezahlt.get(String(r.id)) ?? 0, heute)), error: null }
 }
+
+// ── BMD-Übergabe (KAN-375) ───────────────────────────────────────────────────
+
+/**
+ * Rechnungen ohne BMD-Übergabe: zählen als Umsatz (aktiv, nicht storniert, mit Lieferscheinen) und haben keinen
+ * bmd_export_id. Eine Zählung für die Finanzübersicht (Übergabe, lib/finanzen/uebersicht.ts) und die Dashboard-Frist
+ * „BMD-Übergabe“ (dashboard/_shared/data.ts) – vorher zählte die Frist Lieferscheine, auch nicht berechnete.
+ */
+export function rechnungenOhneBmdExport(rechnungen: readonly R[]): R[] {
+  return rechnungen.filter(r => zaehltAlsUmsatz(r) && !r.bmd_export_id)
+}
+
+/**
+ * Rechnungen mit Rechnungsdatum von–bis (einschließlich, 'JJJJ-MM-TT') des Betriebs, die noch nicht an BMD übergeben
+ * sind – vollständig über alle(), ohne Positionen (nur für die Zählung je Periode), gefiltert über
+ * rechnungenOhneBmdExport(). Fehler kommt zurück.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ladeRechnungenOhneBmdExport(supabase: any, tenantId: string, von: string, bis: string): Promise<{ data: R[]; error: R | null }> {
+  const { data, error } = await alle<R>(supabase.from('rechnungen')
+    .select('id, datum, aktiv, storniert, bmd_export_id, lieferscheine:verkaufsposten!rechnung_id(id)')
+    .eq('tenant_id', tenantId)
+    .eq('aktiv', true).eq('storniert', false)
+    .is('bmd_export_id', null)
+    .gte('datum', von).lte('datum', bis)
+    .order('datum').order('id'))
+  if (error) return { data: [], error }
+  return { data: rechnungenOhneBmdExport((data ?? []) as R[]), error: null }
+}

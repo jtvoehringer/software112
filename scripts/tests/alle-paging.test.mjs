@@ -84,7 +84,7 @@ const UMGESTELLT = [
   // Finanzübersicht, Morgenbericht, Umsatz-Auswertung)
   ['src/lib/verkauf/umsatz.ts', 'rechnungen', 'offene Posten fehlten in Liste und Summe, Monatsumsatz zu niedrig'],
   ['src/lib/verkauf/umsatz.ts', 'zahlungen', 'Teilzahlungen nicht abgezogen'],
-  ['src/app/(dashboard)/reports/(controlling)/page.tsx', 'verkaufsposten', 'Summe offener Posten zu niedrig'],
+  // KAN-375: Reiter „Offene Posten“ in /reports über ladeOffenePostenListe (umsatz.ts, oben) statt eigener Abfrage
   ['src/app/(dashboard)/reports/(controlling)/page.tsx', 'pipeline_eintraege', 'Pipeline-Auswertung unvollständig'],
   ['src/app/(dashboard)/crm/pipeline/page.tsx', 'pipeline_eintraege', 'Einträge fehlten auf der Pipeline-Tafel'],
   ['src/app/(dashboard)/admin/zeiterfassung/page.tsx', 'zeiterfassung', 'Stundensummen zu niedrig'],
