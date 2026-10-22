@@ -7,6 +7,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { kuendigungZumMonatsende, premiumSupportStand, premiumSupportText, PREMIUM_SUPPORT, heuteWien } from '@/lib/abo/premiumSupport'
 import { setPremiumSupport } from './actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function PremiumSupportKarte({ tenantId, zeitraum }: {
   tenantId: string; zeitraum: { seit: string | null; bis: string | null } | undefined
@@ -70,7 +71,7 @@ export default function PremiumSupportKarte({ tenantId, zeitraum }: {
           </button>
         ) : !stand.bis && (
           <button type="button" disabled={pending}
-            onClick={() => { const ende = kuendigungZumMonatsende(); if (confirm(`Premium-Support zum ${ende.split('-').reverse().join('.')} kündigen?`)) speichern(stand.seit, ende) }}
+            onClick={async () => { const ende = kuendigungZumMonatsende(); if (await rueckfrage({ titel: `Premium-Support zum ${ende.split('-').reverse().join('.')} kündigen?`, bestaetigen: 'Kündigen', gefaehrlich: true })) speichern(stand.seit, ende) }}
             className="border border-s112-line-str rounded-lg px-3 py-1.5 text-xs font-medium text-s112-err-fg hover:bg-s112-err-bg disabled:opacity-50">
             Zum Monatsende kündigen
           </button>

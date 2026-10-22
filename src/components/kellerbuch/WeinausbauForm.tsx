@@ -10,6 +10,7 @@ import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { istMostStatus, statusWechselBuchungsrelevant } from '@/lib/kellerbuch/chargeStatus'
 import { wienHeute } from '@/lib/csv'
@@ -98,7 +99,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
       // KAN-100: Abstufung einer Charge mit Prüfnummer – erst Rückfrage, dann mit Bestätigung erneut senden
       const r = await action(normalized)
       if (r?.bestaetigung) {
-        if (!window.confirm(r.bestaetigung)) { setSaving(false); return }
+        if (!(await serverRueckfrage(r.bestaetigung, 'Trotzdem speichern'))) { setSaving(false); return }
         normalized.set('pn_bestaetigt', '1')
         await action(normalized)
       }

@@ -6,6 +6,8 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
 import { tastaturBedienbar } from '@/lib/ui/tastatur'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 
 const BEWIRTSCHAFTUNG_LABELS: Record<string, string> = {
   konventionell: 'Konventionell',
@@ -53,6 +55,7 @@ export default function WeingartenTable({
   const [sortCol, setSortCol] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
 
   function handleSort(col: SortKey) {
     if (col === sortCol) {
@@ -76,15 +79,23 @@ export default function WeingartenTable({
     return sortDir === 'asc' ? av.localeCompare(bv, 'de') : bv.localeCompare(av, 'de')
   })
 
-  function handleDelete(id: string, name: string) {
-    if (!confirm(`Weingarten "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return
+  async function handleDelete(id: string, name: string) {
+    if (!(await rueckfrage({
+      titel: `Weingarten „${name}“ löschen?`,
+      text: 'Das lässt sich nicht rückgängig machen.',
+      bestaetigen: 'Löschen',
+      gefaehrlich: true,
+    }))) return
+    setFehler(null)
     startTransition(async () => {
       const result = await deleteWeingarten(id)
-      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+      if (result?.error) setFehler(`Fehler beim Löschen: ${result.error}`)
     })
   }
 
   return (
+    <>
+    <FehlerMeldung text={fehler} className="mb-3" />
     <div className={`card p-0 overflow-hidden ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
       <table className="w-full text-sm">
         <thead>
@@ -153,5 +164,6 @@ export default function WeingartenTable({
         </tbody>
       </table>
     </div>
+    </>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 import {
   createPipelineEintrag, updatePipelineEintrag,
   updatePipelineStufe, togglePipelineErledigt, deletePipelineEintrag,
@@ -168,8 +169,8 @@ function EintragZeile({
   function handleErledigt(checked: boolean) {
     startTransition(async () => { await togglePipelineErledigt(eintrag.id, checked) })
   }
-  function handleDelete() {
-    if (!confirm(`"${eintrag.titel}" wirklich löschen?`)) return
+  async function handleDelete() {
+    if (!(await rueckfrage({ titel: `„${eintrag.titel}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
     startTransition(async () => { await deletePipelineEintrag(eintrag.id) })
   }
 

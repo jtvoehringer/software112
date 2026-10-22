@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Check, Pencil, Trash2 } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 type KS = { id: string; name: string; kuerzel?: string; beschreibung?: string }
 type KA = { id: string; name: string; kuerzel?: string; kategorie?: string }
@@ -133,7 +134,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
             {item.kategorie && <span className="text-xs bg-s112-bg px-2 py-0.5 rounded-sm text-s112-muted">{item.kategorie}</span>}
             <span className="text-sm flex-1">{item.name}</span>
             <button aria-label="Bearbeiten" onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-blue-700"><Pencil size={13} /></button>
-            <button aria-label="Deaktivieren" title="Deaktivieren" onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-s112-err"><Trash2 size={13} /></button>
+            <button aria-label="Deaktivieren" title="Deaktivieren" onClick={async () => { if (await rueckfrage({ titel: `„${item.name}“ deaktivieren?`, bestaetigen: 'Deaktivieren' })) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-s112-err"><Trash2 size={13} /></button>
           </div>
         ))}
         {items.length === 0 && <p className="text-xs text-s112-muted py-4 text-center">Noch keine Einträge</p>}
@@ -349,7 +350,7 @@ export default function KostenrechnungPage() {
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
                   <td className="px-4 py-2.5"><div className="flex gap-2">
                     <button aria-label="Bearbeiten" onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-blue-700 text-xs"><Pencil size={13} /></button>
-                    <button aria-label="Löschen" title="Löschen" onClick={()=>{if(confirm('Löschen?'))void listenAktion({action:'loeschen',id:e.id})}} className="text-s112-muted hover:text-s112-err text-xs"><Trash2 size={13} /></button>
+                    <button aria-label="Löschen" title="Löschen" onClick={async ()=>{if(await rueckfrage({ titel: 'Kostenbuchung löschen?', bestaetigen: 'Löschen', gefaehrlich: true }))void listenAktion({action:'loeschen',id:e.id})}} className="text-s112-muted hover:text-s112-err text-xs"><Trash2 size={13} /></button>
                   </div></td>
                 </tr>
               ))}

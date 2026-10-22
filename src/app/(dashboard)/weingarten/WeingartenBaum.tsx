@@ -10,6 +10,8 @@ import { fmtHa } from '@/lib/format'
 import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { tastaturBedienbar } from '@/lib/ui/tastatur'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 
 // Auffangkorb-Label für Weingärten ohne eigene Ried-Zuordnung (w.ried === null) -
 // KEIN echter Ried, nur eine technische Sammelgruppe. Wird verwendet, um beim
@@ -20,17 +22,30 @@ const KEIN_RIED = 'Rieden'
 
 // KAN-150 F1: Rieden mit Bezug (Maßnahmen, Lese, Chargen …) werden nicht gelöscht, sondern deaktiviert – die Action
 // meldet das mit deaktivierbar: true, hier wird dann „Stattdessen deaktivieren?“ angeboten.
+// KAN-359: Rückfrage über den eigenen Dialog, Fehler über `fehler` als Meldung an der Zeile (statt alert).
 async function loeschenOderDeaktivieren(
   ergebnis: { error?: string; deaktivierbar?: boolean } | undefined, ids: string[], refresh: () => void,
+  fehler: (text: string) => void,
 ) {
   if (!ergebnis?.error) { refresh(); return }
-  if (ergebnis.deaktivierbar && confirm(`${ergebnis.error}\n\nStattdessen deaktivieren?`)) {
+  if (ergebnis.deaktivierbar) {
+    if (!(await rueckfrage({ titel: 'Stattdessen deaktivieren?', text: ergebnis.error, bestaetigen: 'Deaktivieren' }))) return
     const r = await setzeWeingartenAktiv(ids, false)
-    if (r.error) alert(r.error)
+    if (r.error) fehler(r.error)
     refresh()
     return
   }
-  if (!ergebnis.deaktivierbar) alert(`Fehler beim Löschen: ${ergebnis.error}`)
+  fehler(`Fehler beim Löschen: ${ergebnis.error}`)
+}
+
+/** Fehlermeldung als eigene Tabellenzeile unter der betroffenen Zeile */
+function FehlerZeile({ text }: { text: string | null }) {
+  if (!text) return null
+  return (
+    <tr>
+      <td colSpan={20} className="px-4 py-2"><FehlerMeldung text={text} /></td>
+    </tr>
+  )
 }
 
 // AMA-Feldstücknr. und Codes hängen am Weingarten-Datensatz (Ried-Formular),
@@ -177,17 +192,20 @@ function WeingartenZeile({
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const router = useRouter()
+  const [fehler, setFehler] = useState<string | null>(null)
 
-  function handleDelete() {
-    if (!confirm(`"${w.name}" wirklich löschen?`)) return
+  async function handleDelete() {
+    if (!(await rueckfrage({ titel: `„${w.name}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
+    setFehler(null)
     startTransition(async () => {
-      await loeschenOderDeaktivieren(await deleteWeingarten(w.id), [w.id], () => router.refresh())
+      await loeschenOderDeaktivieren(await deleteWeingarten(w.id), [w.id], () => router.refresh(), setFehler)
     })
   }
   function handleReaktivieren() {
+    setFehler(null)
     startTransition(async () => {
       const r = await setzeWeingartenAktiv([w.id], true)
-      if (r.error) alert(r.error)
+      if (r.error) setFehler(r.error)
       router.refresh()
     })
   }
@@ -288,6 +306,7 @@ function WeingartenZeile({
           </div>
         </td>
       </tr>
+      <FehlerZeile text={fehler} />
 
       {open && sortGst(gsts, gstSort).map(g => <GSTZeile key={g.id} gst={g} verschachtelt />)}
     </>
@@ -307,6 +326,7 @@ function LageGruppe({
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const router = useRouter()
+  const [fehler, setFehler] = useState<string | null>(null)
 
   const totalHa = weingaerten.reduce((s, w) => {
     const gsts = gstMap.get(w.id) ?? []
@@ -370,22 +390,27 @@ function LageGruppe({
   // in der Gruppenkopfzeile keine Löschen-Aktion. deleteRied() löscht ALLE
   // weingarten-Zeilen dieser Gruppe in einem atomaren Schritt - grundstuecke
   // werden dank "on delete cascade" automatisch mitgelöscht.
-  function handleDeleteRied() {
+  async function handleDeleteRied() {
     const anzahlGst = flatGst.length
-    const bestaetigt = confirm(
-      `Sie sind im Begriff die Ried "${ried}" mit allen ${anzahlGst} Grundstücken unwiderruflich zu löschen.\n\nDiese Aktion kann nicht rückgängig gemacht werden. Fortfahren?`
-    )
+    const bestaetigt = await rueckfrage({
+      titel: `Ried „${ried}“ mit allen ${anzahlGst} Grundstücken löschen?`,
+      text: 'Die Ried und ihre Grundstücke werden unwiderruflich gelöscht. Das lässt sich nicht rückgängig machen.',
+      bestaetigen: 'Löschen',
+      gefaehrlich: true,
+    })
     if (!bestaetigt) return
+    setFehler(null)
     const ids = weingaerten.map(w => w.id)
     startTransition(async () => {
-      await loeschenOderDeaktivieren(await deleteRied(ids), ids, () => router.refresh())
+      await loeschenOderDeaktivieren(await deleteRied(ids), ids, () => router.refresh(), setFehler)
     })
   }
   const alleInaktiv = weingaerten.length > 0 && weingaerten.every(w => !w.aktiv)
   function handleReaktivierenRied() {
+    setFehler(null)
     startTransition(async () => {
       const r = await setzeWeingartenAktiv(weingaerten.map(w => w.id), true)
-      if (r.error) alert(r.error)
+      if (r.error) setFehler(r.error)
       router.refresh()
     })
   }
@@ -453,6 +478,7 @@ function LageGruppe({
           )}
         </td>
       </tr>
+      <FehlerZeile text={fehler} />
 
       {open && flatGst.map(g => <GSTZeile key={g.id} gst={g} />)}
 

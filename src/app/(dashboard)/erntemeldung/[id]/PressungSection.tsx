@@ -23,6 +23,7 @@ import { abrunden, formatKmw, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } 
 import { datumText, lesedatumFehler, lesetageFuerOrt, vorbelegterLesetag, type LeseEintrag, type Lesetag } from '@/lib/wein/pressungLesedatum'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -133,7 +134,9 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
+function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone, onWarnung }: {
+  /** KAN-359: Hinweis nach teilweisem Speichern – bleibt in der Pressungs-Karte stehen, wenn das Formular schließt */
+  onWarnung: (text: string) => void
   jahrgangId: string; leseId: string | null; leseArt: string | null; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
@@ -181,12 +184,16 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
   )
   const [fehler, setFehler] = useState<string | null>(null)
 
-  function entferneBehRow(i: number) {
+  async function entferneBehRow(i: number) {
     const row = behRows[i]
     // Bestehende Zeile mit Kellerbuch-Charge: Zeile und Charge werden beim Speichern storniert (KAN-148 C1c-2)
     // (nur ohne Folgebuchungen möglich – sonst lehnt der Server ab)
-    if (row?.id && row.weinausbau_id
-      && !confirm(`Beim Speichern werden der Behälter und die daraus entstandene Kellerbuch-Charge „${row.weinausbau_name || 'ohne Namen'}“ storniert (sie bleiben gekennzeichnet stehen). Das geht nur, solange an der Charge noch keine Folgebuchungen hängen. Fortfahren?`)) return
+    if (row?.id && row.weinausbau_id && !(await rueckfrage({
+      titel: `Behälter und Charge „${row.weinausbau_name || 'ohne Namen'}“ entfernen?`,
+      text: 'Beim Speichern werden der Behälter und die daraus entstandene Kellerbuch-Charge storniert (sie bleiben gekennzeichnet stehen). Das geht nur, solange an der Charge noch keine Folgebuchungen hängen.',
+      bestaetigen: 'Entfernen',
+      gefaehrlich: true,
+    }))) return
     setBehRows(r => r.filter((_, j) => j !== i))
   }
 
@@ -404,7 +411,8 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
         const result = await upsertPressung(fd)
         // Teilweise gespeichert (z. B. ein Behälter konnte nicht befüllt werden): Hinweis
         // zeigen und das Formular schließen, damit die Pressung nicht doppelt angelegt wird
-        if (result.warnung) alert(result.warnung)
+        // (KAN-359: als Hinweis in der Pressungs-Karte, nicht als Browser-Dialog)
+        if (result.warnung) onWarnung(result.warnung)
         // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
         if (!pressung && behaelterMitCharge && result.neu.length > 0) {
           // Verschnitt-Prompt immer wenn Behälter bereits Chargen hat
@@ -854,6 +862,8 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
   const [showForm, setShowForm]    = useState(false)
   const [editId, setEditId]        = useState<string | null>(null)
   const [collapsed, setCollapsed]  = useState(false)
+  // KAN-359: Hinweis nach teilweise gespeicherter Pressung (bleibt stehen, bis man ihn schließt)
+  const [warnung, setWarnung]      = useState<string | null>(null)
 
   // KAN-148 C1c: stornierte Pressungen stehen gekennzeichnet in der Liste, zählen aber in keiner Summe
   const gueltige    = pressungen.filter(p => !p.storno)
@@ -903,6 +913,13 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
       </div>
 
 
+      {warnung && (
+        <div role="alert" className="flex items-start gap-2 text-sm text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2">
+          <span className="flex-1 whitespace-pre-line">{warnung}</span>
+          <button type="button" onClick={() => setWarnung(null)} aria-label="Hinweis schließen" className="shrink-0 hover:opacity-70"><X size={14} /></button>
+        </div>
+      )}
+
       {collapsed ? null : (
       <>
       {/* Saisonstatistik */}
@@ -930,7 +947,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
         <PressungForm jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions} behOptions={behOptions}
           waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST}
           zukaufTrauben={zukaufTrauben}
-          behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
+          behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} onWarnung={setWarnung} />
       )}
 
       {/* Pressung-Liste */}
@@ -951,7 +968,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                     behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege}
                     verfuegbareKgByGST={verfuegbareKgByGST} zukaufTrauben={zukaufTrauben}
                     behaelterMitCharge={undefined}
-                    onDone={() => setEditId(null)} />
+                    onDone={() => setEditId(null)} onWarnung={setWarnung} />
                 ) : (
                   <div className={`group border border-s112-border rounded-xl p-3 ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
                     {/* Kopfzeile bricht um, statt bei langer Qualität („abgestuft von …“) über den rechten Rand zu laufen */}

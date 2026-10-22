@@ -8,6 +8,8 @@ import { fehlerText } from '@/lib/fehler'
 import Link from '@/components/ui/Link'
 import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteFirma, setzeFirmaAktiv } from '../../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 import {
   AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -183,8 +185,8 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
     })
   }
 
-  function handleDelete() {
-    if (!confirm('Aktivität wirklich löschen?')) return
+  async function handleDelete() {
+    if (!(await rueckfrage({ titel: 'Aktivität löschen?', bestaetigen: 'Löschen', gefaehrlich: true }))) return
     startTransition(async () => { await deleteAktivitaet(a.id) })
   }
 
@@ -394,7 +396,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         )}
         {writeOk && a.art === 'email' && (
           <button type="button" title="Email-Aktivität löschen"
-            onClick={() => { if (confirm('Email aus Aktivitätenliste entfernen?')) startTransition(async () => { await deleteAktivitaet(a.id) }) }}
+            onClick={async () => { if (await rueckfrage({ titel: 'E-Mail aus der Aktivitätenliste entfernen?', bestaetigen: 'Entfernen', gefaehrlich: true })) startTransition(async () => { await deleteAktivitaet(a.id) }) }}
             className="text-s112-tertiary hover:text-s112-err transition-colors">
             <Trash2 size={14} />
           </button>
@@ -430,20 +432,23 @@ export default function FirmaDetailClient({
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [deletePending, startDeleteTransition] = useTransition()
+  const [aktionsFehler, setAktionsFehler] = useState<string | null>(null)
 
-  function handleDelete() {
-    if (!confirm(`Firma „${firma.name}" wirklich löschen?`)) return
+  async function handleDelete() {
+    if (!(await rueckfrage({ titel: `Firma „${firma.name}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
+    setAktionsFehler(null)
     startDeleteTransition(async () => {
-      const ergebnis = await loeschenOderDeaktivieren(() => deleteFirma(firma.id), () => setzeFirmaAktiv(firma.id, false))
+      const ergebnis = await loeschenOderDeaktivieren(() => deleteFirma(firma.id), () => setzeFirmaAktiv(firma.id, false), { frage: rueckfrage, fehler: setAktionsFehler })
       if (ergebnis === 'geloescht') router.push('/crm/firmen')
       router.refresh()
     })
   }
   // KAN-150 F1: deaktivieren statt löschen bzw. wieder aktivieren
   function handleAktiv(aktiv: boolean) {
+    setAktionsFehler(null)
     startDeleteTransition(async () => {
       const r = await setzeFirmaAktiv(firma.id, aktiv)
-      if (r.error) alert(r.error)
+      if (r.error) setAktionsFehler(r.error)
       router.refresh()
     })
   }
@@ -618,6 +623,7 @@ export default function FirmaDetailClient({
         </div>
       </div>
       )}
+      <FehlerMeldung text={aktionsFehler} />
 
       {/* KAN-176: Lieferadressen */}
       <div className="card p-4">

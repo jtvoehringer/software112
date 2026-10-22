@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Trash2, Undo2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
+import { frageAufteilen, rueckfrage } from '@/lib/ui/rueckfrage'
 
 interface Props {
   action: () => Promise<void | { error?: string }>
@@ -14,13 +15,14 @@ interface Props {
 // Seit KAN-35 kommen hier oft längere Sperrmeldungen an („… nicht mehr stornierbar, weil …
 // Bitte …“). Die Meldung bricht deshalb um (die Tabellenzellen stehen auf whitespace-nowrap)
 // und wird Screenreadern angesagt (role="alert").
-export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklich löschen?', label = 'Löschen' }: Props) {
+// KAN-359: Rückfrage über den eigenen Dialog (Titel = Frage bis zum ersten „?“, Rest = Erklärung, Knopf = label).
+export default function LoeschenButton({ action, bestaetigung = 'Eintrag löschen?', label = 'Löschen' }: Props) {
   const [error, setError]     = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const storno = label.toLowerCase().startsWith('storn')
 
   async function handleClick() {
-    if (!window.confirm(bestaetigung)) return
+    if (!(await rueckfrage({ ...frageAufteilen(bestaetigung), bestaetigen: label, gefaehrlich: true }))) return
     setError(null)
     setPending(true)
     try {

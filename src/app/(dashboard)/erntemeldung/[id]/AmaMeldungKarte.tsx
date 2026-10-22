@@ -14,6 +14,7 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { AMA_OFFEN, AMA_STATUS_LABEL, type AmaZielStatus } from '@/lib/behoerden/amaMeldung'
 import { erntemeldungRahmenText } from '@/lib/wein/lesen'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 const AMA_STATUS_CLS: Record<string, string> = {
   entwurf:     'bg-[#F2F3F5] text-s112-text-2',
@@ -87,8 +88,12 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
     })
   }
 
-  function neuBerechnen() {
-    if (!confirm('AMA-Meldung aus aktuellen Lesedaten aufbauen?')) return
+  async function neuBerechnen() {
+    if (!(await rueckfrage({
+      titel: 'AMA-Meldung aus den aktuellen Lesedaten aufbauen?',
+      text: 'Die Meldung wird aus den Lesedaten des Jahrgangs neu berechnet.',
+      bestaetigen: 'Aufbauen',
+    }))) return
     ausfuehren(() => createOrUpdateAMAMeldung(jahrgangId), 'Die AMA-Meldung konnte nicht aufgebaut werden.')
   }
 
@@ -107,9 +112,13 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
       'Der Status der AMA-Meldung konnte nicht gesetzt werden.')
   }
 
-  function korrektur() {
+  async function korrektur() {
     if (!amaMeldung) return
-    if (!confirm(`Korrekturmeldung anlegen? Es entsteht Version ${amaMeldung.version + 1} als Entwurf; Version ${amaMeldung.version} bleibt unverändert erhalten.`)) return
+    if (!(await rueckfrage({
+      titel: 'Korrekturmeldung anlegen?',
+      text: `Es entsteht Version ${amaMeldung.version + 1} als Entwurf; Version ${amaMeldung.version} bleibt unverändert erhalten.`,
+      bestaetigen: 'Anlegen',
+    }))) return
     ausfuehren(() => amaKorrekturAnlegen(amaMeldung.id, jahrgangId), 'Die Korrekturmeldung konnte nicht angelegt werden.')
   }
 

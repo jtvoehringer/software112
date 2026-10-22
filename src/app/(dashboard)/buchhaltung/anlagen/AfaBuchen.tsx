@@ -15,6 +15,7 @@ import { fmtEur } from '@/lib/format'
 import { STORNO_GRUND_MIN, stornoGrundFehler } from '@/lib/storno/grund'
 import { Card, Badge, Note, Th, Td, type BadgeTone } from '@/app/(dashboard)/dashboard/_shared/ui'
 import { bucheAfa, nimmAfaZurueck } from './actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 const STATUS: Record<string, { label: string; tone: BadgeTone }> = {
   gebucht:       { label: 'gebucht',    tone: 'ok' },
@@ -44,15 +45,17 @@ export default function AfaBuchen({ status, dezemberGesperrt, laufend, doppik, d
   const gebuchte = zeilen.filter(z => z.buchungId && !z.gesperrt)
   const blockiert = dezemberGesperrt || doppik || !darfSchreiben
 
-  function buchen() {
+  async function buchen() {
     if (zuBuchen.length === 0) return
     const text = zuBuchen.length === 1
       ? `AfA ${jahr} für „${zuBuchen[0].anlage.name}“ (${fmtEur(zuBuchen[0].soll)}) per 31.12.${jahr} buchen?`
       : `AfA ${jahr} für ${zuBuchen.length} Anlagen (${fmtEur(zuBuchen.reduce((s, z) => s + z.soll, 0))}) per 31.12.${jahr} buchen?`
     const ersetzt = zuBuchen.filter(z => z.buchungId).length
-    if (!confirm(ersetzt ? `${text}
-
-${ersetzt === 1 ? 'Die abweichende AfA-Buchung wird' : `${ersetzt} abweichende AfA-Buchungen werden`} dabei storniert (Gegenbuchung per 31.12.${jahr}).` : text)) return
+    if (!(await rueckfrage({
+      titel: text,
+      text: ersetzt ? `${ersetzt === 1 ? 'Die abweichende AfA-Buchung wird' : `${ersetzt} abweichende AfA-Buchungen werden`} dabei storniert (Gegenbuchung per 31.12.${jahr}).` : null,
+      bestaetigen: 'Buchen',
+    }))) return
     setFehler(null)
     start(async () => {
       const r = await bucheAfa(jahr, zuBuchen.map(z => ({ anlageId: z.anlage.id, name: z.anlage.name, soll: z.soll, buchungId: z.buchungId })))

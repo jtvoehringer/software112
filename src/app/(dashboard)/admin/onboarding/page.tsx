@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 type Schritt = {
   id: string
@@ -111,8 +112,8 @@ export default function OnboardingPage() {
     })
   }
 
-  function reset() {
-    if (!confirm('Alle Häkchen zurücksetzen?')) return
+  async function reset() {
+    if (!(await rueckfrage({ titel: 'Alle Häkchen zurücksetzen?', bestaetigen: 'Zurücksetzen', gefaehrlich: true }))) return
     setErledigt(new Set())
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
   }

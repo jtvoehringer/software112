@@ -16,6 +16,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import { fehlerText } from '@/lib/fehler'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
@@ -220,7 +221,7 @@ export default function ZukaufNeuPage() {
         let result = await createZukauf(fd)
         // KAN-83: Prüfnummer einer Charge im Ziel-Gebinde erlischt – nur nach Bestätigung buchen
         if (result?.bestaetigung) {
-          if (!window.confirm(result.bestaetigung)) return
+          if (!(await serverRueckfrage(result.bestaetigung))) return
           fd.set('pn_bestaetigt', '1')
           fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await createZukauf(fd)

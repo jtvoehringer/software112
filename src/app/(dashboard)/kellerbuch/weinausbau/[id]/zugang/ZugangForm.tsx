@@ -8,6 +8,7 @@ import { fehlerText } from '@/lib/fehler'
 import { zahlAus } from '@/lib/format'
 import { ZUGANGSKORREKTUR_ARTEN, zugangskorrekturFehler } from '@/lib/kellerbuch/zugangskorrektur'
 import StornoButton from '@/components/StornoButton'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 
 // KAN-53: Formular „Zugang korrigieren“ – Datum, Menge, Art, Grund; Prüfnummern-Rückfrage per window.confirm
 export default function ZugangForm({ chargeId, heute }: { chargeId: string; heute: string }) {
@@ -35,7 +36,7 @@ export default function ZugangForm({ chargeId, heute }: { chargeId: string; heut
       try {
         const r = await zugangskorrekturBuchen(fd)
         if (r?.bestaetigung) {
-          if (!window.confirm(r.bestaetigung)) return
+          if (!(await serverRueckfrage(r.bestaetigung))) return
           fd.set('pn_bestaetigt', '1')
           await zugangskorrekturBuchen(fd)
         }

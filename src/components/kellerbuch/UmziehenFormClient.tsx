@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 import { quellGebinde, selbesGebindeFehler, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
@@ -81,7 +82,7 @@ export default function UmziehenFormClient({
       try {
         const r = await action(fd)   // leitet bei Erfolg selbst weiter
         if (r?.bestaetigung) {
-          if (!window.confirm(r.bestaetigung)) return
+          if (!(await serverRueckfrage(r.bestaetigung))) return
           fd.set('pn_bestaetigt', '1')
           await action(fd)
         }

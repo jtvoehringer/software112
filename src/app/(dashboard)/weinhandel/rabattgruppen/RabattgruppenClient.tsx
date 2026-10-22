@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { Pencil, Trash2 } from 'lucide-react'
 import { createRabattgruppe, updateRabattgruppe, deleteRabattgruppe } from './actions'
 import type { Rabattgruppe } from './page'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
@@ -75,8 +76,8 @@ export default function RabattgruppenClient({
   const [editing, setEditing]   = useState<Rabattgruppe | null>(null)
   const [pending, startTransition] = useTransition()
 
-  function handleDelete(id: string, name: string) {
-    if (!confirm(`Rabattgruppe "${name}" wirklich löschen?`)) return
+  async function handleDelete(id: string, name: string) {
+    if (!(await rueckfrage({ titel: `Rabattgruppe „${name}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
     startTransition(async () => { await deleteRabattgruppe(id) })
   }
 

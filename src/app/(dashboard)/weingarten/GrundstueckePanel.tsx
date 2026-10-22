@@ -21,6 +21,8 @@ import { NUTZART_OPTIONS, NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import RebsorteEingabe from '@/components/wein/RebsorteEingabe'
 import { fehlerText } from '@/lib/fehler'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 
 const HERKUNFT_OPTIONS = herkunftOptionen()   // KAN-165: alle Weinbaugebiete Österreichs, nach Region gruppiert
 
@@ -490,6 +492,8 @@ export default function GrundstueckePanel({
   const [editId, setEditId]     = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
+  const [deaktivierung, setDeaktivierung] = useState<{ id: string; gstNr: string; hinweis: string | null; datum: string } | null>(null)
 
   // Eigene Weinbaugebiete werden hier (statt in jeder GSTForm-Instanz einzeln) gehalten,
   // damit ein neu angelegtes Gebiet auch beim nächsten geöffneten GST-Formular in
@@ -517,29 +521,37 @@ export default function GrundstueckePanel({
 
   // KAN-150 F1: Grundstücke mit Bezug (Maßnahmen, Lese, Pressungen, Traubenverkäufe) werden nicht gelöscht, sondern
   // mit Stichtag deaktiviert – für frühere Zeiträume zählen sie in den Meldungen weiter.
+  // KAN-359: Stichtag im Formular über der Liste statt window.prompt; Fehler als Meldung dort statt alert
   function deaktivieren(id: string, gstNr: string, hinweis?: string) {
-    const eingabe = prompt(`${hinweis ? hinweis + '\n\n' : ''}GST ${gstNr} deaktivieren – ab welchem Tag wird es nicht mehr bewirtschaftet? (TT.MM.JJJJ)`, datumDe(wienHeute()))
-    if (eingabe == null) return
-    const datum = isoAusEingabe(eingabe)
-    if (!datum) { alert('Bitte ein gültiges Datum im Format TT.MM.JJJJ angeben.'); return }
+    setFehler(null)
+    setDeaktivierung({ id, gstNr, hinweis: hinweis ?? null, datum: wienHeute() })
+  }
+  function deaktivierungAbsenden() {
+    if (!deaktivierung) return
+    const datum = isoAusEingabe(deaktivierung.datum)
+    if (!datum) { setFehler('Gib ein gültiges Datum an (TT.MM.JJJJ).'); return }
+    setFehler(null)
     startTransition(async () => {
-      const r = await setzeGrundstueckAktiv(id, weingartenId, false, datum)
-      if (r.error) alert(r.error)
+      const r = await setzeGrundstueckAktiv(deaktivierung.id, weingartenId, false, datum)
+      if (r.error) setFehler(r.error)
+      else setDeaktivierung(null)
     })
   }
   function reaktivieren(id: string) {
+    setFehler(null)
     startTransition(async () => {
       const r = await setzeGrundstueckAktiv(id, weingartenId, true, null)
-      if (r.error) alert(r.error)
+      if (r.error) setFehler(r.error)
     })
   }
-  function handleDelete(id: string, gstNr: string) {
-    if (!confirm(`GST ${gstNr} wirklich löschen?`)) return
+  async function handleDelete(id: string, gstNr: string) {
+    if (!(await rueckfrage({ titel: `GST ${gstNr} löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
+    setFehler(null)
     startTransition(async () => {
       const r = await deleteGrundstueck(id, weingartenId)
       if (!r.error) return
       if (r.deaktivierbar) deaktivieren(id, gstNr, r.error)
-      else alert(`Fehler beim Löschen: ${r.error}`)
+      else setFehler(`Fehler beim Löschen: ${r.error}`)
     })
   }
 
@@ -560,6 +572,31 @@ export default function GrundstueckePanel({
           </button>
         )}
       </div>
+
+      <FehlerMeldung text={fehler} className="mb-3" />
+
+      {deaktivierung && (
+        <div className="mb-3 rounded-lg border border-s112-border bg-s112-bg px-4 py-3 text-sm space-y-2">
+          {deaktivierung.hinweis && <p className="text-s112-text-1 whitespace-pre-line">{deaktivierung.hinweis}</p>}
+          <p className="font-medium text-s112-text">GST {deaktivierung.gstNr} deaktivieren – ab welchem Tag wird es nicht mehr bewirtschaftet?</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label htmlFor="gst-deaktiviert-ab" className="block text-xs font-medium text-s112-text-2 mb-1">Nicht mehr bewirtschaftet ab</label>
+              <input id="gst-deaktiviert-ab" type="date" value={deaktivierung.datum}
+                onChange={e => setDeaktivierung(d => d && { ...d, datum: e.target.value })}
+                className="border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <button type="button" onClick={deaktivierungAbsenden} disabled={pending}
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
+              Deaktivieren
+            </button>
+            <button type="button" onClick={() => { setDeaktivierung(null); setFehler(null) }}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
 
       {writeOk && showForm && !editId && (
         <div className="mb-3">

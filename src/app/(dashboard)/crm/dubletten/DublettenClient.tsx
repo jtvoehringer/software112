@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { Mail, User, Merge, EyeOff, Search, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { kontakteZusammenfuehren, dubletteIgnorieren, dublettenIgnorierenViele } from '../actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export type DublettenKontakt = {
   id: string
@@ -89,9 +90,13 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
   }
 
   // Alle "unwahrscheinlich" auf einmal als keine Dublette markieren
-  function alleUnwahrscheinlichenIgnorieren() {
+  async function alleUnwahrscheinlichenIgnorieren() {
     if (!unwahrscheinliche.length) return
-    if (!confirm(`${unwahrscheinliche.length} unwahrscheinliche ${unwahrscheinliche.length === 1 ? 'Gruppe' : 'Gruppen'} (gleiche E-Mail, verschiedene Namen) als „keine Dublette“ markieren?\n\nSie erscheinen dann weder hier noch im Morgenbericht. Die Kontakte selbst bleiben unverändert.`)) return
+    if (!(await rueckfrage({
+      titel: `${unwahrscheinliche.length} unwahrscheinliche ${unwahrscheinliche.length === 1 ? 'Gruppe' : 'Gruppen'} als „keine Dublette“ markieren?`,
+      text: 'Gleiche E-Mail, verschiedene Namen. Die Gruppen erscheinen dann weder hier noch im Morgenbericht. Die Kontakte selbst bleiben unverändert.',
+      bestaetigen: 'Markieren',
+    }))) return
     startBulk(async () => {
       const res = await dublettenIgnorierenViele(unwahrscheinliche.map(g => g.schluessel))
       if (res.error) setMeldung({ art: 'fehler', text: `Markieren fehlgeschlagen: ${res.error}` })
@@ -157,7 +162,7 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
         )}
       </div>
       {meldung && (
-        <div role="status" className={`text-sm px-3 py-2 rounded-lg ${meldung.art === 'ok' ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-err-bg text-s112-err-fg'}`}>{meldung.text}</div>
+        <div role={meldung.art === 'ok' ? 'status' : 'alert'} className={`text-sm px-3 py-2 rounded-lg ${meldung.art === 'ok' ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-err-bg text-s112-err-fg'}`}>{meldung.text}</div>
       )}
 
       {sichtbar.length === 0 && <p className="text-sm text-s112-muted py-6 text-center">Keine Gruppe passt zum Filter.</p>}
@@ -184,12 +189,17 @@ function Gruppe({ gruppe: g, writeOk, onFertig }: { gruppe: DublettenGruppe; wri
     setWeg(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
 
-  function zusammenfuehren() {
+  async function zusammenfuehren() {
     const ids = [...weg].filter(id => id !== behalten)
     const b = g.kontakte.find(k => k.id === behalten)
     if (!b || ids.length === 0) return
     const namen = ids.map(id => { const k = g.kontakte.find(x => x.id === id); return k ? `${nameVon(k)} (${k.accountnummer ?? '–'})` : id }).join(', ')
-    if (!confirm(`${ids.length === 1 ? 'Kontakt' : `${ids.length} Kontakte`} ${namen}\n\nin ${nameVon(b)} (${b.accountnummer ?? '–'}) zusammenführen?\n\nAktivitäten, Verkäufe und Verknüpfungen werden übertragen, die zusammengeführten Kontakte deaktiviert. Das lässt sich nicht automatisch rückgängig machen.`)) return
+    if (!(await rueckfrage({
+      titel: `${ids.length === 1 ? 'Kontakt' : `${ids.length} Kontakte`} in ${nameVon(b)} (${b.accountnummer ?? '–'}) zusammenführen?`,
+      text: `Zusammengeführt ${ids.length === 1 ? 'wird' : 'werden'}: ${namen}\n\nAktivitäten, Verkäufe und Verknüpfungen werden übertragen, die zusammengeführten Kontakte deaktiviert. Das lässt sich nicht automatisch rückgängig machen.`,
+      bestaetigen: 'Zusammenführen',
+      gefaehrlich: true,
+    }))) return
     startTransition(async () => {
       const res = await kontakteZusammenfuehren(behalten, ids)
       if (res.error) onFertig(`Zusammenführen fehlgeschlagen: ${res.error}`, 'fehler')
@@ -197,8 +207,12 @@ function Gruppe({ gruppe: g, writeOk, onFertig }: { gruppe: DublettenGruppe; wri
     })
   }
 
-  function ignorieren() {
-    if (!confirm(`„${gruppenTitel(g)}“ als „keine Dublette“ markieren?\n\nDie Gruppe wird künftig weder hier noch im Morgenbericht angezeigt.`)) return
+  async function ignorieren() {
+    if (!(await rueckfrage({
+      titel: `„${gruppenTitel(g)}“ als „keine Dublette“ markieren?`,
+      text: 'Die Gruppe wird künftig weder hier noch im Morgenbericht angezeigt.',
+      bestaetigen: 'Markieren',
+    }))) return
     startTransition(async () => {
       const res = await dubletteIgnorieren(g.schluessel)
       if (res.error) onFertig(`Markieren fehlgeschlagen: ${res.error}`, 'fehler')
