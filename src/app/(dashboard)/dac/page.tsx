@@ -7,6 +7,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Pencil } from 'lucide-react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeDacAntraege, DAC_STATUS_LABEL, type DacAntragZeile } from '@/lib/behoerden/dac'
 
@@ -58,7 +59,9 @@ export default async function DacPage() {
           <h1 className="text-2xl font-semibold text-s112-text">DAC & Prüfnummern</h1>
           <p className="text-sm text-s112-muted mt-0.5">Anträge nach österreichischem Weinrecht</p>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2 print:hidden">
+          {/* KAN-367: Druck der Antragsliste (Tabelle mit Status und „Status seit“) neben der CSV */}
+          <span className="self-center"><DruckFormatKnopf klein /></span>
           <CsvExportKnopf href={csvPfad('dac-antraege')} className="self-center" />
           {writeOk && (
             <Link href="/dac/neu"
@@ -70,7 +73,7 @@ export default async function DacPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-4 mb-6 print:hidden">
         <div className="card text-center">
           <p className="text-3xl font-semibold text-s112-ok-fg">{genehmigt}</p>
           <p className="text-xs text-s112-muted mt-1">Zugeteilt</p>
@@ -118,9 +121,10 @@ export default async function DacPage() {
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">DAC-Region</th>
                 <th className="text-center px-4 py-3 font-semibold text-s112-text-1">JG</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status seit</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Prüfnummer</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Eingereicht</th>
-                <th className="text-right px-4 py-3 font-semibold text-s112-text-1"></th>
+                <th className="text-right px-4 py-3 font-semibold text-s112-text-1 print:hidden"><span className="sr-only">Bearbeiten</span></th>
               </tr>
             </thead>
             <tbody>
@@ -144,6 +148,10 @@ export default async function DacPage() {
                         ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-err-bg text-s112-err-fg">Storniert</span>
                         : <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>}
                     </td>
+                    {/* KAN-367 (wie CSV-Spalte „Status seit“, KAN-98) */}
+                    <td className="px-4 py-3 text-s112-muted text-xs tabular-nums">
+                      {a.statusSeit ? new Date(a.statusSeit).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '–'}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs">
                       {a.pruefnummer ? (
                         <span className="bg-s112-ok-bg text-s112-ok-fg px-2 py-1 rounded-sm">{a.pruefnummer}</span>
@@ -152,7 +160,7 @@ export default async function DacPage() {
                     <td className="px-4 py-3 text-s112-muted text-xs">
                       {a.eingereichtAm ? new Date(a.eingereichtAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '–'}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right print:hidden">
                       {writeOk && (
                         <Link href={`/dac/${a.id}`}
                           title={a.storniertAm ? 'Ansehen' : 'Bearbeiten'} aria-label={a.storniertAm ? 'Ansehen' : 'Bearbeiten'}

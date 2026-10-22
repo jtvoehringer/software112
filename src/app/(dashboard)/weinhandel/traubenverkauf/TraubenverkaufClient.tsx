@@ -11,6 +11,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import { csvDatei, csvDateiname, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
@@ -302,6 +303,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
           )}
         </div>
         <div className="flex items-start gap-3 flex-wrap justify-end">
+          {verkaufe.length > 0 && <DruckFormatKnopf klein standard="quer" />}
           {verkaufe.length > 0 && (
             <CsvExportKnopf label="Liste als CSV" erzeugen={listeErzeugen} />
           )}

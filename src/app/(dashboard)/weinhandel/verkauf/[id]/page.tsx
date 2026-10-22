@@ -250,7 +250,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const createZahlungBound  = createZahlung.bind(null, id)
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 print:space-y-3 max-w-3xl">
       {/* Print-Styles */}
       <style>{`
         @media print {
@@ -358,11 +358,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           /* ── RECHNUNG ─────────────────────────────────────────────────────── */
           <div className="font-sans text-sm text-s112-text">
             {/* Briefkopf */}
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex justify-between items-start mb-8 print:mb-4">
               <div>
                 {logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="Logo" className="h-14 mb-3 object-contain" />
+                  <img src={logoUrl} alt="Logo" className="h-14 mb-3 print:h-10 print:mb-1 object-contain" />
                 )}
                 <p className="font-semibold text-base">{bName}</p>
                 {bStrasse && <p>{bStrasse}</p>}
@@ -386,7 +386,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               </div>
             </div>
             {/* Empfänger */}
-            <div className="mb-8 p-4 border border-s112-line rounded-sm inline-block min-w-[220px]">
+            <div className="mb-8 print:mb-4 p-4 print:p-3 border border-s112-line rounded-sm inline-block min-w-[220px]">
               <p className="font-semibold text-base">{kundenName(posten)}</p>
               {posten.zh_kontakt && (
                 <p className="text-s112-text-1">z.H. {kontaktAnzeigename(posten.zh_kontakt as R)}</p>
@@ -396,7 +396,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             </div>
             {/* KAN-176: abweichende Lieferadresse */}
             {lieferZeilen.length > 0 && (
-              <div className="mb-8 ml-4 p-4 border border-s112-line rounded-sm inline-block min-w-[220px] align-top">
+              <div className="mb-8 print:mb-4 ml-4 p-4 print:p-3 border border-s112-line rounded-sm inline-block min-w-[220px] align-top">
                 <p className="text-xs uppercase tracking-wide text-s112-muted mb-1">Lieferadresse</p>
                 {lieferZeilen.map((z, i) => <p key={i} className="text-s112-text-2">{z}</p>)}
               </div>
@@ -408,7 +408,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <div>
               {logoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="Logo" className="h-12 mb-2 object-contain" />
+                <img src={logoUrl} alt="Logo" className="h-12 mb-2 print:h-10 object-contain" />
               )}
               <p className="font-semibold text-lg">{bName}</p>
               {bStrasse && <p className="text-sm">{bStrasse}</p>}
@@ -427,7 +427,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         )}
         {/* Empfänger (Lieferschein-Modus) – KAN-176: mit abweichender Lieferadresse geht die Ware dorthin */}
         {!isRechnung && (
-          <div className="mb-8">
+          <div className="mb-8 print:mb-4">
             <p className="font-semibold">{kundenName(posten)}</p>
             {lieferZeilen.length > 0 ? (
               <>
@@ -569,7 +569,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
       {/* ── RECHNUNG-FOOTER: Bankdaten + Fußtext (nur Druck, Rechnungsmodus) ── */}
       {isRechnung && (
-        <div className="print-only mt-8 pt-6 border-t border-s112-line text-sm space-y-3">
+        <div className="print-only mt-8 pt-6 print:mt-4 print:pt-3 break-inside-avoid border-t border-s112-line text-sm space-y-3">
           {skontoAktiv && skontoDatum && (
             <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-sm px-3 py-2">
               <p className="font-semibold text-s112-warn-fg flex items-center gap-1.5">

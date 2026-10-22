@@ -21,6 +21,10 @@
  *                       register.ts eingesammelt (TypeScript prüft nur eingesammelte Gruppen).
  *  6. EINSTIEG          Druckpfad mit [id] ohne Einstiegsseite in lib/behoerden/uebersicht.ts
  *                       (EINSTIEG) bzw. die Einstiegsseite existiert nicht.
+ *  7. DRUCKKNOPF        Eine Seite mit „// behoerdenmeldung:“ hat keinen Druckknopf (DruckFormatKnopf,
+ *                       PrintButton, DruckKnopf, window.print() bzw. druckeSeite()) – weder selbst noch in
+ *                       einer direkt importierten Komponente aus src/app bzw. src/components (KAN-367).
+ *                       Begründete Ausnahme je Seite: „// druckknopf-ausnahme: <Grund ≥ 15 Zeichen>“.
  *
  * Ohne Abhängigkeiten (kein TypeScript-Parser): Katalog- und Register-Objekte werden mit einem
  * kleinen Scanner gelesen, der Strings, Template-Literale und Kommentare überspringt.
@@ -171,6 +175,51 @@ function objektEintraege(s, start) {
 
 function zeileVon(s, pos) { return s.slice(0, pos).split('\n').length }
 
+// ── 7) Druckknopf auf Seiten mit Marker (KAN-367, 22.10.2026) ──────────────────
+
+/** Druckknopf im Code: gemeinsame Knöpfe, eigener Knopf mit window.print() bzw. druckeSeite() aus lib/druck */
+const DRUCK_RE = /\b(?:DruckFormatKnopf|PrintButton|DruckKnopf|DruckenKnopf)\b|\bwindow\.print\s*\(|\bdruckeSeite\s*\(/
+const DRUCK_AUSNAHME = /druckknopf-ausnahme\b/i
+const DRUCK_AUSNAHME_MIT_GRUND = /druckknopf-ausnahme\s*:\s*\S.{14,}/i
+
+/** Quelltext ohne Kommentare (grob: Block- und Zeilenkommentare, URLs mit „://“ bleiben) */
+function ohneKommentare(s) {
+  return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+}
+
+/** Lokale Importe einer Seite, die einen Druckknopf tragen können (src/app, src/components – nicht src/lib) */
+function importPfade(text, datei) {
+  const out = []
+  for (const m of text.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)) {
+    const spec = m[1]
+    const basis = spec.startsWith('@/') ? path.join(SRC, spec.slice(2))
+      : spec.startsWith('.') ? path.resolve(path.dirname(datei), spec) : null
+    if (!basis) continue
+    const r = rel(basis)
+    if (!r.startsWith('src/app/') && !r.startsWith('src/components/')) continue
+    const f = ['', '.tsx', '.ts', '.jsx', '.js', '/index.tsx', '/index.ts']
+      .map(x => basis + x).find(x => fs.existsSync(x) && fs.statSync(x).isFile())
+    if (f) out.push(f)
+  }
+  return out
+}
+
+/**
+ * Hat eine Seite mit Marker einen Druckknopf? Geprüft werden die Seite selbst und ihre direkt importierten
+ * Komponenten (eine Ebene, z. B. ein Client-Formular mit window.print()).
+ * Ergebnis: 'ok' | 'ausnahme' | 'ausnahme_ohne_grund' | 'fehlt'
+ */
+function druckknopfBefund(seitenText, importTexte = []) {
+  if (DRUCK_AUSNAHME.test(seitenText)) {
+    const zeile = seitenText.split(/\r?\n/).find(z => DRUCK_AUSNAHME.test(z)) ?? ''
+    return DRUCK_AUSNAHME_MIT_GRUND.test(zeile) ? 'ausnahme' : 'ausnahme_ohne_grund'
+  }
+  return [seitenText, ...importTexte].some(t => DRUCK_RE.test(ohneKommentare(t))) ? 'ok' : 'fehlt'
+}
+
+module.exports = { druckknopfBefund, importPfade, ohneKommentare }
+if (require.main !== module) return
+
 // ── Katalog und Register lesen ─────────────────────────────────────────────────
 
 const gruppenDateien = d => (fs.existsSync(d) ? fs.readdirSync(d).filter(f => f.endsWith('.ts')).sort() : [])
@@ -319,6 +368,16 @@ for (const [id, e] of katalog) {
   }
 }
 
+// 7) Jede Seite mit Marker hat einen Druckknopf (Druck UND CSV)
+let druckAusnahmen = 0
+for (const f of markerJeDatei.keys()) {
+  const s = fs.readFileSync(f, 'utf8')
+  const befund = druckknopfBefund(s, importPfade(s, f).map(x => fs.readFileSync(x, 'utf8')))
+  if (befund === 'ausnahme') druckAusnahmen++
+  else if (befund === 'ausnahme_ohne_grund') funde.push(`${rel(f)}  DRUCKKNOPF  „druckknopf-ausnahme“ ohne Begründung (Schreibweise: // druckknopf-ausnahme: <Grund ≥ 15 Zeichen>)`)
+  else if (befund === 'fehlt') funde.push(`${rel(f)}  DRUCKKNOPF  Seite mit „// behoerdenmeldung:“ ohne Druckknopf – <DruckFormatKnopf /> (src/components/DruckFormatKnopf.tsx) neben den CSV-Knopf setzen`)
+}
+
 // 6) Einstiegsseiten der Übersicht
 const uebersichtDatei = path.join(BEHOERDEN, 'uebersicht.ts')
 if (fs.existsSync(uebersichtDatei)) {
@@ -351,4 +410,4 @@ if (funde.length) {
   process.exit(1)
 }
 const altfallText = altfallGesehen.size ? `, ${altfallGesehen.size} Altfall/Altfälle (ALTFAELLE)` : ''
-console.log(`✓ check-behoerden-csv: ${katalog.size} Meldungen in ${katalogGruppen.length} Gruppen, alle mit CSV-Route, Druckseite und Marker; ${ausnahmen} begründete Ausnahme(n)${altfallText}.`)
+console.log(`✓ check-behoerden-csv: ${katalog.size} Meldungen in ${katalogGruppen.length} Gruppen, alle mit CSV-Route, Druckseite und Marker; ${markerJeDatei.size} Seiten mit Marker, davon ${druckAusnahmen} ohne Druckknopf (begründet); ${ausnahmen} begründete Ausnahme(n)${altfallText}.`)

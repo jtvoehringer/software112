@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import EmcsPanel from './EmcsPanel'
 import { fmtNum } from '@/lib/format'
 import { landAnzeige } from '@/lib/katalog/laender'
@@ -122,7 +123,10 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           <div className="bg-white rounded-xl border border-s112-border p-5">
             <div className="flex items-start justify-between gap-3 mb-4">
               <h2 className="font-semibold text-s112-text">Weinpositionen</h2>
-              <CsvExportKnopf href={csvHref} label="Positionen als CSV" />
+              <span className="flex items-center gap-2">
+                <DruckFormatKnopf klein />
+                <CsvExportKnopf href={csvHref} label="Positionen als CSV" />
+              </span>
             </div>
             {zeilen.length === 0 ? (
               <p className="text-sm text-s112-muted">Keine Positionen erfasst.</p>

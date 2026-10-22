@@ -67,7 +67,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
   const leistung = r.leistung_von && r.leistung_bis && r.leistung_von !== r.leistung_bis ? `${d(r.leistung_von)} – ${d(r.leistung_bis)}` : d(r.leistung_von ?? r.datum)
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 print:space-y-3 max-w-3xl">
       <style>{`@media print { .no-print { display: none !important; } aside, nav, header { display: none !important; } }`}</style>
       <div className="flex flex-wrap gap-2 items-center justify-between no-print">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
@@ -96,13 +96,13 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
         </p>
       )}
 
-      <div className="card p-6 text-sm text-s112-text">
+      <div className="card p-6 print:p-3 text-sm text-s112-text">
         {/* Briefkopf */}
-        <div className="flex justify-between items-start mb-8 gap-4">
+        <div className="flex justify-between items-start mb-8 print:mb-4 gap-4">
           <div>
             {s.logo_url && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={s.logo_url} alt="Logo" className="h-14 mb-3 object-contain" />
+              <img src={s.logo_url} alt="Logo" className="h-14 mb-3 print:h-10 print:mb-1 object-contain" />
             )}
             <p className="font-semibold text-base">{s.betrieb_name ?? s.anzeigename ?? 'Weingut'}</p>
             {s.betrieb_strasse && <p>{s.betrieb_strasse}</p>}
@@ -120,7 +120,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         {/* Empfänger */}
-        <div className="mb-8 p-4 border border-s112-line rounded-sm inline-block min-w-[220px]">
+        <div className="mb-8 print:mb-4 p-4 print:p-3 border border-s112-line rounded-sm inline-block min-w-[220px]">
           <p className="font-semibold text-base">{kunde}</p>
           {r.zh_kontakt && <p className="text-s112-text-1">z.H. {kontaktAnzeigename(r.zh_kontakt as R)}</p>}
           {anschrift.strasse && <p className="text-s112-text-2">{anschrift.strasse}</p>}
@@ -174,7 +174,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
         {r.notizen && <p className="mt-4 text-sm text-s112-muted italic">{r.notizen}</p>}
 
         {/* Zahlung */}
-        <div className="mt-8 pt-6 border-t border-s112-line space-y-2">
+        <div className="mt-8 pt-6 print:mt-4 print:pt-3 break-inside-avoid border-t border-s112-line space-y-2">
           {r.skonto_aktiv && Number(r.skonto_pct) > 0 && (
             <p className="text-s112-warn-fg">{r.skonto_pct}% Skonto bei Zahlung binnen {r.skonto_tage ?? 0} Tagen: {fmtEur(summen.brutto * (1 - Number(r.skonto_pct) / 100))}</p>
           )}
