@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import { useState, useTransition } from 'react'
 import { updateMemberRole, updateMemberModule, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
@@ -161,11 +162,7 @@ export default function BenutzerClient({ members, limit }: Props) {
           {error}
         </div>
       )}
-      {success && (
-        <div role="status" className="mb-4 p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">
-          {success}
-        </div>
-      )}
+      <ErfolgsMeldung text={success} />{/* KAN-359: Erfolg als Pop-up */}
 
       {/* ── Rollen erklärt ── */}
       <div className="mb-4 bg-s112-blue-50 border border-s112-blue-100 rounded-xl px-4 py-3 text-sm text-s112-text-1 flex gap-2.5">

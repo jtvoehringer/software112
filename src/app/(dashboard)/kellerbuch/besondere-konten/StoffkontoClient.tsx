@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // ── Besondere Konten – Formulare und Kontoauszug (KAN-107, 07.10.2026) ──
 import { useState, useTransition } from 'react'
@@ -112,7 +113,7 @@ export function KontoBuchen({ kellermittelId, einheit }: { kellermittelId: strin
       {art !== 'zugang' && <label className="text-xs text-s112-text-2 md:col-span-3">Notiz<input name="notizen" className={`${inp} block w-full`} /></label>}
       <button disabled={pending} className="px-3 py-2 rounded-lg text-sm font-semibold bg-s112-teal text-s112-yellow disabled:opacity-50">Buchen</button>
       {fehler && <p role="alert" className="col-span-full text-sm text-s112-err-fg">{fehler}</p>}
-      {hinweis && <p role="status" className="col-span-full text-sm text-s112-ok-fg">{hinweis}</p>}
+      <ErfolgsMeldung text={hinweis} />{/* KAN-359: Erfolg als Pop-up */}
     </form>
   )
 }

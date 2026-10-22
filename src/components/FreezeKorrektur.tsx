@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // ── „Mit Grund korrigieren“ (KAN-196, 06.10.2026) ──────────────────────────────────────────────────────
 // Baustein für gesperrte Datensätze (Freeze, KAN-96): nur für die Betriebsleitung eingeblendet (die Seite entscheidet,
@@ -60,7 +61,7 @@ export default function FreezeKorrektur({ tabelle, id, felder, werte, hinweis }:
           className="inline-flex items-center gap-1.5 text-xs border border-s112-warn/40 text-s112-warn-fg px-3 py-1.5 rounded-lg hover:bg-s112-warn-bg font-medium">
           <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" /> Mit Grund korrigieren (Betriebsleitung)
         </button>
-        {erfolg && <span role="status" className="text-xs text-s112-ok-fg">Korrektur gespeichert und protokolliert.</span>}
+        <ErfolgsMeldung text={erfolg && 'Korrektur gespeichert und protokolliert.'} />{/* KAN-359: Erfolg als Pop-up */}
       </div>
     )
   }

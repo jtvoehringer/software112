@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // „Schwund buchen“ auf der Chargen-Seite (KAN-35, 24.09.2026): datierte Schwundzeile im
 // Bewegungsbuch UND Bestand der Charge mindern (Server Action schwundBuchen → RPC
@@ -103,7 +104,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
         <p className="text-xs text-s112-warn-fg mt-2">Nach dieser Buchung ist die Charge leer und wird abgeschlossen.</p>
       )}
       {fehler && <p role="alert" className="text-xs text-s112-err-fg mt-2">{fehler}</p>}
-      {ok && <p role="status" className="text-xs text-s112-ok-fg mt-2">{ok}</p>}
+      <ErfolgsMeldung text={ok} />{/* KAN-359: Erfolg als Pop-up */}
     </details>
   )
 }

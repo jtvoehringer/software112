@@ -170,6 +170,21 @@ describe('KAN-359: Bausteine und Einbindung', () => {
     assert.match(z, /p\.delete\(ERLEDIGT_PARAM\)/)
     assert.doesNotMatch(z, /role="status"/)
   })
+  test('grüne „Gespeichert“-Kästen der Formulare melden über das Erfolgs-Pop-up statt im Formular', () => {
+    const dateien = [
+      'src/app/(dashboard)/admin/benutzer/SystemAdminClient.tsx', 'src/app/(dashboard)/admin/mandanten/[id]/MandantDetailClient.tsx',
+      'src/app/(dashboard)/benutzer/BenutzerClient.tsx', 'src/app/(dashboard)/weinhandel/fuellungen/[id]/edit/BestandKorrigierenForm.tsx',
+      'src/app/(dashboard)/kellerbuch/weinausbau/[id]/SchwundBuchenForm.tsx', 'src/app/(dashboard)/weinhandel/sonstige-artikel/[id]/ProduktLagerClient.tsx',
+      'src/app/(dashboard)/kellerbuch/besondere-konten/StoffkontoClient.tsx', 'src/components/FreezeKorrektur.tsx',
+      'src/components/PasskeyVerwaltung.tsx', 'src/components/ui/AktionsFormular.tsx',
+    ]
+    for (const d of dateien) {
+      const s = quelle(d)
+      assert.match(s, /import ErfolgsMeldung from '@\/components\/ErfolgsMeldung'/, d)
+      assert.match(s, /<ErfolgsMeldung text=\{/, d)
+      assert.doesNotMatch(s, /\{(success|ok|erfolg|hinweis|meldung) && <(p|div|span) role="status"/, d)
+    }
+  })
   test('ErfolgsMeldung meldet den Text beim Setzen bzw. Ändern', () => {
     assert.match(quelle('src/components/ErfolgsMeldung.tsx'), /useEffect\(\(\) => \{\n\s*if \(text\) zeigeErfolg\(text\)\n\s*\}, \[text\]\)/)
   })

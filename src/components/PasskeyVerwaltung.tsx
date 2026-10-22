@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // KAN-287 (10.10.2026): Passkeys des angemeldeten Benutzers – einrichten, anzeigen, entfernen. Die Abfrage läuft nur auf
 // der Basis-Adresse (eine Origin je Hauptdomain in Supabase); auf einer Betriebs-Subdomain führt ein Link dorthin.
@@ -75,7 +76,7 @@ export default function PasskeyVerwaltung() {
           </button>
         </>
       )}
-      {meldung && <p role="status" className="text-xs text-s112-ok-fg">{meldung}</p>}
+      <ErfolgsMeldung text={meldung} />{/* KAN-359: Erfolg als Pop-up */}
       {fehler && <p role="alert" className="text-xs text-s112-err-fg">{fehler}</p>}
     </div>
   )

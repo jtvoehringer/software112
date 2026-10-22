@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -138,9 +139,7 @@ export default function BestandKorrigierenForm({
       {fehler && (
         <p role="alert" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-4 py-2">{fehler}</p>
       )}
-      {erfolg && (
-        <p role="status" className="text-sm text-s112-ok-fg bg-s112-ok-bg border border-s112-ok/30 rounded-lg px-4 py-2">{erfolg}</p>
-      )}
+      <ErfolgsMeldung text={erfolg} />{/* KAN-359: Erfolg als Pop-up */}
 
       <button
         type="submit"

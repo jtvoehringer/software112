@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -51,7 +52,7 @@ export default function AktionsFormular({
           {fehler}
         </p>
       )}
-      {ok && <p role="status" className="basis-full w-full text-sm text-s112-ok-fg">{ok}</p>}
+      <ErfolgsMeldung text={ok} />{/* KAN-359: Erfolg als Pop-up */}
     </form>
   )
 }

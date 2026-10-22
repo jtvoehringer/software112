@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import Link from '@/components/ui/Link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -309,7 +310,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
   return (
     <div className="space-y-4">
       {error   && <div role="alert" className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
-      {success && <div role="status" className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
+      <ErfolgsMeldung text={success} />{/* KAN-359: Erfolg als Pop-up */}
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
