@@ -66,8 +66,9 @@ describe('KAN-338: Wann erscheint das Pop-up', nurMitHooks, () => {
 })
 
 describe('KAN-338: Baustein, Einbindung und Wächter', () => {
-  test('MeldungsPopup im App-Rahmen; Fehler bleiben, Bestätigungen verschwinden, Esc schließt, „Zur Meldung“', () => {
-    assert.match(quelle('src/components/layout/AppShell.tsx'), /<MeldungsPopup \/>/)
+  test('MeldungsPopup im Root-Layout (KAN-359); Fehler bleiben, Bestätigungen verschwinden, Esc schließt, „Zur Meldung“', () => {
+    assert.match(quelle('src/app/layout.tsx'), /<MeldungsPopup \/>/)
+    assert.doesNotMatch(quelle('src/components/layout/AppShell.tsx'), /<MeldungsPopup \/>/)   // nur eine Stelle
     const p = quelle('src/components/MeldungsPopup.tsx')
     assert.match(p, /new MutationObserver/)
     assert.match(p, /document\.addEventListener\('submit', merke, true\)/)

@@ -20,6 +20,8 @@ import './globals.css'
 import ServiceWorker from '@/components/pwa/ServiceWorker'
 import ZahlenfeldMausrad from '@/components/ZahlenfeldMausrad'
 import UngespeichertSchutz from '@/components/UngespeichertSchutz'
+import MeldungsPopup from '@/components/MeldungsPopup'
+import RueckfrageDialog from '@/components/RueckfrageDialog'
 
 export const metadata: Metadata = {
   title: {
@@ -65,6 +67,10 @@ export default function RootLayout({
         <ZahlenfeldMausrad />
         {/* Sweep 119: Rückfrage vor dem Verlassen geänderter Formulare (data-ungespeichert) */}
         <UngespeichertSchutz />
+        {/* KAN-338/359: eine Stelle für Pop-ups (Fehler-Hinweis „Zur Meldung“, Erfolg) und der Rückfrage-Dialog statt
+            window.confirm – Konzept docs/Meldungskonzept.md */}
+        <MeldungsPopup />
+        <RueckfrageDialog />
       </body>
     </html>
   )
