@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { schwundAusbuchen } from '../../../actions'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // Restmenge der Charge als Schwund ausbuchen (KAN-35, 24.09.2026): eigenes Bedienelement
 // AUSSERHALB des Bearbeiten-Formulars (vorher verschachteltes <form>). Die Buchung wird
@@ -28,15 +29,19 @@ export default function SchwundAusbuchenKnopf({
   const [fehler, setFehler] = useState<string | null>(null)
   const gross = fuellmenge > 0 && liter > fuellmenge * 0.2
 
-  function handleClick() {
+  async function handleClick() {
     const text =
-      `${fmtNum(liter, 2)} L Restbestand der Charge „${chargeName}“ als Schwund ausbuchen und die Charge abschließen?\n\n` +
       'Die Buchung wird mit dem Abfülldatum ins Bewegungsbuch des Gebindes eingetragen.' +
       (gross
         ? `\n\nACHTUNG: Das sind mehr als 20 % der Füllmenge dieser Füllung (${fmtNum(fuellmenge, 2)} L). ` +
-          'Wurde die Charge nur teilweise abgefüllt, bitte abbrechen – der Rest bleibt dann im Tank.'
+          'Wurde die Charge nur teilweise abgefüllt, brich bitte ab – der Rest bleibt dann im Tank.'
         : '')
-    if (!window.confirm(text)) return
+    if (!(await rueckfrage({
+      titel: `${fmtNum(liter, 2)} L Restbestand der Charge „${chargeName}“ als Schwund ausbuchen und die Charge abschließen?`,
+      text,
+      bestaetigen: 'Ausbuchen',
+      gefaehrlich: true,
+    }))) return
     setFehler(null)
     startTransition(async () => {
       try {

@@ -100,6 +100,8 @@ export default function FuellungFormClient({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  // KAN-359: angelegt, aber ein Folgeschritt fehlt – Hinweis bleibt am Formular, erneutes Anlegen gesperrt
+  const [angelegt, setAngelegt] = useState<{ id: string; hinweis: string } | null>(null)
   const defaultCharge = chargen.find(c => c.id === defaultChargeId) ?? null
 
   const [selectedChargeId, setSelectedChargeId] = useState(defaultChargeId ?? '')
@@ -228,9 +230,9 @@ export default function FuellungFormClient({
         const r = await action(fd)
         if (r?.hinweis) {
           // Füllung ist angelegt, ein Folgeschritt (z. B. Schwundbuchung) fehlte – nicht erneut
-          // absenden (sonst doppelte Füllung), sondern in der Bearbeitung nachholen
-          window.alert(r.hinweis)
-          router.push(`/weinhandel/fuellungen/${r.id}/edit`)
+          // absenden (sonst doppelte Füllung), sondern in der Bearbeitung nachholen.
+          // KAN-359: Hinweis am Formular (statt Browser-Dialog) mit „Weiter zur Bearbeitung“; Anlegen gesperrt
+          setAngelegt({ id: r.id, hinweis: r.hinweis })
           return
         }
         router.push(zielNachVorgang('/weinhandel', 'abfuellung'))   // KAN-224: zurück, woher man kam
@@ -663,10 +665,21 @@ export default function FuellungFormClient({
         <p role="alert" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-4 py-2">{error}</p>
       )}
 
+      {angelegt && (
+        <div role="alert" className="text-sm text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-4 py-3 space-y-2">
+          <p className="font-semibold">Füllung angelegt – ein Schritt fehlt noch.</p>
+          <p className="whitespace-pre-line">{angelegt.hinweis}</p>
+          <button type="button" onClick={() => router.push(`/weinhandel/fuellungen/${angelegt.id}/edit`)}
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90">
+            Weiter zur Bearbeitung
+          </button>
+        </div>
+      )}
+
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={isPending || ueberabfuellung}
+          disabled={isPending || ueberabfuellung || angelegt !== null}
           className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
           {isPending ? 'Wird angelegt …' : 'Füllung anlegen'}
         </button>

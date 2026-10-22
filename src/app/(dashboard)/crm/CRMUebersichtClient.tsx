@@ -8,6 +8,7 @@ import { X, Lock, Pencil, Calendar, Check, Trash2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
 import { tastaturBedienbar } from '@/lib/ui/tastatur'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -954,8 +955,8 @@ function ZeitachseView({
                   </a>
                 )}
                 {(viewAkt.typ === 'aktivitaet' || viewAkt.typ === 'pipeline') && (
-                  <button onClick={() => {
-                    if (!confirm(`"${viewAkt.titel}" wirklich löschen?`)) return
+                  <button onClick={async () => {
+                    if (!(await rueckfrage({ titel: `„${viewAkt.titel}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
                     setSaveErr(null)
                     startTransition(async () => {
                       try {

@@ -1,10 +1,12 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import { useState, useTransition } from 'react'
 import { updateMemberRole, updateMemberModule, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
 import type { MemberWithEmail } from './actions'
 import { MODULE, MODUL_VORLAGEN, type Modul } from '@/lib/auth/module'
 import { Users, Info } from 'lucide-react'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
@@ -127,8 +129,8 @@ export default function BenutzerClient({ members, limit }: Props) {
     })
   }
 
-  const handleRemove = (membershipId: string, email: string) => {
-    if (!confirm(`Mitglied "${email}" wirklich entfernen?`)) return
+  const handleRemove = async (membershipId: string, email: string) => {
+    if (!(await rueckfrage({ titel: `Mitglied „${email}“ entfernen?`, text: 'Die Person hat danach keinen Zugriff mehr auf diesen Betrieb.', bestaetigen: 'Entfernen', gefaehrlich: true }))) return
     setError(null)
     startTransition(async () => {
       const result = await removeMember(membershipId)
@@ -160,11 +162,7 @@ export default function BenutzerClient({ members, limit }: Props) {
           {error}
         </div>
       )}
-      {success && (
-        <div role="status" className="mb-4 p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">
-          {success}
-        </div>
-      )}
+      <ErfolgsMeldung text={success} />{/* KAN-359: Erfolg als Pop-up */}
 
       {/* ── Rollen erklärt ── */}
       <div className="mb-4 bg-s112-blue-50 border border-s112-blue-100 rounded-xl px-4 py-3 text-sm text-s112-text-1 flex gap-2.5">
@@ -257,8 +255,8 @@ export default function BenutzerClient({ members, limit }: Props) {
                     <button
                       type="button"
                       disabled={isPending}
-                      onClick={() => {
-                        if (m.aktiv && !confirm(`Zugriff für "${m.email}" auf diesen Betrieb wirklich deaktivieren?`)) return
+                      onClick={async () => {
+                        if (m.aktiv && !(await rueckfrage({ titel: `Zugriff für „${m.email}“ deaktivieren?`, text: 'Die Person kann diesen Betrieb danach nicht mehr öffnen, bis du sie wieder aktivierst.', bestaetigen: 'Deaktivieren', gefaehrlich: true }))) return
                         handleToggleAktiv(m.id, !m.aktiv)
                       }}
                       title={m.aktiv ? 'Klicken zum Deaktivieren' : 'Klicken zum Aktivieren'}

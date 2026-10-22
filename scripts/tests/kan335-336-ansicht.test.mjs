@@ -33,7 +33,11 @@ test('Nachbesserung: Dokument scrollt nicht, Bleiben ohne Next.js-Scroll, Bestä
     assert.match(s, /router\.replace\(hierBleiben\(\), \{ scroll: false \}\)/, f)
     assert.doesNotMatch(s, /router\.replace\(hierBleiben\(\)\)/, f)
   }
-  assert.match(quelle('src/components/layout/ZurueckLeiste.tsx'), /if \(erledigt\) document\.getElementById\('inhalt'\)\?\.scrollTo\(\{ top: 0 \}\)/)
+  // KAN-359: Die Bestätigung kommt als Erfolgs-Pop-up (fest positioniert) – kein Scrollen nötig; der Parameter fällt ohne
+  // Next.js-Scroll aus der URL
+  const zl = quelle('src/components/layout/ZurueckLeiste.tsx')
+  assert.match(zl, /zeigeErfolg\(erledigt\)/)
+  assert.match(zl, /router\.replace\(`\$\{pathname\}\$\{p\.toString\(\) \? `\?\$\{p\}` : ''\}`, \{ scroll: false \}\)/)
 })
 
 test('Dialoge (Gebinde, Kellerplan) haben einen eigenen Scrollbereich', () => {

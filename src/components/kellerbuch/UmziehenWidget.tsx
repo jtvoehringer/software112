@@ -8,6 +8,7 @@ import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import Link from '@/components/ui/Link'
 import { verschnittHinweis, type VerschnittHinweisDaten } from '@/lib/kellerbuch/verschnittHinweis'
 import { heuteWien } from '@/lib/datum/wien'
@@ -127,7 +128,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         let result = await action(fd)
         // KAN-83: Zusammenführung mit einer Charge mit Prüfnummer – nur nach Bestätigung buchen
         if (result?.bestaetigung) {
-          if (!window.confirm(result.bestaetigung)) return
+          if (!(await serverRueckfrage(result.bestaetigung))) return
           fd.set('pn_bestaetigt', '1')
           fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await action(fd)

@@ -9,6 +9,7 @@ import { fehlerText } from '@/lib/fehler'
 import { updateJahrgang, deleteJahrgang } from './actions'
 import { erntemeldungRahmenText, leseArtText, leseNummer, leseZeitraumText } from '@/lib/wein/lesen'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 const QUALITAET_LABEL: Record<string, string> = {
   sehr_gut: 'Sehr gut', gut: 'Gut',
@@ -58,14 +59,19 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
 
   const amaBadge = j.ama_status ? AMA_STATUS_BADGE[j.ama_status] : null
 
-  function handleDelete() {
+  async function handleDelete() {
     // KAN-35: Sperrgrund vorab zeigen (der Server prüft dieselben Regeln noch einmal)
     if (j.loeschsperre) { setFehler(j.loeschsperre); return }
     const umfang = [
       j.parzellen_count > 0 ? `${j.parzellen_count} ${j.parzellen_count === 1 ? 'Lese-Eintrag' : 'Lese-Einträge'}` : null,
       j.ama_status ? 'die AMA-Erntemeldung (noch nicht eingereicht)' : null,
     ].filter(Boolean).join(' und ')
-    if (!confirm(`Jahrgang ${j.jahrgang}${umfang ? ` samt ${umfang}` : ''} wirklich löschen?`)) return
+    if (!(await rueckfrage({
+      titel: `Jahrgang ${j.jahrgang} löschen?`,
+      text: umfang ? `Gelöscht werden auch ${umfang}.` : null,
+      bestaetigen: 'Löschen',
+      gefaehrlich: true,
+    }))) return
     setFehler(null)
     startTransition(async () => {
       try {

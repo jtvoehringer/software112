@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // „Schwund buchen“ auf der Chargen-Seite (KAN-35, 24.09.2026): datierte Schwundzeile im
 // Bewegungsbuch UND Bestand der Charge mindern (Server Action schwundBuchen → RPC
@@ -14,6 +15,7 @@ import { fmtLiter, zahlAus } from '@/lib/format'
 import { SCHWUND_STORNO_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 interface Props {
   bestandLiter: number
@@ -34,7 +36,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
   const restNachher = liter != null ? bestandLiter - liter : null
   const schliesstAb = restNachher != null && restNachher <= 0.01 && !zuViel
 
-  function absenden(e: React.FormEvent<HTMLFormElement>) {
+  async function absenden(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setFehler(null)
     setOk(null)
@@ -42,7 +44,12 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
     const gf = schwundGrundFehler(notiz)   // KAN-174 D: Begründung Pflicht
     if (gf) { setFehler(gf); return }
     if (zuViel) { setFehler(`Die Schwundmenge übersteigt den Bestand der Charge (${fmtLiter(bestandLiter)}).`); return }
-    if (schliesstAb && !window.confirm('Nach diesem Schwund ist die Charge leer und wird abgeschlossen. Fortfahren?')) return
+    if (schliesstAb && !(await rueckfrage({
+      titel: 'Charge abschließen?',
+      text: 'Nach diesem Schwund ist die Charge leer und wird abgeschlossen.',
+      bestaetigen: 'Schwund buchen',
+      gefaehrlich: true,
+    }))) return
     const fd = new FormData()
     fd.set('menge', menge)
     fd.set('datum', datum)
@@ -97,7 +104,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
         <p className="text-xs text-s112-warn-fg mt-2">Nach dieser Buchung ist die Charge leer und wird abgeschlossen.</p>
       )}
       {fehler && <p role="alert" className="text-xs text-s112-err-fg mt-2">{fehler}</p>}
-      {ok && <p role="status" className="text-xs text-s112-ok-fg mt-2">{ok}</p>}
+      <ErfolgsMeldung text={ok} />{/* KAN-359: Erfolg als Pop-up */}
     </details>
   )
 }

@@ -8,6 +8,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, type MassnahmenArt } from '@/lib/behandlungen/arten'
 import { heuteWien } from '@/lib/datum/wien'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // Arten wie saetze_massnahmen_art_check (ohne Lese) – aus lib/behandlungen/arten.ts
 const ART_OPTS = MASSNAHMEN_ARTEN.map(value => ({ value, label: MASSNAHMEN_ART_LABEL[value] }))
@@ -108,8 +109,8 @@ export default function SaetzeClient({
   const [editId, setEditId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  function handleDeactivate(id: string) {
-    if (!confirm('Satz deaktivieren?')) return
+  async function handleDeactivate(id: string) {
+    if (!(await rueckfrage({ titel: 'Satz deaktivieren?', bestaetigen: 'Deaktivieren' }))) return
     startTransition(() => deactivateSatzMassnahme(id))
   }
 

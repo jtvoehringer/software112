@@ -89,7 +89,9 @@ describe('KAN-106/KAN-114: Verdrahtung', () => {
     const b = quelle(`${D}/KellerplanBuchen.tsx`)
     assert.match(b, /import \{ umziehen \} from '\.\.\/\.\.\/umziehen\/actions'/)
     assert.match(b, /useState\(quelle \? String\(quelle\.menge_liter\)/)
-    assert.match(b, /if \(!window\.confirm\(r\.bestaetigung\)\) return\n\s+fd\.set\('pn_bestaetigt', '1'\)\n\s+fd\.set\('rotweiss_bestaetigt', '1'\)/)
+    // KAN-359: Rückfrage über den eigenen Dialog statt window.confirm
+    assert.match(b, /if \(!\(await serverRueckfrage\(r\.bestaetigung\)\)\) return\n\s+fd\.set\('pn_bestaetigt', '1'\)\n\s+fd\.set\('rotweiss_bestaetigt', '1'\)/)
+    assert.doesNotMatch(b, /window\.confirm/)
     assert.match(b, /disabled=\{pending \|\| bewertung\.art === 'gesperrt'\}/)
   })
 })

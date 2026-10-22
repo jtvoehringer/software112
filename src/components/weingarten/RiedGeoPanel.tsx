@@ -10,6 +10,7 @@ import { MapPin, Navigation, LocateFixed, Trash2, Download } from 'lucide-react'
 import RiedKarte, { type KartenUmriss } from './RiedKarte'
 import { fmtKoord, googleMapsUrl, navigationUrl, parseKoordinaten, inOesterreich } from '@/lib/geo/rieden'
 import { speichereRiedGeo, loescheRiedGeo } from '@/app/(dashboard)/weingarten/actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function RiedGeoPanel({
   weingartenId, name, lat, lon, geometrie, weitere = [], geoQuelle, geoStand, writeOk,
@@ -52,12 +53,14 @@ export default function RiedGeoPanel({
     if (r?.error) setMeldung({ text: r.error, fehler: true })
     else { setDirty(false); setMeldung({ text: r?.anzahl && r.anzahl > 1 ? `Gespeichert – für alle ${r.anzahl} Weingärten dieser Ried.` : 'Gespeichert.' }) }
   })
-  const loeschen = () => start(async () => {
-    if (!confirm('Koordinaten dieser Ried entfernen?')) return
-    const r = await loescheRiedGeo(weingartenId)
-    if (r?.error) setMeldung({ text: r.error, fehler: true })
-    else { setPos(null); setEingabe(''); setDirty(false); setMeldung({ text: 'Koordinaten entfernt.' }) }
-  })
+  const loeschen = async () => {
+    if (!(await rueckfrage({ titel: 'Koordinaten dieser Ried entfernen?', bestaetigen: 'Entfernen', gefaehrlich: true }))) return
+    start(async () => {
+      const r = await loescheRiedGeo(weingartenId)
+      if (r?.error) setMeldung({ text: r.error, fehler: true })
+      else { setPos(null); setEingabe(''); setDirty(false); setMeldung({ text: 'Koordinaten entfernt.' }) }
+    })
+  }
 
   const warnung = pos && !inOesterreich(pos.lat, pos.lon) ? 'Punkt liegt außerhalb Österreichs – Breite und Länge vertauscht?' : null
 

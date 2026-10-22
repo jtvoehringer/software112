@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // KAN-287 (10.10.2026): Passkeys des angemeldeten Benutzers – einrichten, anzeigen, entfernen. Die Abfrage läuft nur auf
 // der Basis-Adresse (eine Origin je Hauptdomain in Supabase); auf einer Betriebs-Subdomain führt ein Link dorthin.
@@ -6,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { passkeyFehlerText, passkeyMoeglich, passkeyName, type PasskeyEintrag } from '@/lib/auth/passkey'
 import { subdomainAusHost, subdomainUrl } from '@/lib/tenant/subdomain'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function PasskeyVerwaltung() {
   const supabase = createSupabaseBrowserClient()
@@ -44,7 +46,7 @@ export default function PasskeyVerwaltung() {
   }
 
   const entfernen = async (p: PasskeyEintrag) => {
-    if (!confirm(`Passkey „${p.friendly_name ?? 'Passkey'}“ entfernen? Die Anmeldung damit ist dann nicht mehr möglich.`)) return
+    if (!(await rueckfrage({ titel: `Passkey „${p.friendly_name ?? 'Passkey'}“ entfernen?`, text: 'Die Anmeldung damit ist dann nicht mehr möglich.', bestaetigen: 'Entfernen', gefaehrlich: true }))) return
     setLaeuft(true); setFehler(null); setMeldung(null)
     try {
       const { error } = await supabase.auth.passkey.delete({ passkeyId: p.id })
@@ -74,7 +76,7 @@ export default function PasskeyVerwaltung() {
           </button>
         </>
       )}
-      {meldung && <p role="status" className="text-xs text-s112-ok-fg">{meldung}</p>}
+      <ErfolgsMeldung text={meldung} />{/* KAN-359: Erfolg als Pop-up */}
       {fehler && <p role="alert" className="text-xs text-s112-err-fg">{fehler}</p>}
     </div>
   )

@@ -6,6 +6,7 @@ import { upsertDuengemittel, deactivateDuengemittel } from './actions'
 import type { DuengemittelEintrag } from './page'
 import { fehlerText } from '@/lib/fehler'
 import { LagerJahrKopf, LagerJahrZellen, LagerJahrHinweis } from './LagerJahrSpalten'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 const TYP_OPTS = [
   { value: 'organisch',  label: 'Organisch' },
@@ -164,8 +165,8 @@ export default function DuengemittelClient({
   const [editId, setEditId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  function handleDeactivate(id: string) {
-    if (!confirm('Düngemittel deaktivieren? Es bleibt in bestehenden Maßnahmen erhalten.')) return
+  async function handleDeactivate(id: string) {
+    if (!(await rueckfrage({ titel: 'Düngemittel deaktivieren?', text: 'Es bleibt in bestehenden Maßnahmen erhalten.', bestaetigen: 'Deaktivieren' }))) return
     startTransition(() => deactivateDuengemittel(id))
   }
 

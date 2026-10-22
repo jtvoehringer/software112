@@ -18,6 +18,7 @@ import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
 import { quellGebinde, selbesGebindeFehler, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -254,7 +255,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
         let result = await umziehen(fd)
         // KAN-83: Zusammenführung mit einer Charge mit Prüfnummer – nur nach Bestätigung buchen
         if (result?.bestaetigung) {
-          if (!window.confirm(result.bestaetigung)) return
+          if (!(await serverRueckfrage(result.bestaetigung))) return
           fd.set('pn_bestaetigt', '1')
           fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await umziehen(fd)

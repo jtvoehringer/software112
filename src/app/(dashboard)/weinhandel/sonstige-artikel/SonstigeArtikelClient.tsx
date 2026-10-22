@@ -6,6 +6,7 @@ import { upsertSonstigesArtikel, toggleAktivSonstigesArtikel, deleteSonstigesArt
 import { useRouter } from 'next/navigation'
 import { fmtEur } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 import Link from '@/components/ui/Link'
 import { zahlLokal } from '@/lib/format'
 import { PRODUKT_ART_LABEL, istProduktArt } from '@/lib/warenwirtschaft/sonstigeProdukte'
@@ -56,8 +57,8 @@ function ArtikelRow({ artikel, onRefresh, lager }: { artikel: Artikel; onRefresh
     })
   }
 
-  function handleDelete() {
-    if (!confirm(`"${artikel.name}" wirklich löschen?`)) return
+  async function handleDelete() {
+    if (!(await rueckfrage({ titel: `Artikel „${artikel.name}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
     setError(null)
     startTransition(async () => {
       const result = await deleteSonstigesArtikel(artikel.id)

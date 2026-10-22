@@ -99,7 +99,9 @@ describe('KAN-100 Verdrahtung', () => {
   test('Seite schreibt Behandlungen und Typen nur noch über Server Actions', () => {
     assert.doesNotMatch(seite, /from\('keller_behandlungen'\) as any\)\s*\.(insert|update)/)
     assert.doesNotMatch(seite, /from\('keller_behandlungstypen'\) as any\)\s*\.insert/)
-    assert.match(seite, /let r = await speichereKellerbehandlung\(fd\)\n\s*if \(r\.bestaetigung\) \{\n\s*if \(!window\.confirm\(r\.bestaetigung\)\) return\n\s*fd\.set\('pn_bestaetigt', '1'\)/)
+    // KAN-359: Rückfrage über den eigenen Dialog (serverRueckfrage) statt window.confirm
+    assert.match(seite, /let r = await speichereKellerbehandlung\(fd\)\n\s*if \(r\.bestaetigung\) \{\n\s*if \(!\(await serverRueckfrage\(r\.bestaetigung, 'Trotzdem speichern'\)\)\) return\n\s*fd\.set\('pn_bestaetigt', '1'\)/)
+    assert.doesNotMatch(seite, /window\.confirm/)
   })
   test('Action: Schreibrecht Kellerbuch, Rückfrage nur bei Veränderung, Warnung bei nicht eingestuftem Typ', () => {
     const f = act.slice(act.indexOf('export async function speichereKellerbehandlung'), act.indexOf('export async function createKellerbehandlung'))
@@ -119,7 +121,9 @@ describe('KAN-100 Verdrahtung', () => {
     const f = act.slice(act.indexOf('export async function updateWeinausbau'), act.indexOf('// ANALYSEN'))
     assert.match(f, /if \(gleicheQualitaet\(altQualitaet, neuQualitaet\)\) \{\n\s*delete payload\.qualitaetsstufe; delete payload\.zusatzbezeichnung; delete payload\.erzeugnis/)
     assert.match(f, /pruefePruefnummernSchaden\(supabase, tenantId, 'abstufung'/)
-    assert.match(quelle('src/components/kellerbuch/WeinausbauForm.tsx'), /if \(r\?\.bestaetigung\) \{\n\s*if \(!window\.confirm\(r\.bestaetigung\)\)/)
+    const wf = quelle('src/components/kellerbuch/WeinausbauForm.tsx')
+    assert.match(wf, /if \(r\?\.bestaetigung\) \{\n\s*if \(!\(await serverRueckfrage\(r\.bestaetigung, 'Trotzdem speichern'\)\)\) \{ setSaving\(false\); return \}\n\s*normalized\.set\('pn_bestaetigt', '1'\)/)
+    assert.doesNotMatch(wf, /window\.confirm/)
   })
   test('Lader: Behandlungen vom Typ Veränderung sind Zugänge, Ende-Arten Behandlung/Abstufung', () => {
     const l = quelle('src/lib/kellerbuch/pruefnummerLaden.ts')

@@ -25,35 +25,45 @@ describe('bezugText – Zähler wie die Meldung der Datenbank', () => {
 })
 
 describe('loeschenOderDeaktivieren – Dialogablauf', () => {
+  // KAN-359: Rückfrage (rueckfrage) und Fehlermeldung (Meldung am Formular) übergibt der Aufrufer – keine Browser-Dialoge
   const mitDialog = async (antwort, fn) => {
     const meldungen = []
-    globalThis.confirm = m => { meldungen.push(['confirm', m]); return antwort }
-    globalThis.alert = m => { meldungen.push(['alert', m]) }
-    try { return { ergebnis: await fn(), meldungen } } finally { delete globalThis.confirm; delete globalThis.alert }
+    const m = {
+      frage: async o => { meldungen.push(['frage', o]); return antwort },
+      fehler: t => { meldungen.push(['fehler', t]) },
+    }
+    return { ergebnis: await fn(m), meldungen }
   }
   test('ohne Bezug: gelöscht, kein Dialog, nicht deaktiviert', async () => {
     let deaktiviert = false
-    const r = await mitDialog(true, () => d.loeschenOderDeaktivieren(async () => ({}), async () => { deaktiviert = true }))
+    const r = await mitDialog(true, m => d.loeschenOderDeaktivieren(async () => ({}), async () => { deaktiviert = true }, m))
     assert.equal(r.ergebnis, 'geloescht')
     assert.deepEqual(r.meldungen, [])
     assert.equal(deaktiviert, false)
   })
   test('mit Bezug und Zustimmung: deaktiviert', async () => {
     let deaktiviert = false
-    const r = await mitDialog(true, () => d.loeschenOderDeaktivieren(async () => ({ error: '„X“ hat noch 2 Verkäufe', deaktivierbar: true }), async () => { deaktiviert = true; return {} }))
+    const r = await mitDialog(true, m => d.loeschenOderDeaktivieren(async () => ({ error: '„X“ hat noch 2 Verkäufe', deaktivierbar: true }), async () => { deaktiviert = true; return {} }, m))
     assert.equal(r.ergebnis, 'deaktiviert')
     assert.equal(deaktiviert, true)
-    assert.match(r.meldungen[0][1], /Stattdessen deaktivieren\?/)
+    assert.equal(r.meldungen[0][0], 'frage')
+    assert.match(r.meldungen[0][1].titel, /Stattdessen deaktivieren\?/)
+    assert.match(r.meldungen[0][1].text, /hat noch 2 Verkäufe/)
+    assert.equal(r.meldungen[0][1].bestaetigen, 'Deaktivieren')
   })
   test('mit Bezug, abgelehnt: nichts geändert; sonstiger Fehler: Meldung', async () => {
     let deaktiviert = false
-    const r1 = await mitDialog(false, () => d.loeschenOderDeaktivieren(async () => ({ error: 'x', deaktivierbar: true }), async () => { deaktiviert = true }))
+    const r1 = await mitDialog(false, m => d.loeschenOderDeaktivieren(async () => ({ error: 'x', deaktivierbar: true }), async () => { deaktiviert = true }, m))
     assert.equal(r1.ergebnis, 'abgebrochen')
     assert.equal(deaktiviert, false)
-    const r2 = await mitDialog(true, () => d.loeschenOderDeaktivieren(async () => ({ error: 'Keine Berechtigung' }), async () => { deaktiviert = true }))
+    const r2 = await mitDialog(true, m => d.loeschenOderDeaktivieren(async () => ({ error: 'Keine Berechtigung' }), async () => { deaktiviert = true }, m))
     assert.equal(r2.ergebnis, 'fehler')
-    assert.deepEqual(r2.meldungen, [['alert', 'Fehler beim Löschen: Keine Berechtigung']])
+    assert.deepEqual(r2.meldungen, [['fehler', 'Fehler beim Löschen: Keine Berechtigung']])
     assert.equal(deaktiviert, false)
+    // Deaktivieren scheitert: Meldung
+    const r3 = await mitDialog(true, m => d.loeschenOderDeaktivieren(async () => ({ error: 'x', deaktivierbar: true }), async () => ({ error: 'Keine Berechtigung zum Deaktivieren' }), m))
+    assert.equal(r3.ergebnis, 'fehler')
+    assert.deepEqual(r3.meldungen.at(-1), ['fehler', 'Keine Berechtigung zum Deaktivieren'])
   })
 })
 

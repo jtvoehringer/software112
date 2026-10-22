@@ -8,6 +8,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowDown, ArrowUp, Lock, X } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { zahlAus, zahlLokal } from '@/lib/format'
 import { berechneNaehrwerte, etikettEnergie, geringfuegigeMengen, naehrwertFehler, type Naehrwerte } from '@/lib/elabel/naehrwerte'
 import { ALLERGEN_LABEL, ELABEL_KATEGORIEN, KATEGORIE_LABEL, allergeneDerListe, zutatenText, type KatalogEintrag } from '@/lib/elabel/katalog'
@@ -299,7 +300,9 @@ export default function ElabelFormular({ fuellungId, katalog, analysen, typen, s
           </button>
           {stand && (
             <button type="button" disabled={pending}
-              onClick={() => { if (confirm('E-Label freigeben? Danach ist es nicht mehr änderbar.')) aktion(freigeben, 'E-Label freigegeben.') }}
+              onClick={async () => {
+                if (await rueckfrage({ titel: 'E-Label freigeben?', text: 'Danach ist es nicht mehr änderbar.', bestaetigen: 'Freigeben', gefaehrlich: true })) aktion(freigeben, 'E-Label freigegeben.')
+              }}
               className="border border-s112-border px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
               Freigeben
             </button>

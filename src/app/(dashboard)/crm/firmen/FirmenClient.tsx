@@ -9,6 +9,8 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import LandOptionen from '@/components/crm/LandOptionen'
 import { createFirma, updateFirma, deleteFirma, setzeFirmaAktiv, pruefeFirmaDublette } from '../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 import { SEGMENTE, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
@@ -353,11 +355,13 @@ function FirmaKarte({
   const [editing, setEditing] = useState(false)
   const [showKontakte, setShowKontakte] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
 
-  function handleDelete() {
-    if (!confirm(`Firma "${firma.name}" wirklich löschen?`)) return
+  async function handleDelete() {
+    if (!(await rueckfrage({ titel: `Firma „${firma.name}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
+    setFehler(null)
     // KAN-150 F1: mit Verkäufen/Zukäufen … nur deaktivieren
-    startTransition(async () => { await loeschenOderDeaktivieren(() => deleteFirma(firma.id), () => setzeFirmaAktiv(firma.id, false)) })
+    startTransition(async () => { await loeschenOderDeaktivieren(() => deleteFirma(firma.id), () => setzeFirmaAktiv(firma.id, false), { frage: rueckfrage, fehler: setFehler }) })
   }
 
   if (editing) return <FirmaForm initial={firma} rabattgruppen={rabattgruppen} onDone={() => setEditing(false)} />
@@ -429,6 +433,7 @@ function FirmaKarte({
           </div>
         )}
       </div>
+      <FehlerMeldung text={fehler} className="mt-3" />
 
       {/* Kontakte */}
       {kontakte.length > 0 && (

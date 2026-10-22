@@ -11,7 +11,9 @@ export const SCHUTZ_ATTR = 'data-ungespeichert'
  *  außerhalb nach; ohne das Attribut gilt ein Link im Formular als „Abbrechen“ (keine Rückfrage) */
 export const VERLAESST_ATTR = 'data-verlaesst-formular'
 export const GEAENDERT_ATTR = 'data-geaendert'
-export const MELDUNG = 'Ungespeicherte Eingaben gehen verloren. Seite trotzdem verlassen?'
+// KAN-359: Rückfrage im eigenen Dialog – Titel und Erklärung getrennt
+export const MELDUNG_TITEL = 'Seite verlassen?'
+export const MELDUNG = 'Ungespeicherte Eingaben gehen verloren.'
 
 /** Das geschützte Formular, zu dem ein Element gehört (oder null) */
 export function schutzFormular(ziel: EventTarget | null): HTMLFormElement | null {

@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // ── Besondere Konten – Formulare und Kontoauszug (KAN-107, 07.10.2026) ──
 import { useState, useTransition } from 'react'
@@ -48,22 +49,30 @@ export function StoffAnlegen() {
 export function StoffArtWahl({ id, art, name }: { id: string; art: StoffArt; name: string }) {
   const router = useRouter()
   const [pending, start] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)   // KAN-359: Fehler an der Auswahl statt Browser-Dialog (span – steht in einer Inline-Zeile)
   return (
-    <select aria-label={`Art von ${name}`} value={art} disabled={pending} className="form-input w-auto! text-xs py-0.5"
-      onChange={e => { const neu = e.target.value; start(async () => { try { await stoffArtSetzen(id, neu); router.refresh() } catch (err) { window.alert(fehlerText(err)) } }) }}>
-      {STOFF_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-    </select>
+    <>
+      <select aria-label={`Art von ${name}`} value={art} disabled={pending} className="form-input w-auto! text-xs py-0.5"
+        onChange={e => { const neu = e.target.value; setFehler(null); start(async () => { try { await stoffArtSetzen(id, neu); router.refresh() } catch (err) { setFehler(fehlerText(err, 'Art konnte nicht geändert werden')) } }) }}>
+        {STOFF_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+      </select>
+      {fehler && <span role="alert" className="text-xs text-s112-err-fg">{fehler}</span>}
+    </>
   )
 }
 
 export function StoffAktiv({ id, aktiv }: { id: string; aktiv: boolean }) {
   const router = useRouter()
   const [pending, start] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)   // KAN-359: Fehler am Knopf statt Browser-Dialog
   return (
-    <button type="button" disabled={pending} className="text-xs text-s112-blue-700 hover:underline disabled:opacity-50"
-      onClick={() => start(async () => { try { await stoffAktivSetzen(id, !aktiv); router.refresh() } catch (e) { window.alert(fehlerText(e)) } })}>
-      {aktiv ? 'deaktivieren' : 'aktivieren'}
-    </button>
+    <>
+      <button type="button" disabled={pending} className="text-xs text-s112-blue-700 hover:underline disabled:opacity-50"
+        onClick={() => { setFehler(null); start(async () => { try { await stoffAktivSetzen(id, !aktiv); router.refresh() } catch (e) { setFehler(fehlerText(e, aktiv ? 'Deaktivieren fehlgeschlagen' : 'Aktivieren fehlgeschlagen')) } }) }}>
+        {aktiv ? 'deaktivieren' : 'aktivieren'}
+      </button>
+      {fehler && <span role="alert" className="text-xs text-s112-err-fg">{fehler}</span>}
+    </>
   )
 }
 
@@ -104,7 +113,7 @@ export function KontoBuchen({ kellermittelId, einheit }: { kellermittelId: strin
       {art !== 'zugang' && <label className="text-xs text-s112-text-2 md:col-span-3">Notiz<input name="notizen" className={`${inp} block w-full`} /></label>}
       <button disabled={pending} className="px-3 py-2 rounded-lg text-sm font-semibold bg-s112-teal text-s112-yellow disabled:opacity-50">Buchen</button>
       {fehler && <p role="alert" className="col-span-full text-sm text-s112-err-fg">{fehler}</p>}
-      {hinweis && <p role="status" className="col-span-full text-sm text-s112-ok-fg">{hinweis}</p>}
+      <ErfolgsMeldung text={hinweis} />{/* KAN-359: Erfolg als Pop-up */}
     </form>
   )
 }

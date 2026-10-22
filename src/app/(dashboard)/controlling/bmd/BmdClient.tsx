@@ -8,6 +8,7 @@ import { speichereKontenmapping, setzeKontenmappingZurueck } from './actions'
 import { fmtEur } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -248,8 +249,8 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
       setMeldung(r.ok ? { ok: true, text: 'Konten-Mapping gespeichert.' } : { ok: false, text: r.fehler ?? 'Fehler beim Speichern' })
     })
   }
-  function zuruecksetzen() {
-    if (!confirm('Alle Abweichungen löschen und die Vorbelegung wiederherstellen?')) return
+  async function zuruecksetzen() {
+    if (!(await rueckfrage({ titel: 'Vorbelegung wiederherstellen?', text: 'Alle Abweichungen werden gelöscht.', bestaetigen: 'Wiederherstellen', gefaehrlich: true }))) return
     setMeldung(null)
     startTransition(async () => {
       const r = await setzeKontenmappingZurueck()

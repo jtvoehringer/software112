@@ -11,6 +11,7 @@ import { FlaskConical, ArrowLeftRight, Droplet, StickyNote, Wrench, WifiOff } fr
 import { fehlerText } from '@/lib/fehler'
 import { fmtLiter, zahlAus } from '@/lib/format'
 import { schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 import {
   entwurfSchluessel, fuellgrad, inhaltLiter, notizFehler, schnellZiele,
   type Massnahme, type SchnellCharge,
@@ -119,7 +120,7 @@ export default function Schnellerfassung({
     })
   }
 
-  function schwundSenden(e: React.FormEvent) {
+  async function schwundSenden(e: React.FormEvent) {
     e.preventDefault()
     setFehler(null); setOk(null)
     const charge = schwund.charge || einzige
@@ -130,7 +131,12 @@ export default function Schnellerfassung({
     if (gf) { setFehler(gf); return }
     const bestand = Number(chargen.find(c => c.id === charge)?.menge_liter ?? 0)
     if (l > bestand + 0.005) { setFehler(`Die Schwundmenge übersteigt den Bestand der Charge (${fmtLiter(bestand)}).`); return }
-    if (bestand - l <= 0.01 && !window.confirm('Nach diesem Schwund ist die Charge leer und wird abgeschlossen. Fortfahren?')) return
+    if (bestand - l <= 0.01 && !(await rueckfrage({
+      titel: 'Charge abschließen?',
+      text: 'Nach diesem Schwund ist die Charge leer und wird abgeschlossen.',
+      bestaetigen: 'Schwund buchen',
+      gefaehrlich: true,
+    }))) return
     if (ohneNetz()) return
     const fd = new FormData()
     fd.set('menge', schwund.menge)

@@ -1,4 +1,5 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 // KAN-115 (07.10.2026): Einstellungen und Lagerkonto eines Sonstigen Produkts. Bewegungen sind append-only – Korrektur
 // per Inventur oder Storno; Verkauf und Verarbeitung storniert man über ihren Vorgang.
@@ -82,7 +83,7 @@ export default function ProduktLagerClient({ artikel, bewegungen, writeOk, heute
   return (
     <div className="space-y-6">
       {fehler && <p role="alert" className="text-sm bg-s112-err-bg text-s112-err-fg rounded-lg px-3 py-2">{fehler}</p>}
-      {hinweis && <p role="status" className="text-sm bg-s112-ok-bg text-s112-ok-fg rounded-lg px-3 py-2">{hinweis}</p>}
+      <ErfolgsMeldung text={hinweis} />{/* KAN-359: Erfolg als Pop-up */}
 
       <form onSubmit={einstellungen} className="card space-y-4">
         <h2 className="text-base font-semibold text-s112-text">Einstellungen</h2>

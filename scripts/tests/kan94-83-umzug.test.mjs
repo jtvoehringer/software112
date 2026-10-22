@@ -373,11 +373,14 @@ describe('Verdrahtung (Quelltext)', () => {
     const q = quelle('src/app/(dashboard)/kellerbuch/umziehen/UmziehenClient.tsx')
     assert.match(q, /<option key=\{q\.charge_id\} value=\{q\.charge_id\}>/)
     assert.doesNotMatch(q, /x\.behaelter_id === q\.behId/)
-    assert.match(q, /window\.confirm\(result\.bestaetigung\)[\s\S]*fd\.set\('pn_bestaetigt', '1'\)/)
+    // KAN-359: Rückfrage über den eigenen Dialog statt window.confirm
+    assert.match(q, /if \(!\(await serverRueckfrage\(result\.bestaetigung\)\)\) return\n\s*fd\.set\('pn_bestaetigt', '1'\)/)
+    assert.doesNotMatch(q, /window\.confirm/)
   })
   test('Widget, Verschnitt- und Zukauf-Formular fragen nach', () => {
     for (const datei of ['src/components/kellerbuch/UmziehenWidget.tsx', 'src/components/kellerbuch/VerschneidungForm.tsx', 'src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx']) {
-      assert.match(quelle(datei), /window\.confirm\(result\.bestaetigung\)[\s\S]*fd\.set\('pn_bestaetigt', '1'\)/, datei)
+      assert.match(quelle(datei), /if \(!\(await serverRueckfrage\(result\.bestaetigung\)\)\) return\n\s*fd\.set\('pn_bestaetigt', '1'\)/, datei)
+      assert.doesNotMatch(quelle(datei), /window\.confirm/, datei)
     }
   })
   test('Assistent-Tools geben die Rückfrage weiter und kennen pruefnummer_verlust_bestaetigt', () => {

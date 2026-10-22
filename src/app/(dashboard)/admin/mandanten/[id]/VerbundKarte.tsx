@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import type { VerbundInfo } from './page'
 import { verbundBeitreten, verbundVerlassen } from './actions'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function VerbundKarte({ tenantId, tenantName, verbund, hatEigenesAbo }: {
   tenantId: string; tenantName: string; verbund: VerbundInfo; hatEigenesAbo: boolean
@@ -40,7 +41,7 @@ export default function VerbundKarte({ tenantId, tenantName, verbund, hatEigenes
             {' '}· 0 €. Abo, Rechnung und Support laufen über den Hauptmandanten; CRM und Kellergebinde sind gemeinsam.
           </p>
           <button type="button" disabled={pending}
-            onClick={() => { if (confirm(`${tenantName} vom Hauptmandanten lösen? Mit Stripe-Abo des Hauptmandanten ist der Betrieb danach im Nur-Lesen-Modus, bis er ein eigenes Abo abschließt (ohne neue Testphase). Die Gemeinschaften (CRM, Keller) bleiben bestehen – bei Bedarf unter Administration › Gemeinschaften deaktivieren.`)) ausfuehren(() => verbundVerlassen(tenantId)) }}
+            onClick={async () => { if (await rueckfrage({ titel: `${tenantName} vom Hauptmandanten lösen?`, text: 'Mit Stripe-Abo des Hauptmandanten ist der Betrieb danach im Nur-Lesen-Modus, bis er ein eigenes Abo abschließt (ohne neue Testphase). Die Gemeinschaften (CRM, Keller) bleiben bestehen – bei Bedarf unter Administration › Gemeinschaften deaktivieren.', bestaetigen: 'Lösen', gefaehrlich: true })) ausfuehren(() => verbundVerlassen(tenantId)) }}
             className="border border-s112-line-str rounded-lg px-3 py-1.5 text-xs font-medium text-s112-err-fg hover:bg-s112-err-bg disabled:opacity-50">
             {pending ? 'Wird gelöst…' : 'Vom Hauptmandanten lösen'}
           </button>

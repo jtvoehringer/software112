@@ -1,8 +1,10 @@
 'use client'
+import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import { useState, useTransition } from 'react'
 import { inviteSystemAdmin, removeSystemAdmin } from './systemAdminActions'
 import type { SystemAdminUser } from './page'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 export default function SystemAdminClient({ admins, canInvite = true }: { admins: SystemAdminUser[]; canInvite?: boolean }) {
   const [showInvite, setShowInvite]   = useState(false)
@@ -27,8 +29,13 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
     })
   }
 
-  function handleRemove(m: SystemAdminUser) {
-    if (!confirm(`Super-Admin-Rolle von "${m.email}" im Betrieb "${m.tenantName}" entfernen? Mit der letzten Rolle endet auch der Plattform-Admin.`)) return
+  async function handleRemove(m: SystemAdminUser) {
+    if (!(await rueckfrage({
+      titel: `Super-Admin-Rolle von „${m.email}“ entfernen?`,
+      text: `Betrieb „${m.tenantName}“. Mit der letzten Rolle endet auch der Plattform-Admin.`,
+      bestaetigen: 'Entfernen',
+      gefaehrlich: true,
+    }))) return
     setError(null)
     startTransition(async () => {
       const result = await removeSystemAdmin(m.membershipId)
@@ -39,7 +46,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
   return (
     <div className="space-y-4">
       {error   && <div role="alert" className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
-      {success && <div role="status" className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
+      <ErfolgsMeldung text={success} />{/* KAN-359: Erfolg als Pop-up */}
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">

@@ -10,6 +10,7 @@ import { GitMerge, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
@@ -178,7 +179,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         let result = await createVerschneidung(fd)
         // KAN-83: Prüfnummer der Ziel-Charge erlischt – nur nach ausdrücklicher Bestätigung buchen
         if (result?.bestaetigung) {
-          if (!window.confirm(result.bestaetigung)) return
+          if (!(await serverRueckfrage(result.bestaetigung))) return
           fd.set('pn_bestaetigt', '1')
           fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await createVerschneidung(fd)

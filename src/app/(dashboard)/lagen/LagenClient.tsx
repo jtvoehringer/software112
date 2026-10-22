@@ -7,6 +7,8 @@ import { deleteLage, assignWeingartenToLage } from './actions'
 import type { Lage, WeingartenRow } from './page'
 import { fmtHa } from '@/lib/format'
 import { tastaturBedienbar } from '@/lib/ui/tastatur'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import FehlerMeldung from '@/components/ui/FehlerMeldung'
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -28,18 +30,20 @@ function LageKarte({
 }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
 
   const haTotal = weingaerten.reduce((s, w) => s + (w.flaeche_ha ?? 0), 0)
 
-  function handleDelete() {
+  async function handleDelete() {
+    setFehler(null)
     if (weingaerten.length > 0) {
-      alert(`Diese Ried hat noch ${weingaerten.length} Weingarten/Weingärten. Bitte zuerst die Zuordnungen entfernen.`)
+      setFehler(`Diese Ried hat noch ${weingaerten.length} Weingarten/Weingärten. Entferne zuerst die Zuordnungen.`)
       return
     }
-    if (!confirm(`Ried "${lage.name}" wirklich löschen?`)) return
+    if (!(await rueckfrage({ titel: `Ried „${lage.name}“ löschen?`, bestaetigen: 'Löschen', gefaehrlich: true }))) return
     startTransition(async () => {
       const result = await deleteLage(lage.id)
-      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+      if (result?.error) setFehler(`Fehler beim Löschen: ${result.error}`)
     })
   }
 
@@ -89,6 +93,7 @@ function LageKarte({
           )}
         </div>
       </div>
+      <FehlerMeldung text={fehler} className="m-3" />
 
       {open && (
         <div className="p-4">

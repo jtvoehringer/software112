@@ -7,6 +7,7 @@ import type { PSMEintrag } from './page'
 import { fehlerText } from '@/lib/fehler'
 import { LagerJahrKopf, LagerJahrZellen, LagerJahrHinweis } from './LagerJahrSpalten'
 import { REGISTERNUMMER_FEHLT } from '@/lib/behandlungen/psmStamm'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 const KATEGORIE_OPTS = [
   { value: 'fungizid',         label: 'Fungizid' },
@@ -191,8 +192,8 @@ export default function PSMClient({
   const [editId, setEditId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  function handleDeactivate(id: string) {
-    if (!confirm('Mittel deaktivieren? Es bleibt in bestehenden Maßnahmen erhalten.')) return
+  async function handleDeactivate(id: string) {
+    if (!(await rueckfrage({ titel: 'Mittel deaktivieren?', text: 'Es bleibt in bestehenden Maßnahmen erhalten.', bestaetigen: 'Deaktivieren' }))) return
     startTransition(() => deactivatePSM(id))
   }
 

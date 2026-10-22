@@ -362,7 +362,7 @@ export default async function GebindePage({
                           {adminOk && !g.fremd && (
                             <LoeschenButton
                               action={deleteBehaelter.bind(null, g.id)}
-                              bestaetigung={`Gebinde "${g.name}" wirklich löschen?`}
+                              bestaetigung={`Gebinde „${g.name}“ löschen?`}
                             />
                           )}
                         </td>
