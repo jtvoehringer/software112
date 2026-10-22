@@ -222,4 +222,10 @@ describe('KAN-359: Wächter check-rueckfragen', () => {
     assert.match(fundeIn('// rueckfrage-ok: kurz\nconfirm("x")')[0].text, /ohne ausreichende Begründung/)
     assert.deepEqual(f('// rueckfrage-ok: Altsystem ohne React, Dialog nicht verfügbar\n\n\nconfirm("x")'), ['4:confirm'])
   })
+  test('im prebuild verdrahtet (CI über verify) und bei Einführung ohne Ausnahme', () => {
+    assert.match(JSON.parse(quelle('package.json')).scripts.prebuild, /node scripts\/check-rueckfragen\.js/)
+    const { execFileSync } = require('node:child_process')
+    const aus = execFileSync(process.execPath, ['scripts/check-rueckfragen.js'], { cwd: new URL('../../', import.meta.url), encoding: 'utf8' })
+    assert.match(aus, /✓ check-rueckfragen: keine Browser-Dialoge/)
+  })
 })
