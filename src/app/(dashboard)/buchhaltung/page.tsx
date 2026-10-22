@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { stornoEaTransaktion } from './actions'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import StornoButton from '@/components/StornoButton'
 import { Link2, Lock } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
@@ -163,7 +164,10 @@ export default async function BuchhaltungPage({
           <span className="text-s112-tertiary">·</span>
           <Link href="/buchhaltung/kassabuch" className="text-s112-blue-700 hover:underline">Kassabuch</Link>
         </div>
-        <CsvExportKnopf href={csvPfad('ea-journal', { jahr, typ: typFilter, q })} />
+        <div className="flex items-center gap-2">
+          <DruckFormatKnopf klein standard="quer" />
+          <CsvExportKnopf href={csvPfad('ea-journal', { jahr, typ: typFilter, q })} />
+        </div>
       </div>
 
       {/* Tabelle */}

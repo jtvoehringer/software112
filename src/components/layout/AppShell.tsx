@@ -88,8 +88,8 @@ export default function AppShell({
             <MostgewichtEinheitProvider einheit={mostgewichtEinheit}>{children}</MostgewichtEinheitProvider>
           </div>
 
-          {/* Fußzeile: Dachmarke hohenstein + Auftragnehmer ICP Solutions */}
-          <footer className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 2xl:pb-3 2xl:pt-0">
+          {/* Fußzeile: Dachmarke hohenstein + Auftragnehmer ICP Solutions – nicht im Druck (KAN-344: Rechnung lief sonst auf 2 Seiten) */}
+          <footer data-print="hide" className="print:hidden max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 2xl:pb-3 2xl:pt-0">
             <div className="border-t border-s112-line pt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <div className="flex items-center gap-4">
                 <Image src="/logos/hohenstein-logo.png" alt="hohenstein consulting solutions" width={480} height={165}

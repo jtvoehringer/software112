@@ -1,4 +1,5 @@
 // behoerdenmeldung: flaechenverzeichnis
+// druckknopf-ausnahme: Rieden-Übersicht, nicht das Flächenverzeichnis selbst – das gibt es nur als Datei für Mehrfachantrag/Weinbaukataster (CSV)
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'

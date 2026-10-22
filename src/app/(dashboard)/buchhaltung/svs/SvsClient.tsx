@@ -7,6 +7,7 @@ import { vergleiche, ZURECHNUNG_LABEL, type SvsParameter, type Zurechnung } from
 import { speichereEinheitswerte, importiereEinheitswerte, speichereSvsOption, speichereSvsParameter } from './actions'
 import { fmtNum, dezimal } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 
 type Gst = {
   id: string; gst_nr: string; katastralgemeinde: string; kg_bezeichnung: string; einlagezahl: string
@@ -259,6 +260,7 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben, csvHref }: { gst: Gst[];
         <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter: KG, GST-Nr., Ried" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-hidden" />
         <div className="flex items-center gap-3 text-sm flex-wrap">
           <span className="text-s112-muted">{gst.length} Grundstücke · Summe Einheitswert {eur(summe, 0)}</span>
+          <DruckFormatKnopf klein />
           <CsvExportKnopf href={csvHref} label={dirty.size > 0 ? 'CSV (gespeicherter Stand)' : 'CSV exportieren'} />
           {darfSchreiben && <button onClick={speichern} disabled={pending || dirty.size === 0} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : `Speichern (${dirty.size})`}</button>}
           {meldung && <span className={meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}>{meldung.text}</span>}

@@ -7,6 +7,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Truck } from 'lucide-react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeExportauftraege } from '@/lib/behoerden/exportauftrag'
 import { landAnzeige } from '@/lib/katalog/laender'
@@ -45,6 +46,7 @@ export default async function WeinexportPage() {
           <p className="text-sm text-s112-muted mt-1">{rows.length} Exportauftrag{rows.length !== 1 ? 'aufträge' : ''}</p>
         </div>
         <div className="flex items-start gap-2">
+          <span className="self-center"><DruckFormatKnopf klein /></span>
           <CsvExportKnopf href={csvPfad('exportauftraege')} className="self-center" />
           <Link href="/weinexport/neu"
             className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">

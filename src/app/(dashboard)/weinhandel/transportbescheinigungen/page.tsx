@@ -10,7 +10,8 @@ import { ladeTransportbescheinigungen, FORMULAR_GESPEICHERT } from '@/lib/behoer
 import { istDatum } from '@/lib/behoerden/verkehr-hilfen'
 import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
-import DruckKnopf from './DruckKnopf'
+import { tbKmwFormblattWert } from '@/lib/behoerden/tbMostgewicht'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Transportbescheinigungen' }
@@ -62,7 +63,8 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2 print:hidden">
-          <DruckKnopf />
+          {/* KAN-366: 14 Spalten – Querformat vorgewählt */}
+          <DruckFormatKnopf standard="quer" />
           {von <= bis && <CsvExportKnopf href={csvPfad('transportbescheinigungen', { von, bis, nur: nurGespeichert ? 'gespeichert' : null })} className="self-center" />}
         </div>
       </div>
@@ -115,6 +117,9 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
                 <th className="px-3 py-2 font-semibold">Jahrgang</th>
                 <th className="px-3 py-2 font-semibold">Prüfnummer</th>
                 <th className="px-3 py-2 font-semibold">Angereichert</th>
+                {/* KAN-366: wie Formblatt und CSV – Alkoholgehalt und °KMW (bei Trauben und Traubenmost) */}
+                <th className="px-3 py-2 font-semibold text-right">Alkohol (% vol)</th>
+                <th className="px-3 py-2 font-semibold text-right">°KMW</th>
                 <th className="px-3 py-2 font-semibold">Formularstand</th>
               </tr>
             </thead>
@@ -140,6 +145,9 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
                   <td className="px-3 py-1.5">{z.jahrgang ?? '–'}</td>
                   <td className="px-3 py-1.5 font-mono">{z.pruefnummer ?? '–'}</td>
                   <td className="px-3 py-1.5">{z.angereichert === null ? '–' : z.angereichert ? 'J' : 'N'}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{z.alkohol ?? '–'}</td>
+                  {/* °KMW wie im Formblatt: NN,N abgerundet; Wein ohne Mostgewicht „–“ */}
+                  <td className="px-3 py-1.5 text-right tabular-nums">{tbKmwFormblattWert(z.kmw) || '–'}</td>
                   <td className={`px-3 py-1.5 ${z.formularstand === FORMULAR_GESPEICHERT ? 'text-s112-ok-fg' : 'text-s112-warn-fg'}`}>{z.formularstand}</td>
                 </tr>
               ))}

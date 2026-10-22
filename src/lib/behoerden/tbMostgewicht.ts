@@ -95,6 +95,11 @@ export function tbAlkoholGehalt(p: Partial<TBPositionMitMostgewicht> | null | un
 /** KAN-131: Wert für die Formblatt-Spalte „° KMW bei Trauben und Traubenmost“ – NN,N, auf 1 Stelle abgerundet
  *  (KAN-128, Entscheidungen 7 und 8; auch aus °Oe gemessen umgerechnet); ohne Mostgewicht leer */
 export function tbKmwFormblatt(p: Partial<TBPositionMitMostgewicht> | null | undefined): string {
-  const m = tbPositionMostgewicht(p)
-  return m ? formularZahl(abrunden(m.kmw, KMW_FORMBLATT_STELLEN), KMW_FORMBLATT_STELLEN) : ''
+  return tbKmwFormblattWert(tbPositionMostgewicht(p)?.kmw)
+}
+
+/** KAN-366: dieselbe Formblatt-Darstellung aus einem schon gelesenen °KMW-Wert (Zeile der Sammelliste,
+ *  `TBZeile.kmw`) – NN,N, auf 1 Stelle abgerundet; ohne Wert leer */
+export function tbKmwFormblattWert(kmw: number | null | undefined): string {
+  return kmw == null || !Number.isFinite(kmw) ? '' : formularZahl(abrunden(kmw, KMW_FORMBLATT_STELLEN), KMW_FORMBLATT_STELLEN)
 }

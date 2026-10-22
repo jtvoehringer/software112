@@ -222,6 +222,11 @@
     width: 100% !important;
     padding: 0 !important;
   }
+  /* KAN-344: auch der Innenabstand des Inhaltsrahmens (p-4 … lg:p-8) fällt im Druck weg – den Rand gibt @page vor */
+  main#inhalt > div {
+    padding: 0 !important;
+    max-width: none !important;
+  }
 
   /* Kein Schatten, keine runden Ecken auf Karten */
   .card {
