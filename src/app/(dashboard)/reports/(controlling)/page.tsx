@@ -67,7 +67,8 @@ export default async function ReportsPage() {
     wbChargenRawRes,
   ] = await Promise.all([
     // KAN-346: Umsatz netto nach Rechnungsdatum über die zentrale Umsatzfunktion (wie /api/reports/umsatz, Dashboard und
-    // Finanzübersicht; vorher brutto nach Lieferdatum über alle Lieferscheine)
+    // Finanzübersicht; vorher brutto nach Lieferdatum über alle Lieferscheine). Das ist die Standard-Basis der Auswertung;
+    // „nach Lieferdatum“ lädt der Client über /api/reports/umsatz?basis=lieferung (KAN-105, netto)
     tenantId ? ladeUmsatzRechnungen(supabase, tenantId, von12, bis12) : Promise.resolve({ data: [], error: null }),
     alle(tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')

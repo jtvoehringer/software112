@@ -2,7 +2,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
-import { ladeUmsatzRechnungen, umsatzNetto } from '@/lib/verkauf/umsatz'
+import { ladeUmsatzBelege, umsatzNetto } from '@/lib/verkauf/umsatz'
+import { umsatzBasis, type UmsatzBasis } from '@/lib/verkauf/umsatzBasis'
 import { dbFehlerText } from '@/lib/fehler'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
@@ -40,15 +41,15 @@ function monatsBereich(von: MonatsZiel, bis: MonatsZiel): MonatsZiel[] {
   return ziele
 }
 
-// KAN-346/348: Monatsumsatz netto nach Rechnungsdatum über die zentrale Umsatzfunktion (lib/verkauf/umsatz) – wie
-// Dashboard und Finanzübersicht. Ein Lesefehler kommt zurück (KAN-253) – vorher wurde der Fehler verworfen und der Monat
-// zeigte still 0 bzw. eine Teilsumme. Die frühere Wahl „nach Lieferdatum“ (KAN-105, ?basis=) entfällt (Entscheidung
-// Jörgen 22.10.2026: nur Rechnungen zählen, nicht berechnete Lieferscheine nicht).
+// KAN-346/348: Monatsumsatz netto über die zentrale Umsatzfunktion (lib/verkauf/umsatz) – Standard nach Rechnungsdatum
+// wie Dashboard und Finanzübersicht, mit ?basis=lieferung nach Lieferdatum (KAN-105, Lieferscheine auch nicht berechnet;
+// Entscheidung Jörgen 22.10.2026). Ein Lesefehler kommt zurück (KAN-253) – vorher wurde der Fehler verworfen und der
+// Monat zeigte still 0 bzw. eine Teilsumme.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string): Promise<{ monat: UmsatzMonat; error: R | null }> {
+async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string, basis: UmsatzBasis): Promise<{ monat: UmsatzMonat; error: R | null }> {
   const von = lokalerTag(new Date(ziel.jahr, ziel.monatIdx, 1))   // KAN-255: über die lokalen Felder, nie toISOString()
   const bis = lokalerTag(new Date(ziel.jahr, ziel.monatIdx + 1, 0))
-  const { data, error } = await ladeUmsatzRechnungen(supabase, tenantId, von, bis)
+  const { data, error } = await ladeUmsatzBelege(supabase, tenantId, von, bis, basis)
   return {
     monat: {
       monat: new Date(ziel.jahr, ziel.monatIdx, 1).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short', year: '2-digit' }),
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
+  const basis       = umsatzBasis(req.nextUrl.searchParams.get('basis'))
   const monateParam = req.nextUrl.searchParams.get('monate')
   const vonParam    = req.nextUrl.searchParams.get('von')
   const bisParam    = req.nextUrl.searchParams.get('bis')
@@ -103,7 +105,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServerClient()
-  const ergebnisse = await Promise.all(ziele.map(z => ladeMonat(supabase, z, tenantId)))
+  const ergebnisse = await Promise.all(ziele.map(z => ladeMonat(supabase, z, tenantId, basis)))
   const fehler = ergebnisse.find(e => e.error)?.error
   if (fehler) return NextResponse.json({ fehler: dbFehlerText(fehler, 'Umsatz konnte nicht geladen werden') }, { status: 500 })
 
