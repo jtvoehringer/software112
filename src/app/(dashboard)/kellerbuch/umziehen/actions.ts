@@ -22,6 +22,7 @@ import { teileUmzugAuf } from '@/lib/kellerbuch/umzugAufteilung'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 import { rund } from '@/lib/zahl/runden'
+import { quellGebinde, selbesGebindeFehler } from '@/lib/kellerbuch/umzugGebinde'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -315,7 +316,7 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
   let quellRows: R[] = []
   {
     const { data: bRows, error: bErr } = await (supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter, rebsorte, jahrgang, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, status')
+      .select('id, name, behaelter_id, menge_liter, rebsorte, jahrgang, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, status')
       .in('id', [...bedarf.keys()]).eq('tenant_id', tenantId)
     if (bErr) throw new AktionsFehler(dbFehlerText(bErr, 'Quell-Chargen konnten nicht geladen werden'))
     quellRows = (bRows ?? []) as R[]
@@ -327,6 +328,10 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
         throw new AktionsFehler(`„${w.name}": Menge (${fmtNum(menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L)`)
       }
     }
+    // KAN-340: Ziel = Gebinde einer Quelle bewegt keinen Wein – ohne diese Sperre gälte das Gebinde unten als leer
+    // (Quell-Chargen zählen nicht als Ziel, KAN-112), und es entstünde eine zweite Charge daneben
+    const selbes = selbesGebindeFehler(quellGebinde(quellRows), ziele.map(z => z.behaelter_id))
+    if (selbes) throw new AktionsFehler(selbes)
   }
 
   // KAN-112 (Entscheidungen Jörgen 03.10.2026): Ziel-Charge je Ziel-Gebinde mit derselben Regel wie unten in Phase 2

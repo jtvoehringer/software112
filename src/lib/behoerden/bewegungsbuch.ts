@@ -180,8 +180,54 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
   for (const u of umzuegeEin) if (u.nach_weinausbau_id) chargeIds.add(u.nach_weinausbau_id)
   for (const p of pressungen) if (p.weinausbau_id) chargeIds.add(p.weinausbau_id)
   for (const u of umzuegeVon) if (u.von_weinausbau_id) chargeIds.add(u.von_weinausbau_id)
-  const ids = Array.from(chargeIds)
+  return ladeRohDerChargen(supabase, tenantId, { pressungen, umzuegeEin, chargen, behandlungen }, Array.from(chargeIds))
+}
 
+/**
+ * KAN-342: Rohdaten der Bewegungen EINER Charge – dieselben Tabellen wie ladeRoh, aber über die Charge statt über das
+ * Gebinde (Zugänge per Umzug über nach_weinausbau_id, Pressung über weinausbau_id). Kellerbehandlungen nur mit
+ * Volumenzugang (ZU_BEH) – die übrigen haben keine Menge (wie die Sammel-Variante).
+ */
+async function ladeRohCharge(supabase: any, tenantId: string, chargeId: string): Promise<Roh> {
+  const [pressungenAlle, umzuegeEin, chargen, behandlungen] = await Promise.all([
+    // pressung_behaelter hat keine tenant_id – Mandant über die Pressung (wie ladeRoh)
+    liste((supabase.from('pressung_behaelter') as any)
+      .select('id, menge_liter, weinausbau_id, notizen, storniert_am, storno_grund, storniert_von_name, pressung:pressung_id(id, datum, notizen, tenant_id, storniert_am)')
+      // storno-sichtbar: Pressungszugang und Gegenbuchung am Storno-Tag (KAN-148 C1c)
+      .eq('weinausbau_id', chargeId)
+      .order('id', { ascending: true }), 'pressung_behaelter'),
+    liste((supabase.from('keller_umzuege') as any)
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, transaktions_nr, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ, storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
+      .eq('tenant_id', tenantId)
+      .eq('nach_weinausbau_id', chargeId)
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'keller_umzuege'),
+    liste((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr, storniert_am, storno_grund, storniert_von_name')
+      .eq('tenant_id', tenantId)
+      .eq('id', chargeId)
+      .order('id', { ascending: true }), 'weinausbau'),
+    liste((supabase.from('keller_behandlungen') as any)
+      .select('id, datum, menge, einheit, notizen, weinausbau_id, typ_name_snapshot, zugang_liter, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: Buchung und Gegenbuchung (KAN-41 Paket 3b)
+      .eq('tenant_id', tenantId)
+      .eq('weinausbau_id', chargeId)
+      .not('zugang_liter', 'is', null)
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'keller_behandlungen'),
+  ])
+  const pressungen = pressungenAlle.filter(p => (p.pressung as R | null)?.tenant_id === tenantId)
+  return ladeRohDerChargen(supabase, tenantId, { pressungen, umzuegeEin, chargen, behandlungen }, [chargeId])
+}
+
+/** Gemeinsamer Teil von ladeRoh und ladeRohCharge: alle Bewegungen der Chargen `ids` (Abgänge, Füllungen, Verkauf …) */
+async function ladeRohDerChargen(
+  supabase: any, tenantId: string,
+  basis: Pick<Roh, 'pressungen' | 'umzuegeEin' | 'chargen' | 'behandlungen'>,
+  ids: string[],
+): Promise<Roh> {
+  const { pressungen, umzuegeEin, chargen, behandlungen } = basis
   let umzuegeAus: R[] = [], fuellungen: R[] = [], verkauf: R[] = [], zukauf: R[] = [], verschnAus: R[] = [], verschnEin: R[] = []
   let verarbeitungen: R[] = [], zugangskorrekturen: R[] = [], produktionAus: R[] = [], produktionEin: R[] = []
   if (ids.length > 0) {
@@ -957,6 +1003,31 @@ function quellGebindeBetrieb(verschnEin: readonly R[], umzuege: readonly R[], ch
 export async function ladeBelegungen(supabase: any, tenantId: string, behaelterId: string): Promise<Belegung[]> {
   const roh = await ladeRoh(supabase, tenantId, behaelterId)
   return belegungszeitraeume(ohneStornoPaare(bewegungenAus(roh)), roh.chargen)
+}
+
+/**
+ * KAN-342: Bewegungen einer Charge wie im Bewegungsbuch (alle Arten: Pressung, Zukauf, Umzug, Verschnitt, Abfüllung,
+ * Tankverkauf, Schwund, Verarbeitung, Volumenzugang einer Kellerbehandlung, Zugangskorrektur, Produktion,
+ * Lohnversektung, Eröffnungsbestand) – ohne Storno-Paare, chronologisch mit laufendem Saldo. Die Chargenseite zeigt
+ * diese Liste und vergleicht den letzten Saldo mit dem gebuchten Bestand; vorher rechnete sie selbst und kannte
+ * Verarbeitung, Volumenzugang, Produktion und Lohnversektung nicht (Befund UAT: 400 L gebucht, „Saldo 500 L“).
+ */
+export async function ladeBewegungenCharge(supabase: any, tenantId: string, chargeId: string): Promise<BewegungMitSaldo[]> {
+  return bewegungenDerCharge(bewegungenAus(await ladeRohCharge(supabase, tenantId, chargeId)), chargeId)
+}
+
+/** Bewegungen einer Charge aus einer Bewegungsliste: ohne Storno-Paare (Saldo unverändert), mit laufendem Saldo */
+export function bewegungenDerCharge(bewegungen: readonly Bewegung[], chargeId: string): BewegungMitSaldo[] {
+  return mitSaldo(ohneStornoPaare(bewegungen).filter(b => b.chargeId === chargeId && b.menge !== 0))
+}
+
+/** KAN-342: Abweichung zwischen gebuchtem Bestand und Saldo der Bewegungen (Toleranz 1 L wie bisher); null = stimmt
+ *  bzw. keine datierte Bewegung (Charge ohne Buchungen – wie bisher kein Hinweis) */
+export function bestandsAbweichungDerCharge(bewegungen: readonly BewegungMitSaldo[], gebuchtLiter: number): { saldo: number; differenz: number } | null {
+  if (bewegungen.length === 0) return null
+  const saldo = bewegungen[bewegungen.length - 1].saldo
+  const differenz = runden(saldo - gebuchtLiter, STELLEN.liter)
+  return Math.abs(differenz) > 1 ? { saldo, differenz } : null
 }
 
 export type Bewegungsbuch = {
