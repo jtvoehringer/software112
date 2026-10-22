@@ -71,7 +71,7 @@ export default function SessionTimeout({ timeoutMinuten: eingestellt }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div {...dialog} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 text-center space-y-4">
+      <div {...dialog} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 max-h-[calc(100dvh-2rem)] overflow-y-auto text-center space-y-4">
         <Bell className="w-9 h-9 mx-auto text-s112-warn-fg" strokeWidth={1.75} />
         <h2 className="text-lg font-semibold text-s112-text">Sitzung läuft ab</h2>
         <p className="text-sm text-s112-muted">

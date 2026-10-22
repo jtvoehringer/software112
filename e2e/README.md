@@ -45,6 +45,7 @@ Seitenaufrufe). Sie ändern aber keine fachlichen Daten.
 | `e2e/smoke.spec.ts` | `@lesend` jede Navigationsseite je Rolle; Leser ohne Schreib-Knöpfe |
 | `e2e/mandantentrennung.spec.ts` | `@lesend` fremde Datensatz-URLs → 404/Weiterleitung/leer |
 | `e2e/behoerden-csv.spec.ts` | `@lesend` `/meldungen/<id>/csv`: 200, BOM, `;`, CRLF |
+| `e2e/mobil.spec.ts` | `@lesend` Kernseiten bei 375 × 812: nichts ragt rechts hinaus, `<main>` bis unten scrollbar; Lesedaten bearbeiten über der Tabelle |
 | `e2e/crm-kontakt.spec.ts` | Muster eines **schreibenden** Tests: Kontakt anlegen und löschen |
 
 Tags: `@lesend` = ändert keine Daten. Alles ohne `@lesend` gilt als schreibend.

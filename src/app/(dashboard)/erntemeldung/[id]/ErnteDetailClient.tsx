@@ -720,10 +720,10 @@ function ParzellForm({
 
 
 // ── Lesedaten am Handy (KAN-181): Karten statt der achtspaltigen Tabelle ───────────────────────────────
-function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setEditId, jahrgangId, weingaerten, gstByWeingarten }: {
+function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setEditId, jahrgangId }: {
   zeilen: ErnteParzelle[]; mehrereLesen: boolean; gesamtKg: number; writeOk: boolean
   editId: string | null; setEditId: (id: string | null) => void
-  jahrgangId: string; weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>
+  jahrgangId: string
 }) {
   return (
     <div className="md:hidden print:hidden space-y-2">
@@ -732,7 +732,7 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
           {mehrereLesen && (i === 0 || zeilen[i - 1].lese_nr !== p.lese_nr) && (
             <p className="pt-2 text-xs font-semibold text-s112-text-2">Lese {p.lese_titel ?? '–'}</p>
           )}
-          <div className={`border border-s112-border rounded-xl bg-white px-3 py-2.5 ${p.storno ? 'opacity-70' : ''}`}>
+          <div className={`border rounded-xl bg-white px-3 py-2.5 ${editId === p.id ? 'border-s112-teal ring-2 ring-s112-teal/30' : 'border-s112-border'} ${p.storno ? 'opacity-70' : ''}`}>
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <p className={`text-sm font-medium ${p.storno ? 'text-s112-muted' : 'text-s112-text'}`}>
@@ -775,11 +775,6 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
                     action={grund => endgueltigLoeschenLese('ernte_parzellen', p.id, jahrgangId, grund)}
                     hinweis="Nur bei einer Fehlerfassung: Der stornierte Eintrag wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll. Nach einer eingereichten Erntemeldung nicht mehr möglich." />
                 )}
-              </div>
-            )}
-            {editId === p.id && (
-              <div className="mt-2">
-                <ParzellForm jahrgangId={jahrgangId} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} parzelle={p} onDone={() => setEditId(null)} />
               </div>
             )}
           </div>
@@ -826,6 +821,12 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
     if (erfassenOffen && writeOk) formRef.current?.scrollIntoView({ block: 'start' })
   }, [erfassenOffen, writeOk])
   const [editId, setEditId] = useState<string | null>(null)
+  const editRef = useRef<HTMLDivElement>(null)
+  const bearbeitet = editId ? tabellenParzellen.find(p => p.id === editId) ?? null : null
+  // nach dem Öffnen zum Formular springen (es steht über der Liste, der Bearbeiten-Knopf oft weit darunter)
+  useEffect(() => {
+    if (editId) editRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [editId])
 
   // KAN-148 C1b: stornierte Einträge stehen gekennzeichnet in der Tabelle, zählen aber in keiner Summe
   const gueltigeParzellen = tabellenParzellen.filter(p => !p.storno)
@@ -895,6 +896,17 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
           </div>
         )}
 
+        {/* KAN-339/354/370: Bearbeiten über der Liste statt als Tabellenzeile – die Tabelle ist mindestens 700 px breit,
+            das Formular darin musste man waagrecht und senkrecht scrollen; am Handy lag es in der Karte */}
+        {bearbeitet && (
+          <div ref={editRef} className="mb-4 scroll-mt-4" data-print="hide" data-lesedaten-bearbeiten>
+            <p className="mb-2 text-sm font-semibold text-s112-text">
+              Lesedaten bearbeiten: {bearbeitet.weingarten_name}{bearbeitet.grundstueck_nr ? ` · GST ${bearbeitet.grundstueck_nr}` : ''} · {formatDate(bearbeitet.ernte_datum)}
+            </p>
+            <ParzellForm key={bearbeitet.id} jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} parzelle={bearbeitet} onDone={() => setEditId(null)} />
+          </div>
+        )}
+
         {leseTitel && writeOk && (
           <p className="mb-3 text-xs text-s112-muted" data-print="hide">Neue Einträge über „Ernte“ landen in der Lese {leseTitel}.</p>
         )}
@@ -902,7 +914,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         {tabellenParzellen.length > 0 && (
           <LesedatenKarten zeilen={tabellenZeilen} mehrereLesen={mehrereLesen} gesamtKg={gesamtKg}
             writeOk={writeOk} editId={editId} setEditId={id => { setEditId(id); setShowForm(false) }}
-            jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} />
+            jahrgangId={jahrgang.id} />
         )}
         {tabellenParzellen.length > 0 ? (
           <div className="hidden md:block print:block border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
@@ -935,7 +947,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                         </td>
                       </tr>
                     )}
-                    <tr className={`group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
+                    <tr className={`group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 ${editId === p.id ? 'bg-s112-teal/5' : ''} ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
                       <td className="px-3 py-2 font-medium text-s112-text">
                         {p.weingarten_name}
                         {p.storno && (
@@ -979,13 +991,6 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                         </td>
                       )}
                     </tr>
-                    {editId === p.id && (
-                      <tr>
-                        <td colSpan={spaltenAnzahl} className="px-3 py-2">
-                          <ParzellForm jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} parzelle={p} onDone={() => setEditId(null)} />
-                        </td>
-                      </tr>
-                    )}
                   </React.Fragment>
                 ))}
               </tbody>
