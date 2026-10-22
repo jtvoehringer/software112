@@ -16,6 +16,7 @@ import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
+import { quellGebinde, selbesGebindeFehler, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 type BehaelterMitCharge = {
@@ -109,9 +110,11 @@ function QuelleZeile({
 // ── Ziel-Zeile ────────────────────────────────────────────────────────────────
 
 function ZielZeile({
-  behaelter, quellen, value, menge, onChange, onRemove,
+  behaelter, quellen, quellGebindeIds, value, menge, onChange, onRemove,
 }: {
   behaelter: Behaelter[]
+  /** KAN-340: Gebinde der gewählten Quellen – kein Ziel (sonst zweite Charge im selben Gebinde) */
+  quellGebindeIds: ReadonlySet<string>
   // Alle aktiven Chargen (nicht nur die als Quelle wählbaren) - um im Ziel-Dropdown
   // anzuzeigen, was bereits in einem Behälter drinnen ist (analog zum Umziehen-Widget auf
   // der einzelnen Charge-Seite, das genau diese Info schon lange zeigt).
@@ -140,7 +143,7 @@ function ZielZeile({
         className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[200px]"
       >
         <option value="">– Behälter wählen –</option>
-        {behaelter.map(b => {
+        {zielGebindeOhneQuellen(behaelter, quellGebindeIds, value).map(b => {
           // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
           return (
             <option key={b.id} value={b.id}>
@@ -216,6 +219,9 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
   // KAN-193 (Entscheidung Jörgen 03.10.2026): kein Sperren mehr, sondern ein Hinweis – der Server bucht einen Verschnitt
   // mit Abstufung auf Wein (aus Österreich) nach einer Rückfrage (bzw. lehnt ab, wenn es keiner wäre).
   const quellChargen = quellenState.map(q => quellen.find(x => x.charge_id === q.chargeId)).filter((x): x is BehaelterMitCharge => !!x)
+  // KAN-340: Gebinde der gewählten Quellen sind kein Ziel
+  const quellGebindeIds = quellGebinde(quellChargen)
+  const selbesGebinde = selbesGebindeFehler(quellGebindeIds, ziele.map(z => z.behId))
   const zielChargen = ziele.flatMap(z => quellen.filter(c => c.behaelter_id === z.behId && !quellChargen.some(q => q.charge_id === c.charge_id)))
   let weinartSperre: string | null = null
   for (let i = 1; i < quellChargen.length && !weinartSperre; i++) {
@@ -232,6 +238,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
     if (quellenState.some(q => !q.chargeId || !q.menge)) { setError('Alle Quell-Zeilen ausfüllen.'); return }
     if (ziele.some(z => !z.behId || !z.menge))         { setError('Alle Ziel-Zeilen ausfüllen.'); return }
     if (schwund < 0)                                    { setError('Ziel-Menge größer als Quell-Menge.'); return }
+    if (selbesGebinde)                                  { setError(selbesGebinde); return }   // KAN-340
 
     // KAN-94: die gewählte Charge ist direkt die Quelle
     const quellenResolved = quellenState.map(q => ({ weinausbau_id: q.chargeId, menge: parseFloat(q.menge) }))
@@ -335,13 +342,19 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
             className="text-xs text-s112-blue-700 hover:underline">+ Ziel</button>
         </div>
         {ziele.map(z => (
-          <ZielZeile key={z.id} behaelter={behaelter} quellen={quellen} value={z.behId} menge={z.menge}
+          <ZielZeile key={z.id} behaelter={behaelter} quellen={quellen} quellGebindeIds={quellGebindeIds} value={z.behId} menge={z.menge}
             onChange={(bId, m) => setZiele(p => p.map(x => x.id === z.id ? { ...x, behId: bId, menge: m } : x))}
             onRemove={() => ziele.length > 1 && setZiele(p => p.filter(x => x.id !== z.id))} />
         ))}
         <div className="text-xs text-s112-muted text-right tabular-nums">
           Gesamt: <span className="font-semibold text-s112-text-1">{fmt(totalNach)}</span>
         </div>
+        {selbesGebinde && (
+          <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg flex items-start gap-1.5">
+            <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
+            <span>{selbesGebinde} Bitte ein anderes Ziel-Gebinde wählen.</span>
+          </div>
+        )}
         {weinartSperre && (
           <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
             <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />

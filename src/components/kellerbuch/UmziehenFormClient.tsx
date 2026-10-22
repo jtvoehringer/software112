@@ -7,6 +7,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { quellGebinde, selbesGebindeFehler, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -90,9 +91,14 @@ export default function UmziehenFormClient({
     })
   }
 
+  // KAN-340: Gebinde der gewählten Quell-Chargen sind kein Ziel (sonst zweite Charge im selben Gebinde)
+  const quellGebindeIds = quellGebinde(quellen.map(q => findCharge(q.weinausbau_id)))
+  const selbesGebinde = selbesGebindeFehler(quellGebindeIds, ziele.map(z => z.behaelter_id))
+
   const canSubmit = quellen.some(q => q.weinausbau_id && q.brutto > 0)
     && ziele.some(z => z.behaelter_id && z.menge_netto > 0)
     && !ueberschuss
+    && !selbesGebinde
 
   return (
     <form onSubmit={absenden} className="mt-4 space-y-6">
@@ -192,7 +198,7 @@ export default function UmziehenFormClient({
                 className={`${inputCls} flex-1 basis-full sm:basis-0`}
               >
                 <option value="">– Gebinde –</option>
-                {gebinde.filter((g: R) => g.aktiv).map((g: R) => {
+                {zielGebindeOhneQuellen(gebinde.filter((g: R) => g.aktiv) as (R & { id: string })[], quellGebindeIds, z.behaelter_id).map((g: R) => {
                   const frei = freiLiter(g)
                   const freiText = frei != null
                     ? ` (frei: ${fmtNum(frei, { max: 0 })} L)`
@@ -216,6 +222,9 @@ export default function UmziehenFormClient({
               )}
             </div>
           ))}
+          {selbesGebinde && (
+            <p role="alert" className="text-xs text-s112-err-fg">{selbesGebinde} Bitte ein anderes Ziel-Gebinde wählen.</p>
+          )}
           {ueberschuss && (
             <p className="text-xs text-s112-err-fg">
               Summe Netto ({fmtNum(sumNetto, { max: 2 })} L) überschreitet Brutto – bitte korrigieren.

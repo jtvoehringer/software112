@@ -9,6 +9,7 @@
 
 import { waehleZielCharge, merkmaleText } from '../kellerbuch/umzugZiel'
 import { weinartKonflikt } from './weinart'
+import { quellGebinde, selbesGebindeFehler, UMZUG_SELBES_GEBINDE } from '../kellerbuch/umzugGebinde'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
 /** Eigene, aktive Charge in einem Gebinde (Merkmale wie in weinausbau) */
@@ -70,7 +71,8 @@ export function bewerteZiel(p: {
   menge: number
 }): ZielBewertung {
   const gesperrt = (text: string): ZielBewertung => ({ art: 'gesperrt', text, zielCharge: null, rotWeiss: false })
-  if (p.ziel.id === p.quellGebinde.id) return gesperrt('Gleiches Gebinde')
+  // KAN-340: dieselbe Prüfung wie umziehen() – Ziehen auf sich selbst bucht nichts
+  if (selbesGebindeFehler(quellGebinde([{ behaelter_id: p.quellGebinde.id }]), [p.ziel.id])) return gesperrt(UMZUG_SELBES_GEBINDE)
   if (!p.quelle || !(p.quelle.menge_liter > 0)) return gesperrt(`In „${p.quellGebinde.name}“ liegt kein eigener Wein`)
   if (p.ziel.gesperrt) return gesperrt(`„${p.ziel.name}“ ist durch ${p.ziel.fremd_betrieb ?? 'einen anderen Betrieb'} belegt`)
   if (!(p.menge > 0)) return gesperrt('Keine Menge')
