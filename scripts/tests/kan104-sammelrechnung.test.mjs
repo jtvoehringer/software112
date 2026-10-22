@@ -60,6 +60,6 @@ describe('KAN-104: Verdrahtung', () => {
     assert.match(v, /const isRechnung       = modusRechnung && berechnet && !sammelrechnung/)
     assert.match(v, /\{!posten\.storniert && berechnet && !sammelrechnung && \(/)
     assert.match(v, /'Teil der Sammelrechnung '/)
-    assert.match(quelle('src/app/(dashboard)/weinhandel/offene-posten/page.tsx'), /href:            p\.verkaufsposten_ids\.length > 1 \? `\/weinhandel\/rechnungen\/\$\{p\.id\}` : undefined,/)
+    assert.match(quelle('src/app/(dashboard)/weinhandel/offene-posten/page.tsx'), /href:            p\.verkaufspostenIds\.length > 1 \? `\/weinhandel\/rechnungen\/\$\{p\.id\}` : undefined,/)
   })
 })

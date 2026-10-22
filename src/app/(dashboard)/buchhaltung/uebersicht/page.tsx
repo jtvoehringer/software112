@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { UMSATZ_BESCHRIFTUNG } from '@/lib/verkauf/umsatz'
 import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { TrendingUp, TrendingDown, Wallet, Landmark, ReceiptText, FileCheck2, Send, ArrowRight } from 'lucide-react'
@@ -79,7 +80,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
           value={fmtEur(f.forderungen.summe)}
           sub={f.forderungen.anzahl === 0 ? 'Alle Rechnungen bezahlt' : f.forderungen.ueberfaellig > 0 ? `${f.forderungen.ueberfaellig} überfällig · ${fmtEur(f.forderungen.ueberfaelligSumme)}` : `${f.forderungen.anzahl} offen`}
           tone={f.forderungen.ueberfaellig > 0 ? 'err' : undefined} />
-        <Tile label="Umsatz aus Rechnungen" icon={Wallet} href="/weinhandel"
+        <Tile label={UMSATZ_BESCHRIFTUNG} icon={Wallet} href="/weinhandel"
           value={fmtEur(f.umsatz.ytd)} sub={deltaText(f.umsatz.ytd, f.umsatz.vj)} />
         {einst.doppik && f.uebergabe ? (
           <Tile label="Übergabe an Steuerberater" icon={Send} href="/controlling/bmd"

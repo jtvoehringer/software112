@@ -97,7 +97,7 @@ const UMGESTELLT = [
   ['src/app/(dashboard)/crm/firmen/page.tsx', 'firma_id', 'Firmenliste ab ≈ 350 Zeilen ohne Ansprechpersonen'],
   ['src/app/(dashboard)/crm/page.tsx', 'id', 'Blöcke zu 300 knapp an der URL-Grenze', ['profiles']],
   ['src/lib/email/spiegel.ts', 'email_id', '200 Graph-IDs (≈ 30 KB) – jede Mail galt als neu'],
-  ['src/app/(dashboard)/weinhandel/offene-posten/page.tsx', 'rechnung_id', 'Teilzahlungen fehlten bei vielen offenen Posten (KAN-105: je Rechnung)'],
+  ['src/lib/verkauf/umsatz.ts', 'rechnung_id', 'Teilzahlungen fehlten bei vielen offenen Posten (KAN-105: je Rechnung; seit KAN-346 zentral)'],
   ['src/app/api/kostenrechnung/route.ts', 'kosteneintrag_id', 'Aufteilung auf Rieden fehlte'],
   ['src/app/(dashboard)/weinhandel/page.tsx', 'fuellung_id', 'Lösch-Sperre der Füllungen fehlte'],
   ['src/app/(dashboard)/dashboard/_shared/data.ts', 'weinausbau_id', 'letzte Analyse je Charge fehlte'],

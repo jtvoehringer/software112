@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { createZahlung } from '../verkauf/actions'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
+import { faelligText } from '@/lib/verkauf/faelligkeit'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
@@ -24,10 +25,12 @@ type Posten = {
   kontaktId: string | null
   firmaId: string | null
   // Rückmeldung 29.8.2026: "die überfälligen bitte rot markieren" - Erkennung
-  // kommt bereits aus page.tsx (gleiche 30-Tage-Zahlungsziel-Annahme wie im
+  // kommt aus page.tsx (KAN-374: ab Fälligkeit nach Zahlungsziel des Kunden, wie im
   // Dashboard), hier nur noch farblich in der Tabelle sichtbar machen.
   ueberfaellig: boolean
   tageUeberfaellig: number
+  /** KAN-374: Fälligkeit = Rechnungsdatum + Zahlungsziel des Kunden (JJJJ-MM-TT) */
+  faelligAm: string
 }
 
 function fmt(n: number) {
@@ -92,8 +95,11 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
             <div className="flex flex-col items-center gap-1">
               {p.ueberfaellig && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-semibold whitespace-nowrap">
-                  {p.tageUeberfaellig} Tage überfällig
+                  {faelligText({ faelligAm: p.faelligAm, verzugTage: p.tageUeberfaellig })}
                 </span>
+              )}
+              {!p.ueberfaellig && (
+                <span className="text-[11px] text-s112-muted whitespace-nowrap">{faelligText({ faelligAm: p.faelligAm, verzugTage: 0 })}</span>
               )}
               {writeOk ? (
                 <button

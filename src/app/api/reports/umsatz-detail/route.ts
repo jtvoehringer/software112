@@ -1,12 +1,15 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
-import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
-import { umsatzBasis } from '@/lib/verkauf/umsatzBasis'
+import { ladeUmsatzRechnungen, rechnungNetto } from '@/lib/verkauf/umsatz'
 import { dbFehlerText } from '@/lib/fehler'
 
+const TAG = /^\d{4}-\d{2}-\d{2}$/
+
+// KAN-346/348: Belege eines Monats der Umsatz-Auswertung – dieselben Rechnungen wie die Monatssumme (zentrale
+// Umsatzfunktion, netto nach Rechnungsdatum), je Rechnung mit ihrem Netto-Umsatz, damit die Belegliste die Monatssumme
+// ergibt. Sammelrechnung als eine Zeile, Link zur Rechnungsseite. Die frühere Wahl „nach Lieferdatum“ entfällt.
 export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
@@ -16,36 +19,19 @@ export async function GET(req: NextRequest) {
 
   const von = req.nextUrl.searchParams.get('von')
   const bis = req.nextUrl.searchParams.get('bis')
-  if (!von || !bis) return NextResponse.json({ fehler: 'von/bis fehlen' }, { status: 400 })
+  if (!von || !bis || !TAG.test(von) || !TAG.test(bis)) return NextResponse.json({ fehler: 'von/bis fehlen (Format JJJJ-MM-TT)' }, { status: 400 })
 
   const supabase = await createSupabaseServerClient()
+  // alle() in ladeUmsatzRechnungen: Detailliste und Summe über alle Rechnungen des Zeitraums, nicht nur die ersten 1.000
+  const { data, error } = await ladeUmsatzRechnungen(supabase, tenantId, von, bis)
+  if (error) return NextResponse.json({ fehler: dbFehlerText(error, 'Belege konnten nicht geladen werden') }, { status: 500 })
 
-  // KAN-105: nach Rechnungsdatum – Rechnungen (Sammelrechnung als eine Zeile), Link zur Rechnungsseite
-  if (umsatzBasis(req.nextUrl.searchParams.get('basis')) === 'rechnung') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await alle((supabase.from('rechnungen') as any)
-      .select(`id, datum, rechnungsnummer, storniert, bezahlt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen!firma_id(name), ${lieferscheineSelect('preis_brutto, menge, rabatt_pct, sonderrabatt_pct')}`)
-      .eq('tenant_id', tenantId)
-      .eq('aktiv', true).eq('storniert', false)
-      .gte('datum', von).lte('datum', bis)
-      .order('datum', { ascending: false })
-      .order('id'))
-    if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return NextResponse.json({ posten: ((data ?? []) as any[]).map(r => ({ ...alsBeleg(r), href: `/weinhandel/rechnungen/${r.id}` })) })
-  }
-
-  // alle(): Detailliste und Summe über alle Verkäufe des Zeitraums, nicht nur die ersten 1.000
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await alle((supabase.from('verkaufsposten') as any)
-    .select('id, datum, rechnungsnummer, storniert, bezahlt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-    .eq('tenant_id', tenantId)
-    .eq('aktiv', true).eq('storniert', false)
-    .gte('datum', von).lte('datum', bis)
-    .order('datum', { ascending: false })
-    .order('id'))
-
-  if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
-
-  return NextResponse.json({ posten: data ?? [] })
+  return NextResponse.json({
+    posten: data.map(r => ({
+      id: r.id, datum: r.datum, rechnungsnummer: r.rechnungsnummer ?? null, storniert: !!r.storniert, bezahlt: !!r.bezahlt,
+      kontakt: r.kontakt ?? null, firma: r.firma ?? null,
+      netto: rechnungNetto(r),
+      href: `/weinhandel/rechnungen/${r.id}`,
+    })),
+  })
 }
