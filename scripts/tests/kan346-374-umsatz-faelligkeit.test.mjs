@@ -6,13 +6,13 @@
 //    Lesefehler aus.
 //  - KAN-374: überfällig ab FÄLLIGKEIT = Rechnungsdatum + Kundenziel (Kontakt, sonst Firma, sonst 14 Tage), reine
 //    Datumsrechnung, „heute“ als Wiener Kalendertag (src/lib/verkauf/faelligkeit.ts).
-// Ersetzt kan105e-reports-basis.test.mjs (Wahl „nach Lieferdatum“ entfällt).
+// Die Umschaltung Rechnungs-/Lieferdatum der Umsatz-Auswertung prüft kan105e-reports-basis.test.mjs.
 //
 // Aufruf:  npm run -s test:csv   (alle scripts/tests/*.test.mjs)
 
 import { test, describe, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 // @ts-expect-error TS5097 – node:test lädt die .ts-Datei direkt
 import { zahlungszielTage, faelligAm, verzugTage, faelligkeit, faelligText, ZAHLUNGSZIEL_STANDARD_TAGE } from '../../src/lib/verkauf/faelligkeit.ts'
 // @ts-expect-error TS5097 – node:test lädt die .ts-Datei direkt
@@ -255,21 +255,20 @@ describe('Verdrahtung', () => {
     assert.doesNotMatch(v, /ZAHLUNGSZIEL_TAGE|function posSum|tageSeit/)
   })
 
-  test('Umsatz-Auswertung: Route und Belegliste über die zentrale Funktion, Fehler ausgewertet, keine Lieferdatum-Basis', () => {
+  test('Umsatz-Auswertung: Route und Belegliste über die zentrale Funktion, Fehler ausgewertet', () => {
     const u = quelle('src/app/api/reports/umsatz/route.ts')
-    assert.match(u, /const \{ data, error \} = await ladeUmsatzRechnungen\(supabase, tenantId, von, bis\)/)
+    assert.match(u, /const \{ data, error \} = await ladeUmsatzBelege\(supabase, tenantId, von, bis, basis\)/)
     assert.match(u, /umsatz: umsatzNetto\(data\)/)
     assert.match(u, /if \(fehler\) return NextResponse\.json\(\{ fehler: dbFehlerText\(fehler, 'Umsatz konnte nicht geladen werden'\) \}, \{ status: 500 \}\)/)
-    assert.doesNotMatch(u, /from\('verkaufsposten'\)|searchParams\.get\('basis'\)/)
+    assert.doesNotMatch(u, /from\('verkaufsposten'\)/)   // Lieferscheine nur über ladeUmsatzBelege
     const d = quelle('src/app/api/reports/umsatz-detail/route.ts')
-    assert.match(d, /await ladeUmsatzRechnungen\(supabase, tenantId, von, bis\)/)
+    assert.match(d, /await ladeUmsatzBelege\(supabase, tenantId, von, bis, basis\)/)
     assert.match(d, /if \(error\) return NextResponse\.json\(\{ fehler: dbFehlerText\(error, 'Belege konnten nicht geladen werden'\) \}, \{ status: 500 \}\)/)
-    assert.match(d, /netto: rechnungNetto\(r\)/)
-    assert.doesNotMatch(d, /verkaufsposten/)
+    assert.match(d, /posten: data\.map\(r => umsatzBelegZeile\(r, basis\)\)/)
+    assert.doesNotMatch(d, /from\('verkaufsposten'\)/)
     const s = quelle('src/app/(dashboard)/reports/(controlling)/page.tsx')
     assert.match(s, /ladeUmsatzRechnungen\(supabase, tenantId, von12, bis12\)/)
     assert.match(s, /umsatzJeMonat\(\(umsatzRaw \?\? \[\]\) as R\[\]/)
-    assert.equal(existsSync(new URL('../../src/lib/verkauf/umsatzBasis.ts', import.meta.url)), false)
   })
 
   test('KAN-348: Belege über sichtbaren Knopf, res.ok ausgewertet, Fehler mit role="alert", Ladezustand im finally', () => {
@@ -282,8 +281,7 @@ describe('Verdrahtung', () => {
     assert.doesNotMatch(drill, /catch \{ \/\* silent \*\/ \}/)
     assert.match(c, /<div role="alert" className="[^"]*">\{monatFehler\}<\/div>/)
     assert.match(c, /\{eur\(Number\(p\.netto\) \|\| 0\)\}/)
-    assert.match(c, /title: `\$\{UMSATZ_BESCHRIFTUNG\} \(12 Monate\)`/)
-    assert.doesNotMatch(c, /umsatzBasis|&basis=|\['lieferung', 'nach Lieferdatum'\]/)
+    // Überschrift und Umschaltung je Basis: kan105e-reports-basis.test.mjs
   })
 
   test('Finanzübersicht: Umsatz über ladeUmsatzRechnungen/umsatzNetto, Kachel beschriftet, Forderungen über ladeOffenePosten', () => {

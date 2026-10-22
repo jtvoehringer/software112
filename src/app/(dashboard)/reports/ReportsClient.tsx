@@ -14,7 +14,7 @@ import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
 import { CU_GRENZWERT_KG_HA_JAHR, type CuStatus } from '@/lib/behoerden/cu'
 import { tageSeit } from '@/lib/datum/wien'
 import { fehlerText } from '@/lib/fehler'
-import { UMSATZ_BESCHRIFTUNG } from '@/lib/verkauf/umsatz'
+import { umsatzBeschriftung, type UmsatzBasis } from '@/lib/verkauf/umsatzBasis'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -62,7 +62,7 @@ interface Props {
 }
 
 const TABS = [
-  { id: 'umsatz',     label: 'Umsatz',         title: `${UMSATZ_BESCHRIFTUNG} (12 Monate)` },
+  { id: 'umsatz',     label: 'Umsatz',         title: 'Umsatz (12 Monate)' },   // Überschrift je Basis: umsatzBeschriftung()
   { id: 'lager',      label: 'Lager',           title: 'Lagerbestand' },
   { id: 'behandlung', label: 'Behandlungen',    title: 'Behandlungsübersicht ' + new Date().getFullYear() },
   { id: 'pipeline',   label: 'Pipeline',         title: 'Lead-Pipeline' },
@@ -157,6 +157,9 @@ export default function ReportsClient({
   // und Monatsvergleich (zwei frei wählbare, nicht zwingend zusammenhängende Monate).
   type UmsatzModus = 'standard' | 'benutzerdefiniert' | 'vergleich'
   const [umsatzModus, setUmsatzModus]     = useState<UmsatzModus>('standard')
+  // KAN-105/346: Umsatz netto nach Rechnungsdatum (Standard, Rechnungen) oder nach Lieferdatum (Lieferscheine, auch
+  // nicht berechnete) – beide über dieselbe Netto-Rechnung (lib/verkauf/umsatz.ts)
+  const [umsatzBasis, setUmsatzBasis]     = useState<UmsatzBasis>('rechnung')
   const [umsatzData, setUmsatzData]       = useState(umsatzMonate)
   const [umsatzLoading, setUmsatzLoading] = useState(false)
   const [umsatzFehler, setUmsatzFehler]   = useState<string | null>(null)
@@ -198,24 +201,39 @@ export default function ReportsClient({
 
   const current    = TABS.find(t => t.id === tab)!
   const maxUmsatz  = Math.max(...umsatzData.map(m => m.umsatz), 1)
+  const belegWort  = umsatzBasis === 'lieferung' ? 'Lieferscheine' : 'Rechnungen'
   const pipelineAktiv = pipeline.filter(p => !p.erledigt && p.stufe !== 'verloren')
   const offeneSum  = offene.reduce((s, p) => s + posSum(p), 0)
 
   // ── Umsatz: Zeitraum & Vergleich ────────────────────────────────────────────
-  // KAN-346: Umsatz immer netto nach Rechnungsdatum (die Wahl „nach Lieferdatum“ aus KAN-105 entfällt) – die letzten
-  // 12 Monate kommen fertig vom Server
-  function umsatzLetzte12() {
+  // Basis Rechnungsdatum: die letzten 12 Monate kommen fertig vom Server; Lieferdatum über die Route
+  async function umsatzLetzte12(basis = umsatzBasis) {
     setUmsatzModus('standard')
     setUmsatzExpand(null)
     setUmsatzFehler(null)
-    setUmsatzData(umsatzMonate)
+    if (basis === 'rechnung') { setUmsatzData(umsatzMonate); return }
+    setUmsatzLoading(true)
+    try {
+      const res = await fetch('/api/reports/umsatz?basis=lieferung')
+      const json = await res.json()
+      if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
+      setUmsatzData(json.monate ?? [])
+    } catch { setUmsatzFehler('Fehler beim Laden.') }
+    finally { setUmsatzLoading(false) }
   }
 
-  async function umsatzZeitraumAnwenden() {
+  function umsatzBasisWechseln(basis: UmsatzBasis) {
+    setUmsatzBasis(basis)
+    if (umsatzModus === 'benutzerdefiniert') void umsatzZeitraumAnwenden(basis)
+    else if (umsatzModus === 'vergleich') void umsatzVergleichen(basis)
+    else void umsatzLetzte12(basis)
+  }
+
+  async function umsatzZeitraumAnwenden(basis = umsatzBasis) {
     if (!vonMonat || !bisMonat) return
     setUmsatzLoading(true); setUmsatzFehler(null)
     try {
-      const res = await fetch(`/api/reports/umsatz?von=${vonMonat}&bis=${bisMonat}`)
+      const res = await fetch(`/api/reports/umsatz?von=${vonMonat}&bis=${bisMonat}&basis=${basis}`)
       const json = await res.json()
       if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
       setUmsatzData(json.monate ?? [])
@@ -225,11 +243,11 @@ export default function ReportsClient({
     finally { setUmsatzLoading(false) }
   }
 
-  async function umsatzVergleichen() {
+  async function umsatzVergleichen(basis = umsatzBasis) {
     if (!vergleichA || !vergleichB) return
     setUmsatzLoading(true); setUmsatzFehler(null)
     try {
-      const res = await fetch(`/api/reports/umsatz?monate=${vergleichA},${vergleichB}`)
+      const res = await fetch(`/api/reports/umsatz?monate=${vergleichA},${vergleichB}&basis=${basis}`)
       const json = await res.json()
       if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
       setVergleichData(json.monate ?? [])
@@ -263,7 +281,7 @@ export default function ReportsClient({
     setMonatDetail([])
     setMonatFehler(null)
     try {
-      const res = await fetch(`/api/reports/umsatz-detail?von=${von}&bis=${bis}`)
+      const res = await fetch(`/api/reports/umsatz-detail?von=${von}&bis=${bis}&basis=${umsatzBasis}`)
       const json = await res.json().catch(() => ({}))
       if (!res.ok) { setMonatFehler(json.fehler ?? 'Belege konnten nicht geladen werden.'); return }
       setMonatDetail(json.posten ?? [])
@@ -311,8 +329,8 @@ export default function ReportsClient({
       quelle.map(m => ({ monat: m.monat, umsatz: runden(m.umsatz, 2), anzahl: m.anzahl })),
       [
         { key: 'monat',  header: 'Monat',           typ: 'text' },
-        { key: 'umsatz', header: 'Umsatz netto nach Rechnungsdatum (€)', typ: 'betrag' },
-        { key: 'anzahl', header: 'Anzahl Rechnungen', typ: 'ganzzahl' },
+        { key: 'umsatz', header: `${umsatzBeschriftung(umsatzBasis)} (€)`, typ: 'betrag' },
+        { key: 'anzahl', header: `Anzahl ${belegWort}`, typ: 'ganzzahl' },
       ],
       csvDateiname(['Umsatz-Monatsübersicht']).utf8,
     )
@@ -503,7 +521,7 @@ export default function ReportsClient({
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-semibold text-s112-text">
             {tab === 'umsatz'
-              ? (umsatzModus === 'vergleich' ? 'Umsatzvergleich' : umsatzModus === 'benutzerdefiniert' ? `${UMSATZ_BESCHRIFTUNG} (Zeitraum)` : current.title)
+              ? (umsatzModus === 'vergleich' ? 'Umsatzvergleich' : umsatzModus === 'benutzerdefiniert' ? `${umsatzBeschriftung(umsatzBasis)} (Zeitraum)` : `${umsatzBeschriftung(umsatzBasis)} (12 Monate)`)
               : current.title}
           </h2>
           {tab === 'lager'  && <CsvBtn onClick={csvLager} />}
@@ -517,6 +535,15 @@ export default function ReportsClient({
           <div className="space-y-4">
             {/* Zeitraum- & Vergleichs-Steuerung */}
             <div className="flex flex-wrap items-end gap-x-4 gap-y-2 pb-4 mb-2 border-b border-s112-border/60 print:hidden">
+              {/* KAN-105/346: Basis Rechnungs- (Standard) oder Lieferdatum, beide netto */}
+              <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs" role="group" aria-label="Umsatz nach">
+                {([['rechnung', 'nach Rechnungsdatum'], ['lieferung', 'nach Lieferdatum']] as const).map(([b, text]) => (
+                  <button key={b} type="button" aria-pressed={umsatzBasis === b} onClick={() => umsatzBasisWechseln(b)}
+                    className={`px-2.5 py-1.5 font-medium transition-colors ${umsatzBasis === b ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
+                    {text}
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={() => umsatzLetzte12()}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${umsatzModus === 'standard' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
@@ -580,7 +607,7 @@ export default function ReportsClient({
                       <div key={i} className="bg-s112-bg rounded-xl p-4">
                         <p className="text-xs text-s112-muted">{m.monat}</p>
                         <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{eur(m.umsatz)}</p>
-                        <p className="text-xs text-s112-muted mt-0.5">{m.anzahl} Rechnungen</p>
+                        <p className="text-xs text-s112-muted mt-0.5">{m.anzahl} {belegWort}</p>
                       </div>
                     ))}
                   </div>
@@ -597,7 +624,7 @@ export default function ReportsClient({
                             {positiv ? '+' : ''}{eur(diff)} ({positiv ? '+' : ''}{fmtNum(pct, 1)} %)
                           </p>
                         </div>
-                        <p className="text-xs text-s112-muted">{a.anzahl} → {b.anzahl} Rechnungen</p>
+                        <p className="text-xs text-s112-muted">{a.anzahl} → {b.anzahl} {belegWort}</p>
                       </div>
                     )
                   })()}
@@ -608,9 +635,9 @@ export default function ReportsClient({
               <>
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   {[
-                    { label: umsatzModus === 'standard' ? 'Akt. Monat' : 'Letzter Monat', val: eur(umsatzData[umsatzData.length - 1]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 1]?.anzahl ?? 0} Rechnungen` },
-                    { label: 'Vormonat',       val: eur(umsatzData[umsatzData.length - 2]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 2]?.anzahl ?? 0} Rechnungen` },
-                    { label: umsatzModus === 'standard' ? '12-Monats-Summe' : `Summe (${umsatzData.length} Monate)`, val: eur(umsatzData.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzData.reduce((s,m)=>s+m.anzahl,0)} Rechnungen` },
+                    { label: umsatzModus === 'standard' ? 'Akt. Monat' : 'Letzter Monat', val: eur(umsatzData[umsatzData.length - 1]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 1]?.anzahl ?? 0} ${belegWort}` },
+                    { label: 'Vormonat',       val: eur(umsatzData[umsatzData.length - 2]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 2]?.anzahl ?? 0} ${belegWort}` },
+                    { label: umsatzModus === 'standard' ? '12-Monats-Summe' : `Summe (${umsatzData.length} Monate)`, val: eur(umsatzData.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzData.reduce((s,m)=>s+m.anzahl,0)} ${belegWort}` },
                   ].map(kpi => (
                     <div key={kpi.label} className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">{kpi.label}</p>
@@ -641,7 +668,7 @@ export default function ReportsClient({
                         <span className="text-xs font-medium text-s112-blue-700 group-hover:underline shrink-0 whitespace-nowrap">{umsatzExpand === m.monat ? 'Belege ausblenden ▲' : 'Belege anzeigen ▼'}</span>
                       </button>
 
-                      {/* Drill-down: Rechnungen dieses Monats (KAN-348) */}
+                      {/* Drill-down: Belege dieses Monats je Basis (KAN-348) */}
                       {umsatzExpand === m.monat && (
                         <div className="ml-16 mt-1 mb-2 border border-s112-border/50 rounded-xl overflow-hidden">
                           {monatLoading ? (
@@ -649,13 +676,13 @@ export default function ReportsClient({
                           ) : monatFehler ? (
                             <div role="alert" className="px-4 py-3 text-xs text-s112-err-fg bg-s112-err-bg">{monatFehler}</div>
                           ) : monatDetail.length === 0 ? (
-                            <div className="px-4 py-3 text-xs text-s112-muted italic">Keine Rechnungen in diesem Monat.</div>
+                            <div className="px-4 py-3 text-xs text-s112-muted italic">{umsatzBasis === 'lieferung' ? 'Keine Lieferscheine in diesem Monat.' : 'Keine Rechnungen in diesem Monat.'}</div>
                           ) : (
                             <table className="w-full text-xs">
                               <thead>
                                 <tr className="bg-s112-bg border-b border-s112-border/50 text-s112-text-2">
                                   <th className="text-left px-3 py-1.5 font-medium">Datum</th>
-                                  <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
+                                  <th className="text-left px-3 py-1.5 font-medium">{umsatzBasis === 'lieferung' ? 'Lieferschein' : 'Rechnung'}</th>
                                   <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
                                   <th className="text-right px-3 py-1.5 font-medium">Netto</th>
                                   <th className="text-center px-3 py-1.5 font-medium">Status</th>
@@ -666,7 +693,7 @@ export default function ReportsClient({
                                   <tr key={p.id} className={`border-b border-s112-border/30 last:border-0 ${i%2===1?'bg-s112-bg/20':''}`}>
                                     <td className="px-3 py-1.5 text-s112-muted tabular-nums">{fmtDate(p.datum)}</td>
                                     <td className="px-3 py-1.5">
-                                      <Link href={p.href ?? `/weinhandel/verkauf/${p.id}`} className="text-s112-blue-700 hover:underline font-mono">{p.rechnungsnummer ?? '–'}</Link>
+                                      <Link href={p.href ?? `/weinhandel/verkauf/${p.id}`} className="text-s112-blue-700 hover:underline font-mono">{p.nummer ?? '–'}</Link>
                                     </td>
                                     <td className="px-3 py-1.5 font-medium text-s112-text">{kundenName(p)}</td>
                                     <td className="px-3 py-1.5 text-right font-semibold text-s112-blue-700 tabular-nums">{eur(Number(p.netto) || 0)}</td>

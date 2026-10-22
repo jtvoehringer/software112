@@ -112,6 +112,53 @@ export async function ladeUmsatzRechnungen(supabase: any, tenantId: string, von:
   return { data: ((data ?? []) as R[]).map(alsBeleg).filter(zaehltAlsUmsatz), error: null }
 }
 
+/** select-Teil der Umsatz-Lieferscheine (Basis Lieferdatum der Umsatz-Auswertung, KAN-105) */
+export const UMSATZ_LIEFERSCHEIN_SELECT =
+  `id, datum, lieferscheinnummer, rechnungsnummer, rechnung_id, aktiv, storniert, bezahlt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), verkauf_positionen(${UMSATZ_POSITIONEN})`
+
+/**
+ * Basis Lieferdatum (nur Umsatz-Auswertung /reports, KAN-105/346): Lieferscheine mit Lieferdatum von–bis des Betriebs,
+ * aktiv und nicht storniert – auch noch nicht berechnete. Netto über dieselbe Positionslogik (rechnungNetto). Fehler kommt zurück.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ladeUmsatzLieferscheine(supabase: any, tenantId: string, von: string, bis: string): Promise<{ data: R[]; error: R | null }> {
+  const { data, error } = await alle<R>(supabase.from('verkaufsposten')
+    .select(UMSATZ_LIEFERSCHEIN_SELECT)
+    .eq('tenant_id', tenantId)
+    .eq('aktiv', true).eq('storniert', false)
+    .gte('datum', von).lte('datum', bis)
+    .order('datum', { ascending: false }).order('id'))
+  if (error) return { data: [], error }
+  return { data: ((data ?? []) as R[]).filter(zaehltAlsUmsatz), error: null }
+}
+
+/** Belege der Umsatz-Auswertung je Basis: Rechnungen nach Rechnungsdatum (Standard) oder Lieferscheine nach Lieferdatum */
+export function ladeUmsatzBelege(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, tenantId: string, von: string, bis: string, basis: 'rechnung' | 'lieferung',
+): Promise<{ data: R[]; error: R | null }> {
+  return basis === 'lieferung' ? ladeUmsatzLieferscheine(supabase, tenantId, von, bis) : ladeUmsatzRechnungen(supabase, tenantId, von, bis)
+}
+
+export type UmsatzBelegZeile = {
+  id: string; datum: string; nummer: string | null; art: 'rechnung' | 'lieferschein'; storniert: boolean; bezahlt: boolean
+  kontakt: R | null; firma: R | null; netto: number; href: string
+}
+
+/** Zeile der Belegliste („Belege anzeigen“) – netto wie die Monatssumme (umsatzNetto), damit die Liste den Balken ergibt */
+export function umsatzBelegZeile(r: R, basis: 'rechnung' | 'lieferung'): UmsatzBelegZeile {
+  const lieferung = basis === 'lieferung'
+  return {
+    id: String(r.id), datum: String(r.datum).slice(0, 10),
+    nummer: ((lieferung ? r.lieferscheinnummer ?? r.rechnungsnummer : r.rechnungsnummer) ?? null) as string | null,
+    art: lieferung ? 'lieferschein' : 'rechnung',
+    storniert: !!r.storniert, bezahlt: !!r.bezahlt,
+    kontakt: (r.kontakt ?? null) as R | null, firma: (r.firma ?? null) as R | null,
+    netto: rechnungNetto(r),
+    href: lieferung ? `/weinhandel/verkauf/${r.id}` : `/weinhandel/rechnungen/${r.id}`,
+  }
+}
+
 export type OffenerPosten = Faelligkeit & {
   id: string
   datum: string
