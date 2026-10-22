@@ -943,7 +943,7 @@ export default function KontaktDetailClient({
       {showEmailModal && kontakt.email && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => setShowEmailModal(false)}>
-          <div {...dlgEmail} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div {...dlgEmail} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-s112-text mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">
@@ -986,7 +986,7 @@ export default function KontaktDetailClient({
       {showUmwandeln && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => !umwPending && setShowUmwandeln(false)}>
-          <div {...dlgUmw} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div {...dlgUmw} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-s112-text mb-1 inline-flex items-center gap-1.5"><ArrowRightLeft size={16} />In Firma umwandeln</h3>
             <p className="text-xs text-s112-muted mb-4">

@@ -858,7 +858,7 @@ function ZeitachseView({
     {viewAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }}>
-        <div {...dlgView} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+        <div {...dlgView} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[calc(100dvh-2rem)] overflow-y-auto"
           onClick={e => e.stopPropagation()}>
 
           {!editAktMode && !editPipeMode ? (
@@ -1122,7 +1122,7 @@ function ZeitachseView({
     {newAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         onClick={() => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }}>
-        <div {...dlgNeu} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+        <div {...dlgNeu} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[calc(100dvh-2rem)] overflow-y-auto"
           onClick={e => e.stopPropagation()}>
           <h3 className="text-base font-semibold text-s112-text mb-1">
             {newAkt?.ganztags ? <span className="inline-flex items-center gap-1.5"><Calendar size={16} />Ganztags-Aktivität</span> : 'Neue Aktivität'}

@@ -500,7 +500,6 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body > *:not(#__next) { display: none; }
           #tb-formular { margin: 0; border: none; padding: 8mm; font-size: 9pt; }
           input, select { border: 1px solid #999 !important; background: white !important; }
         }

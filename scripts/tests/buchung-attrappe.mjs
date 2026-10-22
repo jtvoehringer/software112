@@ -10,7 +10,7 @@
 //    '@/lib/auth/roles' (Mitgliedschaft aus globalThis.__membership, canWrite wie das Original
 //    für Membership-Objekte).
 // 2. datenbank(): Supabase-Attrappe. Sie wertet aus:
-//    - Filter eq, neq, in, is, not(…, 'is', …), gt, gte, lt, lte, or (nur eq, gte, lte, is.null), contains;
+//    - Filter eq, neq, in, is, not(…, 'is', …), gt, gte, lt, lte, or (nur eq, gte, lte, is.null, not.is.null), contains;
 //      unbekannte Operatoren scheitern laut
 //    - die select-Liste: zurück kommen nur die genannten Spalten, auch bei .update/.delete/.insert
 //      mit .select('id'); '*' = alle Schlüssel der Testzeile, Alias 'a:spalte'. Fehlt eine
@@ -121,15 +121,17 @@ const gleich = (a, b) => {
   return String(a) === String(b)
 }
 
-/** PostgREST-or-Filter der Form 'a.eq.x,b.gte.y' (eq, gte, lte, is.null) */
+/** PostgREST-or-Filter der Form 'a.eq.x,b.gte.y' (eq, gte, lte, is.null, not.is.null) */
 function orBedingung(ausdruck) {
   const teile = ausdruck.split(',').map(t => {
     const [k, op, ...rest] = t.split('.')
     const v = rest.join('.')
-    if (op === 'eq') return r => gleich(feld(r, k), v)
+    // im or-Text steht ein Wahrheitswert als 'true'/'false' (KAN-342: 'aktiv.eq.true,…')
+    if (op === 'eq') return r => { const w = feld(r, k); return typeof w === 'boolean' ? String(w) === v : gleich(w, v) }
     if (op === 'gte') return r => (vergleich(feld(r, k), v) ?? -1) >= 0
     if (op === 'lte') return r => (vergleich(feld(r, k), v) ?? 1) <= 0
     if (op === 'is' && v === 'null') return r => feld(r, k) == null   // z. B. 'tenant_id.is.null,tenant_id.eq.<id>'
+    if (op === 'not' && v === 'is.null') return r => feld(r, k) != null   // KAN-342: 'aktiv.eq.true,storniert_am.not.is.null'
     throw new Error(`Attrappe: or-Operator ${op} nicht nachgebildet`)
   })
   return r => teile.some(b => b(r))

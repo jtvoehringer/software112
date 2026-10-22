@@ -9,7 +9,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ShieldAlert } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
-import { korrekturAnzeige, korrekturGrundFehler, type KorrekturFeld } from '@/lib/freeze/korrektur'
+import { KORREKTUR_ZUSATZ, korrekturAnzeige, korrekturGrundFehler, type KorrekturFeld } from '@/lib/freeze/korrektur'
 import { freezeKorrigieren } from '@/app/(dashboard)/freeze-korrektur-actions'
 
 export default function FreezeKorrektur({ tabelle, id, felder, werte, hinweis }: {
@@ -72,8 +72,10 @@ export default function FreezeKorrektur({ tabelle, id, felder, werte, hinweis }:
         <p className="text-xs text-s112-muted mt-0.5">
           {hinweis ?? 'Nur für die Betriebsleitung. Geänderte Werte landen mit Alt/Neu, Benutzer und Grund im Änderungsprotokoll.'}
         </p>
+        {/* KAN-349: fester Zusatz je Tabelle (Prüfnummernantrag: Charge nicht änderbar) */}
+        {KORREKTUR_ZUSATZ[tabelle] && <p className="text-xs font-medium text-s112-text-2 mt-1">{KORREKTUR_ZUSATZ[tabelle]}</p>}
       </div>
-      {fehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-3 py-2 rounded-lg text-sm">{fehler}</div>}
+      {fehler &&<div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-3 py-2 rounded-lg text-sm">{fehler}</div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {felder.map(f => {
           const fid = `korrektur-${f.spalte}`

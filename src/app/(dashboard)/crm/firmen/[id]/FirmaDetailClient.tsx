@@ -871,7 +871,7 @@ export default function FirmaDetailClient({
       {showEmailModal && firma.email && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => setShowEmailModal(false)}>
-          <div {...dlgEmail} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div {...dlgEmail} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-s112-text mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">

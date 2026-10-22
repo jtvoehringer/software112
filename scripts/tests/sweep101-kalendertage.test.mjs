@@ -52,7 +52,8 @@ describe('Wächter', () => {
 
   test('Projekt: keine Funde; betroffene Stellen nutzen die Helfer', () => {
     assert.deepEqual(pruefeWurzel(ROOT).funde, [])
-    assert.match(quelle('src/app/(dashboard)/weinhandel/offene-posten/page.tsx'), /const heute = wienJetzt\(\)[\s\S]*tageSeit\(p\.datum, heute\)/)
+    // KAN-374: Verzug ab Fälligkeit über lib/verkauf/faelligkeit.ts mit dem Wiener Kalendertag
+    assert.match(quelle('src/app/(dashboard)/weinhandel/offene-posten/page.tsx'), /ladeOffenePostenListe\(supabase, tenantId, heuteWien\(\)/)
     assert.match(quelle('src/lib/morgenbericht/pruefungen.ts'), /tageBis\(wienTag\(t\.stripe_trial_ends_at\), heute\)/)
     assert.match(quelle('src/app/(dashboard)/dashboard/_shared/ui.tsx'), /tageBisTag\(typeof d === 'string' \? d : wienTag\(d\), wienJetzt\(\)\)/)
   })

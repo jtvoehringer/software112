@@ -23,6 +23,7 @@ import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewic
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 import { wienHeute } from '@/lib/csv'
 import { waehleZielCharge } from '@/lib/kellerbuch/umzugZiel'
+import { quellGebinde, selbesGebindeFehler } from '@/lib/kellerbuch/umzugGebinde'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { herkunftKnoten } from '@/lib/herkunft'
 import { eroeffnungsStichtagFehler, eroeffnungsZeitpunkt, standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
@@ -500,6 +501,9 @@ async function pruefeUmzug(
       throw new AktionsFehler(`Brutto (${fmtNum(menge, { max: 2 })} L) für Charge „${wa.name}“ übersteigt den Bestand (${fmtNum(verfuegbar, { max: 2 })} L).`)
     }
   }
+  // KAN-340: wie umziehen() – Ziel = Gebinde einer Quelle legte sonst eine zweite Charge ins selbe Gebinde
+  const selbes = selbesGebindeFehler(quellGebinde(quellCharge.values()), e.ziele.map(z => z.behaelter_id))
+  if (selbes) throw new AktionsFehler(selbes)
 
   // KAN-112: Ein Umzug in ein Gebinde mit abweichendem Wein (Rebsorte, Jahrgang, Herkunft, Qualität) bzw. aus Quellen
   // mit verschiedenen Merkmalen ist ein Verschnitt – beim Bearbeiten (Storno + Neubuchung) nicht still eine zweite

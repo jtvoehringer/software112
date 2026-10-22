@@ -389,6 +389,10 @@ export default async function GebindePage({
                 </p>
               </div>
               <ZeitraumCsvKnopf meldung="aenderungsprotokoll" label="Protokoll als CSV" />
+              {/* KAN-350: Bildschirmansicht im Journal (neueste zuerst, umschaltbar); die CSV bleibt chronologisch */}
+              <p className="text-xs text-s112-muted">
+                Die CSV ist chronologisch. Am Bildschirm: <Link href="/dashboard/journal" className="text-s112-blue-700 hover:underline">Journal</Link> – neueste zuerst, umschaltbar auf chronologisch.
+              </p>
             </div>
           )}
         </div>

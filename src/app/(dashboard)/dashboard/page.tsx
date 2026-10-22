@@ -128,7 +128,7 @@ export default async function UebersichtPage() {
           tone={flaschen.abgefuelltWoche > 0 ? 'ok' : undefined} />
         <Tile label="Offene Posten" icon={ReceiptText} href="/weinhandel/offene-posten"
           value={fmtEur(offen.summe)}
-          sub={offen.anzahl === 0 ? 'Keine offenen Posten' : offen.ueberfaellig > 0 ? `${offen.ueberfaellig} überfällig · ${fmtEur(offen.ueberfaelligSumme)}` : `${offen.anzahl} offen · Ø ${offen.avgTage} Tage`}
+          sub={offen.anzahl === 0 ? 'Keine offenen Posten' : offen.ueberfaellig > 0 ? `${offen.ueberfaellig} überfällig · ${fmtEur(offen.ueberfaelligSumme)}` : `${offen.anzahl} offen · Ø ${offen.avgAlterTage} Tage seit Rechnung`}
           tone={offen.ueberfaellig > 0 ? 'err' : undefined} />
         <Tile label="Offene Aufgaben" icon={ListChecks} href="/dashboard/fristen"
           value={fmtNum(aufgaben)}

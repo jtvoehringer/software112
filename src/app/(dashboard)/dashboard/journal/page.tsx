@@ -9,6 +9,8 @@ import { wienZeitpunkt } from '@/lib/csv'
 import { fmtZahl } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import DruckFormatKnopf from '@/components/DruckFormatKnopf'
+import SortierungUmschalter from '@/components/SortierungUmschalter'
+import { PROTOKOLL_SORT_VORGABE, inAnzeigeReihenfolge, protokollSortAus } from '@/lib/protokoll/sortierung'
 
 export const metadata: Metadata = { title: 'Journal' }
 export const dynamic = 'force-dynamic'
@@ -36,23 +38,29 @@ function zeitText(z: string): string {
 
 export default async function JournalPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await getCtx()
-  const f = journalFilter(await searchParams, heuteWien())
+  const sp = await searchParams
+  const f = journalFilter(sp, heuteWien())
+  // KAN-350: Bildschirmansicht des Änderungsprotokolls – neueste zuerst (Vorgabe) oder chronologisch (?sort=alt).
+  // Die CSV des Änderungsprotokolls (Gebinde-Seite) bleibt chronologisch, die Journal-CSV unverändert.
+  const sort = protokollSortAus(sp.sort)
   if (!ctx.tenantId || !ctx.userId) {
     return <div className="space-y-6"><DashHeader title="Journal" /><Empty>Kein Betrieb ausgewählt.</Empty></div>
   }
   const { zeilen, alleSichtbar, benutzer } = await ladeJournal(ctx.supabase, { tenantId: ctx.tenantId, userId: ctx.userId, role: ctx.role }, f)
   const csvHref = `/api/export/journal?${new URLSearchParams(filterParameter(f))}`
-  const sichtbar = zeilen.slice(0, MAX_ANZEIGE)
+  // ladeJournal liefert neueste zuerst; angezeigt werden die neuesten MAX_ANZEIGE – in der gewählten Reihenfolge
+  const sichtbar = inAnzeigeReihenfolge(zeilen.slice(0, MAX_ANZEIGE).reverse(), sort)
   const feld = 'border border-s112-border rounded-lg px-2.5 py-1.5 text-sm bg-white'
 
   return (
     <div className="space-y-6">
       <DashHeader
         title="Journal"
-        sub={alleSichtbar
-          ? 'Alle Vorgänge im Betrieb – wer hat wann in welchem Bereich was angelegt, geändert, storniert oder gelöscht. Neueste oben.'
-          : 'Deine Vorgänge – was Du wann in welchem Bereich angelegt, geändert, storniert oder gelöscht hast. Neueste oben.'}
+        sub={`${alleSichtbar
+          ? 'Alle Vorgänge im Betrieb – wer hat wann in welchem Bereich was angelegt, geändert, storniert oder gelöscht.'
+          : 'Deine Vorgänge – was Du wann in welchem Bereich angelegt, geändert, storniert oder gelöscht hast.'} ${sort === 'neu' ? 'Neueste oben.' : 'Chronologisch (älteste oben).'}`}
         right={<div className="flex flex-wrap items-center gap-2 print:hidden">
+          <SortierungUmschalter sort={sort} pfad="/dashboard/journal" parameter={filterParameter(f)} />
           <DruckFormatKnopf standard="quer" klein />
           <CsvExportKnopf href={csvHref} />
         </div>}
@@ -90,6 +98,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
             </select>
           </label>
         )}
+        {sort !== PROTOKOLL_SORT_VORGABE && <input type="hidden" name="sort" value={sort} />}
         <button type="submit" className="btn-primary text-sm py-1.5">Anzeigen</button>
         <Link href="/dashboard/journal" className="text-sm text-s112-text-2 hover:text-s112-blue-700 py-1.5">Zurücksetzen</Link>
       </form>

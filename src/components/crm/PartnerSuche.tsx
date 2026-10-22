@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import PartnerNeuDialog from '@/components/crm/PartnerNeuDialog'
+import { anlageTypen, type SchnellRolle, type SchnellTreffer, type SchnellTyp } from '@/lib/crm/schnellAnlage'
 
 // Serverseitige Kunden-/Lieferanten-/Kontaktsuche (Typeahead) für Formulare
 // (17.9.2026). Ersetzt das Laden aller Kontakte/Firmen in den Browser
@@ -12,6 +14,9 @@ import { useEffect, useRef, useState } from 'react'
 //            'kontakt' | 'firma'   → nur eine Tabelle, id = Datensatz-ID
 //   firmaId  (art='kontakt') Ansprechpersonen dieser Firma; hat sie keine,
 //            werden alle Kontakte angeboten und ein Hinweis gezeigt.
+//   anlegen  KAN-353: CRM-Schreibrecht (von der Seite durchgereicht – canWrite nie im Client) → unten in der
+//            Liste „+ Neue Firma“ / „+ Neuer Kontakt“; der Dialog legt den Partner im CRM an und wählt ihn aus.
+//   anlageRolle  Kennzeichen der neuen Firma (Kunde/Lieferant); ohne Angabe aus art (lieferant → Lieferant, sonst Kunde).
 
 export type PartnerTreffer = {
   id: string; label: string; sub?: string
@@ -23,7 +28,9 @@ const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-
 /** Beschriftung des Suchfelds für Screenreader – das sichtbare Label daneben ist nicht verknüpft (E2E-Ausbau 10.10.2026) */
 const SUCHE_LABEL = { kunde: 'Kunde suchen', lieferant: 'Lieferant suchen', kontakt: 'Kontakt suchen', firma: 'Firma suchen' } as const
 
-export default function PartnerSuche({ art, firmaId, value, onChange, placeholder, disabled, ariaLabel }: {
+const NEU_LABEL: Record<SchnellTyp, string> = { firma: '+ Neue Firma', kontakt: '+ Neuer Kontakt' }
+
+export default function PartnerSuche({ art, firmaId, value, onChange, placeholder, disabled, ariaLabel, anlegen = false, anlageRolle }: {
   art: 'kunde' | 'lieferant' | 'kontakt' | 'firma'
   firmaId?: string | null
   value: string
@@ -31,7 +38,11 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
   placeholder?: string
   disabled?: boolean
   ariaLabel?: string
+  /** KAN-353: Schreibrecht CRM – nur dann „+ Neu“ anbieten */
+  anlegen?: boolean
+  anlageRolle?: SchnellRolle
 }) {
+  const [neu, setNeu]           = useState<SchnellTyp | null>(null)
   const [query, setQuery]       = useState('')
   const [open, setOpen]         = useState(false)
   const [treffer, setTreffer]   = useState<PartnerTreffer[]>([])
@@ -80,6 +91,17 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
   // Rückmeldung Jörgen 07.10.2026 („Lieferantenänderung nicht möglich – eingefroren“): die Auswahl ist sichtbar änderbar –
   // Klick auf den Namen oder „Ändern“ öffnet wieder die Suche
   const aendern = () => { onChange('', null); setGewaehlt(null); setQuery(''); setOpen(true) }
+  // KAN-353: neu angelegter Partner ist sofort ausgewählt (Treffer im Format der Suche, samt Konditionen)
+  const angelegt = (t: SchnellTreffer) => { setGewaehlt(t); onChange(t.id, t); setQuery(''); setNeu(null) }
+  const neuMoeglich = anlegen && !disabled
+  const neuKnoepfe = neuMoeglich && (
+    <div className="flex flex-wrap gap-2 px-3 py-2 border-t border-s112-border bg-s112-bg/50">
+      {anlageTypen(art).map(t => (
+        <button key={t} type="button" onClick={() => { setOpen(false); setNeu(t) }}
+          className="text-xs font-medium text-s112-blue-700 hover:underline">{NEU_LABEL[t]}</button>
+      ))}
+    </div>
+  )
   if (value) {
     return (
       <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 bg-white text-base sm:text-sm">
@@ -126,12 +148,23 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
           {treffer.length >= 30 && (
             <p className="px-3 py-1.5 text-xs text-s112-muted border-t border-s112-border">Weitere Treffer – bitte genauer eingeben.</p>
           )}
+          {/* KAN-353: dauerhaft unten in der Liste */}
+          {neuKnoepfe}
         </div>
       )}
-      {open && !laden && query.length > 0 && treffer.length === 0 && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg px-3 py-2 text-sm text-s112-muted">
-          Kein Treffer für „{query}“
+      {open && treffer.length === 0 && (neuMoeglich || (!laden && query.length > 0)) && (
+        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg overflow-hidden">
+          {!laden && query.length > 0 && (
+            <p className="px-3 py-2 text-sm text-s112-muted">Kein Treffer für „{query}“</p>
+          )}
+          {laden && neuMoeglich && <p className="px-3 py-2 text-sm text-s112-muted">Suche …</p>}
+          {/* KAN-353: bei leerer Trefferliste neu anlegen statt abbrechen und ins CRM wechseln */}
+          {neuKnoepfe}
         </div>
+      )}
+      {neu && (
+        <PartnerNeuDialog typ={neu} art={art} rolle={anlageRolle} suchtext={query} firmaId={art === 'kontakt' ? firmaId : null}
+          onAngelegt={angelegt} onAbbrechen={() => setNeu(null)} />
       )}
     </div>
   )

@@ -131,7 +131,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-s112-text/40 p-4" onClick={phase === 'fertig' ? onClose : undefined}>
-      <div {...dialog} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div {...dialog} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100dvh-2rem)] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-s112-line">
           <h2 className="text-base font-semibold text-s112-text inline-flex items-center gap-2"><UserPlus className="w-4 h-4 text-s112-teal" /> Lead aus E-Mail anlegen</h2>
           <button onClick={onClose} className="text-s112-tertiary hover:text-s112-text" aria-label="Schließen"><X className="w-4 h-4" /></button>

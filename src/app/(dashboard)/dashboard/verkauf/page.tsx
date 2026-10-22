@@ -1,13 +1,15 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
 import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { ReceiptText, Package, Users, ShoppingCart, Calendar, Wallet } from 'lucide-react'
 import { DashHeader, Card, BarRow, Empty, fmtNum, fmtEur } from '../_shared/ui'
-import { getCtx, ladeFlaschenlager } from '../_shared/data'
-import { wienJetzt, lokalerTag, tageSeit } from '@/lib/datum/wien'
+import { getCtx, ladeFlaschenlager, ladeOffenePosten } from '../_shared/data'
+import { ladeUmsatzRechnungen, umsatzJeMonat, UMSATZ_BESCHRIFTUNG } from '@/lib/verkauf/umsatz'
+import { faelligText } from '@/lib/verkauf/faelligkeit'
+import { AktionsFehler } from '@/lib/fehler'
+import { wienJetzt, lokalerTag } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Verkauf & CRM' }
 export const dynamic = 'force-dynamic'
@@ -15,11 +17,6 @@ type AR = Record<string, any> // eslint-disable-line @typescript-eslint/no-expli
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-// Zahlungsziel-Annahme für "überfällig" (kein eigenes Feld im Datenmodell vorhanden):
-// offene Posten gelten ab 30 Tagen nach Belegdatum als überfällig. Bei Bedarf anpassen,
-// sobald es ein echtes Fälligkeitsdatum gibt.
-const ZAHLUNGSZIEL_TAGE = 30
 
 function startOfWeek(d: Date) {
   const day = d.getDay() // 0 = Sonntag ... 6 = Samstag
@@ -60,6 +57,7 @@ export default async function DashboardPage() {
 
   // 12-Monats-Fenster für die Absatzreihe im Balkendiagramm
   const absatzVon = toDateStr(new Date(heute.getFullYear(), heute.getMonth() - 11, 1))
+  const absatzBis = toDateStr(new Date(heute.getFullYear(), heute.getMonth() + 1, 0))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q = (t: string) => (supabase.from(t) as any)
@@ -69,30 +67,12 @@ export default async function DashboardPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    offenePostenRes,
-    letzteVerkaeufRes,
     leadRes,
     firmaLeadRes,
     auftraegeWocheRes,
     auftraegeVorwocheRes,
-    absatzSeriesRes,
+    umsatzRes,
   ] = await Promise.all([
-    // Offene Posten (unbezahlt, nicht storniert) — inkl. Datum für Überfällig-/Ø-Tage-Berechnung
-    // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen (Summe offener Posten)
-    alle<R>(tf(q('verkaufsposten')
-      .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)).order('id')),
-
-    // Überfällige Rechnungen (bis 5.8.2026: letzte 5 Belege unabhängig vom Status - auf
-    // Wunsch auf ausschließlich überfällige umgestellt). Weiter gefasste Vorab-Filterung
-    // (unbezahlt + nicht storniert, größeres Limit) - die eigentliche >30-Tage-Filterung
-    // und Sortierung nach längster Überfälligkeit passiert unten in JS wie bei den übrigen
-    // Überfällig-Berechnungen dieser Seite (ZAHLUNGSZIEL_TAGE).
-    // alle-ausnahme: die ältesten offenen Rechnungen zuerst – Anzeige der längsten Überfälligkeit, keine Summe
-    tf(q('verkaufsposten')
-      .select('id, datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).limit(200)),
-
     // Gesamt-Kontaktzahl bewusst nicht mehr abgefragt (Feedback 12.8.2026: "Gesamtzahl ist
     // irrelevant") - die Unterzeile zeigt stattdessen die Aufteilung Kontakte-Leads/Firmen-Leads.
     tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('is_lead', true)),
@@ -104,91 +84,39 @@ export default async function DashboardPage() {
     tf(q('verkaufsposten').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('storniert', false).gte('datum', wochenStartStr)),
     tf(q('verkaufsposten').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('storniert', false).gte('datum', vorwochenStartStr).lte('datum', vorwochenEndeStr)),
 
-    // Umsatzreihe der letzten 12 Monate für das Balkendiagramm (bis 5.8.2026: Flaschen-
-    // Absatz/Menge statt Umsatz - auf Wunsch umgestellt, daher jetzt Preis/Rabatt-Felder
-    // statt nur Menge, um wie bei posSum() den tatsächlichen Netto-Umsatz zu berechnen)
-    // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen (Umsatzreihe 12 Monate)
-    alle<R>(tf(q('verkaufsposten')
-      .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('storniert', false).gte('datum', absatzVon)).order('id')),
+    // KAN-346: Umsatzreihe der letzten 12 Monate netto nach Rechnungsdatum (zentral, wie Auswertung und Finanzübersicht;
+    // vorher brutto nach Lieferdatum über alle Lieferscheine, auch nicht berechnete)
+    tenantId ? ladeUmsatzRechnungen(supabase, tenantId, absatzVon, absatzBis) : Promise.resolve({ data: [], error: null }),
   ])
   // Sweep 89 (KAN-281): Lesefehler werfen (Fehlergrenze) statt falscher Umsätze und offener Posten
-  const offenePostenRaw = geladen(offenePostenRes, 'Offene Posten')
-  const letzteVerkaeufRaw = geladen(letzteVerkaeufRes, 'Verkäufe')
-  const absatzSeriesRaw = geladen(absatzSeriesRes, 'Umsatzreihe')
+  const umsatzRechnungen = geladen(umsatzRes, 'Umsatzreihe')
   const leadCount = gezaehlt(leadRes, 'Leads')
   const firmaLeadCount = gezaehlt(firmaLeadRes, 'Firmen-Leads')
   const auftraegeWocheCount = gezaehlt(auftraegeWocheRes, 'Aufträge der Woche')
   const auftraegeVorwocheCount = gezaehlt(auftraegeVorwocheRes, 'Aufträge der Vorwoche')
 
   const ctx = await getCtx()
-  const flaschen = await ladeFlaschenlager(ctx)
-
-  function posSum(posten: R[]): number {
-    return (posten ?? []).reduce((s: number, p: R) => {
-      const pos = (p.positionen ?? p.verkauf_positionen ?? []) as R[]
-      return s + pos.reduce((ps: number, pos: R) => {
-        const brutto = (Number(pos.preis_brutto) || 0) * (Number(pos.menge) || 0)
-        const r = (Number(pos.rabatt_pct) || 0) / 100
-        const sr = (Number(pos.sonderrabatt_pct) || 0) / 100
-        return ps + brutto * (1 - r) * (1 - sr)
-      }, 0)
-    }, 0)
-  }
-
-  const offenePostenListe = (offenePostenRaw ?? []) as R[]
-  const offenePosten  = posSum(offenePostenListe)
-
-  const offenePostenTage = offenePostenListe
-    .map(p => tageSeit(p.datum, heute))   // KAN-158: Kalendertage in Wien
-    .filter(d => Number.isFinite(d))
-  const offenePostenUeberfaellig = offenePostenTage.filter(d => d > ZAHLUNGSZIEL_TAGE).length
-  const offenePostenAvgTage = offenePostenTage.length
-    ? Math.round(offenePostenTage.reduce((s, d) => s + d, 0) / offenePostenTage.length)
-    : 0
+  const [flaschen, offen] = await Promise.all([ladeFlaschenlager(ctx), ladeOffenePosten(ctx)])
+  // KAN-346/374: offene Posten zentral (Rechnungen, nach Teilzahlungen, überfällig ab Fälligkeit nach Kundenziel)
+  if (offen.fehler) throw new AktionsFehler(`Offene Posten konnten nicht geladen werden: ${offen.fehler}`)
 
   const auftraegeWoche    = auftraegeWocheCount ?? 0
   const auftraegeVorwoche = auftraegeVorwocheCount ?? 0
   const auftraegeDelta    = auftraegeWoche - auftraegeVorwoche
 
-  // Umsatzreihe: 12 Monate, älteste zuerst (auf Wunsch von Flaschen-Absatz auf Umsatz
-  // umgestellt, 5.8.2026 - posSum() pro Zeile statt reiner Mengen-Summe)
-  const absatzMap = new Map<string, number>()
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(heute.getFullYear(), heute.getMonth() - 11 + i, 1)
-    absatzMap.set(`${d.getFullYear()}-${d.getMonth()}`, 0)
-  }
-  for (const row of (absatzSeriesRaw ?? []) as R[]) {
-    const d = new Date(row.datum)
-    const key = `${d.getFullYear()}-${d.getMonth()}`
-    if (!absatzMap.has(key)) continue
-    const umsatz = posSum([row])
-    absatzMap.set(key, (absatzMap.get(key) ?? 0) + umsatz)
-  }
-  const absatzSeries = Array.from(absatzMap.entries()).map(([key, value]) => {
-    const [y, m] = key.split('-').map(Number)
-    return { label: new Date(y, m, 1).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short' }), value }
+  // Umsatzreihe: 12 Monate, älteste zuerst, netto nach Rechnungsdatum (KAN-346)
+  const monate = Array.from({ length: 12 }, (_, i) => toDateStr(new Date(heute.getFullYear(), heute.getMonth() - 11 + i, 1)).slice(0, 7))
+  const jeMonat = umsatzJeMonat(umsatzRechnungen ?? [], monate)
+  const absatzSeries = monate.map(m => {
+    const [y, mo] = m.split('-').map(Number)
+    return { label: new Date(y, mo - 1, 1).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short' }), value: jeMonat.get(m)?.umsatz ?? 0 }
   })
   const absatzMax = Math.max(1, ...absatzSeries.map(s => s.value))
 
-  function kundenName(p: R): string {
-    if (p.kontakt) return [p.kontakt.vorname, p.kontakt.nachname].filter(Boolean).join(' ')
-    if (p.firma)   return p.firma.name
-    return '–'
-  }
-
-  // Überfällige Rechnungen inkl. Betrag/Tage pro Zeile (bis 5.8.2026: letzte 5 Belege
-  // unabhängig vom Status - auf Wunsch auf ausschließlich überfällige umgestellt, längste
-  // Überfälligkeit zuerst). Die Vorab-Query liefert bereits nur unbezahlte/nicht stornierte
-  // Belege, hier zusätzlich auf > ZAHLUNGSZIEL_TAGE gefiltert.
-  const belege: R[] = ((letzteVerkaeufRaw ?? []) as R[])
-    .map(v => {
-      const betrag = posSum([v])
-      const tage = tageSeit(v.datum, heute)
-      return { ...v, betrag, tage, kunde: kundenName(v) } as R
-    })
-    .filter(v => v.tage > ZAHLUNGSZIEL_TAGE)
-    .sort((a, b) => b.tage - a.tage)
+  // Überfällige Rechnungen (KAN-374): ab Fälligkeit nach Kundenziel, längster Verzug zuerst
+  const belege = offen.liste
+    .filter(p => p.ueberfaellig)
+    .sort((a, b) => b.verzugTage - a.verzugTage)
     .slice(0, 5)
 
   // Nächste unerledigte Aktivitäten (für "Nächste Termine")
@@ -253,12 +181,12 @@ export default async function DashboardPage() {
             <p className="text-[11.5px] font-semibold text-s112-text-2">Offene Rechnungen</p>
           </div>
           <p className="font-mono text-xl sm:text-2xl text-s112-text tabular-nums">
-            {fmtEur(offenePosten)}
+            {fmtEur(offen.summe)}
           </p>
-          <p className={`text-[11.5px] ${offenePostenUeberfaellig > 0 ? 'text-s112-err-fg' : 'text-s112-tertiary'}`}>
-            {offenePostenListe.length === 0
+          <p className={`text-[11.5px] ${offen.ueberfaellig > 0 ? 'text-s112-err-fg' : 'text-s112-tertiary'}`}>
+            {offen.anzahl === 0
               ? 'Keine offenen Posten'
-              : `${offenePostenUeberfaellig} überfällig · Ø ${offenePostenAvgTage} Tage`}
+              : offen.ueberfaellig > 0 ? `${offen.ueberfaellig} überfällig · ${fmtEur(offen.ueberfaelligSumme)}` : `${offen.anzahl} offen · Ø ${offen.avgAlterTage} Tage seit Rechnung`}
           </p>
         </Link>
 
@@ -308,7 +236,7 @@ export default async function DashboardPage() {
         {/* Umsatz (bis 5.8.2026: Absatz in Flaschen - auf Wunsch auf Umsatz in € umgestellt) */}
         <div className="lg:col-span-2 bg-white border border-s112-line rounded-xl p-[18px]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-[14px] text-s112-text">Umsatz</h2>
+            <h2 className="font-display font-semibold text-[14px] text-s112-text">{UMSATZ_BESCHRIFTUNG}</h2>
             <span className="text-[11.5px] text-s112-tertiary">letzte 12 Monate</span>
           </div>
           <div className="h-[120px] flex items-end gap-2.5">
@@ -341,24 +269,24 @@ export default async function DashboardPage() {
             <div>
               <div className="grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-s112-bg border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
                 <span>Kunde</span>
-                <span className="max-sm:hidden">Beleg-Nr.</span>
-                <span>Überfällig</span>
-                <span className="text-right">Betrag</span>
+                <span className="max-sm:hidden">Rechnung</span>
+                <span>Verzug</span>
+                <span className="text-right">Offen</span>
                 <span className="max-sm:hidden" />
               </div>
               {belege.map(v => (
-                <Link key={v.id} href={`/weinhandel/verkauf/${v.id}`}
+                <Link key={v.id} href={`/weinhandel/rechnungen/${v.id}`}
                   className="contents">
                   <div className="col-span-5 grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F2F3F5] text-[13px] hover:bg-s112-bg transition-colors">
                     <span className="text-s112-text truncate">{v.kunde}</span>
                     <span className="max-sm:hidden font-mono text-s112-text-2">{v.rechnungsnummer ?? '–'}</span>
                     <span>
-                      <span className="inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-s112-err-bg text-s112-err-fg">
-                        {v.tage} Tage
+                      <span title={faelligText(v)} className="inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-s112-err-bg text-s112-err-fg">
+                        {v.verzugTage} Tage
                       </span>
                     </span>
                     <span className="font-mono text-right text-s112-text tabular-nums">
-                      {fmtEur(v.betrag)}
+                      {fmtEur(v.offen)}
                     </span>
                     <span className="max-sm:hidden text-right text-s112-tertiary">⋯</span>
                   </div>

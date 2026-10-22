@@ -12,6 +12,7 @@ import Link from '@/components/ui/Link'
 import { verschnittHinweis, type VerschnittHinweisDaten } from '@/lib/kellerbuch/verschnittHinweis'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { istQuellGebinde, quellGebinde, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null; weinart?: string | null }
@@ -26,9 +27,11 @@ interface Props {
   initialOpen?:    boolean
   quelleRebsorte?: string | null
   quelleWeinart?:  string | null
+  /** KAN-340: Gebinde der Charge – nicht als Ziel anbieten */
+  quelleBehaelterId?: string | null
 }
 
-export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false, quelleRebsorte = null, quelleWeinart = null }: Props) {
+export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false, quelleRebsorte = null, quelleWeinart = null, quelleBehaelterId = null }: Props) {
   const router  = useRouter()
   const [open,  setOpen]  = useState(initialOpen)
   // Rückmeldung Jörgen 07.10.2026: nach dem Buchen klar bestätigen, dass der Umzug abgeschlossen ist – das Formular
@@ -70,6 +73,9 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
       if (!weinByGebinde[c.behaelter_id].includes(label)) weinByGebinde[c.behaelter_id].push(label)
     }
   }
+  // KAN-340: das Gebinde der Charge selbst ist kein Ziel (sonst entstand eine zweite Charge im selben Gebinde)
+  const quellGebindeIds = quellGebinde([{ behaelter_id: quelleBehaelterId ?? alleChargen.find(c => c.id === chargeId)?.behaelter_id }])
+  const zielGebinde = zielGebindeOhneQuellen(gebinde, quellGebindeIds)
   const frei = (g: Gebinde) =>
     g.volumen_liter != null ? Math.max(0, g.volumen_liter - (inhalt[g.id] ?? 0)) : null
 
@@ -100,6 +106,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
     && bruttoVal <= verfuegbarLiter + 0.01
     && (restKapGebinde == null || nettoVal <= restKapGebinde + 0.01)
     && !!zielId
+    && !istQuellGebinde(zielId, quellGebindeIds)
 
   function handleClose() {
     setOpen(false)
@@ -241,7 +248,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             <label className="form-label">Ziel-Gebinde *</label>
             <select required aria-label="Ziel-Gebinde" value={zielId} onChange={e => setZielId(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm">
               <option value="">– Gebinde wählen –</option>
-              {gebinde.map(g => {
+              {zielGebinde.map(g => {
                 // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
                 return (
                   <option key={g.id} value={g.id}>

@@ -53,14 +53,14 @@ export default async function VerarbeitenPage({ params }: { params: Promise<{ id
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center gap-2 text-sm text-s112-muted">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-s112-muted">
         <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
         <Link href={`/kellerbuch/weinausbau/${wa.id}`} className="hover:text-s112-blue-700 transition-colors">{wa.name}</Link>
         <span>/</span>
         <span className="text-s112-text-2">Verarbeiten</span>
       </div>
-      <h1 className="text-xl font-semibold text-s112-text">Charge verarbeiten – {wa.name}</h1>
+      <h1 className="text-xl font-semibold text-s112-text break-words">Charge verarbeiten – {wa.name}</h1>
       <p className="text-sm text-s112-muted">
         Eine Menge verlässt den Weinbestand, weil sie zu Traubensaft, Essig, in der Brennerei oder sonst weiterverarbeitet wird.
         In der Bestandsmeldung als „Abgang durch Verarbeitung“ gebucht. Verarbeiten Sie die ganze Menge, wird die Charge abgeschlossen.

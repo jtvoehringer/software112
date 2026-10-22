@@ -121,7 +121,7 @@ export default function AssistentWidget() {
   }, [offen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
+    <div className="fixed bottom-5 right-5 max-sm:bottom-20 z-50">
       {offen && (
         <div className="mb-3 w-[360px] max-w-[92vw] h-[480px] max-h-[75vh] bg-white rounded-xl shadow-xl border border-s112-border flex flex-col overflow-hidden">
           {/* Header */}

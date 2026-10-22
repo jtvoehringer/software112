@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { NextResponse } from 'next/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
@@ -33,7 +33,8 @@ export async function GET() {
       if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
 
     const behaelter = behaelterRows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter }))
-    return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [], laender: laender ?? [] })
+    // KAN-353: crm_schreiben – Lieferant direkt aus der Partner-Suche anlegen nur mit Schreibrecht CRM (canWrite nie im Client)
+    return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [], laender: laender ?? [], crm_schreiben: !!membership && canWrite(membership, 'crm') })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

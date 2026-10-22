@@ -13,7 +13,8 @@ const quelle = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8
 
 test('App-Rahmen ist nicht scrollbar (overflow-clip), gescrollt wird nur im Inhalt', () => {
   const s = quelle('src/components/layout/AppShell.tsx')
-  assert.match(s, /<div className="h-screen flex flex-col overflow-clip bg-s112-bg">/)
+  // KAN-370/371: Höhe 100dvh (Rückfall 100vh), Rahmen bleibt overflow-clip
+  assert.match(s, /<div className="h-screen supports-\[height:100dvh\]:h-dvh flex flex-col overflow-clip bg-s112-bg[^"]*">/)
   assert.match(s, /<div className="flex-1 min-h-0 flex overflow-clip">/)
   assert.match(s, /<main id="inhalt"[^>]*overflow-y-auto/)
   // kein overflow-hidden mehr auf den beiden Rahmen um <main>

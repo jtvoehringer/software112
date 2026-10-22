@@ -1,4 +1,5 @@
 // behoerdenmeldung: bki-qualitaetsstufen, bki-erzeugnisse, bki-buchungsarten
+// druckknopf-ausnahme: Exportseite der BKI-Schnittstelle (XLSX/CSV für den Import in die Weindatenbank), die Tabellen sind Blattübersicht und Kürzel-Kataloge
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'

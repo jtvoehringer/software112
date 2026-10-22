@@ -16,6 +16,7 @@ import { alle } from '@/lib/supabase/alle'
 import type { Ctx, R } from '@/app/(dashboard)/dashboard/_shared/data'
 import { toDateStr, ladeOffenePosten } from '@/app/(dashboard)/dashboard/_shared/data'
 import { anlagenspiegel, buchwertAm, type Anlage } from '@/lib/ea/anlagen'
+import { ladeUmsatzRechnungen, umsatzNetto } from '@/lib/verkauf/umsatz'
 
 export type Monat = { monat: number; einnahmen: number; ausgaben: number; einnahmenVj: number; ausgabenVj: number }
 export type KategorieZeile = { name: string; betrag: number; vj: number }
@@ -61,15 +62,6 @@ export type Finanzen = {
 const MONATE_KURZ = ['Jän', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 export const monatLabel = (m: number) => MONATE_KURZ[m - 1] ?? String(m)
 
-/** Netto-Umsatz einer Rechnung: Brutto je Position durch (1 + USt) */
-function nettoUmsatz(posten: R[]): number {
-  return posten.reduce((s, p) => s + ((p.verkauf_positionen ?? []) as R[]).reduce((ps: number, x: R) => {
-    const brutto = (Number(x.preis_brutto) || 0) * (Number(x.menge) || 0)
-      * (1 - (Number(x.rabatt_pct) || 0) / 100) * (1 - (Number(x.sonderrabatt_pct) || 0) / 100)
-    return ps + brutto / (1 + (Number(x.ust_satz) || 0) / 100)
-  }, 0), 0)
-}
-
 /** Letzte abgeschlossene UVA-Periode vor dem Stichtag (Fälligkeit 15. des zweitfolgenden Monats) */
 function letzteUvaPeriode(zeitraum: 'monatlich' | 'quartalsweise', heute: Date) {
   const y = heute.getFullYear(), m = heute.getMonth()
@@ -96,9 +88,9 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     alle<R>(ctx.tf(ctx.q('ea_transaktionen')
       .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, import_quelle, storniert_am, storno_von_id, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
       .gte('datum', von).lte('datum', bis).order('datum').order('id'))),
-    alle<R>(ctx.tf(ctx.q('verkaufsposten')
-      .select('id, datum, bezahlt, bmd_export_id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
-      .eq('aktiv', true).eq('storniert', false).gte('datum', von).lte('datum', bis).order('datum').order('id'))),
+    // KAN-346: Umsatz zentral – Rechnungen netto nach Rechnungsdatum (wie Dashboard, Auswertung und UVA; vorher
+    // Lieferscheine nach Lieferdatum, auch nicht berechnete)
+    ctx.tenantId ? ladeUmsatzRechnungen(ctx.supabase, ctx.tenantId, von, bis) : Promise.resolve({ data: [] as R[], error: null }),
     ctx.tf(ctx.q('konten').select('id, name, typ, eroeffnungssaldo, sortierung').eq('aktiv', true).order('sortierung')),
     // KAN-149 D2b: stornierte Zahlungen/Umbuchungen zählen nicht
     alle<R>(ctx.tf(ctx.q('zahlungen').select('betrag, konto_id').not('konto_id', 'is', null).is('storniert_am', null).order('id'))),
@@ -179,13 +171,13 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   const top = (typ: string) => [...katMap.values()].filter(v => v.typ === typ && (v.betrag > 0 || v.vj > 0))
     .map(v => ({ name: v.name, betrag: v.betrag, vj: v.vj })).sort((a, b) => b.betrag - a.betrag).slice(0, 6)
 
-  // ── Umsatz aus Rechnungen (Vorsystem-Sicht, unabhängig von der E&A-Buchung) ─
+  // ── Umsatz aus Rechnungen netto nach Rechnungsdatum (Vorsystem-Sicht, unabhängig von der E&A-Buchung) ─
   const vpJahr = vp.filter(p => String(p.datum).slice(0, 4) === String(jahr) && String(p.datum).slice(0, 10) <= stichtag)
   const vpVj = vp.filter(p => String(p.datum).slice(0, 4) === String(jahr - 1) && String(p.datum).slice(0, 10) <= stichtagVj)
 
   // ── Forderungen (offene Rechnungen, brutto) ───────────────────────────────
-  // KAN-157: dieselbe Quelle wie „Offene Posten“ – ohne Datumsgrenze (vorher nur ab 1.1. des Vorjahres) und mit
-  // derselben Überfälligkeit (volle Tage > Zahlungsziel)
+  // KAN-157: dieselbe Quelle wie „Offene Posten“ – ohne Datumsgrenze (vorher nur ab 1.1. des Vorjahres); KAN-374:
+  // offener Betrag nach Teilzahlungen, überfällig ab der Fälligkeit nach Kundenziel (ladeOffenePosten)
   const forderungen = {
     summe: offenePosten.summe, anzahl: offenePosten.anzahl,
     ueberfaellig: offenePosten.ueberfaellig, ueberfaelligSumme: offenePosten.ueberfaelligSumme,
@@ -224,6 +216,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   if (opts.art === 'doppik') {
     const letzteProt = ((prot as R).data ?? [])[0] as R | undefined
     uebergabe = {
+      // KAN-346: Rechnungen ohne BMD-Übergabe (vorher Lieferscheine – auch nicht berechnete)
       rechnungenOffen: vp.filter(p => !p.bmd_export_id).length,
       belegeOffen: tx.filter(t => t.typ === 'ausgabe' && !t.bmd_export_id).length,
       letzte: letzteProt ? { art: letzteProt.art, erstelltAm: letzteProt.erstellt_am, anzahl: Number(letzteProt.anzahl ?? 0) } : null,
@@ -266,7 +259,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     art: opts.art, jahr, stichtag, ytd, gesamtVj, monate, anlagen,
     liquiditaet: { summe: konten.reduce((s, k) => s + k.saldo, 0), konten },
     forderungen,
-    umsatz: { ytd: nettoUmsatz(vpJahr), vj: nettoUmsatz(vpVj) },
+    umsatz: { ytd: umsatzNetto(vpJahr), vj: umsatzNetto(vpVj) },
     uva, monatsabschluss: { letzter, offeneMonate },
     belege: { zuBuchen: belegeErkannt ?? 0, ohneKategorie, buchungenJahr },
     kategorien: { einnahmen: top('einnahme'), ausgaben: top('ausgabe') },

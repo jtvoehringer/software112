@@ -139,7 +139,9 @@ describe('Verkauf (Etappe 4)', () => {
     assert.match(quelle(`${WH}/verkauf/page.tsx`), /card p-0 overflow-x-auto">\s*<table className="w-full min-w-\[720px\]/)
     const detail = quelle(`${WH}/verkauf/[id]/page.tsx`)
     assert.doesNotMatch(detail, /overflow-hidden">\s*<table/)
-    assert.match(detail, /className="form-input py-2\.5 sm:py-2 text-base sm:text-sm w-full"/)
+    // KAN-355: Zahlungsformular als gemeinsame Client-Komponente – mobile Feldklasse dort als Standard
+    assert.match(quelle('src/components/handel/ZahlungErfassen.tsx'), /feldKlasse = 'form-input py-2\.5 sm:py-2 text-base sm:text-sm w-full'/)
+    assert.match(detail, /<ZahlungErfassen verkaufspostenId=\{id\} \/>/)
     assert.doesNotMatch(detail, /className="form-input text-sm w-full"/)
     const lager = quelle(`${WH}/page.tsx`)
     assert.doesNotMatch(lager, /overflow-hidden[^"]*">\s*<table/)

@@ -147,7 +147,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}>
-      <div {...dialog} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+      <div {...dialog} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[calc(100dvh-2rem)] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-s112-text text-base">{title}</h3>

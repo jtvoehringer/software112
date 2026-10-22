@@ -22,6 +22,8 @@ import { pruefnummerLabel } from '@/lib/zukauf/pruefnummerLabel'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { rundText } from '@/lib/zahl/runden'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import { ZUKAUF_ERLAUBT_TROTZ_SPERRE } from '@/lib/zukauf/merkmalSperre'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -91,6 +93,8 @@ export default function ZukaufEditForm({
   id,
   initial,
   hatBewegungen,
+  merkmaleFest = false,
+  merkmalSperrGrund = null,
   sperrHinweis,
   traubenGebunden,
   eigeneAktuelleMenge,
@@ -106,6 +110,10 @@ export default function ZukaufEditForm({
   // (KAN-35, updateZukauf prüft serverseitig ebenso) - bestimmt außerdem, wie
   // die Gebinde-Vorschau unten die eigene Charge simuliert.
   hatBewegungen: boolean
+  // KAN-351: Merkmale fest (zukaufMerkmaleFest – dieselbe Bedingung wie updateZukauf und der Trigger a_freeze):
+  // Datum, Art, Weinart, Rebsorte, Jahrgang, Qualität, Herkunft, Land, Mostgewicht, Alkohol, Anreicherung gesperrt
+  merkmaleFest?: boolean
+  merkmalSperrGrund?: string | null
   // „An der Charge hängen bereits …“ (nur bei hatBewegungen)
   sperrHinweis: string | null
   // Aus diesem Zukauf bereits verpresste + verkaufte Trauben (kg) und als Text –
@@ -167,9 +175,13 @@ export default function ZukaufEditForm({
   //  - Trauben bereits verpresst/verkauft: Art fix, Menge nicht unter die gebundene Menge
   // KAN-41 Paket 2b: beim Flaschenzukauf sind Anzahl und Einheit ab dem Speichern fest (Weinlager-Artikel)
   const mengeGesperrt = hatBewegungen || istFlaschenArt(initial.art)
+  // KAN-351: Darstellung gesperrter Merkmal-Felder
+  const fest = merkmaleFest ? ' bg-s112-bg text-s112-muted cursor-not-allowed' : ''
   const traubenArtGesperrt = istTraubenArt(initial.art) && traubenGebunden.kg > 0
   function artGesperrt(value: 'wein' | 'most' | 'trauben' | 'maische' | 'flaschen'): boolean {
     if (hatBewegungen && istTraubenArt(value)) return true
+    // KAN-351: Art gehört zu den Merkmalen (Trigger a_freeze)
+    if (merkmaleFest && value !== initial.art) return true
     // KAN-41 Paket 2b: von bzw. zu Flaschen nie wechseln (Weinlager-Artikel) – stornieren und neu erfassen
     if (istFlaschenArt(initial.art) !== istFlaschenArt(value)) return true
     if (traubenArtGesperrt && value !== initial.art) return true
@@ -218,7 +230,7 @@ export default function ZukaufEditForm({
     setError(null)
     if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
     // KAN-80 Nachtrag: die Herkunftsauswahl hat nur ein verstecktes Feld – Pflicht hier prüfen (Server prüft ebenso)
-    if (!herkunft) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
+    if (!herkunft && !merkmaleFest) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
     const neueMenge = parseFloat(menge)
     if (istTraubenArt(art) && traubenGebunden.kg > 0 && neueMenge < alteZukaufMenge && neueMenge < traubenGebunden.kg - 0.0005) {
       setError(`Die Menge kann nicht unter die bereits gebundene Menge gesenkt werden: Aus diesem Zukauf sind bereits ${traubenGebunden.text}, zusammen ${fmtNum(traubenGebunden.kg)} kg.`)
@@ -240,7 +252,8 @@ export default function ZukaufEditForm({
     fd.set('rebsorte',                 rebsorte)
     fd.set('qualitaetsstufe',          qualitaet)
     fd.set('jahrgang',                 jahrgang)
-    fd.set('herkunft',                 herkunft)
+    // KAN-351: bei festen Merkmalen der gespeicherte Wert (auch ein Altwert ohne Code-Vorbelegung) – sonst gälte er als geändert
+    fd.set('herkunft',                 merkmaleFest ? initial.herkunft_gespeichert : herkunft)
     fd.set('land_iso',                 landIso)
     fd.set('anreicherung',             anreicherung ? 'true' : 'false')
     // KAN-130 Etappe 3 (01.10.2026): Mostgewicht = versteckte Felder der Eingabe (Messwert und
@@ -281,6 +294,13 @@ export default function ZukaufEditForm({
           Transportbescheinigung gem. Weingesetz
         </span>
       </div>
+
+      {/* KAN-351: Grund der Sperre vor den Feldern statt einer Ablehnung erst nach dem Speichern */}
+      {merkmaleFest && merkmalSperrGrund && (
+        <GesperrtHinweis
+          grund={sperrHinweis ? `${merkmalSperrGrund} (${sperrHinweis})` : merkmalSperrGrund}
+          erlaubt={[...ZUKAUF_ERLAUBT_TROTZ_SPERRE]} />
+      )}
 
       {flaschenArtikel && (
         <div role="note" className="bg-s112-bg border border-s112-border rounded-xl px-5 py-3 text-sm space-y-1">
@@ -323,7 +343,7 @@ export default function ZukaufEditForm({
             <div>
               <label className={labelCls}>Datum *</label>
               <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)}
-                required className={inputCls + ' w-full'} />
+                required disabled={merkmaleFest} className={inputCls + ' w-full' + fest} />
             </div>
             <div>
               <label className={labelCls}>Uhrzeit</label>
@@ -395,8 +415,8 @@ export default function ZukaufEditForm({
             <label className={labelCls}>Weinart *</label>
             <div className="flex gap-4 mt-1.5">
               {([['weiss','Weißwein','bg-s112-tertiary'],['rot','Rotwein','bg-s112-text'],['rose','Rosé','bg-s112-grey']] as const).map(([val, lbl, dot]) => (
-                <label key={val} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="weinart" value={val} checked={weinart === val} required
+                <label key={val} className={`flex items-center gap-1.5 ${merkmaleFest ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                  <input type="radio" name="weinart" value={val} checked={weinart === val} required disabled={merkmaleFest}
                     onChange={() => setWeinart(val)} className="accent-s112-teal" />
                   <span className={`inline-block w-2.5 h-2.5 rounded-full border border-black/10 ${dot}`} />
                   <span className="text-sm text-s112-text-1">{lbl}</span>
@@ -408,14 +428,14 @@ export default function ZukaufEditForm({
             <div>
               <label className={labelCls}>Rebsorte(n) *</label>
               <input aria-label="Rebsorte(n)" type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}
-                placeholder="z.B. Grüner Veltliner" required className={inputCls + ' w-full'} />
+                placeholder="z.B. Grüner Veltliner" required disabled={merkmaleFest} className={inputCls + ' w-full' + fest} />
             </div>
             <div>
               <label className={labelCls}>Jahrgang *</label>
               <input aria-label="Jahrgang" type="number" step="1" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
                 min="1900" max="2100" placeholder="z.B. 2024"
-                required
-                className={inputCls + ' w-full'} />
+                required disabled={merkmaleFest}
+                className={inputCls + ' w-full' + fest} />
               {istTraubenArt(art) && (
                 <p className="text-xs text-s112-muted mt-1">
                   Wichtig für Pressungs-Vorschlag &amp; Traubenverkauf – ohne Jahrgang wird der Zukauf dort nicht angezeigt.
@@ -426,7 +446,7 @@ export default function ZukaufEditForm({
             <div>
               <label className={labelCls}>Qualitätsstufe *</label>
               <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
-                required className={inputCls + ' w-full'}>
+                required disabled={merkmaleFest} className={inputCls + ' w-full' + fest}>
                 <option value="">– bitte wählen –</option>
                 {mitGespeichertemWert(qualitaetsListe(art), art === initial.art ? initial.qualitaetsstufe : null).map(q => (
                   <option key={q.value} value={q.value}>{q.label}</option>
@@ -436,14 +456,14 @@ export default function ZukaufEditForm({
             {/* KAN-186: Ursprungsland (EU-Wein, Drittland) */}
             <div>
               <label className={labelCls}>Ursprungsland *</label>
-              <LandSelect laender={laender} value={landIso} onChange={setLandIso} className={inputCls + ' w-full'} />
+              <LandSelect laender={laender} value={landIso} onChange={setLandIso} disabled={merkmaleFest} className={inputCls + ' w-full' + fest} />
             </div>
             {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – nicht bei Trauben */}
             {!istTraubenArt(art) && (
               <ZusatzErzeugnisFelder key={art}
                 zusatz={art === initial.art ? initial.zusatzbezeichnung || null : null}
                 erzeugnis={art === initial.art ? initial.erzeugnis || null : null}
-                stufe={qualitaet} feldKlasse={inputCls + ' w-full'} labelKlasse={labelCls} />
+                stufe={qualitaet} nurAnzeige={merkmaleFest} feldKlasse={inputCls + ' w-full'} labelKlasse={labelCls} />
             )}
             {/* Herkunfts-Code (BKI) – dieselbe Auswahl wie am GST, samt eigener Weinbaugebiete (KAN-80 Nachtrag) */}
             <div className="col-span-2">
@@ -455,23 +475,24 @@ export default function ZukaufEditForm({
                 builtinOptions={HERKUNFT_OPTIONS}
                 customOptions={customWeinbaugebiete}
                 emptyLabel="– bitte wählen –"
-                className={inputCls + ' w-full'}
+                disabled={merkmaleFest}
+                className={inputCls + ' w-full' + fest}
               />
-              {initial.herkunft_gespeichert && initial.herkunft_gespeichert !== herkunft && (
+              {!merkmaleFest && initial.herkunft_gespeichert && initial.herkunft_gespeichert !== herkunft && (
                 <p className="text-xs text-s112-muted mt-1">Bisher erfasst: „{herkunftAnzeige(initial.herkunft_gespeichert)}“ – bitte als Herkunfts-Code (BKI) wählen.</p>
               )}
             </div>
             {/* Mostgewicht in °KMW oder °Oe (KAN-130 Etappe 3) – gespeicherter Messwert samt Einheit */}
             {(istTraubenArt(art) || art === 'most') && (
               <div className="col-span-2">
-                <MostgewichtEingabe name="mostgewicht" startwert={initial.mostgewicht} required />
+                <MostgewichtEingabe name="mostgewicht" startwert={initial.mostgewicht} required disabled={merkmaleFest} />
               </div>
             )}
             {(art === 'wein' || istFlaschenArt(art)) && (
               <div>
                 <label className={labelCls}>Alkoholgehalt (%vol) *</label>
                 <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
-                  step="0.1" min="0.1" max="25" placeholder="z.B. 12,5" required className={inputCls + ' w-full'} />
+                  step="0.1" min="0.1" max="25" placeholder="z.B. 12,5" required disabled={merkmaleFest} className={inputCls + ' w-full' + fest} />
               </div>
             )}
             {(art === 'wein' || istFlaschenArt(art)) && (
@@ -485,8 +506,8 @@ export default function ZukaufEditForm({
             )}
           </div>
           {(istTraubenArt(art) || art === 'most') && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={anreicherung} onChange={e => setAnreicherung(e.target.checked)}
+            <label className={`flex items-center gap-2 ${merkmaleFest ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+              <input type="checkbox" checked={anreicherung} onChange={e => setAnreicherung(e.target.checked)} disabled={merkmaleFest}
                 className="accent-s112-teal w-4 h-4" />
               <span className="text-sm text-s112-text-1">Anreicherung (Zuckerung) erfolgt / geplant</span>
             </label>
@@ -503,8 +524,7 @@ export default function ZukaufEditForm({
                 Menge, Einheit und Gebinde sind gesperrt: {sperrHinweis ?? 'An der Charge hängen bereits Folgebuchungen'}.
                 Die Belegmenge bleibt als Zugang der Charge erhalten – eine Mindermenge bitte in der Charge über „Schwund buchen“,
                 eine Mehrmenge als eigenen Zukauf erfassen; ein Gebindewechsel geht über „Umziehen“ im Kellerbuch.
-                Rebsorte, Jahrgang, Weinart und Qualitätsstufe werden nur am Beleg geändert, nicht mehr an der Charge
-                (sie kann inzwischen verschnitten oder abgestuft sein) – die Charge bitte im Kellerbuch bearbeiten.
+                Die Charge selbst (Rebsorte, Qualität, Abstufung) bitte im Kellerbuch bearbeiten.
               </span>
             </p>
           )}

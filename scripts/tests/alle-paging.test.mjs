@@ -80,13 +80,13 @@ const UMGESTELLT = [
   ['src/app/(dashboard)/behandlungen/page.tsx', 'kosteneintraege', 'Kosten je Maßnahme zu niedrig'],
   ['src/app/api/kostenrechnung/route.ts', 'kosteneintraege', 'Jahresauswertung Kostenrechnung unvollständig', { begrenztErlaubt: true }],
   ['src/app/api/kostenrechnung/route.ts', 'kosteneintrag_weingaerten', 'Aufteilung auf Rieden unvollständig'],
-  ['src/app/(dashboard)/weinhandel/offene-posten/page.tsx', 'rechnungen', 'offene Posten fehlten in Liste und Summe (KAN-105: Quelle rechnungen)'],
-  ['src/app/(dashboard)/weinhandel/offene-posten/page.tsx', 'zahlungen', 'Teilzahlungen nicht abgezogen'],
+  // KAN-346/374: offene Posten und Umsatz laufen zentral über src/lib/verkauf/umsatz.ts (Offene Posten, Dashboard,
+  // Finanzübersicht, Morgenbericht, Umsatz-Auswertung)
+  ['src/lib/verkauf/umsatz.ts', 'rechnungen', 'offene Posten fehlten in Liste und Summe, Monatsumsatz zu niedrig'],
+  ['src/lib/verkauf/umsatz.ts', 'zahlungen', 'Teilzahlungen nicht abgezogen'],
   ['src/app/(dashboard)/reports/(controlling)/page.tsx', 'verkaufsposten', 'Summe offener Posten zu niedrig'],
   ['src/app/(dashboard)/reports/(controlling)/page.tsx', 'pipeline_eintraege', 'Pipeline-Auswertung unvollständig'],
   ['src/app/(dashboard)/crm/pipeline/page.tsx', 'pipeline_eintraege', 'Einträge fehlten auf der Pipeline-Tafel'],
-  ['src/app/api/reports/umsatz/route.ts', 'verkaufsposten', 'Monatsumsatz zu niedrig'],
-  ['src/app/api/reports/umsatz-detail/route.ts', 'verkaufsposten', 'Umsatz-Detail unvollständig'],
   ['src/app/(dashboard)/admin/zeiterfassung/page.tsx', 'zeiterfassung', 'Stundensummen zu niedrig'],
 ]
 
@@ -100,7 +100,7 @@ for (const [datei, tabelle, verlust, { begrenztErlaubt = false } = {}] of UMGEST
       assert.ok(a.gepaged, `${datei}:${a.zeile} ${tabelle} ohne alle()`)
       assert.ok(a.sortiert, `${datei}:${a.zeile} ${tabelle} alle() ohne .order()`)
     }
-    assert.match(text, /import \{[^}]*\balle\b[^}]*\} from '@\/lib\/supabase\/alle'/)
+    assert.match(text, /import \{[^}]*\balle\b[^}]*\} from '(?:@\/lib\/supabase\/alle|\.\.\/supabase\/alle\.ts)'/)
   })
 }
 

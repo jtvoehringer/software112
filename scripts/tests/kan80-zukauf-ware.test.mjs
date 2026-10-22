@@ -202,7 +202,7 @@ describe('Formulare (Quelltext)', () => {
       assert.match(f, /Herkunfts-Code \(BKI\) \*/)
       assert.match(f, /builtinOptions=\{HERKUNFT_OPTIONS\}/)
       assert.doesNotMatch(f, /aria-label="Herkunft"/)
-      assert.match(f, /if \(!herkunft\) \{ setError\('Bitte den Herkunfts-Code \(BKI\) wählen\.'\); return \}/)
+      assert.match(f, /if \(!herkunft( && !merkmaleFest)?\) \{ setError\('Bitte den Herkunfts-Code \(BKI\) wählen\.'\); return \}/)   // KAN-351: bei festen Merkmalen gilt der gespeicherte Wert
     }
     assert.match(NEU, /ladeCustomWeinbaugebiete\(\)/)
     assert.match(EDIT_PAGE, /ladeCustomWeinbaugebiete\(\)/)

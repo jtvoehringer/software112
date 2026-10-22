@@ -197,7 +197,7 @@ export default function AssistantPanel() {
         <button
           onClick={() => setOpen(true)}
           title="Assistent öffnen"
-          className="fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full bg-s112-teal text-s112-yellow shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity"
+          className="fixed bottom-5 right-5 max-sm:bottom-20 z-40 w-12 h-12 rounded-full bg-s112-teal text-s112-yellow shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity"
         >
           <Sparkles size={20} strokeWidth={1.75} />
         </button>

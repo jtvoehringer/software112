@@ -1,4 +1,5 @@
 // behoerdenmeldung: bki-verkauf, bki-einkauf, bki-tbs
+// druckknopf-ausnahme: Seite zeigt nur eine Vorschau (je Blatt höchstens 50 Zeilen) – die Meldung ist die CSV-Datei für den Import in die BKI-Weindatenbank
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'

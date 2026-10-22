@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { losText } from '@/lib/handel/losnummer'
 import Link from '@/components/ui/Link'
-import { stornoVerkauf, createZahlung, stornoZahlung, rechnungErstellen, rechnungStornieren } from '../actions'
+import { stornoVerkauf, stornoZahlung, rechnungErstellen, rechnungStornieren } from '../actions'
 import StornoButton from '@/components/StornoButton'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import StornoKnopf from './StornoKnopf'
@@ -21,9 +21,7 @@ import { lieferadresseKurz, lieferadresseZeilen, type LieferadresseMoment } from
 import { landAnzeige } from '@/lib/katalog/laender'
 import { tbsText } from '@/lib/handel/tbsNummer'
 import { TB_POSITIONSTYPEN } from '@/lib/behoerden/transportbescheinigung'
-import { heuteWien } from '@/lib/datum/wien'
-import SendenKnopf from '@/components/ui/SendenKnopf'
-import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import ZahlungErfassen from '@/components/handel/ZahlungErfassen'
 
 export const dynamic = 'force-dynamic'
 
@@ -247,10 +245,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     gutschrift: 'Gutschrift', sonstig: 'Sonstiges',
   }
 
-  const createZahlungBound  = createZahlung.bind(null, id)
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 print:space-y-3 max-w-3xl">
       {/* Print-Styles */}
       <style>{`
         @media print {
@@ -358,11 +355,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           /* ── RECHNUNG ─────────────────────────────────────────────────────── */
           <div className="font-sans text-sm text-s112-text">
             {/* Briefkopf */}
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex justify-between items-start mb-8 print:mb-4">
               <div>
                 {logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="Logo" className="h-14 mb-3 object-contain" />
+                  <img src={logoUrl} alt="Logo" className="h-14 mb-3 print:h-10 print:mb-1 object-contain" />
                 )}
                 <p className="font-semibold text-base">{bName}</p>
                 {bStrasse && <p>{bStrasse}</p>}
@@ -386,7 +383,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               </div>
             </div>
             {/* Empfänger */}
-            <div className="mb-8 p-4 border border-s112-line rounded-sm inline-block min-w-[220px]">
+            <div className="mb-8 print:mb-4 p-4 print:p-3 border border-s112-line rounded-sm inline-block min-w-[220px]">
               <p className="font-semibold text-base">{kundenName(posten)}</p>
               {posten.zh_kontakt && (
                 <p className="text-s112-text-1">z.H. {kontaktAnzeigename(posten.zh_kontakt as R)}</p>
@@ -396,7 +393,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             </div>
             {/* KAN-176: abweichende Lieferadresse */}
             {lieferZeilen.length > 0 && (
-              <div className="mb-8 ml-4 p-4 border border-s112-line rounded-sm inline-block min-w-[220px] align-top">
+              <div className="mb-8 print:mb-4 ml-4 p-4 print:p-3 border border-s112-line rounded-sm inline-block min-w-[220px] align-top">
                 <p className="text-xs uppercase tracking-wide text-s112-muted mb-1">Lieferadresse</p>
                 {lieferZeilen.map((z, i) => <p key={i} className="text-s112-text-2">{z}</p>)}
               </div>
@@ -408,7 +405,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <div>
               {logoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="Logo" className="h-12 mb-2 object-contain" />
+                <img src={logoUrl} alt="Logo" className="h-12 mb-2 print:h-10 object-contain" />
               )}
               <p className="font-semibold text-lg">{bName}</p>
               {bStrasse && <p className="text-sm">{bStrasse}</p>}
@@ -427,7 +424,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         )}
         {/* Empfänger (Lieferschein-Modus) – KAN-176: mit abweichender Lieferadresse geht die Ware dorthin */}
         {!isRechnung && (
-          <div className="mb-8">
+          <div className="mb-8 print:mb-4">
             <p className="font-semibold">{kundenName(posten)}</p>
             {lieferZeilen.length > 0 ? (
               <>
@@ -569,7 +566,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
       {/* ── RECHNUNG-FOOTER: Bankdaten + Fußtext (nur Druck, Rechnungsmodus) ── */}
       {isRechnung && (
-        <div className="print-only mt-8 pt-6 border-t border-s112-line text-sm space-y-3">
+        <div className="print-only mt-8 pt-6 print:mt-4 print:pt-3 break-inside-avoid border-t border-s112-line text-sm space-y-3">
           {skontoAktiv && skontoDatum && (
             <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-sm px-3 py-2">
               <p className="font-semibold text-s112-warn-fg flex items-center gap-1.5">
@@ -693,38 +690,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
           {/* Zahlung erfassen */}
           {writeOk && !vollBezahlt && (
-            <form action={createZahlungBound} className="border border-s112-border rounded-lg p-3 space-y-3">
-              <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Zahlung erfassen</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <ZukunftsDatum aria-label="Datum" name="datum" defaultValue={heuteWien()} className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Art</label>
-                  <select aria-label="Art" name="art" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full">
-                    <option value="bar">Bar</option>
-                    <option value="karte">Karte</option>
-                    <option value="bank">Bank</option>
-                    <option value="gutschrift">Gutschrift</option>
-                    <option value="sonstig">Sonstiges</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
-                  <input aria-label="Betrag (€)" name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
-                  <input aria-label="Notiz" name="notizen" type="text" placeholder="Optional…" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <SendenKnopf className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
-                  Zahlung buchen
-                </SendenKnopf>
-              </div>
-            </form>
+            // KAN-355: Client-Formular – Ablehnungen (z. B. Monat abgeschlossen) als Meldung statt Fehlerseite
+            <ZahlungErfassen verkaufspostenId={id} />
           )}
         </div>
       )}

@@ -70,6 +70,12 @@ export default function KellerbehandlungenPage() {
   // Name der beim Bearbeiten verknüpften Charge, falls sie nicht (mehr) aktiv im Behälter liegt
   const [formWeinausbauName, setFormWeinausbauName] = useState<string | null>(null)
   const [formError, setFormError]         = useState('')
+  // KAN-372: nach „+ Neue Behandlung“/„Bearbeiten“ zum Formular springen – am Handy lag es außer Sicht, der Knopf schien nichts zu tun
+  const formRef = useRef<HTMLDivElement>(null)
+  const [formOeffnung, setFormOeffnung]   = useState(0)
+  useEffect(() => {
+    if (formOeffnung) formRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [formOeffnung])
   // Sweep 91 (KAN-283): Lesefehler sichtbar statt leerer Liste bzw. gesperrter Behandlungen als bearbeitbar
   const [ladeFehler, setLadeFehler]       = useState<string | null>(null)
   // Zeitraum für Liste, Ausdruck und CSV (Behördenmeldung „keller-behandlungen“) – leer = alles
@@ -197,6 +203,7 @@ export default function KellerbehandlungenPage() {
     setFormWeinausbauId(chargenImBehaelter.length === 1 ? chargenImBehaelter[0].id : '')
     setFormWeinausbauName(null)
     setShowForm(true)
+    setFormOeffnung(n => n + 1)
   }
 
   function openEdit(b: R) {
@@ -215,6 +222,7 @@ export default function KellerbehandlungenPage() {
     // Sweep 91 (KAN-283): ohne geladene Prüfnummern (Ladefehler) vorsichtshalber gesperrt
     setFormGesperrt(!!ladeFehler || behandlungPnGesperrt(b as { weinausbau_id: string | null; datum: string | null; storniert_am: string | null }, pnZeilen))
     setShowForm(true)
+    setFormOeffnung(n => n + 1)
   }
 
   function onTypChange(id: string) {
@@ -307,10 +315,10 @@ export default function KellerbehandlungenPage() {
     <div className="max-w-4xl space-y-6">
       {ladeFehler && <p role="alert" className="text-sm text-s112-err-fg print:hidden">{ladeFehler}</p>}
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-s112-muted print:hidden">
         <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-s112-text-1 font-medium">{behaelter.name}</span>
+        <Link href={`/kellerbuch/behaelter/${behaelterId}`} className="text-s112-text-1 font-medium hover:text-s112-blue-700 transition-colors">{behaelter.name}</Link>
         <span>/</span>
         <span className="text-s112-text-2">Kellerbehandlungen</span>
       </div>
@@ -320,10 +328,17 @@ export default function KellerbehandlungenPage() {
         <h1 className="text-xl font-semibold text-s112-text flex items-center gap-2">
           <FlaskConical size={20} strokeWidth={1.75} className="text-s112-blue-700" />Kellerbehandlungen – {behaelter.name}
         </h1>
-        <button onClick={openNeu}
-          className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90 font-medium print:hidden">
-          + Neue Behandlung
-        </button>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          {/* KAN-372: die Kacheln der Schnellerfassung stehen nur auf der Gebindeseite */}
+          <Link href={`/kellerbuch/behaelter/${behaelterId}`} data-schnellerfassung
+            className="text-xs border border-s112-line text-s112-text-2 px-3 py-1.5 rounded-lg hover:border-s112-teal hover:text-s112-blue-700 font-medium">
+            Schnellerfassung
+          </Link>
+          <button onClick={openNeu}
+            className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90 font-medium">
+            + Neue Behandlung
+          </button>
+        </div>
       </div>
       {(von || bis) && (
         <p className="hidden print:block text-xs text-s112-text-2">
@@ -380,7 +395,7 @@ export default function KellerbehandlungenPage() {
 
       {/* Formular */}
       {showForm && (
-        <div className="card p-5 border-s112-teal/30 border-2 print:hidden">
+        <div ref={formRef} className="card p-5 border-s112-teal/30 border-2 print:hidden scroll-mt-4">
           <h2 className="font-semibold text-s112-text mb-4 text-sm">
             {editId ? 'Behandlung bearbeiten' : 'Neue Behandlung'}
           </h2>

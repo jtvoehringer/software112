@@ -2,11 +2,9 @@
 
 import { useState } from 'react'
 import Link from '@/components/ui/Link'
-import { createZahlung } from '../verkauf/actions'
+import ZahlungErfassen from '@/components/handel/ZahlungErfassen'
 import { fmtEur, fmtNum } from '@/lib/format'
-import { heuteWien } from '@/lib/datum/wien'
-import SendenKnopf from '@/components/ui/SendenKnopf'
-import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { faelligText } from '@/lib/verkauf/faelligkeit'
 
 type Posten = {
   id: string
@@ -24,10 +22,12 @@ type Posten = {
   kontaktId: string | null
   firmaId: string | null
   // Rückmeldung 29.8.2026: "die überfälligen bitte rot markieren" - Erkennung
-  // kommt bereits aus page.tsx (gleiche 30-Tage-Zahlungsziel-Annahme wie im
+  // kommt aus page.tsx (KAN-374: ab Fälligkeit nach Zahlungsziel des Kunden, wie im
   // Dashboard), hier nur noch farblich in der Tabelle sichtbar machen.
   ueberfaellig: boolean
   tageUeberfaellig: number
+  /** KAN-374: Fälligkeit = Rechnungsdatum + Zahlungsziel des Kunden (JJJJ-MM-TT) */
+  faelligAm: string
 }
 
 function fmt(n: number) {
@@ -43,7 +43,6 @@ type Konto = { id: string; name: string }
 function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; konten: Konto[] }) {
   const [expanded, setExpanded] = useState(false)
   const offenerBetrag = Math.max(0, p.gesamt - p.bereitsBezahlt)
-  const createZahlungBound = createZahlung.bind(null, p.id)
 
   return (
     <>
@@ -92,8 +91,11 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
             <div className="flex flex-col items-center gap-1">
               {p.ueberfaellig && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-semibold whitespace-nowrap">
-                  {p.tageUeberfaellig} Tage überfällig
+                  {faelligText({ faelligAm: p.faelligAm, verzugTage: p.tageUeberfaellig })}
                 </span>
+              )}
+              {!p.ueberfaellig && (
+                <span className="text-[11px] text-s112-muted whitespace-nowrap">{faelligText({ faelligAm: p.faelligAm, verzugTage: 0 })}</span>
               )}
               {writeOk ? (
                 <button
@@ -112,67 +114,16 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
       {expanded && writeOk && !p.bezahlt && (
         <tr className="border-b border-s112-border last:border-0 bg-s112-bg/40">
           <td colSpan={5} className="px-4 py-3">
-            <form
-              action={async (formData: FormData) => {
-                await createZahlungBound(formData)
-                setExpanded(false)
-              }}
+            {/* KAN-355: Ablehnung (z. B. Monat abgeschlossen) als Meldung in der Zeile – vorher kein catch, Fehlerseite */}
+            <ZahlungErfassen
+              verkaufspostenId={p.id}
+              betragVorschlag={fmtBetragInput(offenerBetrag)}
+              konten={konten}
+              onAbbrechen={() => setExpanded(false)}
+              onGespeichert={() => setExpanded(false)}
               className="border border-s112-border rounded-lg p-3 space-y-3 bg-white"
-            >
-              <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Zahlung erfassen</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <ZukunftsDatum aria-label="Datum" name="datum" defaultValue={heuteWien()} className="form-input text-sm w-full" />
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Art</label>
-                  <select aria-label="Art" name="art" className="form-input text-sm w-full">
-                    <option value="bar">Bar</option>
-                    <option value="karte">Karte</option>
-                    <option value="bank">Bank</option>
-                    <option value="gutschrift">Gutschrift</option>
-                    <option value="sonstig">Sonstiges</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
-                  <input aria-label="Betrag (€)"
-                    name="betrag"
-                    type="text"
-                    inputMode="decimal"
-                    required
-                    defaultValue={fmtBetragInput(offenerBetrag)}
-                    placeholder="0,00"
-                    className="form-input text-sm w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
-                  <input aria-label="Notiz" name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
-                </div>
-              </div>
-              {konten.length > 0 && (
-                <div>
-                  <label className="block text-xs text-s112-text-2 mb-1">Bezahlt über Konto</label>
-                  <select aria-label="Bezahlt über Konto" name="konto_id" required className="form-input text-sm w-full max-w-xs">
-                    {konten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
-                  </select>
-                </div>
-              )}
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setExpanded(false)}
-                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:bg-s112-bg transition-colors"
-                >
-                  Abbrechen
-                </button>
-                <SendenKnopf className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
-                  Zahlung buchen
-                </SendenKnopf>
-              </div>
-            </form>
+              feldKlasse="form-input text-sm w-full"
+            />
           </td>
         </tr>
       )}

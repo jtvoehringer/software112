@@ -11,6 +11,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import { csvDatei, csvDateiname, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
@@ -36,6 +37,8 @@ interface Props {
   writeOk:      boolean
   /** BKI-Datenblatt (Pflichtmeldung) – gleiche Regel wie die CSV-Route */
   bkiErlaubt:   boolean
+  /** KAN-353: Schreibrecht CRM – Käufer direkt aus der Suche anlegen */
+  crmSchreiben: boolean
 }
 
 // Trauben-Qualität = Stufen der Lese (KAN-73: LESE_QUALITAETEN). „DAC“ ist keine Stufe der
@@ -56,7 +59,7 @@ function fmt(n: number | null | undefined, digits = 2) {
   return fmtNum(n, digits)
 }
 
-export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnteOptions, lesen, verpresst, zukaufOptions, writeOk, bkiErlaubt }: Props) {
+export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnteOptions, lesen, verpresst, zukaufOptions, writeOk, bkiErlaubt, crmSchreiben }: Props) {
   const [showForm, setShowForm]      = useState(false)
   const [editRow, setEditRow]        = useState<R | null>(null)
   const [error, setError]            = useState<string | null>(null)
@@ -302,6 +305,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
           )}
         </div>
         <div className="flex items-start gap-3 flex-wrap justify-end">
+          {verkaufe.length > 0 && <DruckFormatKnopf klein standard="quer" />}
           {verkaufe.length > 0 && (
             <CsvExportKnopf label="Liste als CSV" erzeugen={listeErzeugen} />
           )}
@@ -514,9 +518,11 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
               </div>
               {/* Suche statt Auswahlliste (05.10.2026): Gebeshuber hat 8.290 Kontakte und 4.652 Firmen */}
               {kaeuferTyp === 'firma' ? (
-                <PartnerSuche art="firma" value={firmaId} onChange={id => setFirmaId(id)} placeholder="Firma suchen (Name, Ort, Kundennr.) …" />
+                <PartnerSuche art="firma" value={firmaId} onChange={id => setFirmaId(id)} placeholder="Firma suchen (Name, Ort, Kundennr.) …"
+                  anlegen={crmSchreiben} anlageRolle="kunde" />
               ) : (
-                <PartnerSuche art="kontakt" value={kontaktId} onChange={id => setKontaktId(id)} placeholder="Person suchen (Name, Ort, Kundennr.) …" />
+                <PartnerSuche art="kontakt" value={kontaktId} onChange={id => setKontaktId(id)} placeholder="Person suchen (Name, Ort, Kundennr.) …"
+                  anlegen={crmSchreiben} anlageRolle="kunde" />
               )}
             </div>
 

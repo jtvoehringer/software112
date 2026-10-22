@@ -4,6 +4,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { meldungFinden } from '@/lib/behoerden/register'
 import { istParameterFehler, MeldungsFehler } from '@/lib/behoerden/typen'
@@ -84,6 +85,8 @@ export default async function BkiRvPage({ searchParams }: { searchParams: Promis
           gelesen wurde. Ausgang: Weg einer Charge bzw. Füllung bis zum Abnehmer. Zeitraum optional.
         </p>
       </div>
+
+      <div className="flex justify-end print:hidden"><DruckFormatKnopf standard="quer" /></div>
 
       <form method="get" className="card grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end print:hidden">
         <label className={lbl}>Eingang: Charge

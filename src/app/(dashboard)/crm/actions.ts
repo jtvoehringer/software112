@@ -19,6 +19,8 @@ import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
 import { ladeMailAusPostfach } from '@/lib/email/mailLaden'
 import { titelAusFormular, titelNachgestelltAusFormular } from '@/lib/crm/titel'
 import { lieferadresseAus, lieferadresseFehler } from '@/lib/crm/lieferadressen'
+import { schnellAnlagePruefen, schnellTreffer, type SchnellPartnerEingabe, type SchnellTreffer } from '@/lib/crm/schnellAnlage'
+import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -173,12 +175,31 @@ function kontaktPositionQuelle(formData: FormData): { position: string | null; q
   }
 }
 
-export async function createKontakt(formData: FormData): Promise<{ error?: string }> {
+export async function createKontakt(formData: FormData): Promise<{ error?: string; id?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
+    const { error, id } = await kontaktEinfuegen(supabase, tenantId, formData)
+    return error ? { error } : { id }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+/** Weinbau-Betriebsnummer eines Kontakts/einer Firma (optional): dieselbe Prüfung wie in der Schnellanlage
+ *  (KAN-353, Entscheidung Jörgen 22.10.2026) – nur Ziffern, höchstens 10 Stellen, nicht „0“; leer = null. */
+function betriebNrFeld(formData: FormData): { fehler: string } | { fehler?: undefined; wert: string | null } {
+  const p = weinbauBetriebsnummerPruefen(formData.get('betrieb_nr') ?? '', 'weinhaendler')
+  return p.ok ? { wert: p.wert } : { fehler: p.fehler }
+}
+
+/** Anlage eines Kontakts – gemeinsam für das CRM-Formular und die Schnellanlage aus der Partner-Suche (KAN-353).
+ *  Betrieb der Seite, Schreibsperre und Schreibrecht prüft der Aufrufer vorher (getTenantId); Prüfungen werfen AktionsFehler. */
+async function kontaktEinfuegen(supabase: AR, tenantId: string, formData: FormData): Promise<{ error?: string; id?: string; accountnummer?: string | null }> {
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     const payload: AR = {
       ...kontaktPositionQuelle(formData),
       ...kontaktTitel(formData),
@@ -197,7 +218,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
       plz:         (formData.get('plz')     as string) || null,
       ort:         (formData.get('ort')     as string) || null,
       land:        landPruefen(formData.get('land')),
-      betrieb_nr:  (formData.get('betrieb_nr') as string) || null,
+      betrieb_nr:  bnr.wert,
       stammkunde:  formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
@@ -208,14 +229,12 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
       is_lead: formData.get('is_lead') === 'true',
     }
     payload.accountnummer = await generateAccountnummer(tenantId)
-    const { error } = await (supabase.from('kontakte') as any).insert(payload).eq('tenant_id', tenantId)
+    const { data, error } = await (supabase.from('kontakte') as any).insert(payload).eq('tenant_id', tenantId)
+      .select('id').single()
     if (error) return { error: dbFehlerText(error) }
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/kontakte')
-    return {}
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
-  }
+    return { id: (data as AR)?.id as string | undefined, accountnummer: (payload.accountnummer as string | null) ?? null }
 }
 
 export async function updateKontakt(id: string, formData: FormData): Promise<{ error?: string }> {
@@ -224,6 +243,8 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     const tenantId = await getTenantId()
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
     const { data: titelAlt, error: titelErr } = await (supabase.from('kontakte') as any).select('titel').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
     if (titelErr) return { error: dbFehlerText(titelErr, 'Kontakt konnte nicht geladen werden') }
@@ -244,7 +265,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       plz:        (formData.get('plz')     as string) || null,
       ort:        (formData.get('ort')     as string) || null,
       land:       landPruefen(formData.get('land')),
-      betrieb_nr: (formData.get('betrieb_nr') as string) || null,   // fehlte bis 02.10.2026 (Änderung ging verloren)
+      betrieb_nr: bnr.wert,   // fehlte bis 02.10.2026 (Änderung ging verloren); Prüfung seit KAN-353
       stammkunde: formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
       rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null,
@@ -376,8 +397,20 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
+    const { error, id } = await firmaEinfuegen(supabase, tenantId, formData)
+    return error ? { error } : { id }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+/** Anlage einer Firma – gemeinsam für das CRM-Formular und die Schnellanlage aus der Partner-Suche (KAN-353).
+ *  Betrieb der Seite, Schreibsperre und Schreibrecht prüft der Aufrufer vorher (getTenantId); Prüfungen werfen AktionsFehler. */
+async function firmaEinfuegen(supabase: AR, tenantId: string, formData: FormData): Promise<{ error?: string; id?: string; accountnummer?: string | null }> {
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     const payload: AR = {
       tenant_id:          tenantId,
       name:               formData.get('name') as string,
@@ -394,7 +427,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
       email_weitere:      em.email_weitere,
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
-      betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
+      betrieb_nr:         bnr.wert,
       debitor_nr:         (formData.get('debitor_nr') as string) || null,
       zahlungsziel_tage:  parseZahlungszielTage(formData),
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
@@ -417,10 +450,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
     if (error) return { error: dbFehlerText(error) }
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/firmen')
-    return { id: (data as AR)?.id as string | undefined }
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
-  }
+    return { id: (data as AR)?.id as string | undefined, accountnummer: (payload.accountnummer as string | null) ?? null }
 }
 
 export async function updateFirma(id: string, formData: FormData): Promise<{ error?: string; id?: string }> {
@@ -429,6 +459,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
     const tenantId = await getTenantId()
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    const bnr = betriebNrFeld(formData)
+    if (bnr.fehler !== undefined) return { error: bnr.fehler }
     const payload: AR = nurGesendeteFelder(formData, {
       name:               formData.get('name') as string,
       segment:            formData.get('segment') as string,
@@ -444,7 +476,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       email_weitere:      em.email_weitere,
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
-      betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
+      betrieb_nr:         bnr.wert,
       debitor_nr:         (formData.get('debitor_nr') as string) || null,
       ...(formData.has('zahlungsziel_tage') ? { zahlungsziel_tage: parseZahlungszielTage(formData) } : {}),
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
@@ -912,15 +944,8 @@ export async function pruefeKontaktDublette(d: { vorname: string; nachname: stri
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
     const out: { name?: string; adresse?: string } = {}
-    const nachname = d.nachname.trim(), vorname = d.vorname.trim()
-    if (nachname) {
-      let q = (supabase.from('kontakte') as any).select('vorname, nachname').eq('tenant_id', tenantId).eq('aktiv', true).ilike('nachname', nachname)
-      q = vorname ? q.ilike('vorname', vorname) : q.or('vorname.is.null,vorname.eq.')
-      // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
-      const { data } = await q.limit(1)
-      const k = ((data ?? []) as AR[])[0]
-      if (k) out.name = `${k.vorname ? k.vorname + ' ' : ''}${k.nachname}`
-    }
+    const name = await kontaktNamensDublette(supabase, tenantId, d.vorname, d.nachname)
+    if (name) out.name = name
     if (d.strasse.trim() && d.plz.trim() && d.ort.trim()) {
       // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
       const { data } = await (supabase.from('kontakte') as any).select('vorname, nachname, strasse, plz, ort').eq('tenant_id', tenantId).eq('aktiv', true)
@@ -937,12 +962,8 @@ export async function pruefeFirmaDublette(d: { name: string; strasse: string; pl
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
     const out: { name?: string; adresse?: string } = {}
-    if (d.name.trim()) {
-      // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
-      const { data } = await (supabase.from('firmen') as any).select('name').eq('tenant_id', tenantId).eq('aktiv', true).ilike('name', d.name.trim()).limit(1)
-      const f = ((data ?? []) as AR[])[0]
-      if (f) out.name = f.name
-    }
+    const name = await firmaNamensDublette(supabase, tenantId, d.name)
+    if (name) out.name = name
     if (d.strasse.trim() && d.plz.trim() && d.ort.trim()) {
       // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
       const { data } = await (supabase.from('firmen') as any).select('name, strasse, plz, ort').eq('tenant_id', tenantId).eq('aktiv', true)
@@ -952,6 +973,57 @@ export async function pruefeFirmaDublette(d: { name: string; strasse: string; pl
     }
     return out
   } catch { return {} }
+}
+
+/** Gleichnamiger aktiver Kontakt (Vor- und Nachname, Groß-/Kleinschreibung egal) – Name für den Hinweis oder null */
+async function kontaktNamensDublette(supabase: AR, tenantId: string, vornameRoh: string, nachnameRoh: string): Promise<string | null> {
+  const nachname = (nachnameRoh ?? '').trim(), vorname = (vornameRoh ?? '').trim()
+  if (!nachname) return null
+  let q = (supabase.from('kontakte') as any).select('vorname, nachname').eq('tenant_id', tenantId).eq('aktiv', true).ilike('nachname', nachname)
+  q = vorname ? q.ilike('vorname', vorname) : q.or('vorname.is.null,vorname.eq.')
+  // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
+  const { data } = await q.limit(1)
+  const k = ((data ?? []) as AR[])[0]
+  return k ? `${k.vorname ? k.vorname + ' ' : ''}${k.nachname}` : null
+}
+
+/** Gleichnamige aktive Firma (Groß-/Kleinschreibung egal) – Name für den Hinweis oder null */
+async function firmaNamensDublette(supabase: AR, tenantId: string, nameRoh: string): Promise<string | null> {
+  const name = (nameRoh ?? '').trim()
+  if (!name) return null
+  // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
+  const { data } = await (supabase.from('firmen') as any).select('name').eq('tenant_id', tenantId).eq('aktiv', true).ilike('name', name).limit(1)
+  const f = ((data ?? []) as AR[])[0]
+  return f ? (f.name as string) : null
+}
+
+// ── KAN-353: Kunde/Lieferant direkt aus der Partner-Suche anlegen (22.10.2026) ──
+// Zukauf, Verkauf, Traubenverkauf und Lese: „+ Neue Firma“ / „+ Neuer Kontakt“ in <PartnerSuche> öffnet einen
+// kleinen Dialog. Gespeichert wird über dieselbe Anlage wie im CRM (kontaktEinfuegen/firmaEinfuegen: Kundennummer,
+// Land, Zahlungsziel) nach denselben Prüfungen (Betrieb der Seite, Schreibsperre, Schreibrecht CRM – getTenantId).
+// Gibt es schon einen gleichnamigen aktiven Partner, kommt zuerst { dublette } zurück; der Dialog fragt nach und
+// sendet mit trotzDublette erneut. Ergebnis ist der Treffer im Format der Suche – das Formular wählt ihn sofort.
+export async function partnerSchnellAnlegen(eingabe: SchnellPartnerEingabe): Promise<{ error?: string; dublette?: string; treffer?: SchnellTreffer }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const p = schnellAnlagePruefen(eingabe)
+    if (!p.ok) return { error: p.fehler }
+    if (!eingabe.trotzDublette) {
+      const dublette = p.typ === 'firma'
+        ? await firmaNamensDublette(supabase, tenantId, p.felder.name)
+        : await kontaktNamensDublette(supabase, tenantId, p.felder.vorname, p.felder.nachname)
+      if (dublette) return { dublette }
+    }
+    const fd = new FormData()
+    for (const [feld, wert] of Object.entries(p.felder)) fd.set(feld, wert)
+    const r = p.typ === 'firma' ? await firmaEinfuegen(supabase, tenantId, fd) : await kontaktEinfuegen(supabase, tenantId, fd)
+    if (r.error) return { error: r.error }
+    if (!r.id) return { error: NICHT_GESPEICHERT }
+    return { treffer: schnellTreffer(eingabe.art, p.typ, r.id, p.felder, p.anzeige, r.accountnummer ?? null) }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
 }
 
 // E-Mail-Adresse einem bestehenden Kontakt/einer Firma hinzufügen (Rückmeldung

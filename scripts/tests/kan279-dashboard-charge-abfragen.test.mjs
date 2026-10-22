@@ -40,6 +40,11 @@ describe('KAN-279: Dashboard und Chargenseite ohne Altfall', () => {
     const c = quelle(CHARGE)
     assert.match(c, /const rows = geladen\(rowsRes, 'Charge'\)/)
     assert.match(c, /if \(!weinausbau\) notFound\(\)/)
-    for (const was of ['Umzugsziele', 'Umzugsquellen', 'Lohnversektung', 'Prüfnummernanträge', 'Prüfnummern der Charge']) assert.ok(c.includes(`'${was}')`), was)
+    for (const was of ['Lohnversektung', 'Prüfnummernanträge', 'Prüfnummern der Charge']) assert.ok(c.includes(`'${was}')`), was)
+    // KAN-342: Umzüge (samt Ziel-/Quellnamen), Füllungen, Verkäufe … lädt das zentrale Bewegungsbuch – es wirft bei einem Lesefehler
+    assert.match(c, /await ladeBewegungenCharge\(supabase, tenantId, weinausbau\.id\)/)
+    const bb = quelle('src/lib/behoerden/bewegungsbuch.ts')
+    assert.match(bb, /const \{ data, error \} = await alle<R>\(query\)\n\s+if \(error\) fehler\(tabelle, error\)/)
+    assert.match(bb, /return ladeRohDerChargen\(supabase, tenantId, \{ pressungen, umzuegeEin, chargen, behandlungen \}, \[chargeId\]\)/)
   })
 })

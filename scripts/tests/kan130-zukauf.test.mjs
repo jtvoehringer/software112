@@ -92,7 +92,7 @@ describe('Server Actions (Quelltext)', () => {
     const fn = A.slice(A.indexOf('function chargeStammdaten'), A.indexOf('export async function createZukauf'))
     assert.match(fn, /\.\.\.\(f\.mostgewichtUebermittelt \? mostgewichtSpalten\(f\.mostgewicht, 'kmw'\) : \{\}\)/)
     const upd = A.slice(A.indexOf('export async function updateZukauf'), A.indexOf('export async function deleteZukauf'))
-    const folge = upd.indexOf('if (folge.length > 0)')
+    const folge = upd.indexOf('if (zukaufMerkmaleFest({ art: a.art, zielWeinausbauId: chargeId, folgebuchungen: folge.length }))')   // KAN-351: gemeinsame Bedingung
     const stamm = upd.indexOf('chargeStammdaten(f)')
     assert.ok(folge > 0 && stamm > folge, 'chargeStammdaten erst im Zweig ohne Folgebuchungen')
     assert.equal(upd.split('chargeStammdaten(f)').length - 1, 1)
@@ -119,7 +119,7 @@ describe('Formulare', () => {
     }
     // KAN-80 Nachtrag (02.10.2026): Mostgewicht ist bei Trauben und Most Pflicht
     assert.match(NEU, /<MostgewichtEingabe name="mostgewicht" required \/>/)
-    assert.match(EDIT, /<MostgewichtEingabe name="mostgewicht" startwert=\{initial\.mostgewicht\} required \/>/)
+    assert.match(EDIT, /<MostgewichtEingabe name="mostgewicht" startwert=\{initial\.mostgewicht\} required disabled=\{merkmaleFest\} \/>/)   // KAN-351: gesperrt, versteckte Felder tragen den Wert weiter
   })
   test('Bearbeiten lädt °KMW, °Oe und Einheit als Startwert', () => {
     assert.match(EDIT_PAGE, /kmw, oechsle, mostgewicht_einheit/)
