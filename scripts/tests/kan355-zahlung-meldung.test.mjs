@@ -2,7 +2,7 @@
 // a_ea_periodensperre, 42501), aber createZahlung warf, und die Formulare (Verkaufsseite: reines <form action>, Offene
 // Posten: ohne catch) führten auf die Fehlerseite – „Zur Meldung“ im Pop-up ging ins Leere. Jetzt: erwartbare Ablehnungen
 // als { error }, gemeinsames Client-Formular ZahlungErfassen mit Meldung (role="alert"), Eingaben bleiben stehen;
-// MeldungsPopup sucht einen ersetzten Meldungskasten neu bzw. bleibt offen.
+// MeldungsPopup sucht einen ersetzten Meldungskasten neu; ist keiner mehr da, schließt sich der Hinweis (KAN-359 Nachtrag).
 //
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -103,13 +103,14 @@ describe('KAN-355: „Zur Meldung“ im Pop-up', nurMitHooks, () => {
     assert.equal(meldungen.meldungsZiel({ el: 'alt', verbunden: false }, k, p), 'gleich')
     assert.equal(meldungen.meldungsZiel(null, k.slice(0, 3), p), 'anderer')
   })
-  test('keine Meldung mehr da → null (Pop-up bleibt offen)', () => {
+  test('keine Meldung mehr da → null (Hinweis veraltet, schließt sich)', () => {
     assert.equal(meldungen.meldungsZiel({ el: 'alt', verbunden: false }, [{ el: 'ok', art: 'ok', text: 'x', angezeigt: true }], p), null)
   })
-  test('MeldungsPopup prüft isConnected und schließt nur mit Ziel', () => {
+  test('MeldungsPopup prüft isConnected, springt nur mit Ziel und schließt den Hinweis in jedem Fall', () => {
     const m = quelle('src/components/MeldungsPopup.tsx')
     assert.match(m, /verbunden: gemerkt\.isConnected/)
-    assert.match(m, /if \(!ziel\) return\n\s*ziel\.scrollIntoView/)
+    assert.match(m, /if \(ziel\) ziel\.scrollIntoView\([^)]*\)\n\s*schliessen\(p\.id\)/)
+    assert.doesNotMatch(m, /if \(!ziel\) return/, 'KAN-359 Nachtrag: „Zur Meldung“ ohne Ziel darf nicht still stehen bleiben')
     assert.doesNotMatch(m, /p\.ziel\.deref\(\)\?\.scrollIntoView/)
   })
 })

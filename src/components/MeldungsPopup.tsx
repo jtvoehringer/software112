@@ -13,16 +13,30 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
-import { meldungsArt, meldungsZiel, popupText, popupZeigen, vollSichtbar, OK_DAUER_MS, type MeldungsArt } from '@/lib/ui/meldungen'
-import { abonniereErfolge, aktuelleErfolge, keineErfolge, schliesseErfolg, zeigeErfolg } from '@/lib/ui/erfolg'
+import { hinweisGueltig, meldungsArt, meldungsZiel, popupText, popupZeigen, vollSichtbar, OK_DAUER_MS, type MeldungsArt } from '@/lib/ui/meldungen'
+import { abonniereErfolge, aktuelleErfolge, keineErfolge, letzterErfolgZeit, schliesseErfolg, zeigeErfolg } from '@/lib/ui/erfolg'
 
 /** Hinweis auf eine Fehlermeldung außer Sicht – der Text dient nur zum Wiederfinden, angezeigt wird er nicht */
-type Popup = { id: number; art: 'fehler'; text: string; ziel: WeakRef<Element> }
+type Popup = { id: number; art: 'fehler'; text: string; ziel: WeakRef<Element>; erstellt: number }
 
 const KANDIDATEN = '[role="alert"], [role="status"], .bg-s112-err-bg, .bg-s112-ok-bg, p.text-s112-err-fg, div.text-s112-err-fg'
 
 function art(el: Element): MeldungsArt | null {
   return meldungsArt({ tag: el.tagName, className: typeof el.className === 'string' ? el.className : '', role: el.getAttribute('role'), text: el.textContent ?? '' })
+}
+
+/** Angezeigte Meldungen der Seite (für „Zur Meldung“ und die Gültigkeit eines Hinweises) */
+function seitenKandidaten(wurzel: HTMLElement | null) {
+  return Array.from(document.querySelectorAll(KANDIDATEN))
+    .filter(el => !wurzel?.contains(el))
+    .map(el => ({ el, art: art(el), text: el.textContent ?? '', angezeigt: el.getClientRects().length > 0 }))
+}
+
+/** KAN-359 Nachtrag (UAT 22.10.2026): Hinweis noch gültig? Sonst verschwindet er (statt „Zur Meldung“ ins Leere) */
+function gueltig(p: Popup, wurzel: HTMLElement | null): boolean {
+  const g = p.ziel.deref()
+  return hinweisGueltig(p, g ? { el: g, verbunden: g.isConnected, angezeigt: g.getClientRects().length > 0 } : null,
+    seitenKandidaten(wurzel), letzterErfolgZeit())
 }
 
 export default function MeldungsPopup() {
@@ -75,7 +89,7 @@ export default function MeldungsPopup() {
         if (!zeigen) return
         // Bestätigung außer Sicht → Erfolgs-Pop-up (vorgelesen ist sie schon); Fehler → nur ein Hinweis mit „Zur Meldung“
         if (a === 'ok') { zeigeErfolg(text, { vorgelesen: true }); return }
-        setPopups([{ id: naechsteId.current++, art: 'fehler', text, ziel: new WeakRef(el) }])
+        setPopups([{ id: naechsteId.current++, art: 'fehler', text, ziel: new WeakRef(el), erstellt: Date.now() }])
       }, 150)
     }
     // nach dem Absenden: alle Fehler, die dann außer Sicht stehen, gelten als Antwort (auch wenn unverändert)
@@ -101,6 +115,8 @@ export default function MeldungsPopup() {
         })
       }
       kandidaten.forEach(pruefe)
+      // KAN-359 Nachtrag: Fehlerkasten entfernt bzw. ausgeblendet → Hinweis weg
+      setPopups(alt => (alt.length === 0 ? alt : alt.filter(p => gueltig(p, wurzel.current))))
     })
     beobachter.observe(document.body, { childList: true, subtree: true, characterData: true })
     return () => beobachter.disconnect()
@@ -113,6 +129,12 @@ export default function MeldungsPopup() {
   // Erfolge (KAN-359) verschwinden von selbst
   const erfolge = useSyncExternalStore(abonniereErfolge, aktuelleErfolge, keineErfolge)
   const uhren = useRef(new Map<number, number>())
+  // KAN-359 Nachtrag: Eine Erfolgsmeldung nach dem Fehler heißt „korrekt weitergemacht“ – der alte Hinweis verfällt
+  useEffect(() => {
+    if (erfolge.length === 0) return
+    setPopups(alt => (alt.length === 0 ? alt : alt.filter(p => gueltig(p, wurzel.current))))
+  }, [erfolge])
+
   useEffect(() => {
     // je Pop-up eine Uhr ab seinem Erscheinen (ein neues setzt die Uhr der älteren nicht zurück)
     for (const e of erfolge) {
@@ -136,15 +158,12 @@ export default function MeldungsPopup() {
   }, [anzahl])
 
   const schliessen = (id: number) => setPopups(alt => alt.filter(p => p.id !== id))
-  // KAN-355: ein inzwischen ersetzter Kasten (isConnected false) führt nicht mehr ins Leere – neu suchen, sonst offen lassen
+  // KAN-355: ein inzwischen ersetzter Kasten (isConnected false) führt nicht mehr ins Leere – neu suchen.
+  // KAN-359 Nachtrag (UAT 22.10.2026): Ist keine Fehlermeldung mehr da, ist der Hinweis veraltet und schließt sich.
   const zurMeldung = (p: Popup) => {
     const gemerkt = p.ziel.deref()
-    const kandidaten = Array.from(document.querySelectorAll(KANDIDATEN))
-      .filter(el => !wurzel.current?.contains(el))
-      .map(el => ({ el, art: art(el), text: el.textContent ?? '', angezeigt: el.getClientRects().length > 0 }))
-    const ziel = meldungsZiel(gemerkt ? { el: gemerkt, verbunden: gemerkt.isConnected } : null, kandidaten, p)
-    if (!ziel) return
-    ziel.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const ziel = meldungsZiel(gemerkt ? { el: gemerkt, verbunden: gemerkt.isConnected } : null, seitenKandidaten(wurzel.current), p)
+    if (ziel) ziel.scrollIntoView({ block: 'center', behavior: 'smooth' })
     schliessen(p.id)
   }
 
