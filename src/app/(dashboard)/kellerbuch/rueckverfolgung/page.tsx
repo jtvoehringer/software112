@@ -3,7 +3,8 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import FuellungReiter from '@/components/handel/FuellungReiter'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search, GitMerge } from 'lucide-react'
@@ -414,6 +415,9 @@ export default async function RueckverfolgungPage({
 
   return (
     <div className="max-w-5xl space-y-6">
+
+      {/* UAT 23.10.2026: zu einer Füllung dieselben Reiter wie auf ihren Seiten (Füllung · E-Label · Rückverfolgung) */}
+      {fuellung && <FuellungReiter id={fuellung.id} bearbeiten={!!membership && canWrite(membership, 'warenwirtschaft')} />}
 
       {/* Header */}
       <div>
