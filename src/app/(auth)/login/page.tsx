@@ -14,6 +14,16 @@ import { authFehlerText } from '@/lib/auth/authFehler'
 // Hinweis: metadata muss in Server Components definiert werden.
 // Login-Page-Titel wird über das Root-Layout gesetzt.
 
+/** Ladekreisel in den Anmeldeknöpfen */
+function Kreisel() {
+  return (
+    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  )
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -43,15 +53,20 @@ export default function LoginPage() {
     router.refresh()
   }
 
+  // UAT 23.10.2026: Während Fingerabdruck/Gesicht und der Weiterleitung danach zeigt der Passkey-Knopf einen Kreisel
+  // („Anmeldung läuft…“); nach Erfolg bleibt er stehen, bis die nächste Seite da ist – sonst sah man nicht, dass etwas passiert.
+  const [passkeyLaeuft, setPasskeyLaeuft] = useState(false)
   const mitPasskey = async () => {
     if (passkey.basisLogin) { window.location.href = passkey.basisLogin; return }
-    setLoading(true); setError(null)
+    setLoading(true); setPasskeyLaeuft(true); setError(null)
+    let erfolg = false
     try {
       const { error } = await supabase.auth.signInWithPasskey()
       if (error) { setError(passkeyFehlerText(error)); return }
+      erfolg = true
       angemeldet()
     } catch (e) { setError(passkeyFehlerText(e)) }
-    finally { setLoading(false) }
+    finally { if (!erfolg) { setLoading(false); setPasskeyLaeuft(false) } }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -132,14 +147,8 @@ export default function LoginPage() {
             disabled={loading}
             className="btn-primary w-full mt-2 flex items-center justify-center gap-2"
           >
-            {loading && (
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            )}
-            {loading ? 'Anmelden…' : 'Anmelden'}
+            {loading && !passkeyLaeuft && <Kreisel />}
+            {loading && !passkeyLaeuft ? 'Anmelden…' : 'Anmelden'}
           </button>
           <div className="text-center mt-3">
             <a href="/login/reset" className="text-xs text-s112-blue-700 hover:underline">
@@ -150,10 +159,12 @@ export default function LoginPage() {
         {/* KAN-287: Anmeldung per Passkey (Fingerabdruck, Gesicht, Windows Hello) – eingerichtet im Profil */}
         {passkey.moeglich && (
           <div className="mt-4 pt-4 border-t border-s112-line">
-            <button type="button" onClick={mitPasskey} disabled={loading}
-              className="w-full py-2 rounded-lg text-sm font-semibold border border-s112-line-str text-s112-text-1 hover:bg-s112-bg disabled:opacity-40">
-              Mit Passkey anmelden (Fingerabdruck, Gesicht, Windows Hello)
+            <button type="button" onClick={mitPasskey} disabled={loading} aria-busy={passkeyLaeuft}
+              className={`w-full py-2 rounded-lg text-sm font-semibold border border-s112-line-str text-s112-text-1 hover:bg-s112-bg flex items-center justify-center gap-2 ${passkeyLaeuft ? '' : 'disabled:opacity-40'}`}>
+              {passkeyLaeuft && <Kreisel />}
+              {passkeyLaeuft ? 'Anmeldung läuft… (Fingerabdruck bzw. Gesicht bestätigen)' : 'Mit Passkey anmelden (Fingerabdruck, Gesicht, Windows Hello)'}
             </button>
+            <p role="status" className="sr-only">{passkeyLaeuft ? 'Anmeldung mit Passkey läuft' : ''}</p>
           </div>
         )}
       </div>
