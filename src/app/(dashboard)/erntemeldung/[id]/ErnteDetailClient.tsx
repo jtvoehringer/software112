@@ -13,7 +13,7 @@ import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
 import { Pencil, AlertTriangle, Plus } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
 import StornierteUmschalter from '@/components/StornierteUmschalter'
-import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { formatRebsorteMitKuerzel, sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
@@ -918,24 +918,25 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         )}
         {tabellenParzellen.length > 0 ? (
           <div className="hidden md:block print:block border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
-            <table className="w-full text-sm min-w-[700px] print:min-w-0">
+            <table className="w-full text-sm min-w-[520px] print:min-w-0">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
-                  {/* KAN-339 (UAT 23.10.2026): Aktionen vorne – rechts musste man bei langer Liste erst ans Listenende, um
-                      waagrecht zu scrollen; fixieren geht nicht (KAN-328: überdeckte Mostgewicht/Qualität) */}
-                  {mitAktionen && (
-                    <th className="px-2 py-2 w-px" data-print="hide"><span className="sr-only">Aktionen</span></th>
-                  )}
                   <th className="text-left px-3 py-2 font-semibold">Ried</th>
                   <th className="text-left px-3 py-2 font-semibold">GST</th>
                   <th className="text-left px-3 py-2 font-semibold">Sorte</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
-                  {/* KAN-328: Notizen schmal (gekürzt, voller Text als title), Mostgewicht nur in der bevorzugten Einheit (beide im
-                      Tooltip), Aktionsspalte nicht fixiert – vorher lagen Mostgewicht/Qualität bei Platzmangel unter ihr */}
-                  <th className="text-left px-3 py-2 font-semibold w-48 max-w-48">Notizen</th>
+                  {/* KAN-328: Mostgewicht nur in der bevorzugten Einheit (beide im Tooltip), Aktionsspalte nicht fixiert – vorher
+                      lagen Mostgewicht/Qualität bei Platzmangel unter ihr.
+                      KAN-339 (Entscheidung Jörgen 23.10.2026): Aktionen bleiben rechts; damit die Tabelle ohne waagrechtes
+                      Scrollen passt, Sorte nur als Kürzel, Notizen nur im Druck (am Schirm im Bearbeiten-Formular),
+                      Datum/kg/Mostgewicht klein wie Sorte und GST */}
+                  <th className="hidden print:table-cell text-left px-3 py-2 font-semibold w-48 max-w-48">Notizen</th>
                   <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Mostgewicht</th>
                   <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Qualität</th>
+                  {mitAktionen && (
+                    <th className="px-3 py-2" data-print="hide" />
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -950,9 +951,30 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                       </tr>
                     )}
                     <tr className={`group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 ${editId === p.id ? 'bg-s112-teal/5' : ''} ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
+                      <td className="px-3 py-2 font-medium text-s112-text">
+                        {p.weingarten_name}
+                        {p.storno && (
+                          <span className="block text-[11px] font-normal text-s112-warn-fg">
+                            storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap" title={formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}>
+                        {sortenKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte) ?? p.grundstueck_rebsorte ?? p.weingarten_rebsorte ?? '–'}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
+                      <td className="px-3 py-2 text-xs text-right tabular-nums">{(p.menge_kg == null ? undefined : fmtNum(p.menge_kg)) ?? '–'}</td>
+                      <td className="hidden print:table-cell px-3 py-2 text-xs text-s112-text-2 w-48 max-w-48">
+                        <NotizZelle text={p.notizen} />
+                      </td>
+                      <td className="px-3 py-2 text-xs text-right whitespace-nowrap">
+                        <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} nurBevorzugt />
+                      </td>
+                      <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {mitAktionen && (
-                        <td className="px-2 py-2" data-print="hide">
-                          <div className="flex items-center gap-2">
+                        <td className="px-3 py-2 text-right" data-print="hide">
+                          <div className="flex items-center justify-end gap-2">
                             {writeOk && !p.storno && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
                                 title="Bearbeiten" aria-label="Bearbeiten"
@@ -973,40 +995,22 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                           </div>
                         </td>
                       )}
-                      <td className="px-3 py-2 font-medium text-s112-text">
-                        {p.weingarten_name}
-                        {p.storno && (
-                          <span className="block text-[11px] font-normal text-s112-warn-fg">
-                            storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
-                      <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{(p.menge_kg == null ? undefined : fmtNum(p.menge_kg)) ?? '–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-text-2 w-48 max-w-48">
-                        <NotizZelle text={p.notizen} />
-                      </td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">
-                        <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} nurBevorzugt />
-                      </td>
-                      <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                     </tr>
                   </React.Fragment>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-s112-bg border-t-2 border-s112-border font-semibold text-sm">
-                  {mitAktionen && (
-                    <td data-print="hide" />
-                  )}
                   {/* Summe unter der Spalte „kg“ (Ried, GST, Sorte, Datum davor), hl ab „Notizen“ */}
                   <td className="px-3 py-2 text-s112-text-1" colSpan={4}>Gesamt</td>
                   <td className="px-3 py-2 text-right tabular-nums text-s112-text whitespace-nowrap">{fmtNum(gesamtKg)} kg</td>
-                  <td colSpan={3} className="px-3 py-2 text-xs text-s112-muted">
+                  <td className="hidden print:table-cell" />
+                  <td colSpan={2} className="px-3 py-2 text-xs text-s112-muted">
                     ≈ {fmtProzent(gesamtKg / 130)} hl
                   </td>
+                  {mitAktionen && (
+                    <td data-print="hide" />
+                  )}
                 </tr>
               </tfoot>
             </table>
