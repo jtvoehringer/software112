@@ -13,7 +13,7 @@ import { fehlerText } from '@/lib/fehler'
 import { fmtNum, zahlAus } from '@/lib/format'
 import {
   ERZEUGNIS_JE_ART, PRODUKTION_ARTEN, PRODUKTION_ART_LABEL, PRODUKTION_SCHRITTE, PRODUKTION_ZUTAT_LABEL, VOLUMEN_ZUTATEN,
-  produktionFehler, weinanteil, zielMenge, zutatenFuer,
+  gebindeFehler, produktionFehler, weinanteil, zielMenge, zutatenFuer,
   type Einheit, type ProduktionArt, type ProduktionSchritt, type ZutatArt, type ZutatEingang,
 } from '@/lib/kellerbuch/produktion'
 import type { ProduktionEingabe } from './actions'
@@ -62,7 +62,10 @@ export default function ProduktionForm({ chargen, gebinde, mittel, heute, quelle
   const m = zielMenge(weinEingaenge, zutatEingaenge)
   const erlaubt = zutatenFuer(art)
   const erzeugnisse = ERZEUGNIS_JE_ART[art]
-  const eingabe = { art, erzeugnis: erzeugnis || null, name, behaelterId, datum, heute, wein: weinEingaenge, zutaten: zutatEingaenge }
+  // UAT 23.10.2026: Fassungsvermögen des Ziel-Gebindes – dieselbe Prüfung wie in der Server Action (produktionFehler)
+  const zielGebinde = gebinde.find(g => g.id === behaelterId) ?? null
+  const eingabe = { art, erzeugnis: erzeugnis || null, name, behaelterId, datum, heute, wein: weinEingaenge, zutaten: zutatEingaenge,
+    gebinde: zielGebinde ? { name: zielGebinde.name, volumen: zielGebinde.volumen } : null }
 
   function setzeArt(a: ProduktionArt) {
     setArt(a)
@@ -230,6 +233,10 @@ export default function ProduktionForm({ chargen, gebinde, mittel, heute, quelle
                 <option value="">– Gebinde wählen –</option>
                 {gebinde.map(g => <option key={g.id} value={g.id}>{g.name}{g.volumen ? ` (${fmtNum(g.volumen, { max: 0 })} L)` : ''}</option>)}
               </select>
+              {(() => {
+                const g = gebindeFehler(m.ziel, eingabe.gebinde)
+                return g ? <p className="mt-1 text-xs text-s112-err">{g}</p> : null
+              })()}
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="prod-notiz" className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>

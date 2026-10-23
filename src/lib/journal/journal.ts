@@ -67,11 +67,15 @@ export const TABELLE_LABEL: Record<string, string> = {
   exportauftraege: 'Exportauftrag',
   weinanalysen: 'Weinanalyse',
   betriebsmittel: 'Betriebsmittel',
+  // UAT 23.10.2026: Produktion (KAN-118) – das Bestandsprotokoll erfasst die Tabellen noch nicht (Stand 23.10.2026);
+  // Bezeichnung, Bereich und Link stehen bereit. Bis dahin zeigt die neue Charge ihre Herkunft (PRODUKTION_HERKUNFT).
+  produktionen: 'Produktion',
+  produktion_eingaenge: 'Produktion – Eingang',
 }
 
 /** Bereiche des Journals (Filter „Bereich“) mit ihren Tabellen */
 export const JOURNAL_BEREICHE = [
-  { key: 'kellerbuch', label: 'Kellerbuch', tabellen: ['weinausbau', 'keller_umzuege', 'verschneidungen', 'verschneidung_quellen', 'keller_behandlungen', 'keller_behandlungstypen', 'zukauf_posten', 'dac_antrag', 'pruefnummernantraege', 'weinanalysen'] },
+  { key: 'kellerbuch', label: 'Kellerbuch', tabellen: ['weinausbau', 'keller_umzuege', 'verschneidungen', 'verschneidung_quellen', 'keller_behandlungen', 'keller_behandlungstypen', 'zukauf_posten', 'dac_antrag', 'pruefnummernantraege', 'weinanalysen', 'produktionen', 'produktion_eingaenge'] },
   { key: 'lese', label: 'Lese & Pressung', tabellen: ['weinjahrgaenge', 'lesen', 'ernte_parzellen', 'pressungen', 'pressung_behaelter', 'pressung_weingaerten', 'traubenverkauf', 'ama_erntemeldungen', 'ama_meldepositionen'] },
   { key: 'warenwirtschaft', label: 'Füllung & Verkauf', tabellen: ['fuellungen', 'fuellung_chargen', 'fuellung_bewegungen', 'verkaufsposten', 'verkauf_positionen', 'rechnungen', 'transportbescheinigungen', 'exportauftraege'] },
   { key: 'ea', label: 'E&A-Rechnung', tabellen: ['ea_transaktionen', 'zahlungen', 'konto_umbuchungen', 'ea_belege', 'ea_uva', 'ea_monatsabschluss', 'ea_kategorien', 'ea_dauerauftraege'] },
@@ -143,6 +147,13 @@ export function beschreibung(kennung: R | null, alt: R | null = null, neu: R | n
   if (q.menge_liter == null && q.menge_kg == null && zahlOhneNull(q.menge)) teile.push(`Menge ${zahlOhneNull(q.menge)}`)
   const betrag = q.betrag_brutto ?? q.betrag ?? q.betrag_netto
   if (zahlOhneNull(betrag)) teile.push(`€ ${zahlOhneNull(betrag)}`)
+  // UAT 23.10.2026: Produktion (Art und Zielmenge) bzw. Charge aus einer Produktion
+  if (!name && q.ziel_menge != null && PRODUKTION_ART[q.art]) {
+    teile.unshift(PRODUKTION_ART[q.art])
+    if (zahlOhneNull(q.ziel_menge)) teile.push(`${zahlOhneNull(q.ziel_menge)} L`)
+  }
+  const ausProduktion = produktionHerkunftText(q.produktion)
+  if (ausProduktion) teile.push(ausProduktion)
   if (txt(q.status) && !teile.length) teile.push(`Status ${q.status}`)
   return teile.join(' · ') || '–'
 }
@@ -173,6 +184,36 @@ export const JOURNAL_NACHLADEN: Readonly<Record<string, { spalten: string; manda
   weinanalysen: { spalten: 'id, weinausbau_id', mandant: 'tenant_id' },
   pruefnummernantraege: { spalten: 'id, dac_antrag_id', mandant: 'tenant_id' },
   grundstuecke: { spalten: 'id, weingarten_id', mandant: 'tenant_id' },
+  // UAT 23.10.2026: Produktion → Ziel-Charge
+  produktionen: { spalten: 'id, ziel_weinausbau_id, art, wein_liter, ziel_menge', mandant: 'tenant_id' },
+  produktion_eingaenge: { spalten: 'id, weinausbau_id, produktion:produktion_id!inner(tenant_id, ziel_weinausbau_id)', mandant: 'produktion.tenant_id' },
+}
+
+/**
+ * UAT 23.10.2026: Herkunft einer Charge aus einer Produktion – laden.ts lädt zu jeder Charge im Journal die Produktionen,
+ * deren Ziel sie ist (Tabelle produktionen, Betriebsfilter tenant_id), und legt sie als `produktion` an den Datensatz der
+ * Charge; die Beschreibung nennt dann „aus Produktion Schaumwein / Sekt (1.100 L)“. Auch stornierte (mit Vermerk).
+ */
+// storno-sichtbar: die Herkunft einer Charge bleibt auch nach dem Storno der Produktion sichtbar (mit Vermerk)
+export const PRODUKTION_HERKUNFT = { tabelle: 'produktionen', spalten: 'id, ziel_weinausbau_id, art, wein_liter, ziel_menge, storniert_am' } as const
+
+/** Art der Produktion (wie PRODUKTION_ART_LABEL in lib/kellerbuch/produktion.ts) */
+const PRODUKTION_ART: Record<string, string> = {
+  spritzer: 'Perlweinspritzer / Spritzer', mischgetraenk: 'Weinmischgetränk', perlwein: 'Perlwein', schaumwein: 'Schaumwein / Sekt', petnat: 'PetNat',
+}
+
+/** Text „aus Produktion …“ für die Beschreibung einer Charge; null ohne Produktion */
+export function produktionHerkunftText(produktionen: unknown): string | null {
+  if (!Array.isArray(produktionen) || produktionen.length === 0) return null
+  return (produktionen as R[]).map(p => {
+    const menge = zahlOhneNull(p.ziel_menge)
+    return `aus Produktion ${PRODUKTION_ART[p.art] ?? 'Produktion'}${menge ? ` (${menge} L)` : ''}${p.storniert_am ? ' – storniert' : ''}`
+  }).join(', ')
+}
+
+/** Charge-ids im Journal (ohne Löschungen), deren Herkunft aus einer Produktion nachzuladen ist */
+export function chargenFuerProduktionHerkunft(roh: readonly R[]): string[] {
+  return [...new Set(roh.filter(p => p.tabelle === 'weinausbau' && p.aktion !== 'DELETE' && sid(p.datensatz_id)).map(p => p.datensatz_id as string))].sort()
 }
 
 const sid = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null)
@@ -207,6 +248,9 @@ export function journalLink(tabelle: string, id: string | null, aktion: JournalA
     case 'weinanalysen': return sid(d?.weinausbau_id) ? `/kellerbuch/weinausbau/${d!.weinausbau_id}/analysen` : null
     case 'pruefnummernantraege': return sid(d?.dac_antrag_id) ? `/dac/${d!.dac_antrag_id}/antrag` : null
     case 'grundstuecke': return sid(d?.weingarten_id) ? `/weingarten/${d!.weingarten_id}` : null
+    // UAT 23.10.2026: Produktion → die erzeugte Charge
+    case 'produktionen': return charge(d?.ziel_weinausbau_id)
+    case 'produktion_eingaenge': return charge((d?.produktion as R | null)?.ziel_weinausbau_id) ?? charge(d?.weinausbau_id)
     // KAN-376: Listen ohne Einzelseite
     case 'ea_transaktionen': return '/buchhaltung'
     case 'ea_uva': return '/buchhaltung/uva'
