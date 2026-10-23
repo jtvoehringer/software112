@@ -235,7 +235,7 @@ export default async function EditFuellungPage({
     <div className="max-w-2xl">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weinhandel" className="hover:text-s112-blue-700">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700">Warenwirtschaft</Link>
         <span>/</span>
         <span className="text-s112-text font-medium">Füllung bearbeiten</span>
       </nav>

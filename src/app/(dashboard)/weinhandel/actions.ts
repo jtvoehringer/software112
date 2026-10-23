@@ -767,7 +767,7 @@ export async function deactivateFuellung(id: string, grund: string): Promise<voi
 
   // KAN-41 Paket 2b: Handelsware aus einem Flaschenzukauf nur über den Zukauf stornieren (Trigger a_flaschenzukauf_schutz)
   if (f.zukauf_posten_id) {
-    throw new AktionsFehler(`„${f.name}“ stammt aus einem Flaschenzukauf – bitte den Zukauf stornieren (Weinhandel › Zukauf); der Weinlager-Artikel wird dabei mitstorniert.`)
+    throw new AktionsFehler(`„${f.name}“ stammt aus einem Flaschenzukauf – bitte den Zukauf stornieren (Kellerbuch › Zukauf); der Weinlager-Artikel wird dabei mitstorniert.`)
   }
 
   // KAN-35: Sperre bei Folgebuchungen – Verkäufe/Bestandsbuchungen bleiben sonst ohne Füllung

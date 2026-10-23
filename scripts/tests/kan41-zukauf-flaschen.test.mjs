@@ -86,7 +86,12 @@ describe('Verdrahtung', () => {
     assert.ok(sperre > 0 && sperre < fn.indexOf('folgebuchungenDerFuellung('), 'Sperre vor allem anderen')
     const P = quelle('src/app/(dashboard)/weinhandel/page.tsx')
     assert.match(P, /\.neq\('art', 'flaschen'\)/)
-    assert.match(P, /if \(f\.zukauf_posten_id\) loeschSperre\.set\(f\.id,/)
+    // KAN-378: die Regel liegt in lib/handel/fuellungStornoSperre.ts (Zukauf-Sperre vor jeder anderen), die Liste nutzt sie
+    assert.match(P, /loeschSperre = fuellungStornoSperren\(fuellungen,/)
+    const S = quelle('src/lib/handel/fuellungStornoSperre.ts')
+    assert.match(S, /if \(f\.zukauf_posten_id\) e\.zukauf = true/)
+    const regel = S.slice(S.indexOf('export function fuellungStornoSperre('))
+    assert.ok(regel.indexOf('if (f.zukauf)') > 0 && regel.indexOf('if (f.zukauf)') < regel.indexOf('if (f.verkaeufe > 0)'), 'Zukauf-Sperre vor den Folgebuchungen')
   })
   test('Bewegungsbuch: Flaschenzukauf als Zugang ohne Tankabgang; Rückverfolgung ohne Auto-Zuordnung', () => {
     const B = quelle('src/lib/behoerden/bewegungsbuch.ts')
