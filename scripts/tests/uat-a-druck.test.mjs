@@ -69,6 +69,24 @@ describe('KAN-345: Transportbescheinigung druckt', () => {
     assert.match(druck, /\.no-print \{ display: none !important; \}/)
     assert.doesNotMatch(druck, /body\s*>/, 'keine Regel auf body > * – sie traf das ganze Formular')
   })
+
+  // Nachtrag UAT 23.10.2026: Druck und PDF brachen auf zwei Seiten um (Unterschriften auf Seite 2), der Assistent-Knopf
+  // druckte mit
+  test('eine Seite A4 quer: @page fest, Rand über @page statt Innenabstand, Unterschriften nicht getrennt', () => {
+    const s = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/transportbescheinigung/TBFormular.tsx')
+    const druck = /@media print \{([\s\S]*?)\n\s*\}\n/.exec(s)?.[1] ?? ''
+    assert.match(druck, /@page \{ size: A4 landscape; margin: 8mm 10mm; \}/)
+    assert.match(druck, /#tb-formular \{ margin: 0; border: none; padding: 0; font-size: 9pt; \}/)
+    assert.match(s, /id="tb-formular"/)
+    assert.match(s, /className="[^"]*\bprint:space-y-2\b[^"]*" id="tb-formular"/)
+    assert.match(s, /\{\/\* Unterschriften[^\n]*\*\/\}\n\s*<div className="[^"]*\bbreak-inside-avoid\b/)
+    assert.equal((s.match(/h-10 print:h-8 border-b/g) ?? []).length, 2, 'beide Unterschriftszeilen kompakter')
+  })
+
+  test('Assistent-Knopf (bot:112) wird nirgends mitgedruckt', () => {
+    const w = quelle('src/components/assistent/AssistentWidget.tsx')
+    assert.match(w, /<div className="fixed bottom-5 right-5[^"]*\bprint:hidden\b[^"]*" data-print="hide">/)
+  })
 })
 
 describe('KAN-344: Rechnung auf einer Seite', () => {

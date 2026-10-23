@@ -219,10 +219,10 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
 
       {/* ── Offizielles Formular ── */}
       <fieldset disabled={ausgestellt} className="contents">
-      <div className="bg-white border border-s112-line-str p-6 space-y-4 font-sans text-xs" id="tb-formular">
+      <div className="bg-white border border-s112-line-str p-6 space-y-4 print:space-y-2 font-sans text-xs" id="tb-formular">
 
         {/* Titel */}
-        <div className="text-center border-b border-s112-text pb-2 mb-4">
+        <div className="text-center border-b border-s112-text pb-2 mb-4 print:mb-2">
           <h1 className="text-base font-semibold tracking-wide">Transportbescheinigung gemäß Weingesetz</h1>
           <p className="text-[10px] text-s112-text-2 mt-0.5">Nicht stempeln! Nicht heften!</p>
           {/* KAN-209: Entwurf sichtbar kennzeichnen – auch im Druck */}
@@ -484,14 +484,14 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
           </table>
         </div>
 
-        {/* Unterschriften */}
-        <div className="grid grid-cols-2 gap-12 pt-6 border-t border-s112-line-str mt-4">
+        {/* Unterschriften – KAN-345: im Druck kompakter und nie von der Tabelle getrennt */}
+        <div className="grid grid-cols-2 gap-12 pt-6 print:pt-3 border-t border-s112-line-str mt-4 print:mt-2 break-inside-avoid">
           <div>
-            <div className="h-10 border-b border-s112-grey mb-1" />
+            <div className="h-10 print:h-8 border-b border-s112-grey mb-1" />
             <p className="text-[10px] text-s112-text-2">Ort, Datum, Unterschrift des Versenders bzw. Verfügungsberechtigten</p>
           </div>
           <div>
-            <div className="h-10 border-b border-s112-grey mb-1" />
+            <div className="h-10 print:h-8 border-b border-s112-grey mb-1" />
             <p className="text-[10px] text-s112-text-2">Ort, Datum, Unterschrift des Empfängers bzw. Verfügungsberechtigten</p>
           </div>
         </div>
@@ -505,8 +505,11 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
       {/* Print CSS */}
       <style>{`
         @media print {
+          /* KAN-345 (UAT 23.10.2026): eine Seite A4 quer – vorher hing das Format von den Browser-Einstellungen ab und die
+             Unterschriften rutschten auf Seite 2; den Rand gibt @page vor, nicht der Innenabstand */
+          @page { size: A4 landscape; margin: 8mm 10mm; }
           .no-print { display: none !important; }
-          #tb-formular { margin: 0; border: none; padding: 8mm; font-size: 9pt; }
+          #tb-formular { margin: 0; border: none; padding: 0; font-size: 9pt; }
           input, select { border: 1px solid #999 !important; background: white !important; }
         }
       `}</style>
