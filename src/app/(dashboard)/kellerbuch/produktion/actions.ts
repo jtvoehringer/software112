@@ -13,7 +13,7 @@ import { wienHeute } from '@/lib/csv'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import {
   produktionEingaenge, produktionFehler, PRODUKTION_ARTEN,
-  type ProduktionArt, type WeinEingang, type ZutatEingang,
+  type ProduktionArt, type WeinEingang, type ZielGebinde, type ZutatEingang,
 } from '@/lib/kellerbuch/produktion'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,8 +54,18 @@ export async function produktionBuchen(e: ProduktionEingabe): Promise<{ zielId: 
     const c = jeId.get(w.weinausbauId)
     return { weinausbauId: w.weinausbauId, menge: w.menge, bestand: Number(c?.menge_liter) || 0, weinart: c?.weinart ?? null, name: c?.name ?? null }
   })
+  // UAT 23.10.2026: Fassungsvermögen des Ziel-Gebindes (eigener Betrieb) – dieselbe Regel wie im Formular
+  let gebinde: ZielGebinde | null = null
+  if (e.behaelterId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: b, error: bErr } = await (supabase.from('behaelter') as any)
+      .select('id, name, volumen_liter').eq('tenant_id', tenantId).eq('id', e.behaelterId).maybeSingle()
+    if (bErr) throw new AktionsFehler(dbFehlerText(bErr, 'Gebinde konnte nicht geladen werden'))
+    if (!b) throw new AktionsFehler('Das Gebinde wurde nicht gefunden.')
+    gebinde = { name: String((b as R).name ?? 'Gebinde'), volumen: (b as R).volumen_liter != null ? Number((b as R).volumen_liter) : null }
+  }
   const fehler = produktionFehler({ art: e.art, erzeugnis: e.erzeugnis, name: e.name, behaelterId: e.behaelterId,
-    datum: e.datum, heute: wienHeute(), wein, zutaten: e.zutaten })
+    datum: e.datum, heute: wienHeute(), wein, zutaten: e.zutaten, gebinde })
   if (fehler.length) throw new AktionsFehler(fehler.join(' '))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

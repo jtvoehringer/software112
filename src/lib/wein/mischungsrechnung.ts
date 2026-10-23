@@ -58,7 +58,9 @@ type Basis = {
 export type Ereignis =
   | (Basis & { art: 'zugang'; charge: string; herkunft: HerkunftLiter[] })
   | (Basis & { art: 'abgang'; charge: string; liter: number; grund: 'fuellung' | 'verkauf' | 'schwund' | 'umzug' | 'verschnitt'; bezug?: string | null })
-  | (Basis & { art: 'uebertrag'; grund: 'umzug' | 'verschnitt'; quellen: { charge: string; liter: number }[]; ziele: { charge: string; liter: number }[] })
+  // UAT 23.10.2026: Produktion (KAN-118) – Quellen = Wein je Quell-Charge, Ziel = neue Charge mit der ganzen Zielmenge
+  // (Wein + Wasser/Saft/Aroma): die Zutaten verdünnen die Mischung der Quellen, die Anteile bleiben die des Weins.
+  | (Basis & { art: 'uebertrag'; grund: 'umzug' | 'verschnitt' | 'produktion'; quellen: { charge: string; liter: number }[]; ziele: { charge: string; liter: number }[] })
 
 const EPS = 1e-9
 const RANG: Record<Ereignis['art'], number> = { zugang: 0, uebertrag: 1, abgang: 2 }

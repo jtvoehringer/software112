@@ -10,6 +10,8 @@
 // bis alle vorgelagerten Chargen bekannt sind (Bewegungsgraph); je Charge alle Zu- und Abgänge. Nur eigener
 // Betrieb (tenant_id), Tabellen ohne tenant_id über ihr Elternteil gefiltert. Chips „Besteht aus“,
 // Blend-Protokoll (Seite und CSV) und Rückverfolgung nutzen dieselben Funktionen.
+// UAT 23.10.2026: auch über Produktionen (KAN-118, produktionen/produktion_eingaenge) – sonst meldete der Abgleich der
+// Herkunftskarte (KAN-192) jeden Zugang durch Produktion als Abweichung.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
@@ -100,7 +102,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
   while (frontier.length > 0) {
     naechste = []
     const ids = frontier
-    const [wa, pb, zk, kuVon, kuNach, vsZiel, vsQuelle, fc, fu, vk] = await Promise.all([
+    const [wa, pb, zk, kuVon, kuNach, vsZiel, vsQuelle, fc, fu, vk, pdZiel, pdQuelle] = await Promise.all([
       liste((supabase.from('weinausbau') as any)
         .select('id, name, rebsorte, jahrgang, menge_liter, ist_eroeffnungsbestand, anfangsbestand_liter, storniert_am, created_at, kmw, oechsle, mostgewicht_einheit')
         .eq('tenant_id', tenantId).in('id', ids).order('id'), 'Chargen'),
@@ -139,6 +141,13 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
       liste((supabase.from('verkauf_positionen') as any)
         .select('id, menge, weinausbau_id, erstellt_am, verkaufsposten:verkaufsposten_id(datum, storniert, erstellt_am)')
         .eq('tenant_id', tenantId).in('weinausbau_id', ids).eq('typ', 'tank').order('id'), 'Tankverkäufe'),
+      // UAT 23.10.2026: Produktion (KAN-118) als Ziel bzw. Quelle – nur gebuchte, nicht stornierte
+      liste((supabase.from('produktionen') as any)
+        .select('id, datum, erstellt_am, ziel_weinausbau_id, ziel_menge, eingaenge:produktion_eingaenge(id, art, weinausbau_id, menge)')
+        .eq('tenant_id', tenantId).in('ziel_weinausbau_id', ids).eq('gebucht', true).is('storniert_am', null).order('id'), 'Produktionen'),
+      liste((supabase.from('produktion_eingaenge') as any)
+        .select('id, produktion:produktion_id(id, tenant_id, datum, erstellt_am, ziel_weinausbau_id, ziel_menge, gebucht, storniert_am, eingaenge:produktion_eingaenge(id, art, weinausbau_id, menge))')
+        .eq('tenant_id', tenantId).in('weinausbau_id', ids).eq('art', 'wein').order('id'), 'Produktionen'),
     ])
 
     // Chargen, Eröffnungsbestand
@@ -272,6 +281,26 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
         })
       }
       if (bekannt.has(v.ziel_weinausbau_id)) for (const q of quellen) neu(q.quell_weinausbau_id)
+    }
+
+    // Produktion: Wein der Quellen → neue Charge mit der Zielmenge (Wasser, Saft, Aroma verdünnen die Mischung)
+    const pdAlle = new Map<string, R>()
+    for (const p of pdZiel) pdAlle.set(p.id, p)
+    for (const q of pdQuelle) {
+      const p = q.produktion as R | null
+      if (p && p.tenant_id === tenantId && p.gebucht && !p.storniert_am) pdAlle.set(p.id, p)   // stornierte zählen nicht
+    }
+    for (const p of pdAlle.values()) {
+      const id = `pd:${p.id}`
+      const quellen = ((p.eingaenge ?? []) as R[]).filter(e => e.art === 'wein' && e.weinausbau_id && num(e.menge) > 0)
+      if (!ereignisse.has(id)) {
+        ereignisse.set(id, {
+          art: 'uebertrag', id, grund: 'produktion', datum: tagVon(p.datum), erfasst: ts(p.erstellt_am),
+          quellen: quellen.map(e => ({ charge: e.weinausbau_id, liter: num(e.menge) })),
+          ziele: p.ziel_weinausbau_id ? [{ charge: p.ziel_weinausbau_id, liter: num(p.ziel_menge) }] : [],
+        })
+      }
+      if (bekannt.has(p.ziel_weinausbau_id)) for (const e of quellen) neu(e.weinausbau_id)
     }
 
     // Füllungen: je Charge über fuellung_chargen; alte Direkt-Füllungen ohne fuellung_chargen über weinausbau_id

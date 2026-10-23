@@ -89,7 +89,11 @@ export function zugaengeLautRechnung(ereignisse: readonly Ereignis[], chargeId: 
     const quellen = e.quellen.filter(q => q.charge !== chargeId)
     const summe = quellen.reduce((s, q) => s + q.liter, 0)
     if (summe <= 0) continue
-    for (const q of quellen) aus.set(q.charge, l3((aus.get(q.charge) ?? 0) + ziel * q.liter / summe))
+    // UAT 23.10.2026: Produktion – das Ziel bekommt mehr als die Quellen hergeben (Wasser, Saft, Aroma). Das Journal bucht
+    // je Quelle nur den Wein (ZU_PROD mit Gegencharge), das Zusatzvolumen als Ursprung ohne Quell-Charge – daher hier
+    // höchstens die Quell-Liter verteilen.
+    const anteil = e.grund === 'produktion' ? Math.min(ziel, summe) : ziel
+    for (const q of quellen) aus.set(q.charge, l3((aus.get(q.charge) ?? 0) + anteil * q.liter / summe))
   }
   return aus
 }

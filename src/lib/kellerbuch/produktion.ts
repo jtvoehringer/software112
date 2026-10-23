@@ -1,5 +1,7 @@
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { zahlLokal } from '../format.ts'
 // KAN-118 (08.10.2026): Produktion – aus Quell-Chargen und Zutaten entsteht eine neue Charge mit eigenem Erzeugnis
 // (Perlweinspritzer/Weinmischgetränk = weinhaltiges Getränk, Perlwein, Schaumwein/Sekt, PetNat). Dieselben Regeln wie die
 // RPC s112_produktion_buchen – für Formular, Server Action und Tests. Isomorph und ohne '@/'-Importe (node:test).
@@ -60,10 +62,30 @@ export function zielMenge(wein: readonly WeinEingang[], zutaten: readonly ZutatE
 export type ProduktionSchritt = 1 | 2 | 3
 export const PRODUKTION_SCHRITTE: Record<ProduktionSchritt, string> = { 1: 'Art', 2: 'Eingänge', 3: 'Neue Charge' }
 
-/** Prüfung wie die RPC (Meldungen auf Deutsch); [] = in Ordnung. Mit `schritt` nur die Prüfungen dieses Assistenten-Schritts. */
+/** Ziel-Gebinde der neuen Charge (Name und Fassungsvermögen in Litern; null/0 = unbekannt) */
+export type ZielGebinde = { name: string; volumen: number | null }
+
+const liter = (n: number) => `${zahlLokal(n, { maximumFractionDigits: 2 })} l`
+
+/**
+ * UAT 23.10.2026 (Musterhof): 1.100 l Schaumwein in „Barrique 3“ (225 l) wurden ohne Warnung angenommen. Die neue Charge
+ * darf ihr Gebinde nicht überfüllen. Das Ziel-Gebinde ist immer leer (Auswahl nur leerer Gebinde, RPC: behaelter_nutzbar),
+ * daher zählt das ganze Fassungsvermögen. Volumen unbekannt (null/0) → keine Sperre.
+ */
+export function gebindeFehler(zielLiter: number, gebinde: ZielGebinde | null | undefined): string | null {
+  const vol = Number(gebinde?.volumen) || 0
+  if (!gebinde || vol <= 0) return null
+  if (zielLiter > vol + 0.005) {
+    return `Die neue Charge (${liter(zielLiter)}) passt nicht in „${gebinde.name}“ (Fassungsvermögen ${liter(vol)}).`
+  }
+  return null
+}
+
+/** Prüfung wie die RPC (Meldungen auf Deutsch); [] = in Ordnung. Mit `schritt` nur die Prüfungen dieses Assistenten-Schritts.
+ *  `gebinde` = gewähltes Ziel-Gebinde (Fassungsvermögen, Schritt 3 bzw. Gesamtprüfung). */
 export function produktionFehler(p: {
   art: ProduktionArt; erzeugnis?: string | null; name: string; behaelterId: string; datum: string; heute: string
-  wein: readonly WeinEingang[]; zutaten: readonly ZutatEingang[]
+  wein: readonly WeinEingang[]; zutaten: readonly ZutatEingang[]; gebinde?: ZielGebinde | null
 }, schritt?: ProduktionSchritt): string[] {
   const f: string[] = []
   if (!schritt || schritt === 1) {
@@ -74,6 +96,10 @@ export function produktionFehler(p: {
   }
   if (!schritt || schritt === 3) {
     if (!p.name.trim() || !p.behaelterId) f.push('Bitte Name und Gebinde der neuen Charge angeben.')
+    else {
+      const g = gebindeFehler(zielMenge(p.wein, p.zutaten).ziel, p.gebinde)
+      if (g) f.push(g)
+    }
   }
   if (schritt && schritt !== 2) return [...new Set(f)]
   if (p.wein.length === 0) f.push('Bitte mindestens eine Quell-Charge angeben.')
