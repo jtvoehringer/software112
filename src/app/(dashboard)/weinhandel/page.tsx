@@ -238,12 +238,17 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                     <tr key={f.id}
                       className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                       <td className="px-4 py-3">
+                        {/* UAT 23.10.2026: das Produkt öffnet die Füllung (Reiter Füllung · E-Label · Rückverfolgung); wer nicht
+                            bearbeiten darf, landet wie bisher in der Rückverfolgung. Die Lupe führt direkt dorthin. */}
                         <Link
-                          href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
-                          title="Rückverfolgung anzeigen (Weinbuch, Analysen, Prüfnummer, Herkunft)"
-                          className="font-medium text-s112-text hover:text-s112-blue-700 hover:underline transition-colors inline-flex items-center gap-1.5"
+                          href={writeOk ? `/weinhandel/fuellungen/${f.id}/edit` : `/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
+                          title={writeOk ? 'Füllung öffnen (Reiter Füllung, E-Label, Rückverfolgung)' : 'Rückverfolgung anzeigen (Weinbuch, Analysen, Prüfnummer, Herkunft)'}
+                          className="font-medium text-s112-text hover:text-s112-blue-700 hover:underline transition-colors"
                         >
                           {f.name}{f.bezeichnung ? ` – ${f.bezeichnung}` : ''}
+                        </Link>
+                        <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`} title="Rückverfolgung" aria-label={`Rückverfolgung ${f.name}`}
+                          className="ml-1.5 inline-flex align-middle text-s112-muted hover:text-s112-blue-700">
                           <Search size={12} />
                         </Link>
                         {f.zukauf_posten_id && (
