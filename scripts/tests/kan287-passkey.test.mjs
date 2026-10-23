@@ -46,6 +46,19 @@ describe('Verdrahtung', () => {
     assert.equal((l.match(/angemeldet\(\)/g) ?? []).length, 2, 'Passwort und Passkey')
   })
 
+  // UAT 23.10.2026: Während der Prüfung (Fingerabdruck) und der Weiterleitung danach war nicht zu sehen, dass etwas passiert
+  test('Login: Passkey-Knopf zeigt Kreisel und „Anmeldung läuft…“, nach Erfolg bis zur nächsten Seite', () => {
+    const l = quelle('src/app/(auth)/login/page.tsx')
+    assert.match(l, /setLoading\(true\); setPasskeyLaeuft\(true\)/)
+    assert.match(l, /\{passkeyLaeuft && <Kreisel \/>\}/)
+    assert.match(l, /passkeyLaeuft \? 'Anmeldung läuft…/)
+    assert.match(l, /aria-busy=\{passkeyLaeuft\}/)
+    assert.match(l, /erfolg = true\n\s*angemeldet\(\)/)
+    assert.match(l, /finally \{ if \(!erfolg\) \{ setLoading\(false\); setPasskeyLaeuft\(false\) \} \}/,
+      'nach Erfolg bleibt die Anzeige stehen – sonst ist sie bei der Weiterleitung weg')
+    assert.doesNotMatch(l, /finally \{ setLoading\(false\) \}/)
+  })
+
   test('Zwei-Faktor-Seite: Passkeys einrichten, anzeigen, entfernen (nur auf der Basis-Adresse)', () => {
     const v = quelle('src/components/PasskeyVerwaltung.tsx')
     assert.match(v, /await supabase\.auth\.registerPasskey\(\)/)
