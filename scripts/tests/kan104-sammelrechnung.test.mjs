@@ -46,7 +46,7 @@ describe('KAN-104: Verdrahtung', () => {
     assert.match(p, /\.eq\('tenant_id', tenantId\)\.eq\('aktiv', true\)\.eq\('storniert', false\)\.is\('rechnung_id', null\)\n\s+\.order\('datum'\)\.order\('id'\)\)/)
     const c = quelle('src/app/(dashboard)/weinhandel/sammelrechnung/SammelrechnungClient.tsx')
     assert.match(c, /Abzurechnende Lieferscheine – bitte prüfen/)
-    assert.match(c, /router\.push\(`\/weinhandel\/rechnungen\/\$\{rechnungId\}`\)/)
+    assert.match(c, /router\.push\(`\/weinhandel\/rechnungen\/\$\{r\.rechnungId\}`\)/)   // KAN-355: Ergebnis { rechnungId } | { error }
     assert.match(quelle('src/lib/navigation/index.ts'), /href: '\/weinhandel\/sammelrechnung'/)
   })
   test('Rechnungsseite: je Lieferschein Nummer und Lieferdatum', () => {

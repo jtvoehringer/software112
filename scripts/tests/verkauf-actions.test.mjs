@@ -30,7 +30,7 @@ function db(extra = {}) {
     verkaufsposten: [{ id: P1, tenant_id: T, rechnungsnummer: 'RE-1', storniert: false }],
     zahlungen: [{ id: Z1, tenant_id: T, verkaufsposten_id: P1, betrag: 10, storniert_am: null }],
     ...extra,
-  }, { rpc: name => (name === 'lade_crmgemeinschaft' ? { data: [], error: null } : { data: null, error: null }) })
+  }, { rpc: name => (name === 'lade_crmgemeinschaft' ? { data: [], error: null } : name === 'pruefe_ea_zeitraum_offen' ? ZEITRAUM_OFFEN : { data: null, error: null }) })
 }
 const formular = (felder) => {
   const fd = new FormData()
@@ -39,7 +39,11 @@ const formular = (felder) => {
 }
 const flasche = (menge, extra = {}) => ({ typ: 'flasche', name: 'GV Klassik 2025', fuellung_id: F1, menge, preis_brutto: 12, ...extra })
 /** Schreibzugriffe der Attrappe (insert/update/upsert/delete und RPCs außer reinen Lese-RPCs) */
-const schreibzugriffe = d => d.aufrufe.filter(a => a.art !== 'select' && a.tabelle !== 'rpc:lade_crmgemeinschaft')
+// (KAN-355: pruefe_ea_zeitraum_offen ist eine reine Lese-RPC – Vorabprüfung des Rechnungsdatums)
+const LESE_RPCS = ['rpc:lade_crmgemeinschaft', 'rpc:pruefe_ea_zeitraum_offen']
+const schreibzugriffe = d => d.aufrufe.filter(a => a.art !== 'select' && !LESE_RPCS.includes(a.tabelle))
+/** KAN-355: Zeitraum des Rechnungsdatums offen */
+const ZEITRAUM_OFFEN = { data: [{ offen: true, grund: null }], error: null }
 
 beforeEach(() => {
   globalThis.__membership = { tenantId: T, role: 'tenant_admin', schreibmodule: [] }
@@ -131,6 +135,7 @@ describe('Verkauf anlegen: Ablehnungen ohne Schreibzugriff (KAN-35)', nurMitHook
   test('Erfolg: Bestand zuerst (RPC je Füllung, alles oder nichts), dann Beleg, Positionen und CRM-Aktivität', async () => {
     const rpc = (name, args) => {
       if (name === 'lade_crmgemeinschaft') return { data: [], error: null }
+      if (name === 'pruefe_ea_zeitraum_offen') return ZEITRAUM_OFFEN
       if (name === 'get_next_transaktionsnr') return { data: 'VK-2026-0001', error: null }
       if (name === 's112_fuellung_verkauf_buchen') return { data: 12 + args.p_menge_stk, error: null }
       return { data: null, error: { message: 'unerwartet ' + name } }

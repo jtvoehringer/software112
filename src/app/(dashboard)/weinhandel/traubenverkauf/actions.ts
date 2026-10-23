@@ -13,6 +13,8 @@ import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
+import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -278,7 +280,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     // Bestehenden Traubenverkauf laden (für verkaufsposten_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tvAlt, error: tvAltErr } = await (supabase.from('traubenverkauf') as any)
-      .select('verkaufsposten_id, qualitaetsstufe')
+      .select('verkaufsposten_id, qualitaetsstufe, datum')
       .eq('id', existing_id)
       .eq('tenant_id', tenantId)
       .is('storniert_am', null)
@@ -298,6 +300,15 @@ export async function upsertTraubenverkauf(formData: FormData) {
     // ohne diese Freigabe vorab ablehnen, sonst liefen Traubenverkauf und Rechnung still auseinander
     if (!canWrite(membership, 'warenwirtschaft')) {
       throw new AktionsFehler('Beim Ändern eines Traubenverkaufs wird die zugehörige Rechnung (Menge, Preis, Kunde) mit angepasst bzw. angelegt – das dürfen nur Betriebs-Manager und Mitarbeiter mit Freigabe Warenwirtschaft. Es wurde nichts geändert.')
+    }
+    // KAN-355: neue Rechnung bzw. geändertes Rechnungsdatum – alter und neuer Tag müssen im offenen Zeitraum liegen
+    // (sonst lehnt die Datenbank die Rechnung ab, nachdem der Traubenverkauf schon geändert ist)
+    const altDatum = String((tvAlt as AR).datum ?? '').slice(0, 10)
+    if (!altPostenId || altDatum !== datum) {
+      for (const tag of altPostenId && altDatum ? [altDatum, datum] : [datum]) {
+        const sperre = await rechnungsdatumFehler(supabase, tenantId, tag, heuteWien())
+        if (sperre) throw new AktionsFehler(sperre)
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -322,6 +333,10 @@ export async function upsertTraubenverkauf(formData: FormData) {
     }
   } else {
     if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+    // KAN-355: Der Traubenverkauf legt eine Rechnung mit seinem Datum an – vor jedem Schreibzugriff gegen den offenen
+    // Zeitraum prüfen (sonst bliebe der Traubenverkauf ohne Rechnung stehen)
+    { const sperre = await rechnungsdatumFehler(supabase, tenantId, datum, heuteWien())
+      if (sperre) throw new AktionsFehler(sperre) }
     // Liefernummer bei Neuanlage auto-generieren
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: lnData, error: lnErr } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })

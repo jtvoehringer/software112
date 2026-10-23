@@ -12,6 +12,7 @@ import { AktionsFehler, dbFehlerText, erwarteteDbAblehnung, fehlerText, LESE_WAE
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
+import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
 import { alle } from '@/lib/supabase/alle'
 import { sonstigeLagerFehler } from '@/lib/warenwirtschaft/sonstigeProdukte'
 import { lieferadresseAus, lieferadresseFehler, lieferadresseMoment, type Lieferadresse, type LieferadresseMoment } from '@/lib/crm/lieferadressen'
@@ -354,7 +355,7 @@ function alsAbgang(m: Map<string, number>): Map<string, number> {
 // Posten → Positionen. Scheitert ein Schritt nach der Abbuchung, wird sie zurückgenommen;
 // ein bereits angelegter Posten (Rechnungsnummer vergeben) wird sofort storniert. So bleibt
 // weder ein Beleg ohne Abbuchung noch eine Abbuchung ohne Beleg zurück.
-export async function createVerkauf(formData: FormData) {
+export async function createVerkauf(formData: FormData): Promise<{ id: string } | { error: string }> {
   const supabase = await createSupabaseServerClient()
   const membership = await getMembership()
   const tenantId = membership.tenantId
@@ -372,6 +373,14 @@ export async function createVerkauf(formData: FormData) {
   const skontoAktiv    = formData.get('skonto_aktiv') === 'true'
   // KAN-103: „Rechnung später“ – nur Lieferschein, keine Rechnungsnummer (fehlt das Feld: sofort, wie bisher)
   const rechnungSpaeter = formData.get('rechnung_sofort') === 'false'
+
+  // KAN-355: Mit „Rechnung sofort“ entsteht die Rechnung mit dem Verkaufsdatum – im abgeschlossenen Monat bzw. per UVA
+  // übermittelten Zeitraum lehnt die Datenbank sie ab (a_ea_periodensperre an rechnungen). Vorab prüfen, vor jeder
+  // Abbuchung, und als { error } zurückgeben (erwartbar, kein Systemfehler).
+  if (!rechnungSpaeter) {
+    const sperre = await rechnungsdatumFehler(supabase, tenantId, datum, heuteWien(), true)
+    if (sperre) return { error: sperre }
+  }
 
   // Positionen als JSON aus hidden input
   const posJson = formData.get('positionen_json') as string
@@ -822,21 +831,28 @@ type RechnungsRpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{
 // Nummer, Datum und Leistungszeitraum vergibt die RPC s112_rechnung_erstellen (Nummernkreis, Preise je Position – Entscheidung:
 // Preise erst bei der Rechnung); bereits erfasste Zahlungen wandern mit. Storno: s112_rechnung_stornieren (Nummer bleibt,
 // Lieferschein wieder offen, Bestand bleibt; nur ohne gültige Zahlung und vor der BMD-Übergabe).
+// KAN-355: Eingabefehler, Periodensperre (Rechnungsdatum im abgeschlossenen Monat bzw. per UVA übermittelt – vorab geprüft,
+// die Datenbank lehnt ebenso ab) und andere erwartbare Ablehnungen der RPC kommen als { error } zurück, nicht als Wurf.
 
-export async function rechnungErstellen(lieferscheinIds: string[], formData: FormData) {
+export async function rechnungErstellen(lieferscheinIds: string[], formData: FormData): Promise<{ rechnungId: string } | { error: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  if (!lieferscheinIds.length) throw new AktionsFehler('Bitte mindestens einen Lieferschein wählen.')
+  if (!lieferscheinIds.length) return { error: 'Bitte mindestens einen Lieferschein wählen.' }
   const datum = String(formData.get('rechnungsdatum') ?? '').trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) throw new AktionsFehler('Bitte ein gültiges Rechnungsdatum angeben.')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) return { error: 'Bitte ein gültiges Rechnungsdatum angeben.' }
   let preise: ReturnType<typeof rechnungPreiseAusFormular>
-  try { preise = rechnungPreiseAusFormular(formData) } catch (e) { throw new AktionsFehler(fehlerText(e)) }
+  try { preise = rechnungPreiseAusFormular(formData) } catch (e) { return { error: fehlerText(e) } }
+  const sperre = await rechnungsdatumFehler(supabase, tenantId, datum, heuteWien())
+  if (sperre) return { error: sperre }
   const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
   const { data, error } = await rpc('s112_rechnung_erstellen', {
     p_tenant_id: tenantId, p_lieferscheine: lieferscheinIds, p_datum: datum, p_preise: preise,
     p_notizen: String(formData.get('rechnung_notizen') ?? '').trim() || null,
   })
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Rechnung konnte nicht erstellt werden'))
+  if (error) {
+    if (erwarteteDbAblehnung(error)) return { error: dbFehlerText(error, 'Rechnung konnte nicht erstellt werden') }
+    throw new AktionsFehler(dbFehlerText(error, 'Rechnung konnte nicht erstellt werden'))
+  }
   for (const id of lieferscheinIds) revalidatePath(`/weinhandel/verkauf/${id}`)
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel/offene-posten')

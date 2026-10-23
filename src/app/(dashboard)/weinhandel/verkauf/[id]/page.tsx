@@ -12,6 +12,7 @@ import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButto
 import StornoKnopf from './StornoKnopf'
 import RechnungVersandPanel from './RechnungVersandPanel'
 import RechnungErstellenPanel from './RechnungErstellenPanel'
+import { ersterOffenerRechnungstag } from '@/lib/verkauf/rechnungsdatum'
 import RechnungStornoKnopf from './RechnungStornoKnopf'
 import { wienHeute } from '@/lib/csv'
 import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
@@ -168,6 +169,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const isRechnung       = modusRechnung && berechnet && !sammelrechnung
   const rechnungsDatum   = String(rechnung?.datum ?? posten.datum)
   const rechnungErstellenAction = rechnungErstellen.bind(null, [id])
+  // KAN-355: erster offener Tag für das Rechnungsdatum (nur Hinweis – die Action prüft das Datum ohnehin)
+  let rechnungOffenAb: string | null = null
+  if (!posten.storniert && !berechnet && tenantId) {
+    try { rechnungOffenAb = await ersterOffenerRechnungstag(supabase, tenantId, wienHeute()) } catch { rechnungOffenAb = null }
+  }
   const rechnungStornoAction    = rechnung ? rechnungStornieren.bind(null, String(rechnung.id), id) : null
   const hatTraubenverkauf = (traubenverkaufAnzahl ?? 0) > 0 || positionen.some((p: R) => p.typ === 'trauben')
   const stornoMeldung =
@@ -315,7 +321,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
       {/* KAN-103: Lieferschein ohne Rechnung – Rechnung erstellen */}
       {writeOk && !posten.storniert && !berechnet && (
-        <RechnungErstellenPanel heute={wienHeute()} lieferdatum={String(posten.datum)} action={rechnungErstellenAction}
+        <RechnungErstellenPanel heute={wienHeute()} lieferdatum={String(posten.datum)} offenAb={rechnungOffenAb} action={rechnungErstellenAction}
           positionen={((posten.positionen ?? []) as R[]).map(p => ({ id: String(p.id), name: String(p.name ?? ''), menge: Number(p.menge) || 0,
             einheit: p.einheit ?? null, preis_brutto: p.preis_brutto == null ? null : Number(p.preis_brutto), rabatt_pct: p.rabatt_pct == null ? null : Number(p.rabatt_pct) }))} />
       )}

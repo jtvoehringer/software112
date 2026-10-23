@@ -422,7 +422,12 @@ export default function NeuerVerkaufPage() {
 
     startTransition(async () => {
       try {
-        await createVerkauf(formData)
+        const r = await createVerkauf(formData)
+        // KAN-355: erwartbare Ablehnung (Rechnungsdatum im abgeschlossenen Zeitraum) als Meldung, Eingaben bleiben stehen
+        if ('error' in r) {
+          setError(r.error)
+          return
+        }
         router.push(zielNachVorgang('/weinhandel/verkauf', 'verkauf'))   // KAN-224: zurück, woher man kam
         router.refresh()
       } catch (err) {

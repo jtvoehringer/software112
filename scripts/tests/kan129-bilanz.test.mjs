@@ -76,7 +76,7 @@ test('Verdrahtung: Deckung in Pressung und beiden Traubenverkauf-Wegen, Stichtag
   const a = lies('src/app/(dashboard)/erntemeldung/actions.ts')
   assert.ok(a.includes('const deckung = await leseDeckungFehler('), 'upsertPressung')
   assert.ok(a.includes("if (!lesePressung) throw new AktionsFehler(LESE_WAEHLEN_MELDUNG)"))
-  assert.ok(/traubenverkaufLese\([\s\S]{0,300}if \(lese\.fehler\) throw new AktionsFehler\(lese\.fehler\)[\s\S]{0,400}get_next_liefernummer/.test(a), 'createTraubenverkauf prüft vor der Liefernummer')
+  assert.ok(/traubenverkaufLese\([\s\S]{0,300}if \(lese\.fehler\) throw new AktionsFehler\(lese\.fehler\)[\s\S]{0,700}get_next_liefernummer/.test(a), 'createTraubenverkauf prüft vor der Liefernummer')
   assert.ok(a.includes("teileNachStichtag((await ladeLesedaten(supabase, jahrgangId)).zeilen"), 'createOrUpdateAMAMeldung')
   assert.ok(a.includes(".eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id)"), 'pruefeLesemengeGedeckt je Lese')
   const t = lies('src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts')

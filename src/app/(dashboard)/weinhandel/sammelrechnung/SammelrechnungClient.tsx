@@ -9,14 +9,17 @@ import { fehlerText } from '@/lib/fehler'
 import { fmtEur } from '@/lib/format'
 import type { KundeMitLieferscheinen } from '@/lib/verkauf/sammelrechnung'
 import { rund } from '@/lib/zahl/runden'
+import { datumAt, fruehestesDatum, vortag } from '@/lib/verkauf/rechnungsdatumSperre'
 
 const d = (x: string) => new Date(`${x.slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT')
 
-export default function SammelrechnungClient({ kunden, heute, darf, erstellen }: {
+export default function SammelrechnungClient({ kunden, heute, offenAb = null, darf, erstellen }: {
   kunden: KundeMitLieferscheinen[]
   heute: string
+  /** KAN-355: erster Tag des offenen Zeitraums (davor Monatsabschluss bzw. UVA übermittelt), null = keine Sperre bekannt */
+  offenAb?: string | null
   darf: boolean
-  erstellen: (lieferscheinIds: string[], formData: FormData) => Promise<{ rechnungId: string }>
+  erstellen: (lieferscheinIds: string[], formData: FormData) => Promise<{ rechnungId: string } | { error: string }>
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -43,12 +46,21 @@ export default function SammelrechnungClient({ kunden, heute, darf, erstellen }:
   }
   function erstellenKlick() {
     setFehler(null)
+    if (offenAb && datum < offenAb) {
+      setFehler(`Das Rechnungsdatum liegt im abgeschlossenen Zeitraum – bitte ein Datum ab ${datumAt(offenAb)} wählen.`)
+      return
+    }
     const fd = new FormData()
     fd.set('rechnungsdatum', datum)
     startTransition(async () => {
       try {
-        const { rechnungId } = await erstellen(gewaehlt.map(l => l.id), fd)
-        router.push(`/weinhandel/rechnungen/${rechnungId}`)
+        const r = await erstellen(gewaehlt.map(l => l.id), fd)
+        // KAN-355: erwartbare Ablehnung (z. B. Periodensperre) als Meldung, Auswahl und Datum bleiben stehen
+        if ('error' in r) {
+          setFehler(r.error)
+          return
+        }
+        router.push(`/weinhandel/rechnungen/${r.rechnungId}`)
       } catch (e) {
         setFehler(fehlerText(e, 'Sammelrechnung konnte nicht erstellt werden'))
       }
@@ -115,9 +127,15 @@ export default function SammelrechnungClient({ kunden, heute, darf, erstellen }:
           </table>
           <div className="max-w-[12rem]">
             <label htmlFor="sr-datum" className="block text-xs font-medium text-s112-text-2 mb-1">Rechnungsdatum *</label>
-            <input required id="sr-datum" type="date" value={datum} min={spaetestes || undefined} max={heute} onChange={e => setDatum(e.target.value)}
+            <input required id="sr-datum" type="date" value={datum} min={fruehestesDatum(spaetestes, offenAb)} max={heute} onChange={e => setDatum(e.target.value)}
+              aria-describedby={offenAb ? 'sr-datum-hinweis' : undefined}
               className="w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white" />
           </div>
+          {offenAb && (
+            <p id="sr-datum-hinweis" className="text-xs text-s112-muted">
+              Bis {datumAt(vortag(offenAb))} ist der Zeitraum abgeschlossen bzw. per UVA übermittelt – Rechnungsdatum frühestens {datumAt(offenAb)}.
+            </p>
+          )}
           {fehler && <p role="alert" className="text-sm text-s112-err">{fehler}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={erstellenKlick} disabled={pending || !darf} className="btn-primary text-sm">

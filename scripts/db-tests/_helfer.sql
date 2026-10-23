@@ -1412,6 +1412,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_ea_abschluss_schutz()'),             -- KAN-149 D3: Monatsabschluss, gesperrte UVA, verbuchte Belege
     ('intern',        '--S', false, 's112_ea_gegenbuchung(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2 (Hilfsfunktion)
     ('trigger',       '--S', false, 's112_ea_periodensperre()'),               -- KAN-149 D3: Periodensperre E/A, Zahlungen, Umbuchungen
+    ('trigger',       '--S', false, 's112_rechnung_periodensperre()'),         -- KAN-355: Periodensperre Rechnungsdatum
+    ('trigger',       '--S', false, 's112_rechnung_positionen_periodensperre()'),   -- KAN-355: Beträge der Positionen einer gesperrten Rechnung
     ('mandant',       '-US', true , 's112_ea_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2
     ('trigger',       '--S', false, 's112_ea_storno_schutz()'),                -- KAN-149 D2: E/A, Zahlungen, Umbuchungen
     ('intern',        '--S', false, 's112_ea_zeitraum_sperrgrund(p_tenant_id uuid, p_datum date)'),   -- KAN-149 D3 (Hilfsfunktion ohne Zugriffsprüfung)
