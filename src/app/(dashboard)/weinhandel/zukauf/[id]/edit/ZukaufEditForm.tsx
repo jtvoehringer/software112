@@ -1,6 +1,7 @@
 'use client'
 
 import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
+import { fassungsFehler } from '@/lib/keller/fassungsvermoegen'
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { updateZukauf } from '../../actions'
@@ -645,7 +646,11 @@ export default function ZukaufEditForm({
                 : eigeneSimulierteMenge(mengeNum)
               const inhalt = fremdInhalt + eigeneHier
               const restNach = vol != null ? vol - inhalt : null
-              const ueber = restNach != null && restNach < -0.01
+              // KAN-381: gemeinsame Regel – nur eine Erhöhung gegenüber dem bisherigen Stand der eigenen Charge in diesem
+              // Gebinde zählt (eine bestehende Überfüllung sperrt das Speichern anderer Angaben nicht; der Server prüft ebenso)
+              const bisherHier = eigeneCharge?.behaelter_id === zielBehaelter ? (eigeneCharge?.menge_liter ?? 0) : 0
+              const fassungFehlerText = b ? fassungsFehler({ name: b.name, volumen_liter: vol, inhalt: fremdInhalt + bisherHier }, eigeneHier, { abgang: bisherHier }) : null
+              const ueber = !!fassungFehlerText
               const rebsortenListe = chargen.map(c => c.rebsorte)
               if (eigeneHier > 0 && rebsorte) rebsortenListe.push(rebsorte)
               return (
@@ -677,7 +682,7 @@ export default function ZukaufEditForm({
                   </div>
                   {ueber && (
                     <p className="text-s112-err-fg font-semibold flex items-center gap-1.5">
-                      <AlertTriangle size={14} /> Behälter hat nicht genug Kapazität
+                      <AlertTriangle size={14} /> {fassungFehlerText}
                     </p>
                   )}
                 </div>

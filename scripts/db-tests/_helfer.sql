@@ -1447,7 +1447,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 'tenant_has_module(p_module text)'),
     ('trigger',       '--S', false, 'trg_tenant_plattform_admins()'),
     ('rls_hilfe',     '-US', false, 'user_has_role_in_tenant(p_tenant_id uuid, p_roles text[])'),
-    ('trigger',       '--S', false, 'weinausbau_gebinde_pruefen()')
+    ('trigger',       '--S', false, 'weinausbau_gebinde_pruefen()'),
+    ('trigger',       '--S', false, 's112_fassung_vorher()'),                  -- KAN-381: Inhalt je Gebinde vor der ersten Änderung
+    ('trigger',       '--S', false, 's112_fassungsvermoegen_pruefen()')        -- KAN-381: kein Zugang über das Fassungsvermögen
   ) v (einstufung, rechte, abo, funktion)
   ORDER BY funktion
 $f$;

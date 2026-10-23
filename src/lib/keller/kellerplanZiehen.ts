@@ -11,7 +11,7 @@ import { waehleZielCharge, merkmaleText } from '../kellerbuch/umzugZiel'
 import { weinartKonflikt } from './weinart'
 import { quellGebinde, selbesGebindeFehler, UMZUG_SELBES_GEBINDE } from '../kellerbuch/umzugGebinde'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
-import { rund } from '../zahl/runden.ts'
+import { fassungsFehler } from './fassungsvermoegen.ts'
 /** Eigene, aktive Charge in einem Gebinde (Merkmale wie in weinausbau) */
 export type PlanCharge = {
   id: string
@@ -57,8 +57,6 @@ export const ZIEL_FARBE: Readonly<Record<ZielArt, string>> = {
   gesperrt: '#C9564E',         // rot
 }
 
-const l = (n: number) => `${(rund(n, 2)).toLocaleString('de-DE', { maximumFractionDigits: 2 })} L`
-
 /**
  * Bewertung eines Ziel-Gebindes für `menge` Liter der Charge `quelle` aus `quellGebinde`. `zielChargen` = eigene aktive
  * Chargen im Ziel. Gesperrt: gleiches Gebinde, fremd belegt, Quelle fremd/leer, Kapazität überschritten.
@@ -76,10 +74,9 @@ export function bewerteZiel(p: {
   if (!p.quelle || !(p.quelle.menge_liter > 0)) return gesperrt(`In „${p.quellGebinde.name}“ liegt kein eigener Wein`)
   if (p.ziel.gesperrt) return gesperrt(`„${p.ziel.name}“ ist durch ${p.ziel.fremd_betrieb ?? 'einen anderen Betrieb'} belegt`)
   if (!(p.menge > 0)) return gesperrt('Keine Menge')
-  if (p.ziel.volumen_liter && p.ziel.volumen_liter > 0) {
-    const frei = p.ziel.volumen_liter - p.ziel.fuellung
-    if (p.menge > frei + 0.5) return gesperrt(`„${p.ziel.name}“ fasst nur noch ${l(Math.max(0, frei))} (gezogen: ${l(p.menge)})`)
-  }
+  // KAN-381: gemeinsame Regel aller Zugangswege (Toleranz 0,5 l, Inhalt eigen + fremd)
+  const voll = fassungsFehler({ name: p.ziel.name, volumen_liter: p.ziel.volumen_liter, inhalt: p.ziel.fuellung }, p.menge)
+  if (voll) return gesperrt(voll)
   if (p.zielChargen.length === 0) {
     return { art: 'umzug', text: `Umzug in das leere Gebinde „${p.ziel.name}“`, zielCharge: null, rotWeiss: false }
   }

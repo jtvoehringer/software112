@@ -13,6 +13,7 @@
 
 import { csvText, csvDateiname, PROFIL_EXCEL_AT, type CsvSpalte, type CsvTyp } from '@/lib/csv'
 import { zahlAus, fmtNum } from '@/lib/format'
+import { fassungsFehler } from '@/lib/keller/fassungsvermoegen'
 import { ZUSATZ_OPTS, ERZEUGNIS_OPTS, qualitaetAusText, qualitaetFehler, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
 import { istAltwertQualitaet, normalisiereQualitaet, type QualitaetsAngabe, type Zusatz } from '@/lib/wein/qualitaetsrang'
 import { eroeffnungsbestandHinweis } from '@/lib/kellerbuch/chargeRegeln'
@@ -362,8 +363,9 @@ export function pruefeTankZeilen(
     if (!literText) fehler.push('Menge (l) fehlt.')
     else if (liter == null) fehler.push(`Menge „${literText}“ ist keine Zahl.`)
     else if (liter < 0.01) fehler.push('Die Menge muss größer als 0 l sein.')
-    else if (g && g.volumen != null && g.volumen > 0 && liter > g.volumen + 0.005) {
-      fehler.push(`Menge ${fmtNum(liter, 2)} l übersteigt das Fassungsvermögen von „${g.anzeigeName}“ (${fmtNum(g.volumen, 2)} l).`)
+    // KAN-381: gemeinsame Regel aller Zugangswege (Toleranz 0,5 l); das Gebinde ist hier leer (oben geprüft)
+    else if (g && fassungsFehler({ name: g.anzeigeName, volumen_liter: g.volumen, inhalt: 0 }, liter)) {
+      fehler.push(fassungsFehler({ name: g.anzeigeName, volumen_liter: g.volumen, inhalt: 0 }, liter) as string)
     } else if (g && (g.volumen == null || g.volumen <= 0)) {
       hinweise.push(`Fassungsvermögen von „${g.anzeigeName}“ unbekannt – Menge nicht gegen das Gebinde geprüft.`)
     }

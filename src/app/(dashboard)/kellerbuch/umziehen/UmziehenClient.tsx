@@ -17,6 +17,7 @@ import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
 import { quellGebinde, selbesGebindeFehler, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
+import { fassungsFehlerListe, fassungsHinweis, type FassungGebinde } from '@/lib/keller/fassungsvermoegen'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 
@@ -233,6 +234,14 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
     if (weinartKonflikt(q.weinart, z.weinart)) weinartSperre = `„${q.charge_name}“ (${WEINART_LABEL[q.weinart!]}) nach ${z.behaelter_name} – dort liegt „${z.charge_name}“ (${WEINART_LABEL[z.weinart!]}).`
   }
 
+  // KAN-381: Fassungsvermögen der Ziel-Gebinde – gemeinsame Regel (je Gebinde summiert; Inhalt der eigenen Chargen,
+  // Wein eines Partnerbetriebs prüft zusätzlich der Server)
+  const inhaltJeGebinde: Record<string, number> = {}
+  for (const c of quellen) inhaltJeGebinde[c.behaelter_id] = (inhaltJeGebinde[c.behaelter_id] ?? 0) + (c.menge_liter || 0)
+  const fassungen = new Map<string, FassungGebinde>(behaelter.map(b => [b.id, { name: b.name, volumen_liter: b.kapazitaet_liter, inhalt: inhaltJeGebinde[b.id] ?? 0 }]))
+  const fassungFehlerText = fassungsFehlerListe(fassungen, ziele.map(z => ({ behaelterId: z.behId, zugang: parseFloat(z.menge) || 0 })))
+  const fassungHinweise = [...new Set(ziele.map(z => fassungsHinweis(fassungen.get(z.behId))).filter((h): h is string => !!h))]
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -240,6 +249,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
     if (ziele.some(z => !z.behId || !z.menge))         { setError('Alle Ziel-Zeilen ausfüllen.'); return }
     if (schwund < 0)                                    { setError('Ziel-Menge größer als Quell-Menge.'); return }
     if (selbesGebinde)                                  { setError(selbesGebinde); return }   // KAN-340
+    if (fassungFehlerText)                              { setError(fassungFehlerText); return }   // KAN-381
 
     // KAN-94: die gewählte Charge ist direkt die Quelle
     const quellenResolved = quellenState.map(q => ({ weinausbau_id: q.chargeId, menge: parseFloat(q.menge) }))
@@ -356,6 +366,13 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
             <span>{selbesGebinde} Bitte ein anderes Ziel-Gebinde wählen.</span>
           </div>
         )}
+        {fassungFehlerText && (
+          <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg flex items-start gap-1.5">
+            <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
+            <span>{fassungFehlerText}</span>
+          </div>
+        )}
+        {fassungHinweise.map(h => <p key={h} className="text-xs text-s112-muted">{h}</p>)}
         {weinartSperre && (
           <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
             <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
@@ -410,7 +427,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
             <CheckCircle2 size={16} strokeWidth={1.75} />Gespeichert – weiterleiten…
           </div>
         ) : (
-          <button type="submit" disabled={pending}
+          <button type="submit" disabled={pending || !!fassungFehlerText}
             className="bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40 w-full">
             {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
           </button>

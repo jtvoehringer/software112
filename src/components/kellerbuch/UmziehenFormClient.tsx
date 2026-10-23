@@ -9,6 +9,7 @@ import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 import { quellGebinde, selbesGebindeFehler, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
+import { fassungsFehlerListe, fassungsHinweis, type FassungGebinde } from '@/lib/keller/fassungsvermoegen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -96,10 +97,19 @@ export default function UmziehenFormClient({
   const quellGebindeIds = quellGebinde(quellen.map(q => findCharge(q.weinausbau_id)))
   const selbesGebinde = selbesGebindeFehler(quellGebindeIds, ziele.map(z => z.behaelter_id))
 
+  // KAN-381: Fassungsvermögen der Ziel-Gebinde (gemeinsame Regel, je Gebinde summiert). Beim Bearbeiten liegt die bisherige
+  // Buchung schon im Inhalt – sie wird vor der neuen storniert, zählt also als Abgang aus ihren Ziel-Gebinden.
+  const fassungen = new Map<string, FassungGebinde>(gebinde.map((g: R) => [String(g.id), { name: String(g.name), volumen_liter: g.volumen_liter, inhalt: inhaltByGebinde[g.id] ?? 0 }]))
+  const fassungFehlerText = fassungsFehlerListe(fassungen, [
+    ...ziele.filter(z => z.behaelter_id && z.menge_netto > 0).map(z => ({ behaelterId: z.behaelter_id, zugang: z.menge_netto })),
+    ...(defaultZiele ?? []).filter(z => z.behaelter_id).map(z => ({ behaelterId: z.behaelter_id, zugang: 0, abgang: z.menge_netto || 0 })),
+  ])
+
   const canSubmit = quellen.some(q => q.weinausbau_id && q.brutto > 0)
     && ziele.some(z => z.behaelter_id && z.menge_netto > 0)
     && !ueberschuss
     && !selbesGebinde
+    && !fassungFehlerText
 
   return (
     <form onSubmit={absenden} className="mt-4 space-y-6">
@@ -226,6 +236,12 @@ export default function UmziehenFormClient({
           {selbesGebinde && (
             <p role="alert" className="text-xs text-s112-err-fg">{selbesGebinde} Bitte ein anderes Ziel-Gebinde wählen.</p>
           )}
+          {fassungFehlerText && (
+            <p role="alert" className="text-xs text-s112-err-fg">{fassungFehlerText}</p>
+          )}
+          {ziele.map(z => fassungsHinweis(fassungen.get(z.behaelter_id))).filter((h, i, a) => h && a.indexOf(h) === i).map(h => (
+            <p key={h} className="text-xs text-s112-muted">{h}</p>
+          ))}
           {ueberschuss && (
             <p className="text-xs text-s112-err-fg">
               Summe Netto ({fmtNum(sumNetto, { max: 2 })} L) überschreitet Brutto – bitte korrigieren.

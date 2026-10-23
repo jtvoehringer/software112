@@ -14,6 +14,7 @@ import { verschnittHinweis, type VerschnittHinweisDaten } from '@/lib/kellerbuch
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 import { istQuellGebinde, quellGebinde, zielGebindeOhneQuellen } from '@/lib/kellerbuch/umzugGebinde'
+import { fassungsFehler, fassungsHinweis } from '@/lib/keller/fassungsvermoegen'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null; weinart?: string | null }
@@ -101,11 +102,13 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   const schwund   = bruttoVal - nettoVal
 
   const selectedGebinde = gebinde.find(g => g.id === zielId)
-  const restKapGebinde   = selectedGebinde ? frei(selectedGebinde) : null
+  // KAN-381: gemeinsame Regel aller Zugangswege (Toleranz 0,5 l; Volumen unbekannt → nur Hinweis)
+  const fassung = selectedGebinde ? { name: selectedGebinde.name, volumen_liter: selectedGebinde.volumen_liter, inhalt: inhalt[selectedGebinde.id] ?? 0 } : null
+  const fassungFehlerText = nettoVal > 0 ? fassungsFehler(fassung, nettoVal) : null
   const canSubmit = bruttoVal > 0 && nettoVal > 0
     && nettoVal <= bruttoVal + 0.01
     && bruttoVal <= verfuegbarLiter + 0.01
-    && (restKapGebinde == null || nettoVal <= restKapGebinde + 0.01)
+    && !fassungFehlerText
     && !!zielId
     && !istQuellGebinde(zielId, quellGebindeIds)
 
@@ -292,13 +295,8 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 </div>
               )
             })()}
-            {(() => {
-              const g = gebinde.find(g => g.id === zielId)
-              const f = g ? frei(g) : null
-              return f != null && nettoVal > f + 0.01 ? (
-                <p className="text-xs text-s112-err-fg mt-1">Netto überschreitet Restkapazität des Gebindes</p>
-              ) : null
-            })()}
+            {fassungFehlerText && <p className="text-xs text-s112-err-fg mt-1">{fassungFehlerText}</p>}
+            {!fassungFehlerText && fassungsHinweis(fassung) && <p className="text-xs text-s112-muted mt-1">{fassungsHinweis(fassung)}</p>}
             {weinartKonfliktCharge && (
               <div className="mt-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
                 <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />

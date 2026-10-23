@@ -961,6 +961,11 @@ BEGIN
 
   -- ── 7. TRUNCATE-Verbot (als postgres; zum Schluss) ───────────────────────────────────────────────────
   PERFORM set_config('lock_timeout', '5s', true);
+  -- KAN-381: aufgeschobene Prüfungen (Constraint-Trigger z_fassungsvermoegen an weinausbau) vorher auslösen – mit offenen
+  -- Trigger-Ereignissen lehnt PostgreSQL ein TRUNCATE schon mit 55006 ab, bevor der Sperr-Trigger der Tabelle antwortet
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'z_fassungsvermoegen' AND tgrelid = 'public.weinausbau'::regclass) THEN
+    SET CONSTRAINTS public.z_fassungsvermoegen IMMEDIATE;
+  END IF;
   SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
     FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
    WHERE c.relnamespace = 'public'::regnamespace AND t.tgname = 'z_protokoll_truncate' AND NOT t.tgisinternal;

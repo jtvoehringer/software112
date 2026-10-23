@@ -3,6 +3,7 @@
 import { zielNachAbschluss } from '@/lib/navigation/zurueck'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
+import { fassungenAus, fassungsFehler, fassungsFehlerListe, ladeFassungen } from '@/lib/keller/fassungsvermoegen'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
@@ -76,7 +77,7 @@ const rund2 = (n: number): number => rund(n, 2)
 async function insertEroeffnungsbestand(
   formData: FormData,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  kontext?: { supabase: any; tenantId: string },
+  kontext?: { supabase: any; tenantId: string; fassungGeprueft?: boolean },
 ): Promise<string | null> {
   const supabase  = kontext?.supabase ?? await createSupabaseServerClient()
   const tenantId  = kontext?.tenantId ?? await getTenantId()
@@ -110,6 +111,13 @@ async function insertEroeffnungsbestand(
   if (weinart && !WEINARTEN.includes(weinart)) return `Die Weinart „${weinart}“ ist unbekannt – weiß, rot oder rosé.`
   const herkunftCode = text('herkunft_code')
   if (herkunftCode && herkunftCode !== 'sonstiges' && !herkunftKnoten(herkunftCode)) return `Der Herkunfts-Code „${herkunftCode}“ ist unbekannt.`
+  // KAN-381: Fassungsvermögen des Gebindes (Inhalt aller aktiven Chargen, auch eines Partnerbetriebs). Der CSV-Import
+  // hat jede Zeile schon mit derselben Regel gegen das (leere) Gebinde geprüft (pruefeTankZeilen) – dort nicht je Zeile laden.
+  if (!kontext?.fassungGeprueft) {
+    const g = (await ladeFassungen(supabase, tenantId)).get(formData.get('behaelter_id') as string)
+    const voll = fassungsFehler(g, menge)
+    if (voll) return voll
+  }
 
   const epRaw =dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   // Transaktionsnummer vergeben
@@ -255,6 +263,19 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
     }
   }
 
+  // KAN-381: Fassungsvermögen – neues Gebinde mit der ganzen Menge, gleiches Gebinde nur mit der Erhöhung
+  {
+    const ziel = ('behaelter_id' in payload ? payload.behaelter_id : alt.behaelter_id) as string | null
+    const nachher = 'menge_liter' in payload ? num(payload.menge_liter) : num(alt.menge_liter)
+    const zugang = ziel && alt.aktiv !== false
+      ? ('behaelter_id' in payload ? nachher : nachher - num(alt.menge_liter))
+      : 0
+    if (ziel && zugang > 0) {
+      const voll = fassungsFehler((await ladeFassungen(supabase, tenantId)).get(ziel), zugang)
+      if (voll) throw new AktionsFehler(voll)
+    }
+  }
+
   const { data, error } = await (supabase.from('weinausbau') as any)
     .update(payload)
     .eq('id', id)
@@ -363,7 +384,8 @@ export type EroeffnungImportErgebnis = {
 
 /** Import: prüft erneut (nie der Vorschau des Browsers vertrauen) und legt die gültigen Zeilen an */
 export async function importiereEroeffnungTank(stichtag: string, daten: ImportZeilen, herkunft: string): Promise<EroeffnungImportErgebnis> {
-  const kontext = await eroeffnungImportKontext()
+  // KAN-381: jede Zeile ist unten mit derselben Fassungs-Regel gegen das (leere) Gebinde geprüft (pruefeTankZeilen)
+  const kontext = { ...(await eroeffnungImportKontext()), fassungGeprueft: true }
   const tag = importStichtag(stichtag)
   const d = importDaten(daten)
   const gebinde = await ladeGebindeStand(kontext.supabase, kontext.tenantId, tag)
@@ -504,6 +526,28 @@ async function pruefeUmzug(
   // KAN-340: wie umziehen() – Ziel = Gebinde einer Quelle legte sonst eine zweite Charge ins selbe Gebinde
   const selbes = selbesGebindeFehler(quellGebinde(quellCharge.values()), e.ziele.map(z => z.behaelter_id))
   if (selbes) throw new AktionsFehler(selbes)
+
+  // KAN-381: Fassungsvermögen der Ziel-Gebinde VOR der ersten Buchung. Beim Bearbeiten ändert der Storno der bisherigen
+  // Buchung den Inhalt der beteiligten Gebinde (Ziel geleert, Quelle aufgefüllt) – diese Differenz je Gebinde zählt mit.
+  {
+    const deltaJeGebinde = new Map<string, number>()
+    if (verfuegbarNach && verfuegbarNach.size > 0) {
+      // alle-ausnahme: die Chargen einer einzelnen Umzugsbuchung, wenige
+      const { data: vRows, error: vErr } = await supabase.from('weinausbau')
+        .select('id, behaelter_id, menge_liter').in('id', [...verfuegbarNach.keys()]).eq('tenant_id', tenantId)
+      if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Chargen des Umzugs konnten nicht geladen werden'))
+      for (const c of (vRows ?? []) as R[]) {
+        if (!c.behaelter_id) continue
+        const d = (verfuegbarNach.get(c.id as string) ?? num(c.menge_liter)) - num(c.menge_liter)
+        deltaJeGebinde.set(c.behaelter_id as string, (deltaJeGebinde.get(c.behaelter_id as string) ?? 0) + d)
+      }
+    }
+    const voll = fassungsFehlerListe(fassungenAus(zielGebinde), e.ziele.map(z => {
+      const d = deltaJeGebinde.get(z.behaelter_id) ?? 0
+      return { behaelterId: z.behaelter_id, zugang: z.menge_netto + Math.max(0, d), abgang: Math.max(0, -d) }
+    }))
+    if (voll) throw new AktionsFehler(voll)
+  }
 
   // KAN-112: Ein Umzug in ein Gebinde mit abweichendem Wein (Rebsorte, Jahrgang, Herkunft, Qualität) bzw. aus Quellen
   // mit verschiedenen Merkmalen ist ein Verschnitt – beim Bearbeiten (Storno + Neubuchung) nicht still eine zweite

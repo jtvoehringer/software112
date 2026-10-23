@@ -11,6 +11,8 @@
 // Ohne '@/'-Importe und ohne JSX, damit node:test sie prüfen kann (Formular und Server nutzen dieselben Regeln).
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { zahlLokal } from '../format.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { fassungsFehler } from '../keller/fassungsvermoegen.ts'
 
 /** Eintrag der Erntemeldung (ernte_parzellen), soweit für die Pressung nötig */
 export type LeseEintrag = {
@@ -142,14 +144,14 @@ export function behaelterPruefung(o: {
     if (z.behaelter_id && z.menge_liter) zugang.set(z.behaelter_id, (zugang.get(z.behaelter_id) ?? 0) + z.menge_liter)
     if (z.alt?.behaelter_id && z.alt.menge_liter) zugang.set(z.alt.behaelter_id, (zugang.get(z.alt.behaelter_id) ?? 0) - z.alt.menge_liter)
   }
+  // KAN-381: Fassungsvermögen über die gemeinsame Regel aller Zugangswege (Toleranz 0,5 l, Volumen 0/leer = unbekannt)
   for (const b of o.behaelter) {
     const plus = zugang.get(b.id) ?? 0
-    if (b.volumen_liter == null || plus <= 0.005) continue
-    const inhalt = o.fuellstand[b.id] ?? 0
-    if (inhalt + plus > b.volumen_liter + MOST_TOLERANZ_L) {
+    if (plus <= 0.005) continue
+    const f = fassungsFehler({ name: b.name ?? 'ohne Namen', volumen_liter: b.volumen_liter, inhalt: o.fuellstand[b.id] ?? 0 }, plus)
+    if (f) {
       const nr = o.zeilen.filter(z => z.behaelter_id === b.id).map(z => z.nr)
-      return `Behälterzeile ${nr.join(', ')}: Der Behälter „${b.name ?? 'ohne Namen'}“ fasst ${liter(b.volumen_liter)} – `
-        + `Inhalt jetzt ${liter(inhalt)} + ${liter(plus)} aus der Pressung = ${liter(inhalt + plus)}. Das passt nicht hinein.`
+      return `Behälterzeile ${nr.join(', ')}: ${f}`
     }
   }
   return null
