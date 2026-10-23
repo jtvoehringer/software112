@@ -76,10 +76,13 @@ BEGIN
 
   -- ── 2. Erlaubte Spalten ───────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
+  -- KAN-378: diese Felder ändert die App nur mit Grund (s112_fuellung_aendern setzt s112.aenderung_grund; Datei 82)
+  PERFORM set_config('s112.aenderung_grund', 'S112TEST Grund der Änderung', true);
   v_erg := v_erg || pg_temp.s112_erwarte('erlaubt_preis_name',
     pg_temp.s112_versuch(format(c_upd, format('name = %L, vk_preis_brutto = 12.9, einstandspreis = 4.2, notizen = %L, zolltarifnummer = %L', 'S112TEST neu', 'S112TEST', '22042109'), v_f)), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('erlaubt_aktiv',
     pg_temp.s112_versuch(format(c_upd, 'aktiv = false', v_f)), 'k1');
+  PERFORM set_config('s112.aenderung_grund', '', true);
 
   -- ── 3. Gesperrte Spalten (Akzeptanz: jahrgang, rebsorte, qualitaet, datum, chargennummer) ──────────────
   v_txt := pg_temp.s112_fehlertext(format(c_upd, 'jahrgang = 1999', v_f));

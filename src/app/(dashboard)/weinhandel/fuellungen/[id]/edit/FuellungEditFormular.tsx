@@ -5,11 +5,13 @@ import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
+import { aenderungGrundFehler } from '@/lib/storno/grund'
 
 // Hauptformular „Füllung bearbeiten“ (KAN-35, 24.09.2026): Sperr- und Prüfmeldungen
 // der Server Action (z. B. „Anzahl … nicht mehr änderbar“) erscheinen direkt unter
 // dem Formular statt auf der Fehlerseite – die Eingaben bleiben erhalten. Die Felder
-// rendert die Server-Seite (children).
+// rendert die Server-Seite (children). KAN-378: Der Grund der Änderung wird vorab mit derselben Regel wie in der
+// Server Action bzw. der Datenbank geprüft (aenderungGrundFehler).
 export default function FuellungEditFormular({
   action,
   children,
@@ -25,6 +27,8 @@ export default function FuellungEditFormular({
     e.preventDefault()
     setFehler(null)
     const fd = new FormData(e.currentTarget)
+    const grundFehler = aenderungGrundFehler(fd.get('aenderung_grund'))
+    if (grundFehler) { setFehler(grundFehler); return }
     startTransition(async () => {
       try {
         await action(fd)
