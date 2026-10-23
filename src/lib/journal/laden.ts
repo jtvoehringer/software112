@@ -11,7 +11,10 @@ import { AktionsFehler } from '@/lib/fehler'
 import { VERWALTUNG_ROLLEN } from '@/lib/auth/pflichtmeldung'
 import type { UserRole } from '@/lib/auth/roles'
 import { folgetag, wienTagesbeginnUtc } from '@/lib/behoerden/kellerbuch-hilfen'
-import { JOURNAL_BEREICHE, JOURNAL_NACHLADEN, journalZeilen, nachAktion, nachzuladendeIds, type JournalFilter, type JournalZeile } from './journal'
+import {
+  JOURNAL_BEREICHE, JOURNAL_NACHLADEN, PRODUKTION_HERKUNFT, chargenFuerProduktionHerkunft, journalZeilen, nachAktion, nachzuladendeIds,
+  type JournalFilter, type JournalZeile,
+} from './journal'
 
 type R = Record<string, any>
 
@@ -97,5 +100,22 @@ export async function ladeJournalDaten(supabase: any, tenantId: string, roh: rea
     if (error) throw new AktionsFehler(`Journal: ${tabelle} konnte nicht geladen werden: ${error.message}`)
     ergebnis.set(tabelle, new Map((data ?? []).map(z => [z.id as string, z])))
   }))
+  // UAT 23.10.2026: Chargen aus einer Produktion – die Produktion als Herkunft an den Datensatz der Charge
+  const chargen = chargenFuerProduktionHerkunft(roh)
+  if (chargen.length > 0) {
+    const { data, error } = await inBloecken<R>(chargen, b => alle<R>((supabase.from(PRODUKTION_HERKUNFT.tabelle) as any)
+      .select(PRODUKTION_HERKUNFT.spalten)
+      .eq('tenant_id', tenantId)
+      .in('ziel_weinausbau_id', b)
+      .order('id', { ascending: true })))
+    if (error) throw new AktionsFehler(`Journal: Produktionen konnten nicht geladen werden: ${error.message}`)
+    const jeCharge = new Map<string, R>(ergebnis.get('weinausbau') ?? [])
+    for (const p of (data ?? []) as R[]) {
+      const id = p.ziel_weinausbau_id as string
+      const bisher = jeCharge.get(id) ?? { id }
+      jeCharge.set(id, { ...bisher, produktion: [...((bisher.produktion as R[] | undefined) ?? []), p] })
+    }
+    ergebnis.set('weinausbau', jeCharge)
+  }
   return ergebnis
 }
