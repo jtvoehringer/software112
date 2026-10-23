@@ -45,38 +45,40 @@ describe('KAN-328: Lesedaten – Mostgewicht rutscht nicht mehr unter die Aktion
   test('Notizen schmal begrenzt (Reihenfolge nach KAN-144 bleibt), Mostgewicht und Qualität ohne Umbruch', () => {
     const k = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
     const kopf = k.slice(k.indexOf('>Ried</th>'), k.indexOf('</thead>'))
-    assert.match(kopf, /<th className="text-left px-3 py-2 font-semibold w-48 max-w-48">Notizen<\/th>/)
+    // KAN-339: Notizen nur noch im Druck (Spalte bleibt an derselben Stelle)
+    assert.match(kopf, /<th className="hidden print:table-cell text-left px-3 py-2 font-semibold w-48 max-w-48">Notizen<\/th>/)
     assert.match(kopf, /<th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Mostgewicht<\/th>/)
     assert.match(kopf, /<th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Qualität<\/th>/)
-    assert.match(k, /<td className="px-3 py-2 text-xs text-s112-text-2 w-48 max-w-48">\s*<NotizZelle text=\{p\.notizen\} \/>/)
-    assert.match(k, /<td className="px-3 py-2 text-right whitespace-nowrap">\s*<MostgewichtAnzeige wert=\{\{ kmw: p\.klosterneuburger/)
+    assert.match(k, /<td className="hidden print:table-cell px-3 py-2 text-xs text-s112-text-2 w-48 max-w-48">\s*<NotizZelle text=\{p\.notizen\} \/>/)
+    assert.match(k, /<td className="px-3 py-2 text-xs text-right whitespace-nowrap">\s*<MostgewichtAnzeige wert=\{\{ kmw: p\.klosterneuburger/)
   })
 
   // 2. Anlauf (UAT 11.10.2026, Screenshot): Breitenbegrenzung allein reichte nicht – die am rechten Rand fixierte
   // Aktionsspalte überdeckte bei Platzmangel weiter Mostgewicht und Qualität (samt Spaltenköpfen)
   test('Aktionsspalte nicht fixiert, Mostgewicht nur in der bevorzugten Einheit (beide Werte im Tooltip)', () => {
     const k = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
-    const a = k.indexOf('<table className="w-full text-sm min-w-[700px]')
+    const a = k.indexOf('<table className="w-full text-sm min-w-[520px]')
     const tabelle = k.slice(a, k.indexOf('</table>', a))
     assert.ok(a >= 0, 'Lesedaten-Tabelle fehlt')
     assert.doesNotMatch(tabelle, /sticky/)
     assert.match(tabelle, /<MostgewichtAnzeige wert=\{\{ kmw: p\.klosterneuburger, oechsle: p\.oechsle, einheit: p\.mostgewicht_einheit \}\} nurBevorzugt \/>/)
   })
 
-  // KAN-339 Nachtrag (UAT 23.10.2026): Bearbeiten/Storno ganz rechts – bei langer Liste lag die waagrechte Scrollleiste
-  // erst am Listenende, man fand den Stift nicht. Aktionen jetzt als erste Spalte (Kopf, Zeile, Fuß), weiter ohne sticky.
-  test('Aktionsspalte steht vorne – erreichbar ohne waagrechtes Scrollen', () => {
+  // KAN-339 (Entscheidung Jörgen 23.10.2026): Stift/Storno bleiben rechts; die Tabelle passt ohne waagrechtes Scrollen,
+  // weil sie schmäler wird – Sorte als Kürzel, Notizen nur im Druck, Datum/kg/Mostgewicht klein wie Sorte/GST
+  test('Lesedaten schmal: Aktionen rechts, Sorte als Kürzel, Notizen nur im Druck, einheitlich kleine Schrift', () => {
     const k = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
-    const a = k.indexOf('<table className="w-full text-sm min-w-[700px]')
+    const a = k.indexOf('<table className="w-full text-sm min-w-[520px] print:min-w-0">')
+    assert.ok(a >= 0, 'Mindestbreite 520 px statt 700 px')
     const tabelle = k.slice(a, k.indexOf('</table>', a))
-    const kopf = tabelle.slice(tabelle.indexOf('<thead>'), tabelle.indexOf('</thead>'))
-    assert.ok(kopf.indexOf('<span className="sr-only">Aktionen</span>') < kopf.indexOf('>Ried</th>'), 'Aktionen vor „Ried“ im Kopf')
     const zeile = tabelle.slice(tabelle.indexOf('<tbody>'), tabelle.indexOf('</tbody>'))
-    assert.ok(zeile.indexOf('aria-label="Bearbeiten"') >= 0)
-    assert.ok(zeile.indexOf('aria-label="Bearbeiten"') < zeile.indexOf('{p.weingarten_name}'), 'Stift vor dem Ried-Namen')
-    assert.ok(zeile.indexOf('<StornoButton') < zeile.indexOf('{p.weingarten_name}'), 'Storno vor dem Ried-Namen')
+    assert.ok(zeile.indexOf('aria-label="Bearbeiten"') > zeile.indexOf('qualitaetLabel(p.qualitaetsstufe)'), 'Stift rechts nach der Qualität')
+    assert.match(zeile, /\{sortenKuerzel\(p\.grundstueck_rebsorte \?\? p\.weingarten_rebsorte\) \?\? p\.grundstueck_rebsorte/)
+    assert.match(zeile, /title=\{formatRebsorteMitKuerzel\(p\.grundstueck_rebsorte \?\? p\.weingarten_rebsorte\)\}/)
+    assert.match(zeile, /<td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">\{formatDate\(p\.ernte_datum\)\}/)
+    assert.match(zeile, /<td className="px-3 py-2 text-xs text-right tabular-nums">\{\(p\.menge_kg/)
     const fuss = tabelle.slice(tabelle.indexOf('<tfoot>'))
-    assert.ok(fuss.indexOf('<td data-print="hide" />') < fuss.indexOf('>Gesamt</td>'), 'Fußzeile bleibt bündig')
+    assert.match(fuss, /<td className="hidden print:table-cell" \/>\s*<td colSpan=\{2\}[^>]*>\s*≈/, 'hl unter Mostgewicht/Qualität, im Druck ab Notizen')
     assert.doesNotMatch(tabelle, /sticky/)
   })
 })
