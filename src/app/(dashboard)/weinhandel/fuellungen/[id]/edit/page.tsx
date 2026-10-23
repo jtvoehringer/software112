@@ -35,6 +35,7 @@ import { ladeBilder } from '@/lib/handel/datenblattLaden'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { AENDERUNG_GRUND_MAX, STORNO_GRUND_MIN } from '@/lib/storno/grund'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten' }
 export const dynamic = 'force-dynamic'
@@ -325,7 +326,8 @@ export default async function EditFuellungPage({
 
       <FuellungEditFormular action={updateWithId}>
 
-        {/* KAN-101: nach dem Speichern sperrt die Datenbank alles außer Produktname, Preisen, KN-Code und Notizen */}
+        {/* KAN-101: nach dem Speichern sperrt die Datenbank alles außer Produktname, Preisen, KN-Code und Notizen;
+            KAN-378: auch diese nur mit Grund (Feld „Grund der Änderung“ unten) */}
         <GesperrtHinweis grund="Füllung gespeichert" seit={gespeichertAm}
           erlaubt={['Produktname', 'Preise', 'KN-Code', 'Notizen', ...(f.weinausbau_id ? [] : ['Charge (einmal nachtragbar)'])]} />
 
@@ -560,6 +562,23 @@ export default async function EditFuellungPage({
             placeholder="Abfüllungsprotokoll, Besonderheiten …"
             className={inputCls + ' resize-none'}
           />
+        </div>
+
+        {/* ── KAN-378: jede Änderung einer gespeicherten Füllung braucht einen Grund (steht im Änderungsprotokoll) ── */}
+        <div className="card p-5">
+          <label htmlFor="aenderung_grund" className={labelCls}>Grund der Änderung *</label>
+          <textarea id="aenderung_grund"
+            name="aenderung_grund"
+            rows={2}
+            required
+            minLength={STORNO_GRUND_MIN}
+            maxLength={AENDERUNG_GRUND_MAX}
+            placeholder="z. B. Preis laut neuer Preisliste 2027"
+            className={inputCls + ' resize-none'}
+          />
+          <p className="text-xs text-s112-muted mt-1">
+            Pflicht, mindestens {STORNO_GRUND_MIN} Zeichen – wird mit der Änderung im Änderungsprotokoll gespeichert.
+          </p>
         </div>
 
         {/* Aktionen (Speichern/Abbrechen) und Fehlermeldung rendert FuellungEditFormular */}

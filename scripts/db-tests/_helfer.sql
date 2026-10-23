@@ -1294,6 +1294,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_artikel_verkauf_stornieren(p_tenant_id uuid, p_verkaufsposten_id uuid, p_grund text)'),   -- KAN-115: Storno des Verkaufs bucht zurück
     ('mandant',       '-US', true , 's112_verarbeitung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-41 Paket 3a: Storno der Verarbeitung
     ('mandant',       '-US', true , 's112_fuellung_nachtragen(p_tenant_id uuid, p_fuellung_id uuid, p_weinausbau_id uuid, p_dac_antrag_id uuid)'),   -- KAN-101: Charge/DAC-Antrag/Prüfnummer einmal nachtragen
+    ('mandant',       '-US', true , 's112_fuellung_aendern(p_tenant_id uuid, p_id uuid, p_werte jsonb, p_grund text)'),   -- KAN-378: Produktname, Preise, MwSt., KN-Code, Notizen, aktiv nur mit Grund
     ('mandant',       '-US', true , 's112_pruefnummernantrag_status_setzen(p_tenant_id uuid, p_antrag_id uuid, p_status text, p_datum date, p_pruefnummer text, p_grund text)'),   -- KAN-97: Statuswechsel
     ('mandant',       '-US', true , 's112_freeze_korrektur(p_tenant_id uuid, p_tabelle text, p_id uuid, p_werte jsonb, p_grund text)'),   -- KAN-96: Korrektur durch den Betriebsleiter   -- KAN-178: Fremdverweise je FK-Spalte
     ('intern',        '--S', false, 'check_und_increment_ki_abfrage(p_tenant_id uuid)'),   -- KAN-22: nur Service-Role (Route per Admin-Client)

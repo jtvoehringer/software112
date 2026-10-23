@@ -965,7 +965,9 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(upd, /if \(neueCharge && alt\.weinausbau_id && neueCharge !== alt\.weinausbau_id\) \{\s+throw new AktionsFehler/)
     assert.match(upd, /if \(neueCharge && !alt\.weinausbau_id\) \{[\s\S]*?await pruefnummerBeiChargenzuordnung\(supabase, tenantId,[\s\S]*?datum: pnTag\(alt\.datum\)/)
     assert.ok(upd.indexOf('pruefnummerBeiChargenzuordnung(') < upd.indexOf("'s112_fuellung_nachtragen'"), 'Prüfung vor dem Nachtrag')
-    assert.ok(upd.indexOf("'s112_fuellung_nachtragen'") < upd.indexOf('.update(payload)'), 'Nachtrag vor dem Speichern')
+    // KAN-378: gespeichert wird über die RPC s112_fuellung_aendern (mit Grund)
+    assert.ok(upd.indexOf('s112_fuellung_aendern') > 0, 'Speichern über s112_fuellung_aendern')
+    assert.ok(upd.indexOf("'s112_fuellung_nachtragen'") < upd.indexOf("'s112_fuellung_aendern'"), 'Nachtrag vor dem Speichern')
     // Abfülldatum ist gesperrt – keine Datumsänderung mehr über das Formular
     assert.doesNotMatch(upd, /pruefnummerBeiDatumsaenderung|formData\.get\('datum'\)/)
   })
