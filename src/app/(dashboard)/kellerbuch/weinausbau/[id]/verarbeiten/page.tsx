@@ -65,7 +65,7 @@ export default async function VerarbeitenPage({ params }: { params: Promise<{ id
         Eine Menge verlässt den Weinbestand, weil sie zu Traubensaft, Essig, in der Brennerei oder sonst weiterverarbeitet wird.
         In der Bestandsmeldung als „Abgang durch Verarbeitung“ gebucht. Verarbeiten Sie die ganze Menge, wird die Charge abgeschlossen.
         Traubensaft, Essig und Destillat können Sie gleich als Lagerzugang eines Sonstigen Produkts buchen (außerhalb von Weinbuch und
-        Bestandsmeldung; Produkt unter Weinhandel › Sonstiges-Produkte mit „Lagerstand führen“).
+        Bestandsmeldung; Produkt unter Warenwirtschaft › Sonstiges-Produkte mit „Lagerstand führen“).
       </p>
 
       {moeglich ? (

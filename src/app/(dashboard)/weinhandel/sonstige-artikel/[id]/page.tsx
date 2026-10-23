@@ -40,7 +40,7 @@ export default async function ProduktPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-blue-700 transition-colors">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700 transition-colors">Warenwirtschaft</Link>
         <span>/</span>
         <Link href="/weinhandel/sonstige-artikel" className="hover:text-s112-blue-700 transition-colors">Sonstiges-Produkte</Link>
         <span>/</span>

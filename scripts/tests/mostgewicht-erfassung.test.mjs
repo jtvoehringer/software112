@@ -156,7 +156,7 @@ describe('Verdrahtung Lese (Quelltext)', () => {
 })
 
 describe('Verdrahtung Traubenverkauf (Quelltext)', () => {
-  test('Weinhandel › Traubenverkauf: Feldname-Fehler behoben (Eingabe + Action lesen dasselbe Feld)', () => {
+  test('Warenwirtschaft › Traubenverkauf: Feldname-Fehler behoben (Eingabe + Action lesen dasselbe Feld)', () => {
     const c = quelle('src/app/(dashboard)/weinhandel/traubenverkauf/TraubenverkaufClient.tsx')
     assert.doesNotMatch(c, /name="klosterneuburger"/)
     assert.match(c, /<MostgewichtEingabe key=\{editRow\?\.id \?\? 'neu'\} name="mostgewicht" startwert=\{mgStart\} \/>/)

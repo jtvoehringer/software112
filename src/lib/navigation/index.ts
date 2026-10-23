@@ -18,6 +18,9 @@ import {
 } from 'lucide-react'
 import type { UserRole } from '@/lib/auth/roles'
 import { istPflichtmeldungsRolle } from '@/lib/auth/pflichtmeldung'
+import { isActivePath, aktiverBereichIndex } from './aktiv'
+
+export { isActivePath }
 
 export type ModulKey = 'modul_ea' | 'modul_sumup' | 'modul_export' | 'modul_controlling'
 
@@ -216,12 +219,7 @@ const NAV: NavGroup[] = [
   },
 ]
 
-/** Pfade, die nur exakt matchen (kein Präfix-Match für Unterrouten) */
-const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen', '/kellerbuch', '/behandlungen', '/buchhaltung'])
-
-export function isActivePath(href: string, pathname: string): boolean {
-  return pathname === href || (!EXACT_PATHS.has(href) && pathname.startsWith(href))
-}
+// isActivePath und die exakt matchenden Pfade liegen in ./aktiv.ts (testbar ohne Bundler)
 
 export type NavContext = {
   role: UserRole
@@ -312,12 +310,7 @@ export function bereichsPfade(): { key: string; hrefs: string[] }[] {
 export function activeGroup(groups: NavGroup[], pathname: string): NavGroup | undefined {
   // Längster passender href gewinnt (z.B. /weinhandel/offene-posten kommt in
   // Warenwirtschaft UND E&A vor – dann zählt der Bereich, in dem der Nutzer
-  // gerade ist: erster Treffer in NAV-Reihenfolge).
-  let best: { g: NavGroup; len: number } | null = null
-  for (const g of groups) {
-    for (const it of g.items) {
-      if (isActivePath(it.href, pathname) && (!best || it.href.length > best.len)) best = { g, len: it.href.length }
-    }
-  }
-  return best?.g ?? groups[0]
+  // gerade ist: erster Treffer in NAV-Reihenfolge). Unterseiten exakt matchender
+  // Punkte (/weinhandel/fuellungen/…) gehören seit KAN-378 zu deren Bereich.
+  return groups[aktiverBereichIndex(groups, pathname)]
 }

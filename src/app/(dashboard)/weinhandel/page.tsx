@@ -9,6 +9,7 @@ import FuellungLoeschen from './FuellungLoeschen'
 import { Package, Truck, Grape, Search, Pencil } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { fuellungStornoSperren, VERKAUFS_BEWEGUNGEN } from '@/lib/handel/fuellungStornoSperre'
 
 export const metadata: Metadata = { title: 'Warenwirtschaft' }
 export const dynamic = 'force-dynamic'
@@ -102,34 +103,32 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
   const direktTank  = (direktTankRaw ?? []) as R[]
   const tvListe     = (tvRaw         ?? []) as R[]
 
-  // Löschen nur ohne Verkäufe/Bestandsbuchungen (deactivateFuellung prüft dasselbe) – Knopf vorab sperren
-  const loeschSperre = new Map<string, string>()
+  // Stornieren nur ohne Verkäufe/Bestandsbuchungen (deactivateFuellung prüft dasselbe) – Knopf vorab sperren und den
+  // Grund mit Anzahl nennen (KAN-378: fuellungStornoSperren, dieselbe Zählung wie folgebuchungenDerFuellung).
   // KAN-41 Paket 2b: Handelsware aus einem Flaschenzukauf storniert man über den Zukauf (Trigger a_flaschenzukauf_schutz)
-  for (const f of (fuellungenRaw ?? []) as R[]) {
-    if (f.zukauf_posten_id) loeschSperre.set(f.id, 'Handelsware aus einem Flaschenzukauf – bitte den Zukauf stornieren (Weinhandel › Zukauf).')
-  }
+  let loeschSperre = fuellungStornoSperren(fuellungen, [], [])
   if (writeOk && fuellungen.length > 0) {
     const ids = fuellungen.map(f => f.id as string)
     // inBloecken + alle(): Füllungen sammeln sich über die Jahre (URL-Grenze ≈ 350 IDs), Verkaufspositionen je Füllung
     // gehen schnell über 1.000 – sonst fehlte die Sperre bei manchen Füllungen
     const [vkRawRes, bwRawRes] = await Promise.all([
       inBloecken(ids, b => alle(tf((supabase.from('verkauf_positionen') as any)
-        .select('fuellung_id, verkaufsposten!inner(storniert)')
+        .select('fuellung_id, verkaufsposten_id, menge, verkaufsposten!inner(storniert)')
         .in('fuellung_id', b)
         .eq('typ', 'flasche')
         .eq('verkaufsposten.storniert', false)
         .order('id')))),
+      // KAN-378: ohne die Bestandszeilen der Verkäufe (KAN-149 D1) – sonst blieb eine Füllung mit lauter stornierten
+      // Verkäufen gesperrt, obwohl deactivateFuellung sie storniert
       inBloecken(ids, b => alle(tf((supabase.from('fuellung_bewegungen') as any)
-        .select('fuellung_id')
+        .select('fuellung_id, art')
         .in('fuellung_id', b)
+        .not('art', 'in', `(${VERKAUFS_BEWEGUNGEN.join(',')})`)
         .order('id')))),
     ])
     const vkRaw = geladen(vkRawRes, 'Verkaufspositionen')
     const bwRaw = geladen(bwRawRes, 'Füllungsbewegungen')
-    for (const v of (vkRaw ?? []) as R[]) loeschSperre.set(v.fuellung_id, 'Nicht löschbar: Zu dieser Füllung gibt es bereits Verkäufe – sie bleibt als Historie erhalten.')
-    for (const b of (bwRaw ?? []) as R[]) {
-      if (!loeschSperre.has(b.fuellung_id)) loeschSperre.set(b.fuellung_id, 'Nicht löschbar: Zu dieser Füllung gibt es bereits Bestandsbuchungen – sie bleibt als Historie erhalten.')
-    }
+    loeschSperre = fuellungStornoSperren(fuellungen, (vkRaw ?? []) as R[], (bwRaw ?? []) as R[])
   }
 
   const gesamtFlaschen  = alleFuellungen.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
@@ -273,17 +272,17 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                         <span className={`font-semibold tabular-nums ${bestandClr}`}>{fmtNum(bestand)}</span>
                         <span className="text-xs text-s112-muted ml-1">/ {fmtNum(gesamt)}</span>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
                         {einstand != null
                           ? fmtEur(einstand)
                           : <span className="text-s112-muted">–</span>}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
                         {vkPreis != null
                           ? fmtEur(vkPreis)
                           : <span className="text-s112-muted">–</span>}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-s112-blue-700 font-semibold">
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-s112-blue-700 font-semibold">
                         {lagerwert != null
                           ? fmtEur(lagerwert)
                           : <span className="text-s112-muted font-normal">–</span>}
@@ -356,15 +355,15 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
                       </td>
                       <td className="px-4 py-3 text-s112-muted">{(t.behaelter as R | null)?.name ?? '–'}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold text-s112-blue-700">
                         {t.menge_liter ? fmtNum(Number(t.menge_liter)) : '–'}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-sm">
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-s112-muted text-sm">
                         {t.einstandspreis_pro_liter != null
                           ? fmtEur(Number(t.einstandspreis_pro_liter), { min: 2, max: 4 })
                           : <span className="text-xs text-s112-warn-fg">nicht gesetzt</span>}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold text-s112-blue-700">
                         {t.einstandspreis_pro_liter != null && t.menge_liter
                           ? fmtEur((Number(t.menge_liter) * Number(t.einstandspreis_pro_liter)))
                           : '–'}
@@ -405,7 +404,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                       <td className="px-4 py-3 font-medium text-s112-text">{(d.behaelter as R | null)?.name ?? '–'}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{(d.pressung as R | null)?.weinbezeichnung ?? new Date((d.pressung as R)?.datum ?? '').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{((d.pressung as R | null)?.jahrgang as R | null)?.jahrgang ?? '–'}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">{fmtNum(Number(d.menge_liter))} L</td>
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold text-s112-blue-700">{fmtNum(Number(d.menge_liter))} L</td>
                       <td className="px-4 py-3 text-right">
                         {writeOk && (
                           <Link

@@ -102,7 +102,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
 
   // 6. Negative Bestände
   const fn = (fuellNeg ?? []) as R[], cn = (chargenNeg ?? []) as R[]
-  if (fn.length) befunde.push({ key: 'lager:negativ', bereich: 'Weinhandel', stufe: 'hoch', titel: `Negativer Flaschenbestand: ${fn.slice(0, 3).map(f => `${f.name} ${f.jahrgang ?? ''}`.trim()).join(', ')}${fn.length > 3 ? ` +${fn.length - 3}` : ''}`, detail: 'Bestand unter null – Abfüllung oder Verkauf prüfen', href: '/weinhandel' })
+  if (fn.length) befunde.push({ key: 'lager:negativ', bereich: 'Warenwirtschaft', stufe: 'hoch', titel: `Negativer Flaschenbestand: ${fn.slice(0, 3).map(f => `${f.name} ${f.jahrgang ?? ''}`.trim()).join(', ')}${fn.length > 3 ? ` +${fn.length - 3}` : ''}`, detail: 'Bestand unter null – Abfüllung oder Verkauf prüfen', href: '/weinhandel' })
   if (cn.length) befunde.push({ key: 'keller:negativ', bereich: 'Kellerbuch', stufe: 'hoch', titel: `Negative Menge im Keller: ${cn.slice(0, 3).map(c => c.name).join(', ')}${cn.length > 3 ? ` +${cn.length - 3}` : ''}`, detail: 'Charge mit Menge unter null – Umzüge/Schwund prüfen', href: '/kellerbuch' })
 
   // 7. Wartefrist-Konflikte: Pressung vor Ablauf einer Wartefrist im selben Jahr

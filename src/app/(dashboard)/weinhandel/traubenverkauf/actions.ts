@@ -141,7 +141,7 @@ async function pruefeRechnungFuerTrauben(
   const pos = positionen.find(p => p.traubenverkauf_id === traubenverkaufId)
     ?? (positionen.length === 1 && positionen[0].typ === 'sonstiges' ? positionen[0] : null)
   if (!pos && positionen.length > 0) {
-    throw new AktionsFehler('Die Rechnungsposition zu diesem Traubenverkauf ist nicht eindeutig – bitte den Verkauf unter Weinhandel › Verkauf stornieren und neu erfassen.')
+    throw new AktionsFehler('Die Rechnungsposition zu diesem Traubenverkauf ist nicht eindeutig – bitte den Verkauf unter Warenwirtschaft › Verkauf stornieren und neu erfassen.')
   }
   return (pos?.id as string | undefined) ?? null
 }
@@ -169,7 +169,7 @@ async function updateVerkaufspostenFuerTrauben(
     .eq('tenant_id', tenantId)
     .select('id')
     if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (verkaufsposten)'))
-    if (!(d as AR[] | null)?.length) throw new AktionsFehler('Der Traubenverkauf ist gespeichert, die Rechnung konnte aber nicht angepasst werden – keine Berechtigung für Verkäufe. Bitte die Rechnung unter Weinhandel › Verkauf prüfen.') }
+    if (!(d as AR[] | null)?.length) throw new AktionsFehler('Der Traubenverkauf ist gespeichert, die Rechnung konnte aber nicht angepasst werden – keine Berechtigung für Verkäufe. Bitte die Rechnung unter Warenwirtschaft › Verkauf prüfen.') }
 
   if (posId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -183,7 +183,7 @@ async function updateVerkaufspostenFuerTrauben(
       .eq('tenant_id', tenantId)
       .select('id')
       if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (verkauf_positionen)'))
-      if (!(d as AR[] | null)?.length) throw new AktionsFehler('Der Traubenverkauf ist gespeichert, die Rechnungsposition konnte aber nicht angepasst werden – keine Berechtigung für Verkäufe. Bitte die Rechnung unter Weinhandel › Verkauf prüfen.') }
+      if (!(d as AR[] | null)?.length) throw new AktionsFehler('Der Traubenverkauf ist gespeichert, die Rechnungsposition konnte aber nicht angepasst werden – keine Berechtigung für Verkäufe. Bitte die Rechnung unter Warenwirtschaft › Verkauf prüfen.') }
   }
 }
 
@@ -369,7 +369,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
 // KAN-148 C1b (30.09.2026): stornieren statt löschen (BKI, KAN-145). Die Zeile bleibt mit Datum, Benutzer und
 // Grund stehen, Liefernummer und Rechnungsbezug bleiben, die kg werden frei. Eine offene Rechnung, die nur diesen
 // Traubenverkauf enthält, wird über den normalen Verkaufsstorno storniert (Beleg bleibt, Rechnungsnummer lückenlos,
-// E&A wie beim Storno); eine Mischrechnung nur als Ganzes unter Weinhandel › Verkauf. Siehe
+// E&A wie beim Storno); eine Mischrechnung nur als Ganzes unter Warenwirtschaft › Verkauf. Siehe
 // lib/verkauf/traubenverkaufStorno.ts; jeder Storno landet im bestandsprotokoll.
 
 // ENDGÜLTIG LÖSCHEN (KAN-148 C1d) – nur stornierte Traubenverkäufe ohne Rechnungsbezug, mit Grund (RPC s112_storniert_loeschen)

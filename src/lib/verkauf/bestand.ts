@@ -70,7 +70,7 @@ export function pruefeVerkaufsRechte(
   const beleg = opts.rechnungsnummer ? `Die Rechnung ${opts.rechnungsnummer}` : 'Der Verkauf'
   if (!canWrite(m, 'warenwirtschaft')) {
     throw new AktionsFehler(opts.vorgang === 'storno'
-      ? `${beleg} kann nur von einem Betriebs-Manager oder einem Mitarbeiter mit Freigabe Warenwirtschaft storniert werden (Weinhandel › Verkauf). Es wurde nichts geändert.`
+      ? `${beleg} kann nur von einem Betriebs-Manager oder einem Mitarbeiter mit Freigabe Warenwirtschaft storniert werden (Warenwirtschaft › Verkauf). Es wurde nichts geändert.`
       : 'Keine Berechtigung für Verkäufe – dafür ist die Freigabe Warenwirtschaft nötig.')
   }
   if (opts.flasche && !(canWrite(m, 'kellerbuch') || canWrite(m, 'warenwirtschaft'))) {
@@ -457,7 +457,7 @@ export async function verkaufspostenStornieren(
         .is('storniert_am', null)
       if (offenErr) probleme.push(dbFehlerText(offenErr, 'Storno des Traubenverkaufs (BKI) konnte nicht geprüft werden'))
       else if ((offen ?? 0) > 0) {
-        probleme.push('Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Weinhandel › Traubenverkauf stornieren')
+        probleme.push('Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Warenwirtschaft › Traubenverkauf stornieren')
       }
     }
   }

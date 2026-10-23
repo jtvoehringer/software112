@@ -105,7 +105,7 @@ describe('pruefeVerkaufsRechte – Rechte vor dem ersten Schreibzugriff', nurMit
   test('Mitarbeiter ohne Warenwirtschaft: Verkauf und Storno abgelehnt, Storno nennt die Rechnung', () => {
     assert.throws(() => pruefe(winzer('kellerbuch'), {}), { name: 'AktionsFehler', message: 'Keine Berechtigung für Verkäufe – dafür ist die Freigabe Warenwirtschaft nötig.' })
     assert.throws(() => pruefe(winzer('kellerbuch'), { vorgang: 'storno', rechnungsnummer: 'RE-2026-007' }), {
-      message: 'Die Rechnung RE-2026-007 kann nur von einem Betriebs-Manager oder einem Mitarbeiter mit Freigabe Warenwirtschaft storniert werden (Weinhandel › Verkauf). Es wurde nichts geändert.',
+      message: 'Die Rechnung RE-2026-007 kann nur von einem Betriebs-Manager oder einem Mitarbeiter mit Freigabe Warenwirtschaft storniert werden (Warenwirtschaft › Verkauf). Es wurde nichts geändert.',
     })
     assert.throws(() => pruefe(winzer(), { vorgang: 'storno', rechnungsnummer: null }), { message: /^Der Verkauf kann nur von einem Betriebs-Manager/ })
   })
@@ -651,7 +651,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
       vorher: fehlerBei('zahlungen', 'select', { message: 'timeout' }),
     })
     const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G, { erstattetAm: '2026-09-30' }))
-    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Weinhandel › Traubenverkauf stornieren · Zahlungen des Verkaufs konnten nicht geladen werden: timeout.')
+    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Warenwirtschaft › Traubenverkauf stornieren · Zahlungen des Verkaufs konnten nicht geladen werden: timeout.')
     assert.equal(zeile(db, 'traubenverkauf', TV1).storniert_am ?? null, null)
     assert.match(zeile(db, 'traubenverkauf', TV2).storniert_am ?? '', /^\d{4}-/)
   })
