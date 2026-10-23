@@ -9,22 +9,27 @@ import { useRouter } from 'next/navigation'
 import { FileText } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
+import { datumAt, fruehestesDatum, vortag } from '@/lib/verkauf/rechnungsdatumSperre'
 
 type Position = { id: string; name: string; menge: number; einheit: string | null; preis_brutto: number | null; rabatt_pct: number | null }
 
 const inp = 'w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm text-right tabular-nums focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const zahlText = (n: number | null) => (n == null ? '' : String(n).replace('.', ','))
 
-export default function RechnungErstellenPanel({ heute, lieferdatum, positionen, action }: {
+export default function RechnungErstellenPanel({ heute, lieferdatum, offenAb = null, positionen, action }: {
   heute: string
   lieferdatum: string
+  /** KAN-355: erster Tag des offenen Zeitraums (davor Monatsabschluss bzw. UVA übermittelt), null = keine Sperre bekannt */
+  offenAb?: string | null
   positionen: Position[]
-  action: (formData: FormData) => Promise<{ rechnungId: string }>
+  action: (formData: FormData) => Promise<{ rechnungId: string } | { error: string }>
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [offen, setOffen] = useState(false)
   const [fehler, setFehler] = useState<string | null>(null)
+  const minDatum = fruehestesDatum(lieferdatum, offenAb)
+  const vorschlag = minDatum && minDatum > heute ? minDatum : heute
 
   function senden(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -32,7 +37,12 @@ export default function RechnungErstellenPanel({ heute, lieferdatum, positionen,
     setFehler(null)
     startTransition(async () => {
       try {
-        await action(fd)
+        const r = await action(fd)
+        // KAN-355: erwartbare Ablehnung (z. B. Periodensperre) als Meldung am Formular, Eingaben bleiben stehen
+        if ('error' in r) {
+          setFehler(r.error)
+          return
+        }
         setOffen(false)
         router.refresh()
       } catch (err) {
@@ -58,9 +68,15 @@ export default function RechnungErstellenPanel({ heute, lieferdatum, positionen,
         <form onSubmit={senden} className="mt-4 space-y-3">
           <div className="max-w-[12rem]">
             <label htmlFor="rechnungsdatum" className="block text-xs font-medium text-s112-text-2 mb-1">Rechnungsdatum *</label>
-            <input id="rechnungsdatum" name="rechnungsdatum" type="date" defaultValue={heute} min={lieferdatum} max={heute}
+            <input id="rechnungsdatum" name="rechnungsdatum" type="date" defaultValue={vorschlag} min={minDatum} max={heute}
+              aria-describedby={offenAb ? 'rechnungsdatum-hinweis' : undefined}
               className="w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white" required />
           </div>
+          {offenAb && (
+            <p id="rechnungsdatum-hinweis" className="text-xs text-s112-muted">
+              Bis {datumAt(vortag(offenAb))} ist der Zeitraum abgeschlossen bzw. per UVA übermittelt – Rechnungsdatum frühestens {datumAt(offenAb)}.
+            </p>
+          )}
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-s112-muted text-left">

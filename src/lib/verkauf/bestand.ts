@@ -34,6 +34,7 @@ import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 import { stornoGrundFehler } from '@/lib/storno/grund'
+import { rechnungStornoFehler } from '@/lib/verkauf/rechnungsdatum'
 import type { createSupabaseServerClient } from '@/lib/supabase/server'
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>
@@ -331,7 +332,7 @@ export async function verkaufspostenStornieren(
   if (grundFehler) throw new AktionsFehler(grundFehler)
   const stornoGrund = grund.trim()
   const { data: postenRaw, error: postenErr } = await (supabase.from('verkaufsposten') as any)
-    .select('id, rechnungsnummer, storniert')
+    .select('id, rechnungsnummer, storniert, rechnung_id')
     .eq('id', postenId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -341,6 +342,10 @@ export async function verkaufspostenStornieren(
   if (posten.storniert) {
     throw new AktionsFehler('Dieser Verkauf ist bereits storniert – der Bestand wurde schon zurückgebucht.')
   }
+  // KAN-355 (vorläufig bis KAN-379): Rechnung im gesperrten Zeitraum – die Datenbank lehnt den Storno ab; vor der
+  // Rückbuchung des Bestands prüfen, damit nichts halb geschieht
+  const stornoSperre = await rechnungStornoFehler(supabase, tenantId, posten.rechnung_id as string | null)
+  if (stornoSperre) throw new AktionsFehler(stornoSperre)
 
   // Positionen und Traubenverkäufe VOR dem ersten Schreibzugriff lesen:
   // ein Lesefehler bricht so ab, bevor irgendetwas geändert ist.

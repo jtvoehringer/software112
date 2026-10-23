@@ -15,6 +15,8 @@ import { getCurrentMembership, canAdmin, canWrite, type Membership, type Modul }
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
+import { heuteWien } from '@/lib/datum/wien'
 import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
@@ -1876,6 +1878,9 @@ export async function createTraubenverkauf(fd: FormData) {
     leseIdFormular: (fd.get('lese_id') as string) || null, leseWaehlenText: LESE_WAEHLEN_MELDUNG,
   })
   if (lese.fehler) throw new AktionsFehler(lese.fehler)
+  // KAN-355: Der Traubenverkauf legt eine Rechnung mit seinem Datum an – im abgeschlossenen Zeitraum vorab ablehnen
+  { const sperre = await rechnungsdatumFehler(supabase, tenantId, datum, heuteWien())
+    if (sperre) throw new AktionsFehler(sperre) }
 
   // Liefernummer auto-generieren – erst nach allen Prüfungen (keine Lücke im Nummernkreis)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

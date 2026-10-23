@@ -7,6 +7,7 @@ import { alle } from '@/lib/supabase/alle'
 import { wienHeute } from '@/lib/csv'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { offeneLieferscheineJeKunde } from '@/lib/verkauf/sammelrechnung'
+import { ersterOffenerRechnungstag } from '@/lib/verkauf/rechnungsdatum'
 import { rechnungErstellen } from '../verkauf/actions'
 import SammelrechnungClient from './SammelrechnungClient'
 
@@ -32,6 +33,9 @@ export default async function SammelrechnungPage() {
       verkauf_positionen(menge, preis_brutto, rabatt_pct, sonderrabatt_pct)`)
     .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false).is('rechnung_id', null)
     .order('datum').order('id'))
+  // KAN-355: erster offener Tag für das Rechnungsdatum (nur Hinweis – die Action prüft das Datum ohnehin)
+  let offenAb: string | null = null
+  try { offenAb = await ersterOffenerRechnungstag(supabase, tenantId, wienHeute()) } catch { offenAb = null }
   const kunden = offeneLieferscheineJeKunde((data ?? []) as R[], l =>
     l.firma ? String((l.firma as R).name) : l.kontakt ? kontaktAnzeigename(l.kontakt as R) : 'ohne Kunde (Barverkauf)')
 
@@ -54,7 +58,7 @@ export default async function SammelrechnungPage() {
       ) : kunden.length === 0 ? (
         <p className="card p-4 text-sm text-s112-muted">Keine nicht berechneten Lieferscheine.</p>
       ) : (
-        <SammelrechnungClient kunden={kunden} heute={wienHeute()} darf={darf} erstellen={rechnungErstellen} />
+        <SammelrechnungClient kunden={kunden} heute={wienHeute()} offenAb={offenAb} darf={darf} erstellen={rechnungErstellen} />
       )}
     </div>
   )

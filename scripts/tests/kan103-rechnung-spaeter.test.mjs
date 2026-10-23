@@ -67,7 +67,7 @@ describe('KAN-103: Oberfläche', () => {
   test('Detail: Rechnung erstellen ohne Rechnung; Verkaufsstorno nur ohne eigene Rechnung; Rechnungsdruck nur berechnet', () => {
     const d = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/page.tsx')
     assert.match(d, /\{writeOk && !posten\.storniert && !berechnet && \(\n\s+<RechnungErstellenPanel/)
-    assert.match(d, /\{writeOk && !posten\.storniert && !eigeneRechnung && \(\n\s+<StornoKnopf/)
+    assert.match(d, /\{writeOk && !posten\.storniert && !eigeneRechnung && !stornoGesperrt && \(\n\s+<StornoKnopf/)   // KAN-355: zusätzlich nicht im gesperrten Zeitraum
     assert.match(d, /const isRechnung       = modusRechnung && berechnet/)
     assert.match(d, /Datum: \{new Date\(rechnungsDatum\)\.toLocaleDateString\('de-AT', \{ timeZone: 'Europe\/Vienna' \}\)\}/)   // Sweep 78
   })
