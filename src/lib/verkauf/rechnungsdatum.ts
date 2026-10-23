@@ -7,7 +7,7 @@
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { AktionsFehler, dbFehlerText } from '../fehler.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
-import { ersterOffenerTag, gesperrteMonate, rechnungsdatumMeldung, type Monatsabschluss, type UvaZeitraum } from './rechnungsdatumSperre.ts'
+import { ersterOffenerTag, gesperrteMonate, rechnungsdatumMeldung, stornoSperreMeldung, type Monatsabschluss, type UvaZeitraum } from './rechnungsdatumSperre.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -47,4 +47,28 @@ export async function rechnungsdatumFehler(
   let offenAb: string | null = null
   try { offenAb = await ersterOffenerRechnungstag(supabase, tenantId, heute) } catch { offenAb = null }   // nur Hinweis
   return rechnungsdatumMeldung(datum, String(pruef.grund ?? 'Zeitraum ist geschlossen.'), offenAb, mitRechnungSpaeter)
+}
+
+/**
+ * KAN-355 (Entscheidung Jörgen 23.10.2026, vorläufig bis KAN-379): Storno einer Rechnung im gesperrten Zeitraum ist nicht
+ * möglich – Rechnungsstorno wie Verkaufsstorno (Spiegel). Meldung oder null (keine Rechnung, schon storniert, inaktiv,
+ * Zeitraum offen). Lese- und Prüffehler zählen als „nicht möglich“ (KAN-253).
+ */
+export async function rechnungStornoFehler(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, tenantId: string, rechnungId: string | null | undefined,
+): Promise<string | null> {
+  if (!rechnungId) return null
+  // storno-sichtbar: Einzelzeile per ID – storniert wird unten ausgewertet (stornierte Rechnung = keine Sperre)
+  const { data: r, error } = await supabase.from('rechnungen')
+    .select('rechnungsnummer, datum, storniert, aktiv').eq('id', rechnungId).eq('tenant_id', tenantId).maybeSingle()
+  if (error) return dbFehlerText(error, 'Rechnung konnte nicht geladen werden')
+  const re = r as R | null
+  if (!re || re.storniert || re.aktiv === false) return null
+  const datum = String(re.datum ?? '').slice(0, 10)
+  if (!TAG_RE.test(datum)) return null
+  const { data, error: pErr } = await supabase.rpc('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: datum })
+  if (pErr) return dbFehlerText(pErr, 'Buchungszeitraum konnte nicht geprüft werden')
+  const pruef = (Array.isArray(data) ? data[0] : data) as R | null
+  return pruef && pruef.offen === false ? stornoSperreMeldung(re.rechnungsnummer ?? null, datum) : null
 }

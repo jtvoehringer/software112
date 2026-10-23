@@ -3,17 +3,18 @@
 -- @ziel: Zeitraum entsteht weder sofort mit dem Verkauf noch über s112_rechnung_erstellen; das Datum einer Rechnung lässt
 -- @ziel: sich weder aus noch in einen gesperrten Zeitraum verschieben (auch nicht über den Spiegel vom Lieferschein); die
 -- @ziel: Beträge ihrer Positionen bleiben unverändert. Lieferscheine ohne Rechnung, Rechnungen im offenen Zeitraum, der
--- @ziel: Storno (Rechnung wie Verkauf) und die Wartung bleiben möglich.
--- @mutation ohne_rechnungssperre: DROP TRIGGER a_ea_periodensperre auf rechnungen | rot: sofort_.*|erstellen_gesperrt.*|datum_.*
+-- @ziel: Storno im offenen Zeitraum und die Wartung bleiben möglich; den Storno einer Rechnung im gesperrten Zeitraum
+-- @ziel: (Rechnung wie Verkauf über den Spiegel) lehnt die Datenbank vorläufig ab (bis KAN-379, Entscheidung 23.10.2026).
+-- @mutation ohne_rechnungssperre: DROP TRIGGER a_ea_periodensperre auf rechnungen | rot: sofort_.*|erstellen_gesperrt.*|datum_.*|storno_.*_gesperrt.*
 -- @mutation ohne_positionssperre: DROP TRIGGER a_rechnung_periodensperre auf verkauf_positionen | rot: pos_.*
 --
--- software:112 – SQL-Testsuite gegen Staging, Datei 82 (Stand 23.10.2026, KAN-355). Alles zurückgerollt.
+-- software:112 – SQL-Testsuite gegen Staging, Datei 83 (Stand 23.10.2026, KAN-355). Alles zurückgerollt.
 -- Betrieb B (frisch): Monat „vor zwei Monaten“ abgeschlossen, Quartal „vor einem Jahr“ per UVA übermittelt, heute offen.
 
 DO $test$
 DECLARE
   v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;
-  c_datei constant text := '82_rechnung_periodensperre';
+  c_datei constant text := '83_rechnung_periodensperre';
   c_erst  constant text := 'SELECT public.s112_rechnung_erstellen(%L::uuid, %L::uuid[], %L::date, %L::jsonb, NULL)';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -122,16 +123,31 @@ BEGIN
     pg_temp.s112_versuch(format($s$INSERT INTO public.verkauf_positionen (tenant_id, verkaufsposten_id, typ, name, menge, einheit, preis_brutto, ust_satz)
       VALUES (%L, %L, 'sonstiges', 'S112TEST offen', 1, 'Stk', 5, 20)$s$, v_b, v_lso)), 'k1');
 
-  -- ── 5. Storno bleibt möglich: eigene Rechnung (RPC) und Verkauf sofort (Spiegel) im gesperrten Zeitraum ──
-  v_erg := v_erg || pg_temp.s112_erwarte('storno_rechnung_gesperrt_ok',
-    pg_temp.s112_fehlertext(format('SELECT public.s112_rechnung_stornieren(%L, %L, %L)', v_b, v_rz, 'S112TEST Rechnung falsch')), 'ok');
-  v_erg := v_erg || pg_temp.s112_erwarte('storno_verkauf_gesperrt_ok',
-    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = true, storno_grund = %L WHERE id = %L', 'S112TEST Verkauf falsch', v_vz)), 'k1');
+  -- ── 5. Storno: im gesperrten Zeitraum vorläufig abgelehnt (bis KAN-379), im offenen Zeitraum und als Wartung frei ──
+  v_txt := pg_temp.s112_fehlertext(format('SELECT public.s112_rechnung_stornieren(%L, %L, %L)', v_b, v_rz, 'S112TEST Rechnung falsch'));
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_rechnung_gesperrt',
+    v_txt ~ ('^42501: Storno nicht möglich: Die Rechnung .* liegt im abgeschlossenen Zeitraum ' || to_char(v_zu, 'MM/YYYY')
+             || '\. Die Gegenbuchung im offenen Zeitraum folgt mit KAN-379\..*HINT: periodensperre_storno$'), true);
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_rechnung_gesperrt_unveraendert',
+    (SELECT concat_ws('|', r.storniert, (SELECT count(*) FROM public.verkaufsposten v WHERE v.rechnung_id = r.id)) FROM public.rechnungen r WHERE r.id = v_rz), 'f|1');
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_verkauf_gesperrt',
+    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = true, storno_grund = %L WHERE id = %L', 'S112TEST Verkauf falsch', v_vz)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_rechnung_offen_ok',
+    pg_temp.s112_fehlertext(format('SELECT public.s112_rechnung_stornieren(%L, %L, %L)', v_b, v_re, 'S112TEST Rechnung offen falsch')), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_verkauf_offen_ok',
+    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = true, storno_grund = %L WHERE id = %L', 'S112TEST Verkauf offen falsch', v_lso)), 'k1');
+  -- Wartung (Service-Role mit s112.loeschen_erlaubt) storniert auch im gesperrten Zeitraum
+  PERFORM pg_temp.s112_als_postgres();
+  PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_wartung_frei',
+    pg_temp.s112_fehlertext(format('SELECT public.s112_rechnung_stornieren(%L, %L, %L)', v_b, v_rz, 'S112TEST Wartung Storno')), 'ok');
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
   -- nach dem Storno zählt die Rechnung nicht mehr – ihre Positionen sind wieder frei (Lieferschein offen)
+  PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('storno_pos_wieder_frei',
     pg_temp.s112_versuch(format('UPDATE public.verkauf_positionen SET preis_brutto = 16 WHERE id = %L', v_pz)), 'k1');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 22);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 25);
 END
 $test$;

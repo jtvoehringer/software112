@@ -12,7 +12,8 @@ export default function StornoKnopf({
   meldung,
   erstattung = false,
 }: {
-  action: (grund: string, erstattetAm: string | null) => Promise<void>
+  /** KAN-355: erwartbare Ablehnung (z. B. Rechnung im gesperrten Zeitraum) als { error } – Meldung am Knopf */
+  action: (grund: string, erstattetAm: string | null) => Promise<void | { error: string }>
   meldung: string
   /** KAN-149 D2b: Zahlungen vorhanden → Feld „Erstattet am“ (Zahlungen stornieren, Einnahmen gegenbuchen) */
   erstattung?: boolean
@@ -25,7 +26,7 @@ export default function StornoKnopf({
       datumFeld={erstattung ? { label: 'Erstattet am (optional)', hilfe: 'Nur, wenn bezahlte Beträge zurückgezahlt wurden.' } : undefined}
       action={async (grund, datum) => {
         try {
-          await action(grund, datum)
+          return await action(grund, datum)
         } finally {
           router.refresh()
         }

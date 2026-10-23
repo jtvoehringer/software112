@@ -12,7 +12,7 @@ import { AktionsFehler, dbFehlerText, erwarteteDbAblehnung, fehlerText, LESE_WAE
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
-import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
+import { rechnungsdatumFehler, rechnungStornoFehler } from '@/lib/verkauf/rechnungsdatum'
 import { alle } from '@/lib/supabase/alle'
 import { sonstigeLagerFehler } from '@/lib/warenwirtschaft/sonstigeProdukte'
 import { lieferadresseAus, lieferadresseFehler, lieferadresseMoment, type Lieferadresse, type LieferadresseMoment } from '@/lib/crm/lieferadressen'
@@ -633,10 +633,21 @@ export async function deactivateVerkauf(id: string): Promise<never> {
 // KAN-149 D1: Grund Pflicht (mind. 10 Zeichen) – Datum und Benutzer setzt die Datenbank.
 // KAN-149 D2b: `erstattetAm` (JJJJ-MM-TT) – bezahlte Beträge erstattet: Zahlungen an diesem Tag stornieren, ihre
 // E&A-Einnahmen gegenbuchen. Ohne Erstattung bleiben Zahlungen und Einnahmen stehen (Geld ist eingegangen).
-export async function stornoVerkauf(id: string, grund: string, erstattetAm?: string | null) {
+export async function stornoVerkauf(id: string, grund: string, erstattetAm?: string | null): Promise<void | { error: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   if (erstattetAm && !/^\d{4}-\d{2}-\d{2}$/.test(erstattetAm)) throw new AktionsFehler('Bitte ein gültiges Erstattungsdatum angeben.')
+
+  // KAN-355 (vorläufig bis KAN-379): Verkauf mit Rechnung im gesperrten Zeitraum – Storno als Meldung am Formular
+  // (verkaufspostenStornieren prüft dasselbe noch einmal, auch für den Traubenverkauf-Storno)
+  {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: vp, error: vpErr } = await (supabase.from('verkaufsposten') as any)
+      .select('rechnung_id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    if (vpErr) return { error: dbFehlerText(vpErr, 'Verkauf konnte nicht geladen werden') }
+    const sperre = await rechnungStornoFehler(supabase, tenantId, (vp as AR | null)?.rechnung_id ?? null)
+    if (sperre) return { error: sperre }
+  }
 
   try {
     await verkaufspostenStornieren(supabase, tenantId, id, grund, { erstattetAm: erstattetAm || null })
@@ -859,14 +870,21 @@ export async function rechnungErstellen(lieferscheinIds: string[], formData: For
   return { rechnungId: String(data) }
 }
 
-export async function rechnungStornieren(rechnungId: string, lieferscheinId: string, grund: string) {
+// KAN-355: Storno einer Rechnung im gesperrten Zeitraum vorläufig abgelehnt (bis KAN-379) – vorab geprüft, Ablehnungen
+// (auch erwartbare der RPC: Zahlungen, BMD, Periodensperre) als { error } am Formular.
+export async function rechnungStornieren(rechnungId: string, lieferscheinId: string, grund: string): Promise<void | { error: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const f = stornoGrundFehler(grund)
-  if (f) throw new AktionsFehler(f)
+  if (f) return { error: f }
+  const sperre = await rechnungStornoFehler(supabase, tenantId, rechnungId)
+  if (sperre) return { error: sperre }
   const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
   const { error } = await rpc('s112_rechnung_stornieren', { p_tenant_id: tenantId, p_rechnung_id: rechnungId, p_grund: grund })
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Rechnung konnte nicht storniert werden'))
+  if (error) {
+    if (erwarteteDbAblehnung(error)) return { error: dbFehlerText(error, 'Rechnung konnte nicht storniert werden') }
+    throw new AktionsFehler(dbFehlerText(error, 'Rechnung konnte nicht storniert werden'))
+  }
   revalidatePath(`/weinhandel/verkauf/${lieferscheinId}`)
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel/offene-posten')

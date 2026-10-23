@@ -1,6 +1,6 @@
 // KAN-355 (23.10.2026, UAT Musterhof) – Rechnung RE-0039 entstand mit Rechnungsdatum 16.03.2026, obwohl 01/2025–08/2026
 // abgeschlossen und die UVA 2026 Q1 übermittelt war (Verkauf mit „Rechnung sofort“). Jetzt sperrt die Datenbank das
-// Rechnungsdatum wie Zahlungen (Entwurf supabase/entwurf/kan355_rechnung_periodensperre.sql, DB-Test 82), und die App prüft
+// Rechnungsdatum wie Zahlungen (Entwurf supabase/entwurf/kan355_rechnung_periodensperre.sql, DB-Test 83), und die App prüft
 // vorab: createVerkauf (Rechnung sofort), rechnungErstellen (Lieferschein, Sammelrechnung), Traubenverkauf – Ablehnungen als
 // { error } am Formular, Hinweis auf den ersten offenen Tag im Datumsfeld.
 //
@@ -35,8 +35,16 @@ const uvas = () => [{ tenant_id: T, jahr: 2026, zeitraum: 'Q1', gesperrt: true }
   { tenant_id: T, jahr: 2026, zeitraum: 'Q3', gesperrt: false }]
 
 /** Fake: pruefe_ea_zeitraum_offen nach den Tabellen, s112_rechnung_erstellen optional mit Fehler */
+const RE_ZU = '00000000-0000-4000-8000-0000000000e1'    // RE-0039 vom 16.03.2026 (gesperrt)
+const RE_OFFEN = '00000000-0000-4000-8000-0000000000e2' // RE-0050 vom 20.10.2026
+const VP_ZU = '00000000-0000-4000-8000-0000000000c2'
+const rechnungen = () => [
+  { id: RE_ZU, tenant_id: T, rechnungsnummer: 'RE-0039', datum: '2026-03-16', storniert: false, aktiv: true },
+  { id: RE_OFFEN, tenant_id: T, rechnungsnummer: 'RE-0050', datum: '2026-10-20', storniert: false, aktiv: true },
+]
 function db({ offen = null, pruefFehler = null, erstellenFehler = null } = {}) {
-  const d = datenbank({ ea_monatsabschluss: abschluesse(), ea_uva: uvas(), verkaufsposten: [] }, {
+  const d = datenbank({ ea_monatsabschluss: abschluesse(), ea_uva: uvas(), rechnungen: rechnungen(),
+    verkaufsposten: [{ id: VP_ZU, tenant_id: T, rechnung_id: RE_ZU, rechnungsnummer: 'RE-0039', storniert: false }] }, {
     rpc: (name, args) => {
       if (name === 'pruefe_ea_zeitraum_offen') {
         if (pruefFehler) return { data: null, error: pruefFehler }
@@ -44,6 +52,7 @@ function db({ offen = null, pruefFehler = null, erstellenFehler = null } = {}) {
         return { data: [{ offen: !zu, grund: zu ? GRUND : null }], error: null }
       }
       if (name === 's112_rechnung_erstellen') return erstellenFehler ? { data: null, error: erstellenFehler } : { data: 'neue-rechnung', error: null }
+      if (name === 's112_rechnung_stornieren') return erstellenFehler ? { data: null, error: erstellenFehler } : { data: null, error: null }
       return { data: null, error: { message: `rpc ${name} nicht nachgebildet` } }
     },
   })
@@ -152,6 +161,53 @@ describe('KAN-355: Verkauf mit „Rechnung sofort“ im abgeschlossenen Zeitraum
   })
 })
 
+describe('KAN-355: Storno einer Rechnung im gesperrten Zeitraum vorläufig gesperrt (bis KAN-379)', nurMitHooks, () => {
+  const MELDUNG = 'Storno nicht möglich: Die Rechnung RE-0039 liegt im abgeschlossenen Zeitraum 03/2026. Die Gegenbuchung im offenen Zeitraum folgt mit KAN-379.'
+  test('Meldung wortgleich mit der Datenbank', () => {
+    assert.equal(sperre.stornoSperreMeldung('RE-0039', '2026-03-16'), MELDUNG)
+  })
+  test('rechnungStornoFehler: gesperrt → Meldung; offen, storniert, ohne Rechnung → null; Lesefehler → Meldung', async () => {
+    assert.equal(await rd.rechnungStornoFehler(db(), T, RE_ZU), MELDUNG)
+    assert.equal(await rd.rechnungStornoFehler(db(), T, RE_OFFEN), null)
+    assert.equal(await rd.rechnungStornoFehler(db(), T, null), null)
+    const d = db(); d.tabellen.rechnungen[0].storniert = true
+    assert.equal(await rd.rechnungStornoFehler(d, T, RE_ZU), null)
+    const f = datenbank({ rechnungen: [] }, { vorher: e => (e.tabelle === 'rechnungen' ? { error: { message: 'weg' } } : null) })
+    assert.match(await rd.rechnungStornoFehler(f, T, RE_ZU), /Rechnung konnte nicht geladen werden/)
+  })
+  test('rechnungStornieren: gesperrt → { error } ohne RPC; offen → RPC; Ablehnung der RPC → { error }', async () => {
+    let d = db()
+    assert.deepEqual(await verkauf.rechnungStornieren(RE_ZU, VP_ZU, 'Preis falsch verrechnet'), { error: MELDUNG })
+    assert.ok(!rpcs(d).includes('rpc:s112_rechnung_stornieren'))
+    d = db()
+    assert.equal(await verkauf.rechnungStornieren(RE_OFFEN, VP_ZU, 'Preis falsch verrechnet'), undefined)
+    assert.ok(rpcs(d).includes('rpc:s112_rechnung_stornieren'))
+    db({ erstellenFehler: { code: '42501', message: MELDUNG, hint: 'periodensperre_storno' } })
+    assert.deepEqual(await verkauf.rechnungStornieren(RE_OFFEN, VP_ZU, 'Preis falsch verrechnet'), { error: MELDUNG })
+    db()
+    assert.match((await verkauf.rechnungStornieren(RE_OFFEN, VP_ZU, 'kurz')).error, /Grund/)
+  })
+  test('stornoVerkauf (Spiegel-Rechnung im gesperrten Zeitraum) → { error } vor jeder Rückbuchung', async () => {
+    const d = db()
+    assert.deepEqual(await verkauf.stornoVerkauf(VP_ZU, 'Kunde hat storniert, falsch erfasst'), { error: MELDUNG })
+    assert.deepEqual(d.aufrufe.filter(a => a.art !== 'select').map(a => a.tabelle), ['rpc:pruefe_ea_zeitraum_offen'])
+  })
+  test('verkaufspostenStornieren (auch Traubenverkauf-Storno) prüft vor der Rückbuchung', () => {
+    const b = quelle('src/lib/verkauf/bestand.ts')
+    const i = b.indexOf('await rechnungStornoFehler(supabase, tenantId, posten.rechnung_id')
+    assert.ok(i > 0 && i < b.indexOf('// 1. Bestand zurückbuchen'))
+  })
+  test('Verkaufsseite: Storno-Knöpfe aus, Hinweis statt dessen; Knöpfe geben { error } an StornoButton weiter', () => {
+    const p = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/page.tsx')
+    assert.match(p, /stornoGesperrt = m && m\.startsWith\('Storno nicht möglich'\) \? m : null/)
+    assert.match(p, /!eigeneRechnung && !stornoGesperrt && \(\s*<StornoKnopf/)
+    assert.match(p, /rechnungStornoAction && !stornoGesperrt && <RechnungStornoKnopf/)
+    for (const k of ['StornoKnopf', 'RechnungStornoKnopf']) {
+      assert.match(quelle(`src/app/(dashboard)/weinhandel/verkauf/[id]/${k}.tsx`), /return await action\(grund/, k)
+    }
+  })
+})
+
 describe('KAN-355: Formulare und weitere Wege (statisch)', () => {
   test('RechnungErstellenPanel und Sammelrechnung werten { error } aus, Datumsfeld mit erstem offenen Tag', () => {
     for (const rel of ['src/app/(dashboard)/weinhandel/verkauf/[id]/RechnungErstellenPanel.tsx', 'src/app/(dashboard)/weinhandel/sammelrechnung/SammelrechnungClient.tsx']) {
@@ -180,16 +236,19 @@ describe('KAN-355: Formulare und weitere Wege (statisch)', () => {
   })
 })
 
-describe('KAN-355: Datenbank – Entwurf bzw. Migration und DB-Test 82', () => {
+describe('KAN-355: Datenbank – Entwurf bzw. Migration und DB-Test 83', () => {
   const mig = readdirSync(new URL('../../supabase/migrations', import.meta.url)).find(n => n.endsWith('_kan355_rechnung_periodensperre.sql'))
   const pfad = mig ? `supabase/migrations/${mig}` : 'supabase/entwurf/kan355_rechnung_periodensperre.sql'
   const da = existsSync(new URL(`../../${pfad}`, import.meta.url))
   test('Trigger an rechnungen und verkauf_positionen, Wartung ausgenommen, Konventionen', { skip: da ? false : 'Entwurf nur lokal (supabase/entwurf ist nicht eingecheckt)' }, () => {
     const s = quelle(pfad)
-    assert.match(s, /CREATE TRIGGER a_ea_periodensperre BEFORE INSERT OR UPDATE OF datum, tenant_id OR DELETE ON public\.rechnungen/)
+    assert.match(s, /CREATE TRIGGER a_ea_periodensperre BEFORE INSERT OR UPDATE OF datum, tenant_id, storniert, aktiv OR DELETE ON public\.rechnungen/)
     assert.match(s, /CREATE TRIGGER a_rechnung_periodensperre\s+BEFORE INSERT OR UPDATE OF menge, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz, verkaufsposten_id OR DELETE\s+ON public\.verkauf_positionen/)
     assert.equal((s.match(/IF public\.s112_wartung_frei\(/g) ?? []).length, 2)
-    assert.equal((s.match(/public\.s112_ea_zeitraum_sperrgrund\(/g) ?? []).length, 5)
+    assert.equal((s.match(/public\.s112_ea_zeitraum_sperrgrund\(/g) ?? []).length, 6)
+    // KAN-355 (vorläufig bis KAN-379): Storno bzw. Deaktivieren einer Rechnung im gesperrten Zeitraum
+    assert.match(s, /IF \(NEW\.storniert AND NOT OLD\.storniert\) OR \(OLD\.aktiv AND NOT NEW\.aktiv\) THEN/)
+    assert.match(s, /'Storno nicht möglich: Die Rechnung % liegt im abgeschlossenen Zeitraum %\. Die Gegenbuchung im offenen Zeitraum folgt mit KAN-379\.',\s+OLD\.rechnungsnummer, to_char\(OLD\.datum, 'MM\/YYYY'\) USING ERRCODE = '42501', HINT = 'periodensperre_storno'/)
     for (const fn of ['s112_rechnung_periodensperre', 's112_rechnung_positionen_periodensperre']) {
       assert.match(s, new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${fn}\\(\\) FROM PUBLIC, anon, authenticated;`))
     }
@@ -198,10 +257,10 @@ describe('KAN-355: Datenbank – Entwurf bzw. Migration und DB-Test 82', () => {
     assert.doesNotMatch(s.replace(/--.*$/gm, ''), new RegExp('session_' + 'replication_role|DISABLE ' + 'TRIGGER'))
     assert.match(s, /'Rechnung mit Datum % nicht möglich: % Bitte ein Rechnungsdatum im offenen Zeitraum wählen\.'/)
   })
-  test('DB-Test 82 und Einstufung der Triggerfunktionen in _helfer.sql', () => {
-    const t = quelle('scripts/db-tests/82_rechnung_periodensperre.sql')
-    assert.match(t, /c_datei constant text := '82_rechnung_periodensperre'/)
-    for (const n of ['sofort_abgeschlossen', 'sofort_uva', 'erstellen_gesperrt', 'datum_in_gesperrt_spiegel', 'pos_preis_gesperrt', 'storno_rechnung_gesperrt_ok', 'storno_verkauf_gesperrt_ok', 'lieferschein_ohne_rechnung_frei']) {
+  test('DB-Test 83 und Einstufung der Triggerfunktionen in _helfer.sql', () => {
+    const t = quelle('scripts/db-tests/83_rechnung_periodensperre.sql')
+    assert.match(t, /c_datei constant text := '83_rechnung_periodensperre'/)
+    for (const n of ['sofort_abgeschlossen', 'sofort_uva', 'erstellen_gesperrt', 'datum_in_gesperrt_spiegel', 'pos_preis_gesperrt', 'storno_rechnung_gesperrt', 'storno_verkauf_gesperrt', 'storno_rechnung_offen_ok', 'storno_verkauf_offen_ok', 'storno_wartung_frei', 'lieferschein_ohne_rechnung_frei']) {
       assert.match(t, new RegExp(`'${n}'`), n)
     }
     const h = quelle('scripts/db-tests/_helfer.sql')
