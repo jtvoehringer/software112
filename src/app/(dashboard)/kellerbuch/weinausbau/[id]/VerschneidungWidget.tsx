@@ -11,7 +11,7 @@ import { GitMerge } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { sortenAngabeVorschlag } from '@/lib/wein/sortenangabe'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null; behaelter_name?: string | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 

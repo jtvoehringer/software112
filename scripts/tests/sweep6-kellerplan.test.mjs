@@ -52,7 +52,10 @@ describe('KAN-114: Bewertung des Ziels', nurMitHooks, () => {
     assert.match(bewerteZiel({ quelle: null, quellGebinde: A, ziel: gebinde('B'), zielChargen: [], menge: 500 }).text, /kein eigener Wein/)
     const voll = bewerteZiel({ quelle: q, quellGebinde: A, ziel: gebinde('B', { volumen_liter: 1000, fuellung: 700 }), zielChargen: [charge('GV2')], menge: 500 })
     assert.equal(voll.art, 'gesperrt')
-    assert.match(voll.text, /fasst nur noch 300 L/)
+    // KAN-381: gemeinsame Meldung aller Zugangswege
+    assert.equal(voll.text, 'Die Charge (500 l) passt nicht in „Tank B“ (Fassungsvermögen 1.000 l, frei 300 l).')
+    // Toleranz 0,5 l wie bisher: 300,5 l passen noch
+    assert.equal(bewerteZiel({ quelle: q, quellGebinde: A, ziel: gebinde('B', { volumen_liter: 1000, fuellung: 700 }), zielChargen: [], menge: 300.5 }).art, 'umzug')
     // ohne Volumen keine Kapazitätsprüfung
     assert.equal(bewerteZiel({ quelle: q, quellGebinde: A, ziel: gebinde('B', { volumen_liter: null }), zielChargen: [], menge: 500 }).art, 'umzug')
   })

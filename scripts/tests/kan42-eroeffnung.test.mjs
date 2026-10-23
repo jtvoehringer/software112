@@ -144,7 +144,7 @@ describe('KAN-42 Tank-Zeilen', nurMitHooks, () => {
     assert.match(f[2], /am Stichtag 01\.01\.2027 nicht leer \(200,00 l\)/)
     assert.match(f[3], /durch Weingut Nachbar belegt/)
     assert.match(f[4], /deaktiviert/)
-    assert.match(f[5], /übersteigt das Fassungsvermögen von „T13“ \(1\.000,00 l\)/)
+    assert.match(f[5], /Die Charge \(1\.200 l\) passt nicht in „T13“ \(Fassungsvermögen 1\.000 l, frei 1\.000 l\)/)   // KAN-381: gemeinsame Regel
     assert.match(f[6], /größer als 0 l/)
     assert.match(f[7], /„viel“ ist keine Zahl/)
     assert.match(f[6], /mehrfach in der Datei \(Zeilen 8, 9\)/)

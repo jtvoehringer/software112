@@ -29,6 +29,7 @@ import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '
 import { abrunden, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
+import { ladeFassungen, type FassungGebinde } from '@/lib/keller/fassungsvermoegen'
 import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseStufe, leseZeitraumFehler } from '@/lib/wein/lesen'
 import { ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
@@ -1470,14 +1471,9 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       || pbAendern.some(a => 'menge_liter' in a.patch || 'behaelter_id' in a.patch)
     if (mengenGeaendert) {
       const ziele = [...new Set(behaelter.map(b => b.behaelter_id).filter(Boolean) as string[])]
-      const [volRes, fsRes] = ziele.length > 0 ? await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('behaelter') as any).select('id, name, volumen_liter').in('id', ziele).eq('tenant_id', tenantId),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('v_behaelter_fuellstand') as any).select('behaelter_id, liter_aktuell').in('behaelter_id', ziele),
-      ]) : [{ data: [], error: null }, { data: [], error: null }]
-      if (volRes.error) throw new AktionsFehler(dbFehlerText(volRes.error, 'Behälter konnten nicht geladen werden'))
-      if (fsRes.error) throw new AktionsFehler(dbFehlerText(fsRes.error, 'Füllstände konnten nicht geladen werden'))
+      // KAN-381: Fassungsvermögen und Inhalt über lade_behaelter – auch freigegebene Gebinde eines Partnerbetriebs und dessen
+      // Wein im Gebinde (vorher nur eigene Gebinde und der eigene Füllstand)
+      const fassungen = ziele.length > 0 ? await ladeFassungen(supabase, tenantId) : new Map<string, FassungGebinde>()
       const fehlerText = behaelterPruefung({
         mostLiter,
         zeilen: behaelter.map(b => {
@@ -1487,8 +1483,11 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
             alt: alt ? { behaelter_id: (alt.behaelter_id as string | null) ?? null, menge_liter: zahlOderNull(alt.menge_liter) } : null,
           }
         }),
-        behaelter: ((volRes.data ?? []) as AR[]).map(r => ({ id: r.id as string, name: (r.name as string | null) ?? null, volumen_liter: zahlOderNull(r.volumen_liter) })),
-        fuellstand: Object.fromEntries(((fsRes.data ?? []) as AR[]).map(r => [r.behaelter_id as string, zahlOderNull(r.liter_aktuell) ?? 0])),
+        behaelter: ziele.flatMap(id => {
+          const g = fassungen.get(id)
+          return g ? [{ id, name: g.name, volumen_liter: zahlOderNull(g.volumen_liter) }] : []
+        }),
+        fuellstand: Object.fromEntries(ziele.map(id => [id, fassungen.get(id)?.inhalt ?? 0])),
       })
       if (fehlerText) throw new AktionsFehler(fehlerText)
     }

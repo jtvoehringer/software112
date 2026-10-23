@@ -20,6 +20,7 @@ import { istTraubenArt, zukaufWareFehler, istFlaschenArt, flaschenZukaufFehler, 
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { waehleZielCharge, merkmaleText } from '@/lib/kellerbuch/umzugZiel'
 import { verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
+import { pruefeFassung } from '@/lib/keller/fassungsvermoegen'
 import { planeVerschneidungStorno, storniereVerschneidung } from '@/lib/kellerbuch/storno'
 import type { Folgebuchung } from '@/lib/kellerbuch/folgebuchungen'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
@@ -406,6 +407,9 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   const charge = mitCharge ? zukaufChargeSpalten(f, f.zielBehaelterId as string) : null
   let verschnitt: { kopf: AR; hinweis: Omit<ZukaufVerschnitt, 'verschneidungId'> } | null = null
   if (charge) {
+    // KAN-381: Fassungsvermögen des Ziel-Gebindes (auch Wein eines Partnerbetriebs) – vor jeder Rückfrage und Buchung
+    const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId: f.zielBehaelterId as string, zugang: f.menge }])
+    if (voll) throw new AktionsFehler(voll)
     const wahl = waehleZielCharge(imGebinde, [charge])
     const anker = wahl.istVerschnitt ? wahl.vorhanden : null
     // Rot/Weiß VOR jeder Buchung: gegen die Anker-Charge entscheidet der Verschnitt-Service (Rückfrage, Abstufung),
@@ -644,6 +648,11 @@ export async function updateZukauf(id: string, formData: FormData) {
       if (neu < 0) {
         throw new AktionsFehler(`Die Zukaufsmenge kann nicht auf ${fmtNum(f.menge)} ${f.einheit} gesenkt werden: Die Charge enthält nur noch ${fmtNum(bisher)} L, die Differenz von ${fmtNum(runde(alteMenge - f.menge))} L ist größer als dieser Bestand. Bitte den Bestand der Charge prüfen.`)
       }
+      // KAN-381: Mehrmenge muss ins Gebinde passen
+      if (neu > bisher && c.behaelter_id) {
+        const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId: c.behaelter_id as string, zugang: neu - bisher }])
+        if (voll) throw new AktionsFehler(voll)
+      }
       await chargeAendern(supabase, chargeId, tenantId, { ...chargeStammdaten(f), menge_liter: neu })
       rueckbau = () => chargeAendern(supabase, chargeId, tenantId, { ...vorherStammdaten, menge_liter: vorherBestand.menge_liter })
     } else {
@@ -651,6 +660,11 @@ export async function updateZukauf(id: string, formData: FormData) {
       // Trauben: bisherige Charge schließen (dieser Zukauf war ihr einziger Zugang, es ist nichts
       // abgegangen) und bei Wein/Most mit Gebinde eine neue Charge mit der vollen Belegmenge anlegen.
       const alteChargeZurueck = () => chargeAendern(supabase, chargeId, tenantId, vorherBestand)
+      // KAN-381: neues Gebinde muss die volle Belegmenge fassen – vor dem Schließen der bisherigen Charge
+      if (istWeinMost && f.zielBehaelterId) {
+        const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId: f.zielBehaelterId, zugang: f.menge }])
+        if (voll) throw new AktionsFehler(voll)
+      }
       await bereinigCharge(supabase, chargeId, tenantId)
       zielWeinausbauId = null
       rueckbau = alteChargeZurueck
@@ -674,6 +688,8 @@ export async function updateZukauf(id: string, formData: FormData) {
   } else if (istWeinMost && f.zielBehaelterId) {
     // Nachträglich einem Gebinde zugeordnet: neue Charge mit der vollen Belegmenge
     // (Tankverkäufe direkt aus dem Zukauf gibt es nicht mehr – es ist nichts abzuziehen)
+    const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId: f.zielBehaelterId, zugang: f.menge }])   // KAN-381
+    if (voll) throw new AktionsFehler(voll)
     const neueId = await createZukaufCharge(
       supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaet, f.herkunft,
       mostgewichtCharge, f.landIso,

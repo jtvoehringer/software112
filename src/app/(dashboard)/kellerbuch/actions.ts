@@ -17,6 +17,7 @@ import { pickerlFehler, schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
 import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
+import { pruefeFassung } from '@/lib/keller/fassungsvermoegen'
 import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
@@ -450,6 +451,16 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
     }
   }
 
+  // KAN-381: Gebindewechsel bzw. Reaktivieren bringt den Bestand der Charge in das (neue) Gebinde – er muss hineinpassen
+  {
+    const ziel = ('behaelter_id' in payload ? payload.behaelter_id : alt.behaelter_id) as string | null
+    const kommtDazu = neuAktiv && bestand > 0 && ('behaelter_id' in payload || !alt.aktiv)
+    if (ziel && kommtDazu) {
+      const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId: ziel, zugang: bestand }])
+      if (voll) throw new AktionsFehler(voll)
+    }
+  }
+
   // KAN-41: Wechsel Most ↔ Wein datiert über die RPC (Journal-Umstufungspaar an diesem Tag); andere Statuswechsel
   // bleiben eine einfache Änderung ohne Buchung
   if (statusWechselBuchungsrelevant(alt.status as string | null, neuStatus)) {
@@ -559,13 +570,18 @@ export async function zugangskorrekturBuchen(formData: FormData): Promise<{ best
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: chargeRaw, error: chargeErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, aktiv, storniert_am').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    .select('id, name, aktiv, storniert_am, behaelter_id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   if (chargeErr) throw new AktionsFehler(dbFehlerText(chargeErr, 'Charge konnte nicht geladen werden'))
   if (!chargeRaw) throw new AktionsFehler('Charge nicht gefunden')
   const charge = chargeRaw as R
   if (charge.storniert_am || charge.aktiv === false) throw new AktionsFehler('Die Charge ist storniert bzw. nicht mehr aktiv.')
   const fehler = zugangskorrekturFehler({ art, menge, grund, datum, heute: wienHeute() })
   if (fehler) throw new AktionsFehler(fehler)
+  // KAN-381: die Mehrmenge muss ins Gebinde der Charge passen
+  if (charge.behaelter_id && menge != null) {
+    const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId: charge.behaelter_id as string, zugang: menge }])
+    if (voll) throw new AktionsFehler(voll)
+  }
 
   const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'korrektur', [{ chargeId: id, name: charge.name ?? null, zugangLiter: menge }], datum)
   if (pn && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.frage }
@@ -944,6 +960,12 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   const zugangLiter = zugangText ? zahlAus(zugangText) : null
   const zugangFehler = behandlungZugangFehler(zugangText && zugangLiter == null ? NaN : zugangLiter, weinausbauId)
   if (zugangFehler) throw new AktionsFehler(zugangFehler)
+  // KAN-381: der Volumenzugang muss ins Gebinde passen (neue Behandlung; beim Bearbeiten lehnt die Datenbank eine Erhöhung
+  // über das Fassungsvermögen ab – die Meldung kommt über dbFehlerText unverändert ans Formular)
+  if (!id && zugangLiter != null && zugangLiter > 0) {
+    const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId, zugang: zugangLiter }])
+    if (voll) throw new AktionsFehler(voll)
+  }
 
   // KAN-100: Prüfnummer der Charge
   let hinweis: string | undefined

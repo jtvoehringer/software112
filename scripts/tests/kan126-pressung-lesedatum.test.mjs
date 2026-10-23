@@ -110,14 +110,17 @@ describe('behaelterPruefung (Most vollständig in Behälter, kein Überlauf)', (
 
   test('Kapazität: Inhalt + neuer Most > Volumen → Behälterzeile n', () => {
     const f = L.behaelterPruefung({ mostLiter: 300, zeilen: [z(1, 'b2', 300)], behaelter: beh, fuellstand: { b2: 150 } })
-    assert.ok(f.startsWith('Behälterzeile 1: Der Behälter „Immervolltank 10“ fasst 400 L – Inhalt jetzt 150 L + 300 L aus der Pressung = 450 L'), f)
+    // KAN-381: gemeinsame Meldung aller Zugangswege, mit der Behälterzeile davor
+    assert.equal(f, 'Behälterzeile 1: Die Charge (300 l) passt nicht in „Immervolltank 10“ (Fassungsvermögen 400 l, frei 250 l).')
     assert.equal(L.behaelterPruefung({ mostLiter: 300, zeilen: [z(1, 'b2', 300)], behaelter: beh, fuellstand: { b2: 100 } }), null, 'genau voll')
   })
 
   test('Bearbeiten: der schon enthaltene Most derselben Zeile zählt nicht doppelt', () => {
     // Zeile war 300 L in b2 (Füllstand 380 inkl. dieser 300), jetzt 320 L → Zugang +20 → 400 L passt
     assert.equal(L.behaelterPruefung({ mostLiter: 320, zeilen: [z(1, 'b2', 320, { behaelter_id: 'b2', menge_liter: 300 })], behaelter: beh, fuellstand: { b2: 380 } }), null)
-    assert.match(L.behaelterPruefung({ mostLiter: 330, zeilen: [z(1, 'b2', 330, { behaelter_id: 'b2', menge_liter: 300 })], behaelter: beh, fuellstand: { b2: 380 } }), /= 410 L/)
+    assert.match(L.behaelterPruefung({ mostLiter: 330, zeilen: [z(1, 'b2', 330, { behaelter_id: 'b2', menge_liter: 300 })], behaelter: beh, fuellstand: { b2: 380 } }), /Die Charge \(30 l\) passt nicht in „Immervolltank 10“ \(Fassungsvermögen 400 l, frei 20 l\)/)
+    // KAN-381: Volumen 0 = unbekannt – keine Sperre
+    assert.equal(L.behaelterPruefung({ mostLiter: 300, zeilen: [z(1, 'b0', 300)], behaelter: [{ id: 'b0', name: 'Fass', volumen_liter: 0 }], fuellstand: {} }), null)
   })
 })
 

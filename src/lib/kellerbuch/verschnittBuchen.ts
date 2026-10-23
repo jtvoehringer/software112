@@ -37,6 +37,7 @@ import { rund } from '../zahl/runden.ts'
 // deshalb erst nach der Berechnung fest.
 
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { fassungsFehler, ladeFassungen } from '@/lib/keller/fassungsvermoegen'
 import { fmtNum } from '@/lib/format'
 import { weinartBekannt, weinartAusFarbe } from '@/lib/keller/weinart'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
@@ -93,7 +94,7 @@ export type VerschnittErgebnis = {
   zielName?: string | null
 }
 
-const CHARGE_SPALTEN = 'id, name, menge_liter, aktiv, rebsorte, jahrgang, weinart, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, land_iso, kmw, oechsle, mostgewicht_einheit'
+const CHARGE_SPALTEN = 'id, name, menge_liter, aktiv, behaelter_id, rebsorte, jahrgang, weinart, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, land_iso, kmw, oechsle, mostgewicht_einheit'
 
 const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''))
@@ -159,6 +160,21 @@ export async function verschnittVorbereiten(
     const verfuegbar = num(row.menge_liter) - (entnommen.get(qid) ?? 0)
     if (menge + schwund > verfuegbar + 0.01) {
       throw new AktionsFehler(`„${row.name}“: Verschnittmenge (${fmtNum(menge + schwund, 2)} L) übersteigt den Bestand der Charge (${fmtNum(verfuegbar, 2)} L).`)
+    }
+  }
+
+  // KAN-381: Fassungsvermögen des Ziel-Gebindes – Zugang = Menge aller Quellen (bzw. des Zukaufs); Quellen im selben
+  // Gebinde gehen mit Menge und Schwund ab. Vor jeder Buchung; die Datenbank lehnt eine Überfüllung zusätzlich ab.
+  // Mehrere Verschnitte eines Umzugs (verschnitteVorbereiten) haben verschiedene Ziel-Gebinde, und kein Ziel ist Gebinde
+  // einer Quelle (KAN-340) – frühere Verschnitte desselben Aufrufs ändern den Inhalt dieses Ziels also nicht.
+  {
+    const zielGebinde = (ziel?.behaelter_id as string | null | undefined) ?? neueCharge?.behaelterId ?? null
+    if (zielGebinde) {
+      const zugang = [...jeCharge.values()].reduce((s, q) => s + q.menge, 0) + (virtuell?.menge ?? 0)
+      const abgang = [...jeCharge].reduce((s, [qid, q]) =>
+        s + (quellRows.find(r => r.id === qid)?.behaelter_id === zielGebinde ? q.menge + q.schwund : 0), 0)
+      const voll = fassungsFehler((await ladeFassungen(supabase, tenantId)).get(zielGebinde), zugang, { abgang })
+      if (voll) throw new AktionsFehler(voll)
     }
   }
 

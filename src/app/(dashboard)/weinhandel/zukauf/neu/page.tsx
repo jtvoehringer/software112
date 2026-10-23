@@ -1,6 +1,7 @@
 'use client'
 
 import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
+import { fassungsFehler, fassungsHinweis } from '@/lib/keller/fassungsvermoegen'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { zukaufLieferantFehler } from '@/lib/handel/partnerPflicht'
 import { zurueckZiel } from '@/lib/navigation/zurueckBrowser'
@@ -165,10 +166,19 @@ export default function ZukaufNeuPage() {
   // Fehler beim Speichern stehen oben – sichtbar machen, auch wenn man unten am Knopf ist
   useEffect(() => { if (error) fehlerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [error])
 
+  // KAN-381: Fassungsvermögen des Ziel-Gebindes – gemeinsame Regel (vorher nur Warnung), nur Wein/Most mit Gebinde
+  const zielGebindeZeile = (art === 'wein' || art === 'most') && zielBehaelter ? behaelter.find(x => x.id === zielBehaelter) ?? null : null
+  const zielFassung = zielGebindeZeile ? {
+    name: zielGebindeZeile.name, volumen_liter: zielGebindeZeile.volumen_liter,
+    inhalt: weinausbauListe.filter(w => w.behaelter_id === zielGebindeZeile.id).reduce((s, w) => s + (w.menge_liter ?? 0), 0),
+  } : null
+  const fassungFehlerText = fassungsFehler(zielFassung, parseFloat(menge) || 0)
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
+    if (fassungFehlerText) { setError(fassungFehlerText); return }   // KAN-381
     // KAN-80 Nachtrag: die Herkunftsauswahl hat nur ein verstecktes Feld – Pflicht hier prüfen (Server prüft ebenso)
     if (!herkunft) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
     if (lieferantHinweis) { setError(lieferantHinweis); return }
@@ -682,11 +692,12 @@ export default function ZukaufNeuPage() {
                       </p>
                     </div>
                   </div>
-                  {ueber && (
-                    <p className="text-s112-err-fg font-semibold flex items-center gap-1.5">
-                      <AlertTriangle size={14} /> Behälter hat nicht genug Kapazität
+                  {fassungFehlerText && (
+                    <p role="alert" className="text-s112-err-fg font-semibold flex items-center gap-1.5">
+                      <AlertTriangle size={14} /> {fassungFehlerText}
                     </p>
                   )}
+                  {fassungsHinweis(zielFassung) && <p className="text-s112-muted">{fassungsHinweis(zielFassung)}</p>}
                 </div>
               )
             })()}
@@ -714,7 +725,7 @@ export default function ZukaufNeuPage() {
         {error && <p role="status" className="text-sm text-s112-err-fg text-right">{error}</p>}
         <div className="flex justify-end gap-3">
           <AbbrechenKnopf standard="/weinhandel/zukauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2" />
-          <button type="submit" disabled={isPending || !!verschnitt}
+          <button type="submit" disabled={isPending || !!verschnitt || !!fassungFehlerText}
             className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Zukauf speichern'}
           </button>

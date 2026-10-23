@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
+import { fassungenAus, fassungsFehlerListe } from '@/lib/keller/fassungsvermoegen'
 import { revalidatePath } from 'next/cache'
 import { mischeQualitaet, normalisiereQualitaet, qualitaetsSpalten, gleicheQualitaet, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
@@ -332,6 +333,12 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
     // (Quell-Chargen zählen nicht als Ziel, KAN-112), und es entstünde eine zweite Charge daneben
     const selbes = selbesGebindeFehler(quellGebinde(quellRows), ziele.map(z => z.behaelter_id))
     if (selbes) throw new AktionsFehler(selbes)
+  }
+  // KAN-381: Fassungsvermögen der Ziel-Gebinde (je Gebinde summiert, auch Wein eines Partnerbetriebs) – VOR der ersten
+  // Buchung, denn die Quellen werden unten zuerst gemindert; die Datenbank lehnt eine Überfüllung zusätzlich ab
+  {
+    const voll = fassungsFehlerListe(fassungenAus(zielGebinde), ziele.map(z => ({ behaelterId: z.behaelter_id, zugang: z.menge })))
+    if (voll) throw new AktionsFehler(voll)
   }
 
   // KAN-112 (Entscheidungen Jörgen 03.10.2026): Ziel-Charge je Ziel-Gebinde mit derselben Regel wie unten in Phase 2

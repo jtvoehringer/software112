@@ -561,7 +561,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {writeOk && (
         <VerschneidungWidget
           bestehtAus={bestehtAus}
-          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: aktuell, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, zusatzbezeichnung: weinausbau.zusatzbezeichnung ?? null, erzeugnis: weinausbau.erzeugnis ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: aktuell, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, zusatzbezeichnung: weinausbau.zusatzbezeichnung ?? null, erzeugnis: weinausbau.erzeugnis ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null, behaelter_name: bhRows.find(b => b.id === weinausbau.behaelter_id)?.anzeigeName ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenAnzeige}
           initialOpen={openForm === 'verschneiden'}

@@ -24,7 +24,7 @@ const barrique = { name: 'Barrique 3', volumen: 225 }
 
 describe('1. Fassungsvermögen des Ziel-Gebindes', () => {
   test('Befund: 1.100 l passen nicht in „Barrique 3“ (225 l) – Gesamtprüfung und Schritt 3', () => {
-    const erwartet = 'Die neue Charge (1.100 l) passt nicht in „Barrique 3“ (Fassungsvermögen 225 l).'
+    const erwartet = 'Die Charge (1.100 l) passt nicht in „Barrique 3“ (Fassungsvermögen 225 l, frei 225 l).'   // KAN-381: gemeinsame Meldung
     assert.ok(produktionFehler({ ...basis, wein: [gv], gebinde: barrique }).includes(erwartet))
     assert.deepEqual(produktionFehler({ ...basis, wein: [gv], gebinde: barrique }, 3), [erwartet])
     assert.deepEqual(produktionFehler({ ...basis, wein: [gv], gebinde: barrique }, 2), [])
@@ -37,7 +37,9 @@ describe('1. Fassungsvermögen des Ziel-Gebindes', () => {
     assert.equal(gebindeFehler(1100, { name: 'Tank', volumen: null }), null)
     assert.equal(gebindeFehler(1100, { name: 'Tank', volumen: 0 }), null)
     assert.equal(gebindeFehler(1100, null), null)
-    assert.equal(gebindeFehler(1100.5, { name: 'Tank 1', volumen: 1100 }), 'Die neue Charge (1.100,5 l) passt nicht in „Tank 1“ (Fassungsvermögen 1.100 l).')
+    // KAN-381: Toleranz 0,5 l wie Kellerplan und Datenbank – 1.100,5 l passen gerade noch, 1.100,6 l nicht
+    assert.equal(gebindeFehler(1100.5, { name: 'Tank 1', volumen: 1100 }), null)
+    assert.equal(gebindeFehler(1100.6, { name: 'Tank 1', volumen: 1100 }), 'Die Charge (1.100,6 l) passt nicht in „Tank 1“ (Fassungsvermögen 1.100 l, frei 1.100 l).')
   })
   test('Formular und Server Action nutzen dieselbe Prüfung mit dem Gebinde (Server: Tenant-Filter, Fehler ausgewertet)', () => {
     const form = quelle('src/app/(dashboard)/kellerbuch/produktion/ProduktionForm.tsx')

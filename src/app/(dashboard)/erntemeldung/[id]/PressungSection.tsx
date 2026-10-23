@@ -1,6 +1,7 @@
 'use client'
 
 import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
+import { fassungsFehler } from '@/lib/keller/fassungsvermoegen'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { useState, useTransition } from 'react'
 import { Pencil, X, ChevronDown, Plus } from 'lucide-react'
@@ -749,7 +750,10 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
                   const inhaltJetzt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
                   const eingabe = parseFloat(dezimal(row.menge_liter)) || 0
                   const restNach = vol != null ? vol - inhaltJetzt - eingabe : null
-                  const ueber = restNach != null && restNach < -0.01
+                  // KAN-381: gemeinsame Regel (neue Mostzeile; eine gespeicherte Zeile liegt schon im Inhalt – die prüft der Server
+                  // mit ihrer Differenz, behaelterPruefung)
+                  const fassungText = !row.weinausbau_id && beh ? fassungsFehler({ name: beh.name, volumen_liter: vol, inhalt: inhaltJetzt }, eingabe) : null
+                  const ueber = fassungText != null || (restNach != null && restNach < -0.5)
 
                   // Rebsorten- und Farbprüfung
                   const rebsortenInForm = [...new Set(wgRows.map(r => r.rebsorte).filter(Boolean))]
@@ -778,6 +782,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
                           </p>
                         </div>
                       </div>
+                      {fassungText && <p role="alert" className="text-s112-err-fg font-medium">{fassungText}</p>}
 
                       {/* Bestehende Chargen */}
                       {existing.length > 0 && (

@@ -13,9 +13,10 @@ import { fehlerText } from '@/lib/fehler'
 import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
+import { fassungsFehler } from '@/lib/keller/fassungsvermoegen'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null; behaelter_name?: string | null }
 
 // Weinart-Kompatibilität: Rot+Weiß ist nicht zulässig
 function weinartKompatibel(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -164,6 +165,23 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       .map(c => c.name),
   ] : []
 
+  // KAN-381: Fassungsvermögen des Ziel-Gebindes – gemeinsame Regel (vorher nur Warnung). Inhalt = Chargen im Gebinde + Ziel;
+  // Quellen aus demselben Gebinde bringen kein neues Volumen (Zugang und Abgang heben sich auf).
+  const inhaltZielGebinde = (alleChargen
+    .filter(c => c.behaelter_id != null && c.behaelter_id === zielCharge.behaelter_id)
+    .reduce((s, c) => s + (parseFloat(String(c.menge_liter)) || 0), 0))
+    + (parseFloat(String(zielCharge.menge_liter ?? 0)) || 0)
+  const zuflussGesamt = quellen.reduce((s, q) => { const m = parseFloat(dezimal(q.menge)); return s + (q.weinausbau_id && m > 0 ? m : 0) }, 0)
+  const abflussGleichesGebinde = quellen.reduce((s, q) => {
+    const src = verfuegbar.find(c => c.id === q.weinausbau_id)
+    const m = parseFloat(dezimal(q.menge))
+    return s + (src && m > 0 && src.behaelter_id != null && src.behaelter_id === zielCharge.behaelter_id ? m : 0)
+  }, 0)
+  const zielFassung = zielCharge.behaelter_id
+    ? { name: zielCharge.behaelter_name ?? 'Ziel-Gebinde', volumen_liter: zielCharge.behaelter_volumen_liter, inhalt: inhaltZielGebinde }
+    : null
+  const fassungFehlerText = fassungsFehler(zielFassung, zuflussGesamt, { abgang: abflussGleichesGebinde })
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
@@ -171,6 +189,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       .map(q => ({ weinausbau_id: q.weinausbau_id, menge_liter: parseFloat(dezimal(q.menge)) }))
       .filter(q => q.weinausbau_id && !isNaN(q.menge_liter) && q.menge_liter > 0)
     if (parsed.length === 0) { setError('Mindestens eine Quell-Charge mit Menge angeben.'); return }
+    if (fassungFehlerText) { setError(fassungFehlerText); return }   // KAN-381
     const fd = new FormData(e.currentTarget)
     fd.set('quellen_json', JSON.stringify(parsed))
     fd.set('ziel_weinausbau_id', zielCharge.id)
@@ -395,7 +414,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           return s + m
         }, 0)
         const restNach  = vol - inhaltGesamt - neuZufluss
-        const ueber     = neuZufluss > 0 && restNach < -0.01
+        const ueber     = !!fassungFehlerText
         return (
           <div className="grid grid-cols-3 gap-2 bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 text-xs">
             <div>
@@ -414,7 +433,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
             </div>
             {ueber && (
               <p className="col-span-3 text-s112-err-fg font-medium inline-flex items-center gap-1">
-                <AlertTriangle size={13} strokeWidth={2} />Ziel-Gebinde hat nicht genug Kapazität für diesen Verschnitt
+                <AlertTriangle size={13} strokeWidth={2} />{fassungFehlerText}
               </p>
             )}
           </div>
@@ -488,7 +507,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending}
+        <button type="submit" disabled={pending || !!fassungFehlerText}
           className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Verschneidung speichern'}
         </button>
