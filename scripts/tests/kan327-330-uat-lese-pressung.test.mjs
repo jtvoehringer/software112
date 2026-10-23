@@ -62,6 +62,23 @@ describe('KAN-328: Lesedaten – Mostgewicht rutscht nicht mehr unter die Aktion
     assert.doesNotMatch(tabelle, /sticky/)
     assert.match(tabelle, /<MostgewichtAnzeige wert=\{\{ kmw: p\.klosterneuburger, oechsle: p\.oechsle, einheit: p\.mostgewicht_einheit \}\} nurBevorzugt \/>/)
   })
+
+  // KAN-339 Nachtrag (UAT 23.10.2026): Bearbeiten/Storno ganz rechts – bei langer Liste lag die waagrechte Scrollleiste
+  // erst am Listenende, man fand den Stift nicht. Aktionen jetzt als erste Spalte (Kopf, Zeile, Fuß), weiter ohne sticky.
+  test('Aktionsspalte steht vorne – erreichbar ohne waagrechtes Scrollen', () => {
+    const k = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
+    const a = k.indexOf('<table className="w-full text-sm min-w-[700px]')
+    const tabelle = k.slice(a, k.indexOf('</table>', a))
+    const kopf = tabelle.slice(tabelle.indexOf('<thead>'), tabelle.indexOf('</thead>'))
+    assert.ok(kopf.indexOf('<span className="sr-only">Aktionen</span>') < kopf.indexOf('>Ried</th>'), 'Aktionen vor „Ried“ im Kopf')
+    const zeile = tabelle.slice(tabelle.indexOf('<tbody>'), tabelle.indexOf('</tbody>'))
+    assert.ok(zeile.indexOf('aria-label="Bearbeiten"') >= 0)
+    assert.ok(zeile.indexOf('aria-label="Bearbeiten"') < zeile.indexOf('{p.weingarten_name}'), 'Stift vor dem Ried-Namen')
+    assert.ok(zeile.indexOf('<StornoButton') < zeile.indexOf('{p.weingarten_name}'), 'Storno vor dem Ried-Namen')
+    const fuss = tabelle.slice(tabelle.indexOf('<tfoot>'))
+    assert.ok(fuss.indexOf('<td data-print="hide" />') < fuss.indexOf('>Gesamt</td>'), 'Fußzeile bleibt bündig')
+    assert.doesNotMatch(tabelle, /sticky/)
+  })
 })
 
 describe('KAN-329: Pressungsformular in der Reihenfolge des Arbeitsablaufs', () => {

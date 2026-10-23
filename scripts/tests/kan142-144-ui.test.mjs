@@ -185,8 +185,9 @@ describe('KAN-144: Notiz-Spalte in der Lese-Tabelle', () => {
     const iKopf = c.search(/<th\b[^>]*>Ried<\/th>/)
     assert.ok(iKopf >= 0, 'Tabellenkopf der Lese fehlt')
     const kopf = c.slice(c.lastIndexOf('<thead>', iKopf), c.indexOf('</thead>', iKopf))
-    const spalten = [...kopf.matchAll(/<th\b[^>]*>([^<]*)<\/th>/g)].map(m => m[1].trim())
-    assert.deepEqual(spalten, ['Ried', 'GST', 'Sorte', 'Datum', 'kg', 'Notizen', 'Mostgewicht', 'Qualität'])
+    // KAN-339 Nachtrag: die Aktionsspalte steht vorne (Kopf mit sr-only „Aktionen“) – alle Köpfe zählen, auch mit Inhalt
+    const spalten = [...kopf.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)].map(m => m[1].replace(/<[^>]*>/g, '').trim())
+    assert.deepEqual(spalten, ['Aktionen', 'Ried', 'GST', 'Sorte', 'Datum', 'kg', 'Notizen', 'Mostgewicht', 'Qualität'])
     // Erste Zeile im tbody: die Zellen liegen unter den passenden Köpfen
     // KAN-129: vor der ersten Datenzeile kann eine Gruppenzeile je Lese stehen – die Datenzeile hat die Klasse „group“
     const ab = c.indexOf('<tbody>', iKopf)
