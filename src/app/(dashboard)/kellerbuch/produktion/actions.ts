@@ -81,4 +81,6 @@ export async function produktionStornieren(produktionId: string, grund: string):
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Produktion konnte nicht storniert werden'))
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/produktion')
+  // UAT 23.10.2026: Storno auch von der Seite der erzeugten Charge – sie und die Quellen zeigen danach den neuen Stand
+  revalidatePath('/kellerbuch/weinausbau', 'layout')
 }

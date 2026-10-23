@@ -29,6 +29,10 @@ import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle, Sparkles } from 'lucide-react'
 import { rund } from '@/lib/zahl/runden'
 import { bestandsAbweichungDerCharge, ladeBewegungenCharge } from '@/lib/behoerden/bewegungsbuch'
+import { PRODUKTION_ART_LABEL, type ProduktionArt } from '@/lib/kellerbuch/produktion'
+import StornoButton from '@/components/StornoButton'
+import { produktionStornieren } from '../../produktion/actions'
+import { schreibSperre } from '@/lib/auth/sperren'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten' }
 export const dynamic = 'force-dynamic'
@@ -258,6 +262,18 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     }
   })
 
+  // KAN-118 / UAT 23.10.2026 (Testfall 4.20): Ist die Charge durch eine Produktion entstanden, steht der Storno hier –
+  // vorher nur in der Liste /kellerbuch/produktion, die über keinen Menüpunkt erreichbar war
+  const produktionRows = tenantId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? geladen(await (supabase.from('produktionen') as any)
+      .select('id, datum, art')
+      .eq('tenant_id', tenantId).eq('ziel_weinausbau_id', weinausbau.id).is('storniert_am', null)
+      .order('id').limit(1), 'Produktion der Charge')
+    : []
+  const entstandenDurch = ((produktionRows ?? []) as R[])[0] ?? null
+  const produktionStornoErlaubt = !!entstandenDurch && writeOk && !!membership && !(await schreibSperre(membership))
+
   return (
     <div className="max-w-4xl space-y-8">
       {/* Breadcrumb */}
@@ -268,6 +284,20 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
         <span>/</span>
         <span className="text-s112-text-1 font-medium">{weinausbau.name}</span>
       </div>
+
+      {entstandenDurch && (
+        <div className="card px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3" data-print="hide">
+          <p className="text-s112-text-2">
+            Entstanden durch Produktion „{PRODUKTION_ART_LABEL[entstandenDurch.art as ProduktionArt] ?? entstandenDurch.art}“ vom{' '}
+            {new Date(`${entstandenDurch.datum}T00:00:00Z`).toLocaleDateString('de-AT', { timeZone: 'UTC' })}.{' '}
+            <Link href="/kellerbuch/produktion" className="text-s112-blue-700 hover:underline">Alle Produktionen</Link>
+          </p>
+          {produktionStornoErlaubt && (
+            <StornoButton action={produktionStornieren.bind(null, String(entstandenDurch.id))}
+              hinweis="Die Quell-Chargen bekommen ihre Menge zurück, diese Charge wird abgeschlossen. Nur möglich, solange sie unverändert ist." />
+          )}
+        </div>
+      )}
 
       {bestandsUnstimmigkeit && (
         <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
