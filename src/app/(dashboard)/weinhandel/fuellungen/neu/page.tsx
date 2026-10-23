@@ -129,7 +129,7 @@ export default async function NeueFuellungPage({
   return (
     <div className="max-w-2xl">
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weinhandel" className="hover:text-s112-blue-700">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700">Warenwirtschaft</Link>
         <span>/</span>
         <span className="text-s112-text font-medium">Neue Füllung</span>
       </nav>
@@ -137,8 +137,8 @@ export default async function NeueFuellungPage({
       <h1 className="text-2xl font-semibold text-s112-text mb-1">{lohnversektung ? 'Rückkehr aus der Lohnversektung' : 'Neue Füllung anlegen'}</h1>
       <p className="text-sm text-s112-muted mb-6">
         {lohnversektung
-          ? 'Der versektete Wein kommt in Flaschen zurück und wird als Artikel im Weinhandel angelegt (Journal LNSKT/LNSKT_ZU).'
-          : 'Der Wein verlässt den Keller und wird als verkaufsfertiger Artikel im Weinhandel angelegt.'}
+          ? 'Der versektete Wein kommt in Flaschen zurück und wird als Artikel im Warenlager (Warenwirtschaft) angelegt (Journal LNSKT/LNSKT_ZU).'
+          : 'Der Wein verlässt den Keller und wird als verkaufsfertiger Artikel im Warenlager (Warenwirtschaft) angelegt.'}
       </p>
 
       <FuellungFormClient

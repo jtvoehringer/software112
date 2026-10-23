@@ -4,7 +4,7 @@
 // Deckt das Abfüllen einer bestehenden Kellerbuch-Charge (Weinausbau) in
 // Flaschen ab (Füllung anlegen). Freie Füllungen OHNE Chargen-Verknüpfung
 // unterstützt der Bot bewusst noch nicht – dafür weiterhin das bestehende
-// Formular unter Weinhandel > Neue Füllung nutzen.
+// Formular unter Warenwirtschaft › Neue Füllung nutzen.
 //
 // Ruft am Ende dieselbe Server Action (createFuellung) mit denselben
 // Parametern auf, die auch das bestehende Formular übergibt. WICHTIG:
@@ -27,7 +27,7 @@ const FUELLUNG_WERTE = FUELLUNG_QUALITAETEN.map(o => o.value)
 export const ABFUELLEN_FELD_MATRIX_TEXT = `
 FELD-MATRIX für "Abfüllen" (aktuell NUR Füllungen mit Kellerbuch-Chargen-Verknüpfung –
 freie Füllungen ohne Charge werden vom Bot noch nicht unterstützt, dafür freundlich auf das
-bestehende Formular unter Weinhandel > Neue Füllung verweisen):
+bestehende Formular unter Warenwirtschaft › Neue Füllung verweisen):
 
 weinausbau_id (pflicht, ID der abzufüllenden Charge aus WEINAUSBAU-CHARGEN im
 Stammdaten-Kontext), name (pflicht, Produktname – ohne Angabe den Chargennamen verwenden),
@@ -42,7 +42,7 @@ pruefnummer/chargennummer (optional, chargennummer wird sonst automatisch vergeb
 pruefnummer: hat die Charge einen DAC-Antrag, NUR die Nummer ihres genehmigten Antrags, die der
 User nennt – der Server verknüpft dann den Antrag, wenn die Nummer für den Bestand gilt, sonst
 kommt eine Fehlermeldung, die du wörtlich weitergibst; eine andere Nummer lehnt er ab. Einen
-offenen Antrag ohne Nummer verknüpft nur das Formular Weinhandel > Neue Füllung – soll die
+offenen Antrag ohne Nummer verknüpft nur das Formular Warenwirtschaft › Neue Füllung – soll die
 Füllung ihn tragen, auf das Formular verweisen statt ohne Nummer abzufüllen (die Bearbeitung
 kann Prüfnummer und Antrag später nicht mehr setzen). Eine freie Nummer, z. B. die des
 Lieferanten bei einem Zukauf, nur bei Chargen ohne DAC-Antrag),
@@ -61,7 +61,7 @@ export const ABFUELLEN_TOOL = {
   name: 'abfuellen',
   description:
     'Füllt eine bestehende Kellerbuch-Charge (Weinausbau) in Flaschen ab und legt eine neue ' +
-    'Füllung im Weinhandel-Bestand an. WICHTIG: Rufe dieses Tool ausschließlich MIT ' +
+    'Füllung im Warenlager (Warenwirtschaft) an. WICHTIG: Rufe dieses Tool ausschließlich MIT ' +
     'bestaetigt_vom_user=true auf, und das auch nur, nachdem du dem User in einer normalen ' +
     'Textnachricht eine Zusammenfassung gezeigt und er ausdrücklich zugestimmt hat (z.B. "ja", ' +
     '"passt", "ok"). Rufe es NIEMALS vorher auf (auch nicht testweise).',

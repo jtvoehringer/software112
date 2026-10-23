@@ -6,7 +6,7 @@ import 'server-only'
 // (verkauf_positionen.traubenverkauf_id) bleiben, die kg werden wieder frei. Hat der Traubenverkauf eine
 // offene Rechnung, die nur ihn enthält, wird sie über den normalen Verkaufsstorno storniert (der storniert
 // dabei auch den Traubenverkauf, mit diesem Grund). Eine Mischrechnung wird nur als Ganzes unter
-// Weinhandel › Verkauf storniert.
+// Warenwirtschaft › Verkauf storniert.
 
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { canWrite, type Membership } from '@/lib/auth/roles'
@@ -64,7 +64,7 @@ export async function traubenverkaufStornieren(
       const nurDieserVerkauf = positionen.length <= 1 && positionen.every(p =>
         (p.typ === 'trauben' && p.traubenverkauf_id === id) || (p.typ === 'sonstiges' && !p.traubenverkauf_id))
       if (!nurDieserVerkauf) {
-        throw new AktionsFehler(`Der Traubenverkauf gehört zur Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} mit weiteren Positionen und kann hier nicht storniert werden. Bitte den Verkauf unter Weinhandel › Verkauf stornieren.`)
+        throw new AktionsFehler(`Der Traubenverkauf gehört zur Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} mit weiteren Positionen und kann hier nicht storniert werden. Bitte den Verkauf unter Warenwirtschaft › Verkauf stornieren.`)
       }
       // Storno der Rechnung – storniert dabei auch diesen Traubenverkauf (mit diesem Grund)
       await verkaufspostenStornieren(supabase, tenantId, postenId, text)

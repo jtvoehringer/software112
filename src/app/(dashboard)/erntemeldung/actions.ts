@@ -1928,7 +1928,7 @@ export async function createTraubenverkauf(fd: FormData) {
   revalidatePath('/weinhandel/verkauf')
 }
 
-// Traubenverkauf bearbeiten (KAN-35): derselbe Weg wie unter Weinhandel › Traubenverkauf
+// Traubenverkauf bearbeiten (KAN-35): derselbe Weg wie unter Warenwirtschaft › Traubenverkauf
 // (upsertTraubenverkauf) – Menge > 0, stornierte/uneindeutige Rechnung vorab abgelehnt,
 // Rechnungsposition (Menge, Preis, Bezeichnung) und Kopf werden mitgezogen. Bisher blieb die
 // Rechnung beim Bearbeiten über die Lese still auf dem alten Stand.
