@@ -12,7 +12,7 @@ import { herkunftZulaessig, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { stornoGrundFehler } from '@/lib/storno/grund'
+import { aenderungGrundFehler, stornoGrundFehler } from '@/lib/storno/grund'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { folgebuchungenDerFuellung, folgebuchungenFuellungText, heuteOrtsdatum, datumDe } from './fuellungen/folgebuchungen'
@@ -433,6 +433,10 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
 // Abfülldatum: Füllung stornieren (bucht die Liter zurück) und neu anlegen (Entscheidung Jörgen, 04.10.2026). Die Charge
 // einer Füllung ohne Charge (Import/Altbestand) lässt sich einmal nachtragen (RPC s112_fuellung_nachtragen) – mit den
 // Prüfungen aus KAN-72; die Prüfnummer über pruefnummerNachtragen.
+//
+// KAN-378 (23.10.2026): Jede Änderung von Produktname, Preisen, KN-Code und Notizen braucht einen Grund (≥ 10 Zeichen,
+// Pflichtfeld „Grund der Änderung“). Geschrieben wird nur über die RPC s112_fuellung_aendern – direkte Updates dieser
+// Felder lehnt der Trigger a_grund_pflicht ab (42501, HINT grund_fehlt). Der Grund steht im Bestandsprotokoll.
 
 export async function updateFuellung(id: string, formData: FormData): Promise<void> {
   const supabase   = await createSupabaseServerClient()
@@ -441,6 +445,10 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   pruefeFuellungsRecht(membership)
   // KAN-208: Produktname Pflicht
   { const nf = fuellungNameFehler(formData.get('name')); if (nf) throw new AktionsFehler(nf) }
+  // KAN-378: Grund vor jedem Schreiben prüfen (auch vor dem Charge-Nachtrag)
+  const grundRoh = formData.get('aenderung_grund')
+  { const gf = aenderungGrundFehler(grundRoh); if (gf) throw new AktionsFehler(gf) }
+  const grund = String(grundRoh).trim()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('fuellungen') as any)
@@ -475,25 +483,27 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     if (nErr) throw new AktionsFehler(dbFehlerText(nErr, 'Charge konnte nicht nachgetragen werden'))
   }
 
-  // Nur die Spalten der Positivliste (Freeze-Trigger) – Merkmale, Datum, Mengen und Los bleiben unangetastet
+  // Nur die Spalten der Positivliste (Freeze-Trigger) – Merkmale, Datum, Mengen und Los bleiben unangetastet;
+  // die Änderungszeit setzt der Trigger fuellungen_updated_at
   const payload: AR = {
     name:            ((formData.get('name') as string | null) ?? '').trim(),
     vk_preis_brutto: zahlAus(formData.get('vk_preis_brutto')),
     einstandspreis:  zahlAus(formData.get('einstandspreis')),
     zolltarifnummer: (formData.get('zolltarifnummer') as string) || null,
     notizen:         (formData.get('notizen') as string) || null,
-    aktualisiert_am: new Date().toISOString(),
   }
   if (!payload.name) throw new AktionsFehler('Bitte einen Produktnamen angeben.')
 
+  // KAN-378: nur über die RPC mit Grund – sie prüft Rechte, Abo, Positivliste und Storno; ändert sich nichts,
+  // liefert sie false ohne UPDATE (kein Protokolleintrag)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updData, error } = await (supabase.from('fuellungen') as any)
-    .update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
+  const { error } = await (supabase.rpc as any)('s112_fuellung_aendern', {
+    p_tenant_id: tenantId, p_id: id, p_werte: payload, p_grund: grund,
+  })
   if (error) {
     const sperre = freezeSperreAus(error)
     throw new AktionsFehler(sperre ? sperrMeldung(sperre, x => FUELLUNG_FELD_LABEL[x] ?? x) : dbFehlerText(error, 'Speichern fehlgeschlagen (fuellungen)'))
   }
-  if (!updData || (updData as AR[]).length === 0) throw new AktionsFehler('Füllung nicht gefunden – bitte die Seite neu laden.')
   revalidatePath('/weinhandel')
   revalidatePath(`/weinhandel/fuellungen/${id}/edit`)
 }
