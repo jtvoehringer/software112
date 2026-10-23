@@ -81,3 +81,26 @@ describe('KAN-119: Verdrahtung', () => {
     assert.match(m, /REVOKE EXECUTE ON FUNCTION public\.demo_musterhof_y2_kette\(\) FROM PUBLIC, anon, authenticated;/)
   })
 })
+
+// UAT 23.10.2026 (Testfall 4.20): „Wie storniere ich eine Produktion?“ – der Storno lag nur in /kellerbuch/produktion,
+// die über keinen Menüpunkt erreichbar war; auf der Seite der erzeugten Charge gab es keinen Hinweis.
+describe('UAT 4.20: Produktion stornieren ist auffindbar', () => {
+  test('Kellerbuch-Navigation hat den Reiter „Produktion“ (Liste mit Storno)', () => {
+    const n = quelle('src/lib/navigation/index.ts')
+    const kb = n.slice(n.indexOf("key: 'kellerbuch'"), n.indexOf("key: 'warenwirtschaft'"))
+    assert.match(kb, /\{ href: '\/kellerbuch\/produktion',\s+label: 'Produktion',[^}]*keywords: '[^']*storno[^']*' \}/)
+  })
+  test('Seite der erzeugten Charge: „Entstanden durch Produktion“ mit Storno (nur Schreibrecht, ohne Nur-Lesen-Modus)', () => {
+    const s = quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/page.tsx')
+    assert.match(s, /\.from\('produktionen'\) as any\)\s*\.select\('id, datum, art'\)\s*\.eq\('tenant_id', tenantId\)\.eq\('ziel_weinausbau_id', weinausbau\.id\)\.is\('storniert_am', null\)/)
+    assert.match(s, /\.order\('id'\)\.limit\(1\), 'Produktion der Charge'\)/, 'Ladefehler über geladen()')
+    assert.match(s, /const produktionStornoErlaubt = !!entstandenDurch && writeOk && !!membership && !\(await schreibSperre\(membership\)\)/)
+    assert.match(s, /Entstanden durch Produktion/)
+    assert.match(s, /\{produktionStornoErlaubt && \(\s*<StornoButton action=\{produktionStornieren\.bind\(null, String\(entstandenDurch\.id\)\)\}/)
+  })
+  test('Storno lädt auch die Chargen-Seiten neu', () => {
+    const a = quelle('src/app/(dashboard)/kellerbuch/produktion/actions.ts')
+    const storno = a.slice(a.indexOf('export async function produktionStornieren'))
+    assert.match(storno, /revalidatePath\('\/kellerbuch\/weinausbau', 'layout'\)/)
+  })
+})

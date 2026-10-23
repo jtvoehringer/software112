@@ -238,3 +238,17 @@ describe('Wächter check-behoerden-csv: Seite mit Behördenmeldung hat einen Dru
     }
   })
 })
+
+// UAT 23.10.2026 (Test 5.3): Prüfnummernantrag druckte über zwei Seiten und begann nicht oben auf der Seite
+describe('Prüfnummernantrag auf einer Seite A4 hoch', () => {
+  test('@page A4 hoch mit festem Rand, kein Innenabstand, kompakte Abstände im Druck, Unterschrift nicht getrennt', () => {
+    const s = quelle('src/app/(dashboard)/dac/[id]/antrag/PNAFormular.tsx')
+    const druck = /@media print \{([\s\S]*?)\n\s*\}\n/.exec(s)?.[1] ?? ''
+    assert.match(druck, /@page \{ size: A4 portrait; margin: 8mm 10mm; \}/)
+    assert.match(druck, /#pna-formular \{ margin: 0; border: none; padding: 0; font-size: 8\.5pt; \}/)
+    assert.match(druck, /\.no-print \{ display: none !important; \}/)
+    assert.match(s, /className="[^"]*\bprint:space-y-1\.5\b[^"]*" id="pna-formular"/)
+    assert.equal((s.match(/space-y-2 print:space-y-1 border-b border-s112-line-str pb-3 print:pb-1\.5/g) ?? []).length, 5, 'alle fünf Abschnitte kompakt')
+    assert.match(s, /\{\/\* Versiegelungsverzicht \+ Unterschrift \*\/\}\n\s*<div className="[^"]*\bbreak-inside-avoid\b/)
+  })
+})

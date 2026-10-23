@@ -111,6 +111,8 @@ const NAV: NavGroup[] = [
       // der Übersicht; die Zukauf-Seiten behalten ihre Adresse /weinhandel/zukauf (activeGroup: längster Treffer).
       { href: '/kellerbuch/pressungen',      label: 'Pressungen',     phase: 1, keywords: 'pressung most trauben keltern presse lese charge' },
       { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1, keywords: 'trauben most wein einkauf zukauf' },
+      // KAN-118 / UAT 23.10.2026 (Testfall 4.20): die Liste der Produktionen (mit Storno) war nur über Umwege erreichbar
+      { href: '/kellerbuch/produktion',      label: 'Produktion',     phase: 1, keywords: 'produktion spritzer perlweinspritzer weinmischgetränk perlwein schaumwein sekt petnat storno verarbeitung' },
       { href: '/kellerbuch/kellerplan',      label: 'Kellerplan',     phase: 1, keywords: 'grundriss' },
       { href: '/dac',                        label: 'Prüfnummer',     phase: 1, keywords: 'dac antrag staatliche prüfnummer' },
       // KAN-40 E1: Bewegungsjournal (nur lesen) mit Journal-Konsistenz

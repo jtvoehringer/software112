@@ -112,10 +112,10 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
       {/* ── Offizielles Formular ── */}
       {/* KAN-97: gesperrt = alle Eingaben schreibgeschützt (Drucken und CSV bleiben) */}
       <fieldset disabled={!!gesperrt} className="min-w-0 border-0 p-0 m-0">
-      <div className="bg-white border border-s112-line-str p-6 space-y-4 font-sans text-xs" id="pna-formular">
+      <div className="bg-white border border-s112-line-str p-6 space-y-4 print:space-y-1.5 font-sans text-xs" id="pna-formular">
 
         {/* Titel + Antragsnummer */}
-        <div className="flex justify-between items-start border-b border-s112-text pb-3 mb-2">
+        <div className="flex justify-between items-start border-b border-s112-text pb-3 mb-2 print:pb-1.5 print:mb-1">
           <div>
             <h1 className="text-base font-semibold">Antrag auf Erteilung einer staatlichen Prüfnummer</h1>
             <p className="text-[10px] text-s112-text-2">gemäß § 25 des Weingesetzes 2009</p>
@@ -135,7 +135,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
         </div>
 
         {/* Antragsteller */}
-        <div className="space-y-2 border-b border-s112-line-str pb-3">
+        <div className="space-y-2 print:space-y-1 border-b border-s112-line-str pb-3 print:pb-1.5">
           <h2 className="font-semibold text-xs">Antragsteller</h2>
           <div className="grid grid-cols-4 gap-1">
             <Feld label="Betriebsnummer">
@@ -194,7 +194,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
         </div>
 
         {/* Aufbewahrungsort */}
-        <div className="space-y-2 border-b border-s112-line-str pb-3">
+        <div className="space-y-2 print:space-y-1 border-b border-s112-line-str pb-3 print:pb-1.5">
           <h2 className="font-semibold text-xs">Aufbewahrungsort des Weines (wenn nicht wie oben)</h2>
           <div className="grid grid-cols-5 gap-1">
             <Feld label="Postleitzahl">
@@ -214,7 +214,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
         </div>
 
         {/* Angaben über den Wein */}
-        <div className="space-y-2 border-b border-s112-line-str pb-3">
+        <div className="space-y-2 print:space-y-1 border-b border-s112-line-str pb-3 print:pb-1.5">
           <h2 className="font-semibold text-xs">Angaben über den Wein</h2>
           <div className="flex flex-wrap gap-4 items-end">
             <div>
@@ -268,7 +268,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
         </div>
 
         {/* Bezeichnung des Weines */}
-        <div className="space-y-2 border-b border-s112-line-str pb-3">
+        <div className="space-y-2 print:space-y-1 border-b border-s112-line-str pb-3 print:pb-1.5">
           <h2 className="font-semibold text-xs">Bezeichnung des Weines</h2>
           <div className="grid grid-cols-5 gap-2">
             <Feld label="Qualitätsweinrebsorte(n)">
@@ -314,7 +314,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
         </div>
 
         {/* Mostchargennummern */}
-        <div className="space-y-2 border-b border-s112-line-str pb-3">
+        <div className="space-y-2 print:space-y-1 border-b border-s112-line-str pb-3 print:pb-1.5">
           <h2 className="font-semibold text-xs">Zugrundeliegende Mostchargennummern <span className="font-normal text-s112-text-2">(aus der Mostwägerbestätigung – nur bei Prädikatsweinen)</span></h2>
           <table className="w-full border-collapse text-[10px]">
             <thead>
@@ -347,10 +347,10 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
         </div>
 
         {/* Versiegelungsverzicht + Unterschrift */}
-        <div className="flex justify-between items-end pt-2">
+        <div className="flex justify-between items-end pt-2 break-inside-avoid">
           <CB checked={d.versiegelungsverzicht} onChange={v => set('versiegelungsverzicht', v)} label="Versiegelungsverzicht 4. Probe" />
           <div className="w-80">
-            <div className="h-10 border-b border-s112-grey mb-1" />
+            <div className="h-10 print:h-7 border-b border-s112-grey mb-1" />
             <p className="text-[10px] text-s112-text-2 text-right">Datum, Unterschrift des Antragstellers (Verfügungsberechtigten)</p>
           </div>
         </div>
@@ -363,8 +363,11 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
 
       <style>{`
         @media print {
+          /* UAT 23.10.2026 (Test 5.3): eine Seite A4 hoch – vorher Format/Rand aus den Browser-Einstellungen bzw. dem
+             allgemeinen Rand 1,5 cm plus 8 mm Innenabstand, die Unterschrift rutschte auf Seite 2 */
+          @page { size: A4 portrait; margin: 8mm 10mm; }
           .no-print { display: none !important; }
-          #pna-formular { margin: 0; border: none; padding: 8mm; font-size: 9pt; }
+          #pna-formular { margin: 0; border: none; padding: 0; font-size: 8.5pt; }
           input, select { border: 1px solid #999 !important; background: white !important; }
         }
       `}</style>
