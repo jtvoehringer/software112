@@ -131,3 +131,20 @@ describe('Befund 2: Bereich heißt Warenwirtschaft', () => {
     assert.deepEqual(treffer, [])
   })
 })
+
+// KAN-378 Nebenbefund 3 (UAT 24.10.2026): „Füllung bearbeiten“ aus dem Warenlager abgeschnitten, Strg+F5 half.
+// Die sr-only-Datei-Felder unter „Hochladen“ (absolut positioniert) bezogen sich auf das Dokument, ragten aus <main>
+// heraus und machten das Dokument scrollbar (html overflow-hidden) – Next.js schob es beim Navigieren hoch.
+test('App-Rahmen und <main> sind Bezugsrahmen für absolut positionierte Elemente', () => {
+  const s = fs.readFileSync(path.join(ROOT, 'src/components/layout/AppShell.tsx'), 'utf8')
+  assert.match(s, /<div className="h-screen supports-\[height:100dvh\]:h-dvh relative flex flex-col overflow-clip /)
+  assert.match(s, /<main id="inhalt" data-app-rahmen tabIndex=\{-1\} className="relative flex-1 min-w-0 overflow-x-auto overflow-y-auto/)
+})
+
+test('Scroll-Sperre des Dokuments nur mit App-Rahmen – Barrierefreiheit und Newsletter scrollen', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'src/app/globals.css'), 'utf8')
+  assert.doesNotMatch(css, /html:has\(main#inhalt\)/)
+  assert.match(css, /html:has\(main#inhalt\[data-app-rahmen\]\) body \{/)
+  for (const f of ['src/app/barrierefreiheit/page.tsx', 'src/app/newsletter/NewsletterRahmen.tsx'])
+    assert.doesNotMatch(fs.readFileSync(path.join(ROOT, f), 'utf8'), /data-app-rahmen/, f)
+})

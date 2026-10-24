@@ -168,13 +168,14 @@
 /* Auf Seiten mit dem App-Rahmen (main#inhalt) darf das Dokument selbst nicht scrollen. Sonst verschob Next.js'
    scrollIntoView nach dem Speichern das ganze Dokument: Kopfleiste weg, leerer Streifen unten – und Chrome stellte
    diese Position beim Neuladen wieder her. html hidden (keine Weitergabe an den Viewport), body clip (kein Scrollbereich).
-   Seiten ohne App-Rahmen (Login, Weinpass, Druckansichten) scrollen wie bisher. */
+   Seiten ohne App-Rahmen (Login, Weinpass, Druckansichten) scrollen wie bisher – KAN-378 (24.10.2026): nur mit
+   data-app-rahmen; Barrierefreiheit und Newsletter haben auch ein main#inhalt und ließen sich sonst nicht scrollen. */
 @media screen {
-  html:has(main#inhalt) {
+  html:has(main#inhalt[data-app-rahmen]) {
     height: 100%;
     overflow: hidden;
   }
-  html:has(main#inhalt) body {
+  html:has(main#inhalt[data-app-rahmen]) body {
     height: 100%;
     overflow: clip;
   }
