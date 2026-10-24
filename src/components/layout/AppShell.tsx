@@ -71,7 +71,7 @@ export default function AppShell({
     // KAN-370/371/341 (22.10.2026): Höhe 100dvh statt 100vh – am Handy ist 100vh die Höhe ohne Browserleiste, der Rahmen
     // ragte unter die Leiste, und weil das Dokument nicht scrollt, blendet sie sich nie aus: das untere Ende jeder Seite
     // war unerreichbar. h-screen bleibt als Rückfall für Browser ohne dvh. Unten unter md Abstand für die Home-Leiste.
-    <div className="h-screen supports-[height:100dvh]:h-dvh flex flex-col overflow-clip bg-s112-bg max-md:pb-[env(safe-area-inset-bottom)]">
+    <div className="h-screen supports-[height:100dvh]:h-dvh relative flex flex-col overflow-clip bg-s112-bg max-md:pb-[env(safe-area-inset-bottom)]">
       <Topbar userEmail={userEmail} userName={userName} roleLabel={roleLabel} branding={branding} betriebCount={betriebCount} />
       <CommandPalette groups={groups} darfSchreiben={darfSchreiben} branding={branding} betriebCount={betriebCount} />
       <TabNav groups={groups} />
@@ -84,7 +84,11 @@ export default function AppShell({
             links und rechts ein Drittel leer. Kopfzeile und Navigation ziehen mit. */}
         {/* KAN-371: waagrecht ausdrücklich scrollbar – Überbreites (Tabellen, Formulare) bleibt verschiebbar; das Dokument
             selbst scrollt seit KAN-335/336 nicht mehr. */}
-        <main id="inhalt" tabIndex={-1} className="flex-1 min-w-0 overflow-x-auto overflow-y-auto focus:outline-hidden">
+        {/* KAN-378 (UAT 24.10.2026): relative – absolut positionierte Elemente im Inhalt (z. B. die unsichtbaren Datei-Felder
+            unter „Hochladen“, sr-only) bezogen sich sonst auf das Dokument, ragten aus <main> heraus und machten das
+            Dokument höher als das Fenster. html ist overflow-hidden, also per Programm scrollbar: Next.js schob beim
+            Öffnen einer Füllung aus dem Warenlager das ganze Dokument hoch – Kopfleiste weg, Formular unten abgeschnitten. */}
+        <main id="inhalt" data-app-rahmen tabIndex={-1} className="relative flex-1 min-w-0 overflow-x-auto overflow-y-auto focus:outline-hidden">
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 2xl:py-5">
             {/* KAN-224: „Zurück“ auf Unterseiten und Bestätigung nach dem Abschluss (useSearchParams braucht Suspense) */}
             <Suspense fallback={null}><ZurueckLeiste navHrefs={navHrefs} /></Suspense>

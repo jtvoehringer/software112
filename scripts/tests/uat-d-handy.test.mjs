@@ -21,8 +21,8 @@ const funde = (code) => fundeIn(code, 'x.tsx', ts)
 describe('KAN-370/371/341: App-Rahmen passt in den sichtbaren Bereich', () => {
   test('Höhe 100dvh mit Rückfall 100vh, unten Abstand für die Home-Leiste, <main> scrollt in beide Richtungen', () => {
     const s = quelle('src/components/layout/AppShell.tsx')
-    assert.match(s, /<div className="h-screen supports-\[height:100dvh\]:h-dvh flex flex-col overflow-clip bg-s112-bg max-md:pb-\[env\(safe-area-inset-bottom\)\]">/)
-    assert.match(s, /<main id="inhalt" tabIndex=\{-1\} className="flex-1 min-w-0 overflow-x-auto overflow-y-auto focus:outline-hidden">/)
+    assert.match(s, /<div className="h-screen supports-\[height:100dvh\]:h-dvh relative flex flex-col overflow-clip bg-s112-bg max-md:pb-\[env\(safe-area-inset-bottom\)\]">/)
+    assert.match(s, /<main id="inhalt" data-app-rahmen tabIndex=\{-1\} className="relative flex-1 min-w-0 overflow-x-auto overflow-y-auto focus:outline-hidden">/)
     assert.doesNotMatch(s, /className="h-screen flex/)
   })
   test('Verarbeiten: Brotkrumen brechen um statt rechts hinauszuragen', () => {

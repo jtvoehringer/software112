@@ -14,7 +14,7 @@ const quelle = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8
 test('App-Rahmen ist nicht scrollbar (overflow-clip), gescrollt wird nur im Inhalt', () => {
   const s = quelle('src/components/layout/AppShell.tsx')
   // KAN-370/371: Höhe 100dvh (Rückfall 100vh), Rahmen bleibt overflow-clip
-  assert.match(s, /<div className="h-screen supports-\[height:100dvh\]:h-dvh flex flex-col overflow-clip bg-s112-bg[^"]*">/)
+  assert.match(s, /<div className="h-screen supports-\[height:100dvh\]:h-dvh relative flex flex-col overflow-clip bg-s112-bg[^"]*">/)
   assert.match(s, /<div className="flex-1 min-h-0 flex overflow-clip">/)
   assert.match(s, /<main id="inhalt"[^>]*overflow-y-auto/)
   // kein overflow-hidden mehr auf den beiden Rahmen um <main>
@@ -24,7 +24,7 @@ test('App-Rahmen ist nicht scrollbar (overflow-clip), gescrollt wird nur im Inha
 
 test('Nachbesserung: Dokument scrollt nicht, Bleiben ohne Next.js-Scroll, Bestätigung scrollt nur <main>', () => {
   const css = quelle('src/app/globals.css')
-  assert.match(css, /@media screen \{\n  html:has\(main#inhalt\) \{\n    height: 100%;\n    overflow: hidden;\n  \}\n  html:has\(main#inhalt\) body \{\n    height: 100%;\n    overflow: clip;\n  \}/)
+  assert.match(css, /@media screen \{\n  html:has\(main#inhalt\[data-app-rahmen\]\) \{\n    height: 100%;\n    overflow: hidden;\n  \}\n  html:has\(main#inhalt\[data-app-rahmen\]\) body \{\n    height: 100%;\n    overflow: clip;\n  \}/)
   // Druck hebt die Sperre auf (Mehrseitendruck)
   assert.match(css, /@media print \{[\s\S]*html, body \{\n    height: auto !important;\n    overflow: visible !important;/)
   for (const f of ['src/components/kellerbuch/WeinausbauForm.tsx', 'src/components/weingarten/WeingartenForm.tsx', 'src/components/kellerbuch/BehaelterForm.tsx',
