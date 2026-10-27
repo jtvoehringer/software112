@@ -107,7 +107,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               ↻
             </button>
           </form>
-          <PrintButton />
+          <PrintButton standard="quer" />
           {/* Ohne angelegten Jahrgang: Leermeldung (nur Kopfzeile) für das laufende Jahr */}
           <CsvExportKnopf label="Erntemeldung als CSV" href={csvPfad('erntemeldung', { jahrgang: aktJahrgang?.jahrgang ?? wienHeute().slice(0, 4) })} />
           <CsvExportKnopf label="Weinbestand als CSV" href={csvPfad('bestandsmeldung', { stichtag })} />
@@ -130,7 +130,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
       )}
 
       {/* Dokument */}
-      <div className="card p-8 print:border-0 print:shadow-none print:p-0">
+      <div className="card p-8 print:border-0 print:shadow-none print:p-0 druck-formular">
         {/* Kopf */}
         <div className="flex items-start justify-between border-b-2 border-s112-text pb-4 mb-6">
           <div>
@@ -174,7 +174,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                 <td className="px-3 py-2 border border-s112-line font-medium">
                   {sorteMitKuerzel(z.rebsorte, z.kuerzel)}
                   {/* KAN-165: bei Rieden aus mehreren Bundesländern eine Position je Weinbaugebiet */}
-                  {(ernte?.gebiete.length ?? 0) > 1 && <span className="block text-xs font-normal text-s112-tertiary">{z.weinbaugebiet ?? 'ohne Weinbaugebiet'}</span>}
+                  {(ernte?.gebiete.length ?? 0) > 1 && <span className="text-xs font-normal text-s112-tertiary"> · {z.weinbaugebiet ?? 'ohne Weinbaugebiet'}</span>}
                 </td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(z.flaecheHa, 4)}</td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap font-medium">{zahl(z.mengeKg, 0)}</td>

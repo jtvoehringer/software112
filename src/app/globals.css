@@ -249,11 +249,19 @@
   th, td { white-space: normal !important; overflow-wrap: break-word; }
   /* KAN-366 (UAT 27.10.2026): kurze Werte mit Einheit („9.600 kg“) bleiben einzeilig – Zelle mit Klasse druck-einzeilig */
   th.druck-einzeilig, td.druck-einzeilig { white-space: nowrap !important; }
+  /* KAN-373 (UAT 27.10.2026): Druckformulare laufen nicht über und drucken Inhalte einzeilig – Container mit Klasse
+     druck-formular: kleine Druckschrift, knappe Abstände, Zellen ohne Umbruch (Spaltenköpfe dürfen umbrechen) */
+  .druck-formular table { font-size: 8pt !important; }
+  .druck-formular th, .druck-formular td { font-size: 8pt !important; line-height: 1.25 !important; padding: 2px 4px !important; }
+  .druck-formular th *, .druck-formular td * { font-size: inherit !important; }
+  .druck-formular td { white-space: nowrap !important; }
   thead { display: table-header-group; }
   tr    { break-inside: avoid; }
 
   /* Links nicht unterstreichen */
   a { text-decoration: none !important; color: inherit !important; }
+  /* KAN-361: Links in Druckformularen schwarz (statt der Linkfarbe des Bildschirms) */
+  .druck-formular a { color: #000 !important; }
 
   /* Seitenränder */
   /* KAN-172: kein festes Papierformat – der Druckdialog bietet Hoch- und Querformat an; DruckFormatKnopf gibt es vor */
