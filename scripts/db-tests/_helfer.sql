@@ -1326,6 +1326,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_lieferschein_storno_sperre()'),   -- KAN-103: berechneter Lieferschein nicht stornierbar
     ('mandant',       '-US', true , 's112_rechnung_erstellen(p_tenant_id uuid, p_lieferscheine uuid[], p_datum date, p_preise jsonb, p_notizen text)'),   -- KAN-103/104: Rechnung aus Lieferscheinen
     ('mandant',       '-US', true , 's112_rechnung_stornieren(p_tenant_id uuid, p_rechnung_id uuid, p_grund text)'),   -- KAN-103: Rechnungsstorno
+    ('mandant',       '-US', true , 's112_verkauf_samt_rechnung_stornieren(p_tenant_id uuid, p_verkaufsposten_id uuid, p_grund text)'),   -- KAN-356: Verkauf samt Rechnung in einer Transaktion
     ('mandant',       '-US', true , 'get_next_transaktionsnr(p_tenant_id uuid, p_typ text)'),
     ('rls_hilfe',     '-US', false, 'get_user_role_in_tenant(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 'get_user_tenant_ids()'),

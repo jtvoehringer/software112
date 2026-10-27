@@ -890,3 +890,50 @@ export async function rechnungStornieren(rechnungId: string, lieferscheinId: str
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath('/buchhaltung')
 }
+
+// KAN-356: Verkauf samt Rechnung stornieren – eine Transaktion (RPC s112_verkauf_samt_rechnung_stornieren): Rechnung
+// storniert (Nummer bleibt), Lieferschein storniert, Bestand zurück, Sonstige Produkte und Traubenverkäufe mit. Nur für eine
+// eigene Rechnung mit genau einem Lieferschein, ohne gültige Zahlung und ohne ausgestellte Transportbescheinigung – das
+// prüft die Datenbank; erwartbare Ablehnungen kommen als { error } an den Knopf.
+export async function verkaufSamtRechnungStornieren(lieferscheinId: string, grund: string): Promise<void | { error: string }> {
+  const supabase = await createSupabaseServerClient()
+  const m = await getMembership()
+  const tenantId = m.tenantId
+  if (!canWrite(m, 'warenwirtschaft')) {
+    return { error: 'Verkauf und Rechnung können nur Betriebs-Manager und Mitarbeiter mit Freigabe Warenwirtschaft stornieren. Es wurde nichts geändert.' }
+  }
+  const f = stornoGrundFehler(grund)
+  if (f) return { error: f }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: vp, error: vpErr } = await (supabase.from('verkaufsposten') as any)
+    .select('rechnung_id').eq('id', lieferscheinId).eq('tenant_id', tenantId).maybeSingle()
+  if (vpErr) return { error: dbFehlerText(vpErr, 'Verkauf konnte nicht geladen werden') }
+  const sperre = await rechnungStornoFehler(supabase, tenantId, (vp as AR | null)?.rechnung_id ?? null)
+  if (sperre) return { error: sperre }
+  const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
+  const { data, error } = await rpc('s112_verkauf_samt_rechnung_stornieren', {
+    p_tenant_id: tenantId, p_verkaufsposten_id: lieferscheinId, p_grund: grund.trim(),
+  })
+  try {
+    if (error) {
+      if (erwarteteDbAblehnung(error)) return { error: dbFehlerText(error, 'Verkauf und Rechnung konnten nicht storniert werden') }
+      throw new AktionsFehler(dbFehlerText(error, 'Verkauf und Rechnung konnten nicht storniert werden'))
+    }
+    // CRM-Aktivität kennzeichnen (nicht kritisch, wie beim Verkaufsstorno)
+    const nr = (data as AR | null)?.rechnungsnummer ?? ''
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: crmErr } = await (supabase.from('aktivitaeten') as any)
+      .update({ betreff: `Verkauf ${nr} · STORNIERT` })   // aenderung-ohne-pruefung: CRM-Betreff, nicht kritisch – ohne Aktivität nichts zu tun
+      .eq('beschreibung', `Verkaufsposten: ${lieferscheinId}`)
+      .eq('tenant_id', tenantId)
+    if (crmErr) console.error('verkaufSamtRechnungStornieren – CRM-Aktivität:', crmErr.message)
+  } finally {
+    revalidatePath(`/weinhandel/verkauf/${lieferscheinId}`)
+    revalidatePath('/weinhandel/verkauf')
+    revalidatePath('/weinhandel/offene-posten')
+    revalidatePath('/weinhandel')
+    revalidatePath('/weinhandel/traubenverkauf')
+    revalidatePath('/buchhaltung')
+    revalidatePath('/crm')
+  }
+}
