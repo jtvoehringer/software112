@@ -66,8 +66,11 @@ const IGNORE_DIRS = new Set(['node_modules', '.next', '.git', '_to_delete'])
 const BEGRENZT = new Set(['range', 'limit', 'single', 'maybeSingle', 'csv', 'explain'])
 const SUCHE = new Set(['ilike', 'like', 'textSearch', 'likeAnyOf', 'ilikeAnyOf'])
 const FILTER = new Set(['eq', 'in', 'match', 'contains', 'containedBy'])
-/** Wrapper, die eine Abfrage nur um den Mandantenfilter ergänzen und sie zurückgeben */
-const WRAPPER = /^(tf|mitTenant)$/
+/**
+ * Wrapper, die eine Abfrage nur um Filter ergänzen und sie zurückgeben: Mandantenfilter (tf, mitTenant) und seit KAN-358
+ * die Belegung eines Gebindes (nurBelegendeChargen, src/lib/kellerbuch/leereGebinde.ts)
+ */
+const WRAPPER = /^(tf|mitTenant|nurBelegendeChargen)$/
 
 function istEinschraenkendeSpalte(spalte) {
   return spalte !== 'tenant_id' && (spalte === 'id' || /_id$/.test(spalte))

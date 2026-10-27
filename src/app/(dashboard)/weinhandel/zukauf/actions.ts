@@ -19,6 +19,7 @@ import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istTraubenArt, zukaufWareFehler, istFlaschenArt, flaschenZukaufFehler, flaschenPruefnummerFehler } from '@/lib/zukauf/ware'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { waehleZielCharge, merkmaleText } from '@/lib/kellerbuch/umzugZiel'
+import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
 import { pruefeFassung } from '@/lib/keller/fassungsvermoegen'
 import { planeVerschneidungStorno, storniereVerschneidung } from '@/lib/kellerbuch/storno'
@@ -386,12 +387,11 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   const fragen: string[] = []
   let pnNotiz: string | null = null
   if (mitCharge) {
-    const { data, error: gErr } = await (supabase.from('weinausbau') as any)
+    // KAN-358: Belegung des Ziel-Gebindes wie beim Umzug und Abstufen (leereGebinde.ts)
+    const { data, error: gErr } = await nurBelegendeChargen((supabase.from('weinausbau') as any)
       .select('id, name, menge_liter, rebsorte, jahrgang, weinart, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis')
       .eq('behaelter_id', f.zielBehaelterId)
-      .eq('tenant_id', tenantId)
-      .eq('aktiv', true)
-      .neq('status', 'abgeschlossen')
+      .eq('tenant_id', tenantId))
     if (gErr) throw new AktionsFehler(dbFehlerText(gErr, 'Chargen im Ziel-Gebinde konnten nicht geladen werden'))
     imGebinde = (data ?? []) as AR[]
     // KAN-83 (01.10.2026): Wein/Most in ein Gebinde, in dem eine Charge mit geltender Prüfnummer

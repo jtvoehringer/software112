@@ -24,6 +24,7 @@ import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMome
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 import { rund } from '@/lib/zahl/runden'
 import { quellGebinde, selbesGebindeFehler } from '@/lib/kellerbuch/umzugGebinde'
+import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -281,9 +282,9 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
     const { data: qRows, error: qErr } = await (supabase.from('weinausbau') as any)
       .select('id, name, weinart, rebsorte').in('id', quellen.map(q => q.weinausbau_id)).eq('tenant_id', tenantId)
     // alle-ausnahme: Chargen in den Zielgebinden eines einzelnen Umzugs
-    const { data: zRows, error: zErr } = await (supabase.from('weinausbau') as any)
+    const { data: zRows, error: zErr } = await nurBelegendeChargen((supabase.from('weinausbau') as any)
       .select('id, name, weinart, rebsorte, behaelter_id').in('behaelter_id', ziele.map(z => z.behaelter_id))
-      .eq('aktiv', true).neq('status', 'abgeschlossen').eq('tenant_id', tenantId)
+      .eq('tenant_id', tenantId))
     // KAN-253: mit leeren Listen fände die Rot-/Weiß-Sperre (Weingesetz) nichts und ließe den Umzug zu
     if (qErr || zErr) throw new AktionsFehler(dbFehlerText(qErr ?? zErr, 'Chargen konnten nicht geladen werden'))
     const sorten = [...new Set([...(qRows ?? []), ...(zRows ?? [])].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
@@ -350,12 +351,10 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
   const wahl: ZielWahl[] = []
   for (const z of ziele) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: vRaw, error: vErr } = await (supabase.from('weinausbau') as any)
+    const { data: vRaw, error: vErr } = await nurBelegendeChargen((supabase.from('weinausbau') as any)   // KAN-358: Belegung wie leereGebinde.ts
       .select('id, name, rebsorte, jahrgang, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, menge_liter')
       .eq('behaelter_id', z.behaelter_id)
-      .eq('aktiv', true)
-      .neq('status', 'abgeschlossen')
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenantId))
     if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Ziel-Chargen konnten nicht geladen werden'))
     wahl.push({ z, ...waehleZielCharge(((vRaw ?? []) as R[]).filter(v => !quellIds.has(v.id)), quellChargen) })
   }
@@ -475,12 +474,10 @@ async function umzugBuchen(
     // (Bugreport 5.8.2026: .maybeSingle() lieferte dann still null und es entstand eine weitere lose Charge).
     // KAN-112: Quell-Chargen zählen wie oben nicht als Ziel.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: vorhandenRaw, error: vorhandenErr } = await (supabase.from('weinausbau') as any)
+    const { data: vorhandenRaw, error: vorhandenErr } = await nurBelegendeChargen((supabase.from('weinausbau') as any)   // KAN-358
       .select('*')
       .eq('behaelter_id', z.behaelter_id)
-      .eq('aktiv', true)
-      .neq('status', 'abgeschlossen')
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenantId))
     if (vorhandenErr) throw new AktionsFehler(dbFehlerText(vorhandenErr, 'Ziel-Chargen konnten nicht geladen werden'))
     const vorhandenListe = ((vorhandenRaw ?? []) as R[]).filter(v => !quellIds.has(v.id))
 

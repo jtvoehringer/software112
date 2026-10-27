@@ -25,6 +25,7 @@ import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMome
 import { wienHeute } from '@/lib/csv'
 import { waehleZielCharge } from '@/lib/kellerbuch/umzugZiel'
 import { quellGebinde, selbesGebindeFehler } from '@/lib/kellerbuch/umzugGebinde'
+import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { herkunftKnoten } from '@/lib/herkunft'
 import { eroeffnungsStichtagFehler, eroeffnungsZeitpunkt, standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
@@ -586,12 +587,10 @@ async function zielChargenImGebinde(
   quellen: Map<string, number>,
 ): Promise<R[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('weinausbau') as any)
+  const { data, error } = await nurBelegendeChargen((supabase.from('weinausbau') as any)   // KAN-358: Belegung wie leereGebinde.ts
     .select('id, name, menge_liter, rebsorte, jahrgang, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, kmw, oechsle, mostgewicht_einheit')
     .eq('behaelter_id', behaelterId)
-    .eq('aktiv', true)
-    .neq('status', 'abgeschlossen')
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', tenantId))
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Ziel-Chargen konnten nicht geladen werden'))
   return ((data ?? []) as R[]).filter(c => !quellen.has(c.id))
 }
