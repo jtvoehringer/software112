@@ -4,10 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Mail } from 'lucide-react'
 
+// KAN-379: `pfad`/`titel` für den Stornobeleg (/api/weinhandel/rechnungen/[id]/send) – sonst die Rechnung eines Lieferscheins
 export default function RechnungVersandPanel({
-  verkaufId, defaultEmail, sentAt, sentTo,
+  verkaufId, defaultEmail, sentAt, sentTo, pfad, titel = 'Rechnung',
 }: {
-  verkaufId: string
+  verkaufId?: string
+  pfad?: string
+  titel?: string
   defaultEmail: string
   sentAt: string | null
   sentTo: string | null
@@ -24,7 +27,7 @@ export default function RechnungVersandPanel({
     setSending(true)
     setError('')
     try {
-      const res = await fetch(`/api/weinhandel/verkauf/${verkaufId}/send`, {
+      const res = await fetch(pfad ?? `/api/weinhandel/verkauf/${verkaufId}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: to.trim(), message: message.trim() || undefined }),
@@ -60,7 +63,7 @@ export default function RechnungVersandPanel({
 
       {open && (
         <div className="card p-5 space-y-3 no-print w-full">
-          <p className="text-sm font-semibold text-s112-text">Rechnung per E-Mail senden</p>
+          <p className="text-sm font-semibold text-s112-text">{titel} per E-Mail senden</p>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Empfänger-E-Mail-Adresse</label>
             <input aria-label="Empfänger-E-Mail-Adresse" type="email" value={to} onChange={e => setTo(e.target.value)}

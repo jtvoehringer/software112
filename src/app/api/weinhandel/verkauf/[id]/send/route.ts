@@ -11,12 +11,10 @@ import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { lieferadresseZeilen } from '@/lib/crm/lieferadressen'
 import { landAnzeige } from '@/lib/katalog/laender'
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
-import { decryptPass } from '@/lib/email/crypto'
-import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { belegPerMailSenden } from '@/lib/email/belegVersand'
 import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { wienTag } from '@/lib/datum/wien'
@@ -24,7 +22,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
-import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -248,77 +246,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const admin = createSupabaseAdminClient()
 
-  // ── Per-User M365-Mailbox hat höchste Priorität (wie /api/email/unified) ──
-  const { data: userCfgRaw, error: userCfgErr } = await (admin.from('user_email_connections') as any)
-    .select('id, m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at')
-    .eq('tenant_id', tenantId).eq('user_id', authUser.id).maybeSingle()
-  if (userCfgErr) return NextResponse.json({ error: `Postfach-Verbindung konnte nicht geladen werden: ${dbFehlerText(userCfgErr)}` }, { status: 500 })
-  const userCfg = userCfgRaw as R | null
-
-  let sentVia: 'm365' | 'smtp' | null = null
-
-  try {
-    if (userCfg?.m365_aktiv && userCfg?.m365_access_token_enc) {
-      const { data: tcfgRaw, error: tcfgErr } = await (admin.from('tenant_einstellungen') as any)
-        .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')
-        .eq('tenant_id', tenantId).maybeSingle()
-      if (tcfgErr) return NextResponse.json({ error: `M365-Einstellungen konnten nicht geladen werden: ${dbFehlerText(tcfgErr)}` }, { status: 500 })
-      const token = await getValidUserAccessToken(userCfg, tcfgRaw as R, admin, tenantId, authUser.id)
-
-      const draftRes = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject,
-          body: { contentType: 'Text', content: mailText },
-          toRecipients: [{ emailAddress: { address: recipient } }],
-          attachments: [{
-            '@odata.type': '#microsoft.graph.fileAttachment',
-            name: filename,
-            contentBytes: pdfBuffer.toString('base64'),
-          }],
-        }),
-      })
-      if (!draftRes.ok) throw new AktionsFehler(`Graph-Entwurf fehlgeschlagen: ${draftRes.status} ${await draftRes.text()}`)
-      const draft = await draftRes.json() as R
-      if (draft.id) {
-        const sendRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}/send`, {
-          method: 'POST', headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!sendRes.ok) throw new AktionsFehler(`Graph-Versand fehlgeschlagen: ${sendRes.status} ${await sendRes.text()}`)
-      }
-      sentVia = 'm365'
-    } else {
-      const { data: tenantCfgRaw, error: tenantCfgErr } = await (admin.from('tenant_einstellungen') as any)
-        .select('email_modul_aktiv, email_smtp_host, email_smtp_port, email_smtp_user, email_smtp_pass_enc, email_smtp_from_name')
-        .eq('tenant_id', tenantId).maybeSingle()
-      if (tenantCfgErr) return NextResponse.json({ error: `E-Mail-Einstellungen konnten nicht geladen werden: ${dbFehlerText(tenantCfgErr)}` }, { status: 500 })
-      const c = tenantCfgRaw as R | null
-      if (!c?.email_modul_aktiv || !c.email_smtp_host || !c.email_smtp_user || !c.email_smtp_pass_enc) {
-        return NextResponse.json({
-          error: 'Kein E-Mail-Versand konfiguriert. Bitte in den Admin-Einstellungen eine Microsoft-365-Mailbox verbinden oder SMTP-Zugangsdaten hinterlegen.',
-        }, { status: 400 })
-      }
-      const pass = decryptPass(c.email_smtp_pass_enc)
-      const transporter = nodemailer.createTransport({
-        host: c.email_smtp_host,
-        port: Number(c.email_smtp_port) || 587,   // null-vorgabe-ok: Port 0 ist ungültig – Standardport des Protokolls
-        secure: Number(c.email_smtp_port) === 465,
-        auth: { user: c.email_smtp_user, pass },
-      })
-      await transporter.sendMail({
-        from: `"${c.email_smtp_from_name ?? bName}" <${c.email_smtp_user}>`,
-        to: recipient,
-        subject,
-        text: mailText,
-        attachments: [{ filename, content: pdfBuffer }],
-      })
-      sentVia = 'smtp'
-    }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unbekannter Fehler beim Versand'
-    return NextResponse.json({ error: msg }, { status: 502 })
-  }
+  // KAN-379: Versand über den gemeinsamen Helfer (M365-Mailbox des Benutzers, sonst SMTP des Betriebs)
+  const versand = await belegPerMailSenden({
+    admin, tenantId, userId: authUser.id, an: recipient, betreff: subject, text: mailText, dateiname: filename, pdf: pdfBuffer,
+    absenderName: bName,
+  })
+  if (!versand.ok) return NextResponse.json({ error: versand.fehler }, { status: versand.status })
+  const sentVia = versand.via
 
   const sentAt = new Date().toISOString()
   { const { error: e } = await (supabase.from('verkaufsposten') as any)

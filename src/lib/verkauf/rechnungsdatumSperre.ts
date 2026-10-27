@@ -76,15 +76,6 @@ export function datumAt(tag: string): string {
 }
 
 /**
- * Storno einer Rechnung im gesperrten Zeitraum – vorläufig abgelehnt (Entscheidung Jörgen 23.10.2026), bis KAN-379 die
- * Gegenbuchung im offenen Zeitraum bringt. Wortgleich mit der Meldung der Datenbank (Trigger a_ea_periodensperre).
- */
-export function stornoSperreMeldung(rechnungsnummer: string | null, datum: string): string {
-  return `Storno nicht möglich: Die Rechnung ${rechnungsnummer ?? '(ohne Nummer)'} liegt im abgeschlossenen Zeitraum `
-    + `${datum.slice(5, 7)}/${datum.slice(0, 4)}. Die Gegenbuchung im offenen Zeitraum folgt mit KAN-379.`
-}
-
-/**
  * Meldung wie die der Datenbank („Rechnung mit Datum … nicht möglich: <Grund> …“), ergänzt um den ersten offenen Tag
  * und – beim Verkauf mit sofortiger Rechnung – den Weg über „Rechnung später“.
  */

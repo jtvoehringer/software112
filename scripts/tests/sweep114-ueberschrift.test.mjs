@@ -25,7 +25,7 @@ describe('Sweep 114: Hauptüberschriften', () => {
       'src/app/(auth)/login/page.tsx': '>Anmelden</h1>',
       'src/app/(dashboard)/nachrichten/page.tsx': '<h1 className="sr-only">Nachrichten</h1>',
       'src/app/(dashboard)/dac/[id]/etikett/page.tsx': '<h1 className="sr-only">Weinetikett {dac.bezeichnung}</h1>',
-      'src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx': '<h1 className="text-3xl font-semibold">RECHNUNG</h1>',
+      'src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx': "<h1 className=\"text-3xl font-semibold\">{storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</h1>",
       'src/app/(dashboard)/kellerbuch/fuellung/[id]/blend-protokoll/page.tsx': 'Blend-Protokoll\n            </h1>',
       'src/app/(dashboard)/kellerbuch/weinausbau/[id]/blend-protokoll/page.tsx': 'Blend-Protokoll\n            </h1>',
       [R + 'ama/page.tsx']: '>AMA Weinerntemeldung</h1>',

@@ -17,12 +17,16 @@
 // KAN-105 Teil B (08.10.2026, Entscheidung Jörgen): Export-Rechnungen (Exportauftrag mit ausgestellter Exportrechnung)
 // stehen mit ihrer Exportnummer als eigener Nummernkreis im Journal – steuerfreie Ausfuhr (0 %), Rechnungsdatum =
 // Datum des Auftrags (wie auf der Exportrechnung), Lückenprüfung je Kreis. Einen Zahlungsstatus führt der Export nicht.
+// KAN-379 (27.10.2026): Ein Storno erzeugt einen Stornobeleg (ST-…, eigener Nummernkreis) – eigene Zeile mit negativen
+// Beträgen am Storno-Datum und „Storno zu“ = Nummer des Originals. Das Original bleibt mit seinen Beträgen und
+// „Storniert durch“; die Summe aller Zeilen stimmt damit (wie die UVA). Nur vor KAN-379 stornierte Rechnungen (ohne
+// Stornobeleg) muss man für Summen weiter herausfiltern.
 
 import { momentaufnahmenAnwenden } from '../stammdaten/momentaufnahme'
 import { rundeText, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { text, zahl } from './buchhaltung-gemeinsam'
-import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
+import { alsBeleg, istStornobeleg, lieferscheineSelect, STORNO_FELDER } from '@/lib/verkauf/rechnungen'
 import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,6 +63,10 @@ export type RechnungsjournalZeile = {
   /** KAN-149 D1: wer storniert hat und warum (ältere Stornos ohne) */
   storniertVon: string | null
   stornoGrund: string | null
+  /** KAN-379: Rechnung → Nummer ihres Stornobelegs */
+  storniertDurch: string | null
+  /** KAN-379: Stornobeleg → Nummer der stornierten Rechnung */
+  stornoZu: string | null
   bezahlt: boolean
   /** verkaufsposten.bezahlt_am (timestamptz) */
   bezahltAm: string | null
@@ -89,9 +97,19 @@ export const SPALTEN_RECHNUNGSJOURNAL: CsvSpalte<RechnungsjournalZeile>[] = [
   { kopf: 'Storniert am', typ: 'datum', wert: z => z.storniertAm },
   { kopf: 'Storniert von', typ: 'text', wert: z => z.storniertVon },
   { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
+  { kopf: 'Storniert durch', typ: 'code', wert: z => z.storniertDurch },
+  { kopf: 'Storno zu', typ: 'code', wert: z => z.stornoZu },
   { kopf: 'Bezahlt', typ: 'janein', wert: z => z.bezahlt },
   { kopf: 'Bezahlt am', typ: 'datum', wert: z => z.bezahltAm },
 ]
+
+/**
+ * KAN-379: Zählt die Zeile zur Summe? Nicht stornierte Rechnungen, Stornobelege und Rechnungen mit Stornobeleg (der
+ * Stornobeleg bucht gegen); nur vor KAN-379 stornierte Rechnungen (ohne Stornobeleg) nicht.
+ */
+export function zaehltInJournalSumme(z: RechnungsjournalZeile): boolean {
+  return !z.storniert || !!z.storniertDurch
+}
 
 /** Ein Verkaufsbeleg (mit Positionen, Kontakt/Firma) → Journalzeile; sonstige = abweichende Steuersätze */
 export function rechnungsjournalZeile(p: R): { zeile: RechnungsjournalZeile; sonstigeSaetze: number[] } {
@@ -137,7 +155,9 @@ export function rechnungsjournalZeile(p: R): { zeile: RechnungsjournalZeile; son
       storniert: !!p.storniert,
       storniertAm: p.storniert ? text(p.storniert_am) : null,
       storniertVon: p.storniert ? text(p.storniert_von_name) : null,
-      stornoGrund: p.storniert ? text(p.storno_grund) : null,
+      stornoGrund: p.storniert ? text(p.storno_grund) : istStornobeleg(p) ? text(p.notizen) : null,
+      storniertDurch: p.storniert ? text(p.storniert_durch?.rechnungsnummer) : null,
+      stornoZu: istStornobeleg(p) ? text(p.storno_von?.rechnungsnummer) : null,
       bezahlt: !!p.bezahlt,
       bezahltAm: p.bezahlt ? text(p.bezahlt_am) : null,
       quelle: p.quelle === 'export' ? 'export' : 'rechnung',
@@ -217,7 +237,8 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
   // storno-sichtbar: Rechnungsjournal zeigt stornierte Rechnungen gekennzeichnet (Lückenlosigkeit der Nummern)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: roh, error } = await alle<R>((supabase.from('rechnungen') as any)
-    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am, partner_daten, storno_positionen,
+    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am, partner_daten, storno_positionen, notizen,
+      ${STORNO_FELDER},
       kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer, debitor_nr, land),
       firma:firmen!firma_id(name, uid_nummer, accountnummer, debitor_nr, land),
       ${lieferscheineSelect('preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz')}`)
@@ -275,7 +296,11 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
     warnungen.push(`Steuersätze ohne eigene Spalte (${[...sonstige].map(s => `${rundeText(s, 2).replace(/\.?0+$/, '').replace('.', ',')} %`).join(', ')}) – nur in „Netto gesamt“ und „USt gesamt“ enthalten.`)
   }
   if (deaktiviert > 0) warnungen.push(`${deaktiviert} deaktivierte ${deaktiviert === 1 ? 'Verkaufsbeleg ist' : 'Verkaufsbelege sind'} der Vollständigkeit halber enthalten.`)
-  const storniert = zeilen.filter(z => z.storniert).length
-  if (storniert > 0) warnungen.push(`${storniert} ${storniert === 1 ? 'Rechnung ist' : 'Rechnungen sind'} storniert und mit ihren ursprünglichen Beträgen aufgeführt (Spalte „Storniert“) – für Summen herausfiltern.`)
+  // KAN-379: Rechnungen mit Stornobeleg zählen in der Summe mit (der Stornobeleg bucht gegen), Altfälle nicht
+  const altStorniert = zeilen.filter(z => z.storniert && !z.storniertDurch).length
+  if (altStorniert > 0) warnungen.push(`${altStorniert} ${altStorniert === 1 ? 'Rechnung ist' : 'Rechnungen sind'} ohne Stornobeleg storniert und mit ihren ursprünglichen Beträgen aufgeführt (Spalte „Storniert“, „Storniert durch“ leer) – für Summen herausfiltern.`)
+  const mitBeleg = zeilen.filter(z => z.storniert && z.storniertDurch).length
+  const stornobelege = zeilen.filter(z => z.stornoZu).length
+  if (mitBeleg + stornobelege > 0) warnungen.push(`Stornos mit Stornobeleg: ${mitBeleg} stornierte ${mitBeleg === 1 ? 'Rechnung' : 'Rechnungen'} und ${stornobelege} ${stornobelege === 1 ? 'Stornobeleg' : 'Stornobelege'} (negative Beträge, Spalte „Storno zu“) im Zeitraum – beide zählen in der Summe, der Stornobeleg bucht am Storno-Datum gegen.`)
   return { zeilen, warnungen }
 }

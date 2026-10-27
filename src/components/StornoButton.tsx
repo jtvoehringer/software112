@@ -9,10 +9,12 @@ import { useId, useState } from 'react'
 import { Trash2, Undo2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { STORNO_GRUND_MIN, stornoGrundFehler } from '@/lib/storno/grund'
+import { stornoDatumFehler } from '@/lib/storno/datum'
 
 interface Props {
-  /** Server Action mit dem Grund (und dem optionalen Datum, siehe `datumFeld`) */
-  action: (grund: string, datum: string | null) => Promise<void | { error?: string }>
+  /** Server Action mit dem Grund, dem optionalen Datum (siehe `datumFeld`) und dem Storno-Datum (siehe `stornoDatum`);
+   *  `feld: 'datum'` zeigt die Ablehnung am Storno-Datum */
+  action: (grund: string, datum: string | null, stornoDatum: string | null) => Promise<void | { error?: string; feld?: 'datum' }>
   /** Was passiert (z. B. „Quelle und Ziel werden zurückgebucht …“) */
   hinweis: string
   /** Beschriftung (Tooltip/Screenreader); Standard je Modus */
@@ -23,32 +25,44 @@ interface Props {
   danach?: () => void
   /** KAN-149 D2b: optionales Datumsfeld (z. B. „Erstattet am“) – leer = null */
   datumFeld?: { label: string; hilfe?: string }
+  /** KAN-379: Pflichtfeld „Storno-Datum“ (Stornobeleg, Rückbuchung) – vorbelegt mit heute, nicht vor `ab`
+   *  (Beleg-/Rechnungsdatum), nicht in der Zukunft; den gesperrten Zeitraum prüft die Datenbank */
+  stornoDatum?: { heute: string; ab?: string | null; hilfe?: string }
   /** Formular schwebend unter dem Knopf (rechtsbündig) statt in der Zelle – für schmale Aktionsspalten in Tabellen,
    *  deren Spaltenbreite sich beim Öffnen nicht ändern soll */
   schwebend?: boolean
 }
 
-export default function StornoButton({ action, hinweis, label, modus = 'storno', danach, datumFeld, schwebend }: Props) {
+export default function StornoButton({ action, hinweis, label, modus = 'storno', danach, datumFeld, stornoDatum, schwebend }: Props) {
   const loeschen = modus === 'loeschen'
   const text = label ?? (loeschen ? 'Löschen' : 'Stornieren')
   const id = useId()
   const [offen, setOffen] = useState(false)
   const [grund, setGrund] = useState('')
   const [datum, setDatum] = useState('')
+  const [sDatum, setSDatum] = useState(stornoDatum?.heute ?? '')
   const [fehler, setFehler] = useState<string | null>(null)
+  const [datumFehler, setDatumFehler] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
   async function absenden() {
     const f = loeschen ? stornoGrundFehler(grund)?.replace('den Storno', 'das Löschen') ?? null : stornoGrundFehler(grund)
-    if (f) { setFehler(f); return }
-    setFehler(null)
+    const df = stornoDatum ? stornoDatumFehler(sDatum, stornoDatum) : null
+    setFehler(f)
+    setDatumFehler(df)
+    if (f || df) return
     setPending(true)
     try {
-      const r = await action(grund.trim(), datum || null)
-      if (r && 'error' in r && r.error) { setFehler(r.error); return }
+      const r = await action(grund.trim(), datum || null, stornoDatum ? sDatum : null)
+      if (r && 'error' in r && r.error) {
+        if (r.feld === 'datum' && stornoDatum) setDatumFehler(r.error)
+        else setFehler(r.error)
+        return
+      }
       setOffen(false)
       setGrund('')
       setDatum('')
+      setSDatum(stornoDatum?.heute ?? '')
       danach?.()
     } catch (err) {
       setFehler(fehlerText(err, loeschen ? 'Löschen fehlgeschlagen' : 'Storno fehlgeschlagen'))
@@ -88,6 +102,17 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
         minLength={STORNO_GRUND_MIN} aria-invalid={!!fehler || undefined} aria-describedby={fehler ? `${id}-f` : undefined}
         placeholder="z. B. Menge falsch erfasst, doppelt gebucht"
         className="w-full border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+      {stornoDatum && (
+        <label className="text-[11px] font-medium text-s112-text-1">
+          Storno-Datum <span className="text-s112-err">*</span>
+          <input type="date" required value={sDatum} onChange={e => setSDatum(e.target.value)}
+            min={stornoDatum.ab?.slice(0, 10) || undefined} max={stornoDatum.heute}
+            aria-invalid={!!datumFehler || undefined} aria-describedby={datumFehler ? `${id}-df` : undefined}
+            className="mt-0.5 block w-full border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+          {datumFehler && <span id={`${id}-df`} role="alert" className="block font-normal text-s112-err-fg">{datumFehler}</span>}
+          {stornoDatum.hilfe && <span className="block font-normal text-s112-muted">{stornoDatum.hilfe}</span>}
+        </label>
+      )}
       {datumFeld && (
         <label className="text-[11px] font-medium text-s112-text-1">
           {datumFeld.label}
@@ -98,7 +123,7 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
       )}
       {fehler && <span id={`${id}-f`} role="alert" className="text-[11px] leading-snug text-s112-err-fg">{fehler}</span>}
       <span className="flex justify-end gap-2">
-        <button type="button" onClick={() => { setOffen(false); setFehler(null) }} disabled={pending}
+        <button type="button" onClick={() => { setOffen(false); setFehler(null); setDatumFehler(null) }} disabled={pending}
           className="text-xs text-s112-text-2 hover:text-s112-text-1 px-1">Abbrechen</button>
         <button type="button" onClick={absenden} disabled={pending}
           className="text-xs bg-s112-err text-white px-2 py-0.5 rounded-sm font-medium disabled:opacity-50">

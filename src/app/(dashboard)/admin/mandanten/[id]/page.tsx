@@ -69,6 +69,10 @@ export type TenantSettings = {
   // Migration 189 – Suffix mit {JJ}/{JJJJ}-Jahresplatzhalter, steuert den
   // automatischen Jahreswechsel-Reset in get_next_rechnungsnummer().
   rechnung_suffix:   string
+  // KAN-379: Nummernkreis Stornobeleg (ST-JJJJ-NNNN, Jahr = Storno-Datum)
+  storno_prefix:     string
+  storno_stellen:    number
+  storno_zaehler:    number
   account_prefix:     string
   account_zaehler:    number
   account_stellen:    number
@@ -263,6 +267,9 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     rechnung_zaehler:  s?.rechnung_zaehler ?? 1,
     rechnung_stellen:  s?.rechnung_stellen ?? 4,
     rechnung_suffix:   s?.rechnung_suffix ?? '',
+    storno_prefix:     s?.storno_prefix ?? 'ST',
+    storno_stellen:    s?.storno_stellen ?? 4,
+    storno_zaehler:    s?.storno_zaehler ?? 1,
     account_prefix:     s?.account_prefix ?? 'K',
     account_zaehler:    s?.account_zaehler ?? 1,
     account_stellen:    s?.account_stellen ?? 4,

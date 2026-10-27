@@ -29,10 +29,41 @@ export function positionenDerRechnung(r: R): R[] {
 }
 
 /**
+ * KAN-379: select-Teil für Stornobelege (rechnungen.art = 'storno') – der Stornobeleg rechnet mit der Momentaufnahme
+ * seines Originals (storno_von), das Original nennt seinen Stornobeleg (storniert_durch). Jeder Leser, der Beträge
+ * braucht, nimmt das mit; alsBeleg() macht daraus negative Positionen.
+ */
+export const STORNO_FELDER =
+  'art, storniert_durch_id, storno_von:rechnungen!storno_von_id(id, rechnungsnummer, datum, storno_positionen), storniert_durch:rechnungen!storniert_durch_id(id, rechnungsnummer, datum)'
+
+/** KAN-379: Stornobeleg (Gegenbuchung zu einer Rechnung)? */
+export function istStornobeleg(r: R): boolean {
+  return r.art === 'storno'
+}
+
+/**
+ * KAN-379: Zählt die Rechnung mit ihren Beträgen (Umsatz, BMD, Journal-Summen)? Eine Rechnung mit Stornobeleg bleibt in
+ * ihrem Zeitraum wirksam (der Stornobeleg bucht im Zeitraum seines Datums gegen, wie die UVA); eine vor KAN-379
+ * stornierte Rechnung (ohne Stornobeleg) zählt wie bisher nicht.
+ */
+export function zaehltMitBetrag(r: R): boolean {
+  if (r.aktiv === false) return false
+  if (istStornobeleg(r)) return true
+  return r.storniert !== true || !!r.storniert_durch_id
+}
+
+/**
  * Rechnung in die Form bringen, die die Leser bisher vom Verkaufsposten kannten: verkauf_positionen = Positionen aller
  * Lieferscheine, lieferscheine = sortiert, verkaufsposten_ids = Lieferscheine (für Verknüpfungen wie den BMD-Export).
  */
 export function alsBeleg<T extends R>(r: T): T & { verkauf_positionen: R[]; lieferscheine: R[]; verkaufsposten_ids: string[] } {
+  // KAN-379: Stornobeleg = Positionen des Originals (Momentaufnahme) mit negativer Menge – alle Beträge negativ, je
+  // Position betragsgleich zum Original (rund() rundet symmetrisch)
+  if (istStornobeleg(r)) {
+    const original = ((r.storno_von?.storno_positionen ?? []) as R[])
+    const verkauf_positionen = original.map(p => ({ ...p, menge: -(Number(p.menge) || 0) }))
+    return { ...r, lieferscheine: [], verkauf_positionen, verkaufsposten_ids: [] }
+  }
   const lieferscheine = lieferscheineDerRechnung(r)
   // KAN-103: Eine stornierte Rechnung hat keine Lieferscheine mehr (die sind wieder „nicht berechnet“) – ihre Beträge
   // stehen in der Momentaufnahme storno_positionen (Rechnungsjournal: stornierte Rechnungen mit ihren Beträgen)

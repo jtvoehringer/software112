@@ -1317,6 +1317,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 's112_rechnungsnummer_ziehen(p_tenant_id uuid)'),   -- KAN-21: Zähler ohne Zugriffsprüfung (Trigger)
     ('trigger',       '--S', false, 's112_rechnungsnummer_vergeben()'),   -- KAN-21: Rechnungsnummer im Insert, unveränderlich per API
     ('intern',        '--S', false, 's112_lieferscheinnummer_ziehen(p_tenant_id uuid)'),   -- KAN-102: Lieferschein-Zähler (Trigger)
+    ('intern',        '--S', false, 's112_stornonummer_ziehen(p_tenant_id uuid, p_datum date)'),   -- KAN-379: Zähler der Stornobelege
+    ('intern',        '--S', false, 's112_stornobeleg_anlegen(p_tenant_id uuid, p_rechnung_id uuid, p_grund text, p_datum date)'),   -- KAN-379: Stornobeleg (Rechnungsstorno, Verkauf samt Rechnung, Spiegel)
     ('trigger',       '--S', false, 's112_lieferscheinnummer_vergeben()'),   -- KAN-102: Lieferscheinnummer im Insert
     ('trigger',       '--S', false, 's112_rechnung_aus_lieferschein()'),   -- KAN-102: Rechnung im Insert (Übergang 1:1)
     ('trigger',       '--S', false, 's112_rechnung_id_schutz()'),   -- KAN-102: rechnung_id nicht per API
@@ -1325,8 +1327,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_zahlung_rechnung()'),   -- KAN-105: Zahlung an die Rechnung des Lieferscheins
     ('trigger',       '--S', false, 's112_lieferschein_storno_sperre()'),   -- KAN-103: berechneter Lieferschein nicht stornierbar
     ('mandant',       '-US', true , 's112_rechnung_erstellen(p_tenant_id uuid, p_lieferscheine uuid[], p_datum date, p_preise jsonb, p_notizen text)'),   -- KAN-103/104: Rechnung aus Lieferscheinen
-    ('mandant',       '-US', true , 's112_rechnung_stornieren(p_tenant_id uuid, p_rechnung_id uuid, p_grund text)'),   -- KAN-103: Rechnungsstorno
-    ('mandant',       '-US', true , 's112_verkauf_samt_rechnung_stornieren(p_tenant_id uuid, p_verkaufsposten_id uuid, p_grund text)'),   -- KAN-356: Verkauf samt Rechnung in einer Transaktion
+    ('mandant',       '-US', true , 's112_rechnung_stornieren(p_tenant_id uuid, p_rechnung_id uuid, p_grund text, p_datum date)'),   -- KAN-103/KAN-379: Rechnungsstorno mit Stornobeleg
+    ('mandant',       '-US', true , 's112_verkauf_samt_rechnung_stornieren(p_tenant_id uuid, p_verkaufsposten_id uuid, p_grund text, p_datum date)'),   -- KAN-356/KAN-379: Verkauf samt Rechnung in einer Transaktion
     ('mandant',       '-US', true , 'get_next_transaktionsnr(p_tenant_id uuid, p_typ text)'),
     ('rls_hilfe',     '-US', false, 'get_user_role_in_tenant(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 'get_user_tenant_ids()'),

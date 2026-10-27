@@ -55,14 +55,15 @@ describe('KAN-356: App', () => {
     const fn = action.slice(action.indexOf('export async function verkaufSamtRechnungStornieren'))
     const body = fn.slice(0, fn.indexOf('\n}\n'))
     assert.match(body, /canWrite\(m, 'warenwirtschaft'\)/)
-    assert.match(body, /rechnungStornoFehler\(/)
+    assert.doesNotMatch(body, /rechnungStornoFehler\(/)   // KAN-379: Zeitraum prüft die Datenbank (Stornobeleg)
     assert.match(body, /rpc\('s112_verkauf_samt_rechnung_stornieren'/)
-    assert.match(body, /erwarteteDbAblehnung\(error\)\) return \{ error:/)
+    // KAN-379: Ablehnungen als { error }, die zum Storno-Datum mit feld: 'datum'
+    assert.match(body, /if \(erwarteteDbAblehnung\(error\)\) \{\n\s+const meldung = dbFehlerText\(error, 'Verkauf und Rechnung konnten nicht storniert werden'\)\n\s+return istStornoDatumAblehnung/)
     assert.doesNotMatch(body, /verkaufspostenStornieren|s112_rechnung_stornieren/)
   })
   test('Knopf nur bei eigener Rechnung mit einem Lieferschein, ohne ausgestellte Transportbescheinigung, ohne Sperre', () => {
     assert.match(seite, /const samtStornoAction = eigeneRechnung && !sammelrechnung && !posten\.storniert && !tbAusgestellt/)
-    assert.match(seite, /\{writeOk && samtStornoAction && !stornoGesperrt && <VerkaufSamtRechnungStornoKnopf action=\{samtStornoAction\} \/>\}/)
+    assert.match(seite, /\{writeOk && samtStornoAction && <VerkaufSamtRechnungStornoKnopf action=\{samtStornoAction\} stornoDatum=\{stornoDatumRechnung\} \/>\}/)
     const knopf = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/VerkaufSamtRechnungStornoKnopf.tsx')
     assert.match(knopf, /label="Verkauf samt Rechnung stornieren"/)
   })

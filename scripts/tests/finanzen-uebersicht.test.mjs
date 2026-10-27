@@ -370,7 +370,9 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     const tenants = db.aufrufe.find(a => a.tabelle === 'tenants')
     assert.ok(tenants.filter.some(f => f[0] === 'eq' && f[1] === 'id' && f[2] === T))
     const verkauf = db.aufrufe.find(a => a.tabelle === 'rechnungen')
-    for (const [k, v] of [['aktiv', true], ['storniert', false]]) assert.ok(verkauf.filter.some(f => f[0] === 'eq' && f[1] === k && f[2] === v), k)
+    assert.ok(verkauf.filter.some(f => f[0] === 'eq' && f[1] === 'aktiv' && f[2] === true), 'aktiv')
+    // KAN-379: nicht storniert oder storniert mit Stornobeleg
+    assert.ok(verkauf.filter.some(f => f[0] === 'or' && f[1] === 'storniert.eq.false,storniert_durch_id.not.is.null'), 'storniert')
   })
 
   test('leere Datenbank: alles 0 bzw. leer, UVA „fehlt“, alle abgelaufenen Monate offen', async () => {

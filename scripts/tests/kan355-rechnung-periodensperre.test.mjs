@@ -161,50 +161,30 @@ describe('KAN-355: Verkauf mit „Rechnung sofort“ im abgeschlossenen Zeitraum
   })
 })
 
-describe('KAN-355: Storno einer Rechnung im gesperrten Zeitraum vorläufig gesperrt (bis KAN-379)', nurMitHooks, () => {
-  const MELDUNG = 'Storno nicht möglich: Die Rechnung RE-0039 liegt im abgeschlossenen Zeitraum 03/2026. Die Gegenbuchung im offenen Zeitraum folgt mit KAN-379.'
-  test('Meldung wortgleich mit der Datenbank', () => {
-    assert.equal(sperre.stornoSperreMeldung('RE-0039', '2026-03-16'), MELDUNG)
-  })
-  test('rechnungStornoFehler: gesperrt → Meldung; offen, storniert, ohne Rechnung → null; Lesefehler → Meldung', async () => {
-    assert.equal(await rd.rechnungStornoFehler(db(), T, RE_ZU), MELDUNG)
-    assert.equal(await rd.rechnungStornoFehler(db(), T, RE_OFFEN), null)
-    assert.equal(await rd.rechnungStornoFehler(db(), T, null), null)
-    const d = db(); d.tabellen.rechnungen[0].storniert = true
-    assert.equal(await rd.rechnungStornoFehler(d, T, RE_ZU), null)
-    const f = datenbank({ rechnungen: [] }, { vorher: e => (e.tabelle === 'rechnungen' ? { error: { message: 'weg' } } : null) })
-    assert.match(await rd.rechnungStornoFehler(f, T, RE_ZU), /Rechnung konnte nicht geladen werden/)
-  })
-  test('rechnungStornieren: gesperrt → { error } ohne RPC; offen → RPC; Ablehnung der RPC → { error }', async () => {
+describe('KAN-379: Storno einer Rechnung im gesperrten Zeitraum über den Stornobeleg (Sperre aus KAN-355 entfällt)', nurMitHooks, () => {
+  test('rechnungStornieren: keine Vorabsperre mehr – auch im gesperrten Zeitraum direkt die RPC; Ablehnung → { error }', async () => {
     let d = db()
-    assert.deepEqual(await verkauf.rechnungStornieren(RE_ZU, VP_ZU, 'Preis falsch verrechnet'), { error: MELDUNG })
-    assert.ok(!rpcs(d).includes('rpc:s112_rechnung_stornieren'))
+    assert.equal(await verkauf.rechnungStornieren(RE_ZU, VP_ZU, 'Preis falsch verrechnet'), undefined)
+    assert.deepEqual(rpcs(d), ['rpc:s112_rechnung_stornieren'])
+    const MELDUNG = 'Storno mit Datum 16.03.2026 nicht möglich: Monat 3/2026 ist bereits abgeschlossen. Bitte ein Storno-Datum im offenen Zeitraum wählen.'
+    db({ erstellenFehler: { code: '42501', message: MELDUNG, hint: 'periodensperre' } })
+    // KAN-379 Teil 3: Ablehnung zum Datum (Periodensperre) erscheint am Feld „Storno-Datum“
+    assert.deepEqual(await verkauf.rechnungStornieren(RE_ZU, VP_ZU, 'Preis falsch verrechnet'), { error: MELDUNG, feld: 'datum' })
     d = db()
-    assert.equal(await verkauf.rechnungStornieren(RE_OFFEN, VP_ZU, 'Preis falsch verrechnet'), undefined)
-    assert.ok(rpcs(d).includes('rpc:s112_rechnung_stornieren'))
-    db({ erstellenFehler: { code: '42501', message: MELDUNG, hint: 'periodensperre_storno' } })
-    assert.deepEqual(await verkauf.rechnungStornieren(RE_OFFEN, VP_ZU, 'Preis falsch verrechnet'), { error: MELDUNG })
-    db()
     assert.match((await verkauf.rechnungStornieren(RE_OFFEN, VP_ZU, 'kurz')).error, /Grund/)
+    assert.deepEqual(rpcs(d), [])
   })
-  test('stornoVerkauf (Spiegel-Rechnung im gesperrten Zeitraum) → { error } vor jeder Rückbuchung', async () => {
-    const d = db()
-    assert.deepEqual(await verkauf.stornoVerkauf(VP_ZU, 'Kunde hat storniert, falsch erfasst'), { error: MELDUNG })
-    assert.deepEqual(d.aufrufe.filter(a => a.art !== 'select').map(a => a.tabelle), ['rpc:pruefe_ea_zeitraum_offen'])
-  })
-  test('verkaufspostenStornieren (auch Traubenverkauf-Storno) prüft vor der Rückbuchung', () => {
-    const b = quelle('src/lib/verkauf/bestand.ts')
-    const i = b.indexOf('await rechnungStornoFehler(supabase, tenantId, posten.rechnung_id')
-    assert.ok(i > 0 && i < b.indexOf('// 1. Bestand zurückbuchen'))
-  })
-  test('Verkaufsseite: Storno-Knöpfe aus, Hinweis statt dessen; Knöpfe geben { error } an StornoButton weiter', () => {
+  test('Verkaufsstorno, Verkauf samt Rechnung und Verkaufsseite ohne die vorläufige Sperre', () => {
+    assert.doesNotMatch(quelle('src/lib/verkauf/bestand.ts'), /rechnungStornoFehler/)
+    assert.doesNotMatch(quelle('src/app/(dashboard)/weinhandel/verkauf/actions.ts'), /rechnungStornoFehler/)
     const p = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/page.tsx')
-    assert.match(p, /stornoGesperrt = m && m\.startsWith\('Storno nicht möglich'\) \? m : null/)
-    assert.match(p, /!eigeneRechnung && !stornoGesperrt && \(\s*<StornoKnopf/)
-    assert.match(p, /rechnungStornoAction && !stornoGesperrt && <RechnungStornoKnopf/)
+    assert.doesNotMatch(p, /stornoGesperrt/)
+    assert.match(p, /!eigeneRechnung && \(\s*<StornoKnopf/)
+    assert.match(p, /rechnungStornoAction && <RechnungStornoKnopf/)
     for (const k of ['StornoKnopf', 'RechnungStornoKnopf']) {
       assert.match(quelle(`src/app/(dashboard)/weinhandel/verkauf/[id]/${k}.tsx`), /return await action\(grund/, k)
     }
+    assert.doesNotMatch(quelle('src/lib/verkauf/rechnungsdatumSperre.ts'), /stornoSperreMeldung|folgt mit KAN-379/)
   })
 })
 
@@ -260,7 +240,7 @@ describe('KAN-355: Datenbank – Entwurf bzw. Migration und DB-Test 83', () => {
   test('DB-Test 83 und Einstufung der Triggerfunktionen in _helfer.sql', () => {
     const t = quelle('scripts/db-tests/83_rechnung_periodensperre.sql')
     assert.match(t, /c_datei constant text := '83_rechnung_periodensperre'/)
-    for (const n of ['sofort_abgeschlossen', 'sofort_uva', 'erstellen_gesperrt', 'datum_in_gesperrt_spiegel', 'pos_preis_gesperrt', 'storno_rechnung_gesperrt', 'storno_verkauf_gesperrt', 'storno_rechnung_offen_ok', 'storno_verkauf_offen_ok', 'storno_wartung_frei', 'lieferschein_ohne_rechnung_frei']) {
+    for (const n of ['sofort_abgeschlossen', 'sofort_uva', 'erstellen_gesperrt', 'datum_in_gesperrt_spiegel', 'pos_preis_gesperrt', 'storno_rechnung_gesperrt_ok', 'storno_verkauf_gesperrt', 'storno_rechnung_offen_ok', 'storno_verkauf_offen_ok', 'storno_direkt_abgelehnt', 'lieferschein_ohne_rechnung_frei']) {
       assert.match(t, new RegExp(`'${n}'`), n)
     }
     const h = quelle('scripts/db-tests/_helfer.sql')

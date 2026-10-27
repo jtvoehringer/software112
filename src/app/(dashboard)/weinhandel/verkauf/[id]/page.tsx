@@ -12,7 +12,7 @@ import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButto
 import StornoKnopf from './StornoKnopf'
 import RechnungVersandPanel from './RechnungVersandPanel'
 import RechnungErstellenPanel from './RechnungErstellenPanel'
-import { ersterOffenerRechnungstag, rechnungStornoFehler } from '@/lib/verkauf/rechnungsdatum'
+import { ersterOffenerRechnungstag } from '@/lib/verkauf/rechnungsdatum'
 import RechnungStornoKnopf from './RechnungStornoKnopf'
 import VerkaufSamtRechnungStornoKnopf from './VerkaufSamtRechnungStornoKnopf'
 import { wienHeute } from '@/lib/csv'
@@ -175,13 +175,6 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   if (!posten.storniert && !berechnet && tenantId) {
     try { rechnungOffenAb = await ersterOffenerRechnungstag(supabase, tenantId, wienHeute()) } catch { rechnungOffenAb = null }
   }
-  // KAN-355 (vorläufig bis KAN-379): Rechnung im gesperrten Zeitraum – Storno-Knöpfe aus, Hinweis statt dessen
-  // (die Actions und die Datenbank lehnen ebenso ab; ein Prüffehler blendet nichts aus)
-  let stornoGesperrt: string | null = null
-  if (!posten.storniert && berechnet && tenantId && writeOk) {
-    const m = await rechnungStornoFehler(supabase, tenantId, String(rechnung?.id ?? ''))
-    stornoGesperrt = m && m.startsWith('Storno nicht möglich') ? m : null
-  }
   const rechnungStornoAction    = rechnung ? rechnungStornieren.bind(null, String(rechnung.id), id) : null
   // KAN-356: Verkauf samt Rechnung in einem Schritt – nur eigene Rechnung mit genau einem Lieferschein, ohne ausgestellte
   // Transportbescheinigung (die Datenbank prüft dasselbe; Zahlungen, BMD und Zeitraum meldet sie am Knopf)
@@ -195,7 +188,14 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     // KAN-149 D2b (Ticket Frage 1): Einnahmen bleiben, solange nicht erstattet
     (((zahlungenRaw ?? []) as R[]).some(z => !z.storniert_am)
       ? ' Bezahlte Beträge bleiben als Einnahme stehen – mit „Erstattet am“ werden die Zahlungen an diesem Tag storniert und in der E&A gegengebucht.'
-      : '')
+      : '') +
+    // KAN-379: 1:1-Rechnung → Stornobeleg mit heutigem Datum (der Datenbank-Trigger legt ihn an)
+    (berechnet ? ` Zur Rechnung ${rechnung?.rechnungsnummer ?? ''} entsteht ein Stornobeleg (ST-…) mit heutigem Datum.` : '')
+  // KAN-379: Storno-Datum (Rückbuchung des Bestands) wählbar, solange keine Rechnung dranhängt – sonst trägt der Stornobeleg
+  // das Datum (eigene Rechnung: Feld im Rechnungsstorno; 1:1-Rechnung: heute)
+  const heute = wienHeute()
+  const stornoDatumVerkauf = berechnet ? undefined : { heute, ab: String(posten.datum ?? '') || null }
+  const stornoDatumRechnung = { heute, ab: rechnung?.datum ? String(rechnung.datum) : null }
   const info = kundenInfo(posten)
   // KAN-176: abweichende Lieferadresse (Momentaufnahme am Verkauf)
   const liefer = (posten.lieferadresse ?? null) as LieferadresseMoment | null
@@ -304,14 +304,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             </Link>
           )}
           <PrintButton />
-          {writeOk && !posten.storniert && !eigeneRechnung && !stornoGesperrt && (
-            <StornoKnopf action={stornoWithId} meldung={stornoMeldung} erstattung={gueltigeZahlungen.length > 0} />
+          {writeOk && !posten.storniert && !eigeneRechnung && (
+            <StornoKnopf action={stornoWithId} meldung={stornoMeldung} erstattung={gueltigeZahlungen.length > 0} stornoDatum={stornoDatumVerkauf} />
           )}
-          {writeOk && eigeneRechnung && rechnungStornoAction && !stornoGesperrt && <RechnungStornoKnopf action={rechnungStornoAction} />}
-          {writeOk && samtStornoAction && !stornoGesperrt && <VerkaufSamtRechnungStornoKnopf action={samtStornoAction} />}
-          {stornoGesperrt && (
-            <p role="note" className="text-xs text-s112-warn-fg bg-s112-warn-bg rounded-lg px-2.5 py-1.5 max-w-md">{stornoGesperrt}</p>
-          )}
+          {writeOk && eigeneRechnung && rechnungStornoAction && <RechnungStornoKnopf action={rechnungStornoAction} stornoDatum={stornoDatumRechnung} />}
+          {writeOk && samtStornoAction && <VerkaufSamtRechnungStornoKnopf action={samtStornoAction} stornoDatum={stornoDatumRechnung} />}
           <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">
             <a href={`/weinhandel/verkauf/${id}?mode=lieferschein`}
               className={`px-2.5 py-1.5 font-medium transition-colors ${!isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>

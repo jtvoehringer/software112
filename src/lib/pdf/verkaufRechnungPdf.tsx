@@ -4,6 +4,7 @@
 // Functions. Layout ist bewusst dem bestehenden HTML-Druck-Layout in
 // src/app/(dashboard)/weinhandel/verkauf/[id]/page.tsx nachempfunden, damit
 // PDF und Bildschirm-/Druckansicht optisch übereinstimmen.
+// KAN-379: mit `storno` als Stornorechnung (Titel, „zu Rechnung … vom …“, Grund, negative Beträge, ohne Zahlungsteil).
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 
 function fmt(n: number) {
@@ -103,10 +104,14 @@ export type VerkaufRechnungPdfProps = {
   skonto: { pct: number; datumIso: string; betrag: number } | null
   bank: { iban: string | null; bic: string | null; zahlungszielTage: number; faelligkeitIso: string }
   fusstext: string | null
+  /** KAN-379: Stornobeleg – Bezug auf die Rechnung und Grund; Beträge kommen negativ (stornobelegPdfInhalt) */
+  storno?: { zuNummer: string; zuDatumIso: string; grund: string | null } | null
 }
 
 export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
-  const { betrieb, rechnung, kunde, lieferadresse, positionen, gesamt, gesamtNetto, ustGruppen, skonto, bank, fusstext } = props
+  const { betrieb, rechnung, kunde, lieferadresse, positionen, gesamt, gesamtNetto, ustGruppen, bank, fusstext } = props
+  const storno = props.storno ?? null
+  const skonto = storno ? null : props.skonto
   const color = '#2F63AC'
   // react-pdf's <Image> unterstützt zuverlässig nur Raster-Formate (PNG/JPG).
   // SVG-Logos (z. B. das App-Platzhalter-Logo mit eingebettetem <text>) lassen
@@ -136,13 +141,16 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             {betrieb.uid && <Text style={[styles.senderDetail, { marginTop: 4, color: '#999' }]}>UID: {betrieb.uid}</Text>}
           </View>
           <View style={styles.metaBlock}>
-            <Text style={[styles.title, { color }]}>RECHNUNG</Text>
+            <Text style={[styles.title, { color }]}>{storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</Text>
             {rechnung.nummer && <Text style={styles.nr}>Nr. {rechnung.nummer}</Text>}
             <Text style={styles.metaText}>Datum: {fmtDate(rechnung.datumIso)}</Text>
+            {storno && <Text style={styles.metaText}>zu Rechnung {storno.zuNummer} vom {fmtDate(storno.zuDatumIso)}</Text>}
             {rechnung.lieferzeitraum && <Text style={styles.metaText}>Lieferzeitraum: {rechnung.lieferzeitraum}</Text>}
-            <Text style={styles.metaText}>
-              {bank.zahlungszielTage === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${fmtDate(rechnung.faelligkeitIso)}`}
-            </Text>
+            {!storno && (
+              <Text style={styles.metaText}>
+                {bank.zahlungszielTage === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${fmtDate(rechnung.faelligkeitIso)}`}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -188,7 +196,7 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
         ))}
 
         <View style={styles.totalsRow}>
-          <Text style={styles.totalsLabel}>Gesamt brutto</Text>
+          <Text style={styles.totalsLabel}>{storno ? 'Stornobetrag brutto' : 'Gesamt brutto'}</Text>
           <Text style={[styles.totalsAmount, { color }]}>{fmt(gesamt)}</Text>
         </View>
 
@@ -201,7 +209,7 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             </View>
           ))}
           <View style={styles.ustTotal}>
-            <Text>Rechnungsbetrag</Text><Text>{fmtEur(gesamt)}</Text>
+            <Text>{storno ? 'Stornobetrag' : 'Rechnungsbetrag'}</Text><Text>{fmtEur(gesamt)}</Text>
           </View>
         </View>
 
@@ -212,6 +220,15 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
           </Text>
         )}
 
+        {storno ? (
+          <View style={styles.payment}>
+            <Text style={styles.paymentH}>Storno</Text>
+            <Text style={styles.paymentP}>
+              Diese Stornorechnung hebt die Rechnung {storno.zuNummer} vom {fmtDate(storno.zuDatumIso)} vollständig auf.
+            </Text>
+            {storno.grund && <Text style={styles.paymentP}>Grund: {storno.grund}</Text>}
+          </View>
+        ) : (
         <View style={styles.payment}>
           <Text style={styles.paymentH}>Zahlungskonditionen</Text>
           <Text style={styles.paymentP}>
@@ -226,6 +243,7 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
           )}
           {rechnung.nummer && <Text style={styles.paymentP}>Verwendungszweck: {rechnung.nummer}</Text>}
         </View>
+        )}
 
         {fusstext && <Text style={styles.notes}>{fusstext}</Text>}
 

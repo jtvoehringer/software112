@@ -63,7 +63,7 @@ BEGIN
 
   PERFORM pg_temp.s112_mutiere('ohne_sperre', $m$DROP TRIGGER a_lieferschein_storno_sperre ON public.verkaufsposten$m$);
   PERFORM pg_temp.s112_mutiere('storno_mit_zahlung',
-    $m$SELECT pg_temp.t70_ersetze('public.s112_rechnung_stornieren(uuid, uuid, text)'::regprocedure,
+    $m$SELECT pg_temp.t70_ersetze('public.s112_rechnung_stornieren(uuid, uuid, text, date)'::regprocedure,
       $r$IF EXISTS \(SELECT 1 FROM public\.zahlungen z WHERE z\.rechnung_id = p_rechnung_id AND z\.storniert_am IS NULL\) THEN$r$, $r$IF false THEN$r$)$m$);
 
   -- ── 1. Lieferschein „Rechnung später“: keine Nummer, keine Rechnung ───────────────────────────────────
@@ -134,7 +134,8 @@ BEGIN
   INSERT INTO public.verkaufsposten (tenant_id, datum) VALUES (v_b, v_heute) RETURNING id INTO v_sof;
   UPDATE public.verkaufsposten SET storniert = true, storno_grund = 'S112TEST Ab-Hof falsch' WHERE id = v_sof;
   v_erg := v_erg || pg_temp.s112_erwarte('sofort_storno_gemeinsam',
-    (SELECT concat_ws('|', r.spiegel, r.storniert) FROM public.rechnungen r JOIN public.verkaufsposten v ON v.rechnung_id = r.id WHERE v.id = v_sof), 't|t');
+    (SELECT concat_ws('|', r.spiegel, r.storniert, s.art) FROM public.rechnungen r JOIN public.verkaufsposten v ON v.rechnung_id = r.id
+       JOIN public.rechnungen s ON s.id = r.storniert_durch_id WHERE v.id = v_sof), 'f|t|storno');   -- KAN-379: Stornobeleg, Spiegel endet
   PERFORM pg_temp.s112_als_postgres();
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 17);

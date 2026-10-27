@@ -231,6 +231,8 @@
   {"n":"rechnungen_bmd_export_id_fkey","t":"rechnungen","s":["bmd_export_id"],"z":"buchhaltung_export_protokoll"},
   {"n":"rechnungen_firma_id_fkey","t":"rechnungen","s":["firma_id"],"z":"firmen"},
   {"n":"rechnungen_kontakt_id_fkey","t":"rechnungen","s":["kontakt_id"],"z":"kontakte"},
+  {"n":"rechnungen_storniert_durch_id_fkey","t":"rechnungen","s":["storniert_durch_id"],"z":"rechnungen"},
+  {"n":"rechnungen_storno_von_id_fkey","t":"rechnungen","s":["storno_von_id"],"z":"rechnungen"},
   {"n":"rechnungen_tenant_id_fkey","t":"rechnungen","s":["tenant_id"],"z":"tenants"},
   {"n":"rechnungen_zh_kontakt_id_fkey","t":"rechnungen","s":["zh_kontakt_id"],"z":"kontakte"},
   {"n":"reifemessungen_tenant_id_fkey","t":"reifemessungen","s":["tenant_id"],"z":"tenants"},

@@ -15,7 +15,7 @@ DECLARE
   c_datei constant text := '85_verkauf_samt_rechnung_storno';
   c_rpc   constant text := 'SELECT public.s112_verkauf_samt_rechnung_stornieren(%L::uuid, %L::uuid, %L)';
   c_pos   constant text := 'INSERT INTO public.verkauf_positionen (tenant_id, verkaufsposten_id, typ, name, menge, einheit, preis_brutto, ust_satz, fuellung_id, weinausbau_id) VALUES (%L, %L, %L, %L, %s, %L, 10, 13, %L, %L)';
-  c_fn    constant text := 'public.s112_verkauf_samt_rechnung_stornieren(uuid,uuid,text)';
+  c_fn    constant text := 'public.s112_verkauf_samt_rechnung_stornieren(uuid,uuid,text,date)';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;

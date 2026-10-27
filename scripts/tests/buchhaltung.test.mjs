@@ -335,7 +335,7 @@ describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () =
     assert.equal(z.nettoGesamt, 148.97)
     assert.equal(z.ustGesamt, 15.05)
     const t = zeilen(csvText([z], rj.SPALTEN_RECHNUNGSJOURNAL))
-    assert.equal(t[1], 'RE-2026-0002;02.03.2026;"Weinhandel Huber; Wien";K-0107;ATU12345678;AT;54,00;10,80;24,97;3,25;;;50,00;148,97;15,05;164,02;Ja;01.04.2026;Karin K.;Kunde hat die Bestellung storniert;Nein;')   // KAN-149 D1: Storniert von, Storno-Grund
+    assert.equal(t[1], 'RE-2026-0002;02.03.2026;"Weinhandel Huber; Wien";K-0107;ATU12345678;AT;54,00;10,80;24,97;3,25;;;50,00;148,97;15,05;164,02;Ja;01.04.2026;Karin K.;Kunde hat die Bestellung storniert;;;Nein;')   // KAN-149 D1: Storniert von, Storno-Grund; KAN-379: Storniert durch, Storno zu (leer = Storno ohne Stornobeleg)
   })
 
   test('Rechnungsnummern: Lücken und Doppelte je Muster', () => {
@@ -364,7 +364,7 @@ describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () =
       'Lücke in den Rechnungsnummern: RE-2026-0003 fehlt im Zeitraum.',
       'Steuersätze ohne eigene Spalte (5 %) – nur in „Netto gesamt“ und „USt gesamt“ enthalten.',
       '1 deaktivierte Verkaufsbeleg ist der Vollständigkeit halber enthalten.',
-      '1 Rechnung ist storniert und mit ihren ursprünglichen Beträgen aufgeführt (Spalte „Storniert“) – für Summen herausfiltern.',
+      '1 Rechnung ist ohne Stornobeleg storniert und mit ihren ursprünglichen Beträgen aufgeführt (Spalte „Storniert“, „Storniert durch“ leer) – für Summen herausfiltern.',
     ])
   })
 
@@ -429,7 +429,7 @@ describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () =
     assert.ok(r.warnungen.includes('2 Export-Rechnungen sind mit der Exportnummer (eigener Nummernkreis, steuerfreie Ausfuhr) enthalten – ohne Zahlungsstatus.'))
     assert.ok(!r.warnungen.some(w => /^Lücke/.test(w)), 'RE-Kreis ohne Lücke')
     // CSV unverändert: Quelle und Link sind keine Spalten
-    assert.equal(zeilen(csvText([e1], rj.SPALTEN_RECHNUNGSJOURNAL))[1], 'EX-2026-0001;05.03.2026;Wine Imports Ltd;;;GB;;;;;;;1140,00;1140,00;0,00;1140,00;Nein;;;;Nein;')
+    assert.equal(zeilen(csvText([e1], rj.SPALTEN_RECHNUNGSJOURNAL))[1], 'EX-2026-0001;05.03.2026;Wine Imports Ltd;;;GB;;;;;;;1140,00;1140,00;0,00;1140,00;Nein;;;;;;Nein;')
   })
 
   test('KAN-105: exportAlsBeleg – Exportnummer, Positionen zu 0 %, Storno aus storniert_am', () => {

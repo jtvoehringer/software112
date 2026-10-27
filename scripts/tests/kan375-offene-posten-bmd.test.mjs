@@ -131,7 +131,7 @@ describe('KAN-375: gleiche Anzahl „ohne BMD-Export“ in Dashboard-Frist und F
     assert.match(okt.statusText, /^2 Belege noch nicht übergeben/)
     assert.ok(!db.aufrufe.some(a => a.tabelle === 'verkaufsposten'), 'Frist liest keine Lieferscheine mehr')
     const r = db.aufrufe.find(a => a.tabelle === 'rechnungen')
-    for (const [op, k, v] of [['eq', 'tenant_id', T], ['eq', 'aktiv', true], ['eq', 'storniert', false]]) {
+    for (const [op, k, v] of [['eq', 'tenant_id', T], ['eq', 'aktiv', true], ['or', 'storniert.eq.false,storniert_durch_id.not.is.null']]) {   // KAN-379: or = mit Stornobeleg
       assert.ok(r.filter.some(f => f[0] === op && f[1] === k && f[2] === v), `${op} ${k}`)
     }
     assert.ok(r.filter.some(f => f[0] === 'is' && f[1] === 'bmd_export_id'))

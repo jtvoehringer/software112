@@ -154,6 +154,7 @@ Jeweils auf Staging (https://staging.software112.icp-consultants.at) mit den Tes
 | 6 | Behördenmeldungen (AMA-Erntemeldung, Weinbuch, Transportbescheinigung) als CSV | Excel öffnet sauber (Umlaute, Dezimalkomma) |
 | 7 | Rolle Leser | Keine Schreibaktion möglich, Pflichtmeldungen nur mit Controlling |
 | 8 | Handy-Ansicht: Navigation, Maßnahme erfassen | Bedienbar, nichts abgeschnitten |
+| 9 | Rechnung aus einem abgeschlossenen Monat stornieren (KAN-379), Storno-Datum heute bzw. im offenen Zeitraum; Stornobeleg drucken und per E-Mail senden | Stornobeleg ST-… mit negativen Beträgen am Storno-Datum; Rechnungsjournal, UVA, BMD und Finanzübersicht zeigen die Rechnung in ihrem Monat und den Stornobeleg im Storno-Monat; Datum vor dem Rechnungsdatum bzw. im gesperrten Zeitraum wird am Feld abgelehnt |
 
 ## Pflege
 

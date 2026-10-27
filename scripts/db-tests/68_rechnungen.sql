@@ -78,13 +78,17 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('storno_gespiegelt',
     (SELECT concat_ws('|', r.storniert, r.storno_grund, r.storniert_von IS NOT NULL) FROM public.rechnungen r
       JOIN public.verkaufsposten v ON v.rechnung_id = r.id WHERE v.id = v_vp2), 't|S112TEST falsch erfasst|t');
+  -- KAN-379: der Storno legt einen Stornobeleg an (Gegenbuchung), das Original verweist darauf
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_stornobeleg',
+    (SELECT s.art FROM public.rechnungen r JOIN public.rechnungen s ON s.id = r.storniert_durch_id
+      JOIN public.verkaufsposten v ON v.rechnung_id = r.id WHERE v.id = v_vp2), 'storno');
   v_erg := v_erg || pg_temp.s112_erwarte('lieferschein_fortlaufend',
     (SELECT v.lieferscheinnummer FROM public.verkaufsposten v WHERE v.id = v_vp2) = 'LS-' || to_char(v_heute, 'YYYY') || '-' || lpad((v_z0 + 1)::text, 4, '0'), true);
 
   -- ── 3. Leser und fremder Betrieb ──────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('leser_liest',
-    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.rechnungen WHERE tenant_id = %L', v_b)), '2');
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.rechnungen WHERE tenant_id = %L', v_b)), '3');   -- zwei Rechnungen und der Stornobeleg (KAN-379)
   PERFORM pg_temp.s112_als(v_mw);
   v_erg := v_erg || pg_temp.s112_erwarte('fremder_betrieb_sieht_nichts',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.rechnungen WHERE tenant_id = %L', v_b)), '0');
@@ -101,5 +105,5 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('wartung_mitgeloescht',
     (SELECT count(*) FROM public.rechnungen WHERE id = v_re)::text, '0');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 15);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 16);
 END $test$;

@@ -34,7 +34,7 @@ import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 import { stornoGrundFehler } from '@/lib/storno/grund'
-import { rechnungStornoFehler } from '@/lib/verkauf/rechnungsdatum'
+import { stornoDatumFehler } from '@/lib/storno/datum'
 import type { createSupabaseServerClient } from '@/lib/supabase/server'
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>
@@ -300,6 +300,20 @@ export async function bestandBuchenAllesOderNichts(
 
 // ── Storno ────────────────────────────────────────────────────────────────────
 
+/** KAN-379: Tag der Rückbuchung beim Verkaufsstorno – gewählt (nicht vor dem Lieferdatum, nicht in der Zukunft) oder heute.
+ *  Mit Rechnung (1:1) nur heute: Den Stornobeleg legt die Datenbank mit heutigem Datum an, Beleg und Bestand gehören
+ *  auf denselben Tag. Wirft AktionsFehler mit der Meldung fürs Formular. */
+export function stornoTagFuerVerkauf(posten: { datum?: unknown; rechnung_id?: unknown; rechnungsnummer?: unknown },
+                                     gewaehlt: string | null, heute: string): string {
+  if (!gewaehlt || gewaehlt === heute) return heute
+  if (posten.rechnung_id) {
+    throw new AktionsFehler(`Zum Verkauf gehört die Rechnung ${posten.rechnungsnummer ?? ''} – ihr Stornobeleg entsteht mit heutigem Datum, bitte heute als Storno-Datum wählen.`.replace('  ', ' '))
+  }
+  const f = stornoDatumFehler(gewaehlt, { heute, ab: posten.datum ? String(posten.datum) : null })
+  if (f) throw new AktionsFehler(f)
+  return gewaehlt
+}
+
 /**
  * Verkaufsposten stornieren – der einzige Weg, einen Verkauf zurückzunehmen
  * (Verkäufe werden nie gelöscht oder deaktiviert).
@@ -319,20 +333,22 @@ export async function bestandBuchenAllesOderNichts(
  *  4. Mit Erstattung (KAN-149 D2b, Ticket Frage 1): die gültigen Zahlungen am Erstattungstag stornieren – ihre
  *     E&A-Einnahmen bucht s112_zahlung_stornieren an diesem Tag gegen. Ohne Erstattung bleiben Zahlungen und
  *     Einnahmen stehen (das Geld ist eingegangen). CRM-Aktivität kennzeichnen.
+ * KAN-379: Die Rückbuchung trägt das Storno-Datum (`opt.datum`, Standard heute; nicht vor dem Lieferdatum, nicht in der
+ * Zukunft). Hängt eine Rechnung dran (1:1), legt die Datenbank den Stornobeleg mit heutigem Datum an – dann nur heute.
  * Scheitert Schritt 3 oder 4, ist der Verkauf storniert und der Bestand zurückgebucht:
  * am Ende kommt eine Fehlermeldung mit den offenen Punkten.
  */
 export async function verkaufspostenStornieren(
   supabase: SB, tenantId: string, postenId: string, grund: string,
   /** KAN-149 D2b: bezahlte Beträge am Tag erstattet (JJJJ-MM-TT) → Zahlungen stornieren, Einnahmen gegenbuchen */
-  opt: { erstattetAm?: string | null } = {},
+  opt: { erstattetAm?: string | null; /** KAN-379: Storno-Datum (JJJJ-MM-TT), Standard heute */ datum?: string | null } = {},
 ): Promise<void> {
   // KAN-149 D1: Grund Pflicht (mind. 10 Zeichen) – Beleg, Flaschenzeilen und Traubenverkauf tragen ihn
   const grundFehler = stornoGrundFehler(grund)
   if (grundFehler) throw new AktionsFehler(grundFehler)
   const stornoGrund = grund.trim()
   const { data: postenRaw, error: postenErr } = await (supabase.from('verkaufsposten') as any)
-    .select('id, rechnungsnummer, storniert, rechnung_id')
+    .select('id, rechnungsnummer, storniert, rechnung_id, datum')
     .eq('id', postenId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -342,10 +358,7 @@ export async function verkaufspostenStornieren(
   if (posten.storniert) {
     throw new AktionsFehler('Dieser Verkauf ist bereits storniert – der Bestand wurde schon zurückgebucht.')
   }
-  // KAN-355 (vorläufig bis KAN-379): Rechnung im gesperrten Zeitraum – die Datenbank lehnt den Storno ab; vor der
-  // Rückbuchung des Bestands prüfen, damit nichts halb geschieht
-  const stornoSperre = await rechnungStornoFehler(supabase, tenantId, posten.rechnung_id as string | null)
-  if (stornoSperre) throw new AktionsFehler(stornoSperre)
+  const stornoTag = stornoTagFuerVerkauf(posten, opt.datum ?? null, heuteWien())
 
   // Positionen und Traubenverkäufe VOR dem ersten Schreibzugriff lesen:
   // ein Lesefehler bricht so ab, bevor irgendetwas geändert ist.
@@ -391,7 +404,7 @@ export async function verkaufspostenStornieren(
   let rueckbuchungen: BestandsBuchung[]
   try {
     rueckbuchungen = await bestandBuchenAllesOderNichts(supabase, tenantId, literJeCharge, stueckJeFuellung,
-      { postenId, datum: heuteWien(), grund: stornoGrund })
+      { postenId, datum: stornoTag, grund: stornoGrund })
   } catch (e) {
     throw new AktionsFehler(`Der Verkauf konnte nicht storniert werden – der Bestand ließ sich nicht zurückbuchen: ${fehlerText(e).replace(/[.\s]+$/, '')}. Es wurde nichts geändert.`)
   }

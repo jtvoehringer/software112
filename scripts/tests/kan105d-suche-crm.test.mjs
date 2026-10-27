@@ -13,7 +13,7 @@ describe('KAN-105 Teil B (3): Suche und CRM', () => {
   test('globale Suche: Rechnungs- oder Lieferscheinnummer; Rechnungen ohne Doppel zum Lieferschein', () => {
     const g = quelle('src/app/api/global-search/route.ts')
     assert.match(g, /\.or\(`rechnungsnummer\.ilike\.%\$\{q\}%,lieferscheinnummer\.ilike\.%\$\{q\}%`\)/)
-    assert.match(g, /supabase\.from\('rechnungen'\) as any\)\n\s+\.select\('id, rechnungsnummer, datum, bezahlt, storniert'\)\n\s+\.ilike\('rechnungsnummer', `%\$\{q\}%`\)\n\s+\.eq\('tenant_id', tenantId\)/)
+    assert.match(g, /supabase\.from\('rechnungen'\) as any\)\n\s+\.select\('id, rechnungsnummer, datum, bezahlt, storniert, art'\)\n\s+\.ilike\('rechnungsnummer', `%\$\{q\}%`\)\n\s+\.eq\('tenant_id', tenantId\)/)
     assert.match(g, /\.filter\(\(r: R\) => !gefundeneNummern\.has\(String\(r\.rechnungsnummer\)\)\)/)
     assert.match(g, /href:       `\/weinhandel\/rechnungen\/\$\{r\.id\}`/)
   })

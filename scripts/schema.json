@@ -1599,7 +1599,10 @@
 "erstellt_am",
 "aktualisiert_am",
 "spiegel",
-"storno_positionen"
+"storno_positionen",
+"art",
+"storno_von_id",
+"storniert_durch_id"
 ],
 "release_notes": [
 "id",
@@ -1843,7 +1846,10 @@
 "betrieb_vorname",
 "betrieb_nachname",
 "betrieb_betriebsstaette",
-"betriebsart"
+"betriebsart",
+"storno_prefix",
+"storno_stellen",
+"storno_zaehler"
 ],
 "tenant_memberships": [
 "id",
