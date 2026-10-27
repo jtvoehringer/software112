@@ -40,6 +40,7 @@ registerHooks({
 
 const tb = await import('../../src/lib/behoerden/transportbescheinigung.ts')
 const tbm = await import('../../src/lib/behoerden/tbMostgewicht.ts')
+const kuerzel = await import('../../src/lib/wein/bki_kuerzel.ts')
 
 const require = createRequire(import.meta.url)
 const WAECHTER = path.join(ROOT, 'scripts', 'check-behoerden-csv.js')
@@ -54,8 +55,10 @@ function dateien(dir) {
   })
 }
 
-/** Kopfzeilen (<th>-Texte) einer Tabelle im Quelltext, ohne leere Spalten */
-const kopfzeilen = (text) => [...text.matchAll(/<th\b[^>]*>([^<{]*)<\/th>/g)].map(m => m[1].trim()).filter(Boolean)
+/** Kopfzeilen (<th>-Texte) einer Tabelle im Quelltext, ohne leere Spalten; zweizeilige Köpfe (KAN-366 Nachtrag) zusammengesetzt:
+ *  „Verkaufs-<br />datum“ → „Verkaufsdatum“, „Alkohol<br />(% vol)“ → „Alkohol (% vol)“ */
+const kopfzeilen = (text) => [...text.matchAll(/<th\b[^>]*>((?:[^<{]|<br \/>)*)<\/th>/g)]
+  .map(m => m[1].replace(/-<br \/>/g, '').replace(/<br \/>/g, ' ').trim()).filter(Boolean)
 
 describe('KAN-345: Transportbescheinigung druckt', () => {
   test('kein „#__next“ im ganzen src/ (gibt es im App Router nicht – die Druckregel blendete alles aus)', () => {
@@ -125,7 +128,7 @@ describe('KAN-366: Sammelliste Transportbescheinigungen', () => {
     'Pos.': 'Position',
     Menge: 'Menge (Liter/kg)',
     Art: 'Art (Rot/Weiß/Rosé)',
-    'Traubensorte(n)': 'Traubensorte(n)',
+    Sorte: 'Traubensorte(n)',
     Jahrgang: 'Jahrgang',
     'Prüfnummer': 'Staatliche Prüfnummer',
     Angereichert: 'Angereichert',
@@ -147,6 +150,18 @@ describe('KAN-366: Sammelliste Transportbescheinigungen', () => {
     const s = quelle(SEITE)
     assert.match(s, /\{z\.alkohol \?\? '–'\}/)
     assert.match(s, /\{tbKmwFormblattWert\(z\.kmw\) \|\| '–'\}/)
+  })
+
+  test('Nachtrag 27.10.2026: ohne waagrechtes Scrollen – Köpfe zweizeilig, Sorte als Kürzel, engere Zellen', () => {
+    const s = quelle(SEITE)
+    const tabelle = s.slice(s.indexOf('<table'), s.indexOf('</table>'))
+    assert.doesNotMatch(tabelle, /\bpx-3\b/, 'Zellen mit px-2')
+    for (const k of ['Verkaufs-<br />datum', 'Jahr-<br />gang', 'Prüf-<br />nummer', 'Ange-<br />reichert', 'Alkohol<br />(% vol)', 'Formular-<br />stand'])
+      assert.ok(tabelle.includes(`>${k}</th>`), k)
+    assert.match(tabelle, /title=\{z\.traubensorte \?\? undefined\}>\{sortenKuerzel\(z\.traubensorte\) \?\? z\.traubensorte \?\? '–'\}/)
+    // Die Ladefunktion liefert „Name (Kürzel)“ (formatRebsorteMitKuerzel) – die Liste zeigt nur das Kürzel
+    assert.equal(kuerzel.sortenKuerzel(kuerzel.formatRebsorteMitKuerzel('Zweigelt')), 'ZW')
+    assert.equal(kuerzel.sortenKuerzel(kuerzel.formatRebsorteMitKuerzel('Grüner Veltliner')), 'GV')
   })
 
   test('Druck im Querformat über DruckFormatKnopf, eigener DruckKnopf entfernt', () => {

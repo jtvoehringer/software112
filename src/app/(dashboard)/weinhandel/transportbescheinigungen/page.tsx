@@ -11,6 +11,7 @@ import { istDatum } from '@/lib/behoerden/verkehr-hilfen'
 import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import { tbKmwFormblattWert } from '@/lib/behoerden/tbMostgewicht'
+import { sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 
 export const dynamic = 'force-dynamic'
@@ -106,28 +107,30 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border text-left">
-                <th className="px-3 py-2 font-semibold">Verkaufsdatum</th>
-                <th className="px-3 py-2 font-semibold">Rechnung</th>
-                <th className="px-3 py-2 font-semibold">Empfänger</th>
-                <th className="px-3 py-2 font-semibold">Lieferung</th>
-                <th className="px-3 py-2 font-semibold text-right">Pos.</th>
-                <th className="px-3 py-2 font-semibold text-right">Menge</th>
-                <th className="px-3 py-2 font-semibold">Art</th>
-                <th className="px-3 py-2 font-semibold">Traubensorte(n)</th>
-                <th className="px-3 py-2 font-semibold">Jahrgang</th>
-                <th className="px-3 py-2 font-semibold">Prüfnummer</th>
-                <th className="px-3 py-2 font-semibold">Angereichert</th>
+                {/* KAN-366 Nachtrag (UAT 27.10.2026): ohne waagrechtes Scrollen und quer auf einer Seitenbreite – Köpfe zweizeilig,
+                    Sorte nur als BKI-Kürzel (voller Name im Tooltip), engere Zellen; Mindestbreite ≈ 925 statt ≈ 1200 px */}
+                <th className="px-2 py-2 font-semibold">Verkaufs-<br />datum</th>
+                <th className="px-2 py-2 font-semibold">Rechnung</th>
+                <th className="px-2 py-2 font-semibold">Empfänger</th>
+                <th className="px-2 py-2 font-semibold">Lieferung</th>
+                <th className="px-2 py-2 font-semibold text-right">Pos.</th>
+                <th className="px-2 py-2 font-semibold text-right">Menge</th>
+                <th className="px-2 py-2 font-semibold">Art</th>
+                <th className="px-2 py-2 font-semibold">Sorte</th>
+                <th className="px-2 py-2 font-semibold">Jahr-<br />gang</th>
+                <th className="px-2 py-2 font-semibold">Prüf-<br />nummer</th>
+                <th className="px-2 py-2 font-semibold">Ange-<br />reichert</th>
                 {/* KAN-366: wie Formblatt und CSV – Alkoholgehalt und °KMW (bei Trauben und Traubenmost) */}
-                <th className="px-3 py-2 font-semibold text-right">Alkohol (% vol)</th>
-                <th className="px-3 py-2 font-semibold text-right">°KMW</th>
-                <th className="px-3 py-2 font-semibold">Formularstand</th>
+                <th className="px-2 py-2 font-semibold text-right">Alkohol<br />(% vol)</th>
+                <th className="px-2 py-2 font-semibold text-right">°KMW</th>
+                <th className="px-2 py-2 font-semibold">Formular-<br />stand</th>
               </tr>
             </thead>
             <tbody>
               {zeilen.map(z => (
                 <tr key={`${z.verkaufspostenId}-${z.position}`} className={`border-b border-s112-border last:border-0 align-top ${z.storniertAm ? 'text-s112-muted' : ''}`}>
-                  <td className="px-3 py-1.5 tabular-nums">{tag(z.verkaufsdatum)}</td>
-                  <td className="px-3 py-1.5">
+                  <td className="px-2 py-1.5 tabular-nums">{tag(z.verkaufsdatum)}</td>
+                  <td className="px-2 py-1.5">
                     <Link href={`/weinhandel/verkauf/${z.verkaufspostenId}/transportbescheinigung`} className="text-s112-blue-700 hover:underline">
                       {z.rechnungsnummer ?? 'Formular'}
                     </Link>
@@ -136,19 +139,19 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
                       <span className="block text-xs text-s112-err-fg" title={z.stornoGrund ?? undefined}>storniert {new Date(z.storniertAm).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Vienna' })}</span>
                     )}
                   </td>
-                  <td className="px-3 py-1.5">{z.empfaengerKurz || '–'}</td>
-                  <td className="px-3 py-1.5 tabular-nums">{tag(z.lieferdatum)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{z.position}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{z.menge === null ? '–' : `${fmtNum(z.menge, { max: 2 })} ${z.einheit ?? ''}`}</td>
-                  <td className="px-3 py-1.5">{z.art ?? '–'}</td>
-                  <td className="px-3 py-1.5">{z.traubensorte ?? '–'}</td>
-                  <td className="px-3 py-1.5">{z.jahrgang ?? '–'}</td>
-                  <td className="px-3 py-1.5 font-mono">{z.pruefnummer ?? '–'}</td>
-                  <td className="px-3 py-1.5">{z.angereichert === null ? '–' : z.angereichert ? 'J' : 'N'}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{z.alkohol ?? '–'}</td>
+                  <td className="px-2 py-1.5">{z.empfaengerKurz || '–'}</td>
+                  <td className="px-2 py-1.5 tabular-nums">{tag(z.lieferdatum)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{z.position}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{z.menge === null ? '–' : `${fmtNum(z.menge, { max: 2 })} ${z.einheit ?? ''}`}</td>
+                  <td className="px-2 py-1.5">{z.art ?? '–'}</td>
+                  <td className="px-2 py-1.5" title={z.traubensorte ?? undefined}>{sortenKuerzel(z.traubensorte) ?? z.traubensorte ?? '–'}</td>
+                  <td className="px-2 py-1.5">{z.jahrgang ?? '–'}</td>
+                  <td className="px-2 py-1.5 font-mono">{z.pruefnummer ?? '–'}</td>
+                  <td className="px-2 py-1.5">{z.angereichert === null ? '–' : z.angereichert ? 'J' : 'N'}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{z.alkohol ?? '–'}</td>
                   {/* °KMW wie im Formblatt: NN,N abgerundet; Wein ohne Mostgewicht „–“ */}
-                  <td className="px-3 py-1.5 text-right tabular-nums">{tbKmwFormblattWert(z.kmw) || '–'}</td>
-                  <td className={`px-3 py-1.5 ${z.formularstand === FORMULAR_GESPEICHERT ? 'text-s112-ok-fg' : 'text-s112-warn-fg'}`}>{z.formularstand}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{tbKmwFormblattWert(z.kmw) || '–'}</td>
+                  <td className={`px-2 py-1.5 ${z.formularstand === FORMULAR_GESPEICHERT ? 'text-s112-ok-fg' : 'text-s112-warn-fg'}`}>{z.formularstand}</td>
                 </tr>
               ))}
             </tbody>
