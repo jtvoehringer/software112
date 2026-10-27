@@ -762,6 +762,8 @@ export const SPALTEN_ERNTEMELDUNG: CsvSpalte<ErnteZeile>[] = [
   { kopf: 'Menge (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.mengeKg },
   { kopf: 'davon als Trauben verkauft (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.verkauftKg },
   { kopf: 'Menge (hl)', typ: 'dezimal', stellen: STELLEN.hl, wert: z => z.mengeHl },
+  // KAN-364 (Entscheidung Jörgen 27.10.2026): Ausnahme von mostgewichtCsvSpalten() – nur °KMW und °Oe, ohne „gemessen in“,
+  // weil es mengengewichtete Mittelwerte je Sorte sind (gemessen wurde je Lese, teils in verschiedenen Einheiten)
   { kopf: 'Mostgewicht (°KMW)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.kmw },
   { kopf: 'Mostgewicht (°Oe)', typ: 'dezimal', stellen: STELLEN.oechsle, wert: z => z.oechsle },
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => (z.qualitaetsstufe ? qualitaetLabel(z.qualitaetsstufe) : null) },

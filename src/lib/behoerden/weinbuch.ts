@@ -9,6 +9,8 @@
 import type { CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { buildWeinbuch, type EventTyp, type Weinbuch } from '@/lib/wein/weinbuch'
+import { pnStandAm } from '@/lib/kellerbuch/pruefnummerVerlauf'
+import { wienTag } from '@/lib/datum/wien'
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { text, type R } from './kellerbuch-hilfen'
@@ -50,10 +52,26 @@ export type WeinbuchZeile = {
   titel: string
   details: string
   status: string | null
+  /** KAN-365: Gebinde, aus dem der Wein kam (Umzug, Verschnitt) */
+  quellgebinde: string | null
+  /** KAN-365: für den Tankbestand gültige Prüfnummer der Charge am Datum der Zeile (sonst leer) */
+  pruefnummerAmDatum: string | null
+}
+
+/** Kalendertag einer Zeile: reines Datum bleibt, Zeitpunkte (DAC-Anträge) in Wiener Zeit */
+function zeilenTag(datum: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datum)) return datum
+  const d = new Date(datum)
+  return Number.isNaN(d.getTime()) ? null : wienTag(d)
 }
 
 /** Eine Zeile je TimelineEvent */
 export function weinbuchZeilen(wb: Weinbuch): WeinbuchZeile[] {
+  const pnAm = (datum: string): string | null => {
+    const t = zeilenTag(datum)
+    const s = t && wb.pnVerlauf ? pnStandAm(wb.pnVerlauf, t) : null
+    return s?.art === 'gueltig' ? s.pruefnummer : null
+  }
   return wb.events.map(e => ({
     charge: wb.wa.name,
     jahrgang: wb.wa.jahrgang ?? null,
@@ -66,6 +84,8 @@ export function weinbuchZeilen(wb: Weinbuch): WeinbuchZeile[] {
     titel: e.titel,
     details: e.details.filter(Boolean).join(' | '),
     status: text(e.badge),
+    quellgebinde: text(e.quellgebinde),
+    pruefnummerAmDatum: pnAm(e.datum),
   }))
 }
 
@@ -82,6 +102,10 @@ export const SPALTEN_WEINBUCH: CsvSpalte<WeinbuchZeile>[] = [
   { kopf: 'Status', typ: 'text', wert: z => z.status },
   // KAN-200: aktuell gültige Prüfnummer der Charge (auch übernommen) – am Ende, damit die bisherigen Spalten bleiben
   { kopf: 'Prüfnummer der Charge (aktuell)', typ: 'text', wert: z => z.pruefnummer },
+  // KAN-365 (UAT 27.10.2026): Quellgebinde als eigene Spalte (bisher nur im Text „Details“) und die am Datum der Zeile
+  // gültige Prüfnummer – ebenfalls am Ende, die bisherigen Spalten bleiben
+  { kopf: 'Quellgebinde', typ: 'text', wert: z => z.quellgebinde },
+  { kopf: 'Prüfnummer (gültig am Datum)', typ: 'text', wert: z => z.pruefnummerAmDatum },
 ]
 
 /** Hinweise eines Weinbuchs: aus buildWeinbuch() plus Rebsorte ohne amtliches Kürzel (KAN-36) */

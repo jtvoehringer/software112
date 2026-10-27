@@ -98,6 +98,16 @@ describe('KAN-131 Verdrahtung', () => {
     assert.match(tb, /\{ kopf: 'Alkohol \(% vol\)', typ: 'text', wert: z => z\.alkohol \}/)
     assert.match(tb, /\.\.\.mostgewichtCsvSpalten<TBZeile>\(z => \(\{ kmw: z\.kmw, oechsle: z\.oechsle, einheit: z\.mostgewichtEinheit \}\), 1\)/)
   })
+  // KAN-364 (Entscheidung Jörgen 27.10.2026): Erntemeldung bewusst nur °KMW und °Oe – Mittelwerte je Sorte, kein „gemessen in“
+  test('KAN-364: Erntemeldungs-CSV als dokumentierte Ausnahme mit zwei Mostgewicht-Spalten', () => {
+    const em = quelle('src/lib/behoerden/erntemeldung.ts')
+    const block = em.slice(em.indexOf('export const SPALTEN_ERNTEMELDUNG'))
+    const spalten = block.slice(0, block.indexOf('\n]'))
+    assert.match(spalten, /KAN-364/)
+    assert.match(spalten, /kopf: 'Mostgewicht \(°KMW\)'[^\n]*\n\s*\{ kopf: 'Mostgewicht \(°Oe\)'/)
+    assert.doesNotMatch(spalten, /kopf: 'Mostgewicht gemessen in'|\.\.\.mostgewichtCsvSpalten/)
+    assert.match(quelle('CLAUDE.md'), /AMA-Erntemeldung \(`SPALTEN_ERNTEMELDUNG`: °KMW und °Oe ohne „gemessen in“/)
+  })
   test('KI: Mostgewichtsspalten beschrieben, ama_meldepositionen.oechsle ausgeschlossen; Assistent mit Einheit', () => {
     const ki = quelle('src/app/api/ki-abfrage/route.ts')
     assert.match(ki, /MOSTGEWICHT \(KAN-128\/KAN-131\)/)
