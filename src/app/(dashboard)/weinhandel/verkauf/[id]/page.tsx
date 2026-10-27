@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { losText } from '@/lib/handel/losnummer'
 import Link from '@/components/ui/Link'
-import { stornoVerkauf, stornoZahlung, rechnungErstellen, rechnungStornieren } from '../actions'
+import { stornoVerkauf, stornoZahlung, rechnungErstellen, rechnungStornieren, verkaufSamtRechnungStornieren } from '../actions'
 import StornoButton from '@/components/StornoButton'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import StornoKnopf from './StornoKnopf'
@@ -14,6 +14,7 @@ import RechnungVersandPanel from './RechnungVersandPanel'
 import RechnungErstellenPanel from './RechnungErstellenPanel'
 import { ersterOffenerRechnungstag, rechnungStornoFehler } from '@/lib/verkauf/rechnungsdatum'
 import RechnungStornoKnopf from './RechnungStornoKnopf'
+import VerkaufSamtRechnungStornoKnopf from './VerkaufSamtRechnungStornoKnopf'
 import { wienHeute } from '@/lib/csv'
 import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
@@ -182,6 +183,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     stornoGesperrt = m && m.startsWith('Storno nicht möglich') ? m : null
   }
   const rechnungStornoAction    = rechnung ? rechnungStornieren.bind(null, String(rechnung.id), id) : null
+  // KAN-356: Verkauf samt Rechnung in einem Schritt – nur eigene Rechnung mit genau einem Lieferschein, ohne ausgestellte
+  // Transportbescheinigung (die Datenbank prüft dasselbe; Zahlungen, BMD und Zeitraum meldet sie am Knopf)
+  const tbAusgestellt = (tbRaw as R | null)?.status === 'ausgestellt'
+  const samtStornoAction = eigeneRechnung && !sammelrechnung && !posten.storniert && !tbAusgestellt
+    ? verkaufSamtRechnungStornieren.bind(null, id) : null
   const hatTraubenverkauf = (traubenverkaufAnzahl ?? 0) > 0 || positionen.some((p: R) => p.typ === 'trauben')
   const stornoMeldung =
     'Der Lagerbestand wird zurückgebucht, der Beleg bleibt mit Datum, Benutzer und Grund als storniert erhalten.' +
@@ -302,6 +308,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <StornoKnopf action={stornoWithId} meldung={stornoMeldung} erstattung={gueltigeZahlungen.length > 0} />
           )}
           {writeOk && eigeneRechnung && rechnungStornoAction && !stornoGesperrt && <RechnungStornoKnopf action={rechnungStornoAction} />}
+          {writeOk && samtStornoAction && !stornoGesperrt && <VerkaufSamtRechnungStornoKnopf action={samtStornoAction} />}
           {stornoGesperrt && (
             <p role="note" className="text-xs text-s112-warn-fg bg-s112-warn-bg rounded-lg px-2.5 py-1.5 max-w-md">{stornoGesperrt}</p>
           )}
