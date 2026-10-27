@@ -7,6 +7,10 @@
 // nicht berechnete), die Finanzübersicht netto über die Lieferscheine, ohne Cent-Rundung – drei verschiedene Zahlen
 // für „Umsatz“ im selben Monat.
 //
+// KAN-379: Eine Rechnung mit Stornobeleg zählt in ihrem Monat weiter (aus der Momentaufnahme), der Stornobeleg negativ im
+// Monat seines Datums – wie die UVA (berechne_ea_uva); im selben Monat heben sich beide auf. Vor KAN-379 stornierte
+// Rechnungen (ohne Stornobeleg) zählen wie bisher nicht.
+//
 // Offene Posten: nur Rechnungen (aktiv, nicht storniert, nicht bezahlt), offener Betrag = Brutto − nicht stornierte
 // Zahlungen (Teilzahlungen mindern), Fälligkeit und Verzug über faelligkeit() (KAN-374).
 //
@@ -16,7 +20,7 @@
 // Ohne '@/'-Importe, damit node:test sie prüfen kann; die Lader nehmen den Supabase-Client entgegen.
 
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
-import { alsBeleg, lieferscheineSelect, positionBrutto } from './rechnungen.ts'
+import { alsBeleg, lieferscheineSelect, positionBrutto, STORNO_FELDER, zaehltMitBetrag } from './rechnungen.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund2 } from '../zahl/runden.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
@@ -63,9 +67,13 @@ export function rechnungBrutto(r: R): number {
   return rund2(positionen(r).reduce((s, p) => s + positionBrutto(p), 0))
 }
 
-/** Zählt die Rechnung als Umsatz? Aktiv, nicht storniert, mit mindestens einem Lieferschein (sonst nichts berechnet) */
+/**
+ * Zählt die Rechnung als Umsatz? Aktiv, nicht storniert, mit mindestens einem Lieferschein (sonst nichts berechnet).
+ * KAN-379: Stornobeleg und Rechnung mit Stornobeleg zählen (zaehltMitBetrag) – an ihnen hängen keine Lieferscheine mehr.
+ */
 export function zaehltAlsUmsatz(r: R): boolean {
-  if (r.aktiv === false || r.storniert === true) return false
+  if (!zaehltMitBetrag(r)) return false
+  if (r.art === 'storno' || r.storniert === true) return true
   if (Array.isArray(r.verkaufsposten_ids)) return r.verkaufsposten_ids.length > 0
   return Array.isArray(r.lieferscheine) ? r.lieferscheine.length > 0 : Array.isArray(r.verkauf_positionen)
 }
@@ -92,9 +100,12 @@ export function umsatzJeMonat(rechnungen: readonly R[], monate: readonly string[
 
 // ── Lader ────────────────────────────────────────────────────────────────────
 
+/** KAN-379: PostgREST-Filter „nicht storniert oder storniert mit Stornobeleg“ (genau prüft zaehltMitBetrag) */
+export const STORNIERT_ZAEHLT = 'storniert.eq.false,storniert_durch_id.not.is.null'
+
 /** select-Teil der Umsatz-Rechnungen (mit Kunde für die Belegliste der Auswertung) */
 export const UMSATZ_RECHNUNG_SELECT =
-  `id, datum, rechnungsnummer, aktiv, storniert, bezahlt, bmd_export_id, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen!firma_id(name), ${lieferscheineSelect(UMSATZ_POSITIONEN)}`
+  `id, datum, rechnungsnummer, aktiv, storniert, bezahlt, bmd_export_id, storno_positionen, ${STORNO_FELDER}, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen!firma_id(name), ${lieferscheineSelect(UMSATZ_POSITIONEN)}`
 
 /**
  * Rechnungen mit Rechnungsdatum von–bis (einschließlich, 'JJJJ-MM-TT') des Betriebs, die als Umsatz zählen – vollständig
@@ -102,10 +113,11 @@ export const UMSATZ_RECHNUNG_SELECT =
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeUmsatzRechnungen(supabase: any, tenantId: string, von: string, bis: string): Promise<{ data: R[]; error: R | null }> {
+  // storno-sichtbar: KAN-379 – Rechnungen mit Stornobeleg zählen in ihrem Zeitraum, der Stornobeleg bucht gegen
   const { data, error } = await alle<R>(supabase.from('rechnungen')
     .select(UMSATZ_RECHNUNG_SELECT)
     .eq('tenant_id', tenantId)
-    .eq('aktiv', true).eq('storniert', false)
+    .eq('aktiv', true).or(STORNIERT_ZAEHLT)
     .gte('datum', von).lte('datum', bis)
     .order('datum', { ascending: false }).order('id'))
   if (error) return { data: [], error }
@@ -142,6 +154,8 @@ export function ladeUmsatzBelege(
 
 export type UmsatzBelegZeile = {
   id: string; datum: string; nummer: string | null; art: 'rechnung' | 'lieferschein'; storniert: boolean; bezahlt: boolean
+  /** KAN-379: Stornobeleg (negativer Betrag, kein Zahlungsstatus) */
+  stornobeleg: boolean
   kontakt: R | null; firma: R | null; netto: number; href: string
 }
 
@@ -152,7 +166,7 @@ export function umsatzBelegZeile(r: R, basis: 'rechnung' | 'lieferung'): UmsatzB
     id: String(r.id), datum: String(r.datum).slice(0, 10),
     nummer: ((lieferung ? r.lieferscheinnummer ?? r.rechnungsnummer : r.rechnungsnummer) ?? null) as string | null,
     art: lieferung ? 'lieferschein' : 'rechnung',
-    storniert: !!r.storniert, bezahlt: !!r.bezahlt,
+    storniert: !!r.storniert, bezahlt: !!r.bezahlt, stornobeleg: !lieferung && r.art === 'storno',
     kontakt: (r.kontakt ?? null) as R | null, firma: (r.firma ?? null) as R | null,
     netto: rechnungNetto(r),
     href: lieferung ? `/weinhandel/verkauf/${r.id}` : `/weinhandel/rechnungen/${r.id}`,
@@ -218,7 +232,7 @@ export function offenePostenSumme(posten: readonly OffenerPosten[]): OffenePoste
 }
 
 /** select-Teil der offenen Posten: Kunde mit Zahlungsziel, Momentaufnahme, Positionen aller Lieferscheine */
-export const OFFENE_POSTEN_SELECT = `id, datum, rechnungsnummer, aktiv, storniert, bezahlt, bezahlt_am, partner_daten,
+export const OFFENE_POSTEN_SELECT = `id, datum, rechnungsnummer, art, aktiv, storniert, bezahlt, bezahlt_am, partner_daten,
   kontakt:kontakte!kontakt_id(id, vorname, nachname, zahlungsziel_tage),
   firma:firmen!firma_id(id, name, zahlungsziel_tage),
   ${lieferscheineSelect(UMSATZ_POSITIONEN)}`
@@ -240,6 +254,7 @@ export async function ladeOffenePostenListe(
     .order('datum', { ascending: true }).order('id'))
   if (error) return { data: [], error }
   const belege = ((data ?? []) as R[])
+    .filter(r => r.art !== 'storno')   // KAN-379: ein Stornobeleg ist kein offener Posten
     .map(r => alsBeleg(momentaufnahmeAnwenden(r, ['kontakt', 'firma'])))
     .filter(r => r.verkaufsposten_ids.length > 0)
 
@@ -278,10 +293,11 @@ export function rechnungenOhneBmdExport(rechnungen: readonly R[]): R[] {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeRechnungenOhneBmdExport(supabase: any, tenantId: string, von: string, bis: string): Promise<{ data: R[]; error: R | null }> {
+  // storno-sichtbar: KAN-379 – Rechnungen mit Stornobeleg zählen in ihrem Zeitraum, der Stornobeleg bucht gegen
   const { data, error } = await alle<R>(supabase.from('rechnungen')
-    .select('id, datum, aktiv, storniert, bmd_export_id, lieferscheine:verkaufsposten!rechnung_id(id)')
+    .select('id, datum, aktiv, storniert, art, storniert_durch_id, bmd_export_id, lieferscheine:verkaufsposten!rechnung_id(id)')
     .eq('tenant_id', tenantId)
-    .eq('aktiv', true).eq('storniert', false)
+    .eq('aktiv', true).or(STORNIERT_ZAEHLT)   // KAN-379: Stornobeleg und Rechnung mit Stornobeleg gehen an BMD
     .is('bmd_export_id', null)
     .gte('datum', von).lte('datum', bis)
     .order('datum').order('id'))

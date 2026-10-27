@@ -11,7 +11,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { KATALOG_BUCHHALTUNG } from '@/lib/behoerden/katalog/buchhaltung'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { datumText, istIsoDatum, standardZeitraum, summe } from '@/lib/behoerden/buchhaltung-gemeinsam'
-import { ladeRechnungsjournal, type RechnungsjournalZeile } from '@/lib/behoerden/rechnungsausgang'
+import { ladeRechnungsjournal, zaehltInJournalSumme, type RechnungsjournalZeile } from '@/lib/behoerden/rechnungsausgang'
 import DruckenKnopf from '../anlagen/DruckenKnopf'
 
 export const metadata: Metadata = { title: 'Rechnungsausgangsjournal' }
@@ -21,7 +21,8 @@ export const dynamic = 'force-dynamic'
 // Alle Ausgangsrechnungen des Zeitraums inkl. Stornos mit Netto/USt je Steuersatz – für
 // die Betriebsprüfung (§ 11 UStG fortlaufende Nummer, § 131 BAO). Zeilen aus
 // ladeRechnungsjournal() (lib/behoerden/rechnungsausgang.ts) – dieselbe Ladefunktion liefert
-// die CSV. Summen ohne Stornos, aus den gerundeten Zeilenwerten.
+// die CSV. Summen aus den gerundeten Zeilenwerten; KAN-379: Stornobelege (negativ) und Rechnungen mit Stornobeleg
+// zählen mit, nur Stornos ohne Stornobeleg (vor KAN-379) nicht (zaehltInJournalSumme).
 
 type Feld = 'netto20' | 'ust20' | 'netto13' | 'ust13' | 'netto10' | 'ust10' | 'netto0' | 'brutto'
 
@@ -41,7 +42,8 @@ export default async function RechnungsjournalPage({ searchParams }: { searchPar
   if (von > bis) [von, bis] = [bis, von]
 
   const { zeilen, warnungen } = await ladeRechnungsjournal(supabase, tenantId, { von, bis })
-  const gueltig = zeilen.filter(z => !z.storniert)
+  const gueltig = zeilen.filter(zaehltInJournalSumme)
+  const ohneBeleg = zeilen.length - gueltig.length
   const s = (k: Feld) => summe(gueltig.map(z => z[k]))
 
   const th = 'px-1.5 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wide text-s112-tertiary border-b border-s112-line-str whitespace-nowrap print:text-[7.5px] print:px-1'
@@ -112,7 +114,7 @@ export default async function RechnungsjournalPage({ searchParams }: { searchPar
             </tbody>
             <tfoot>
               <tr>
-                <td className={td + ' font-semibold border-t border-s112-text'} colSpan={4}>Summe {gueltig.length} {gueltig.length === 1 ? 'Rechnung' : 'Rechnungen'} (ohne Stornos)</td>
+                <td className={td + ' font-semibold border-t border-s112-text'} colSpan={4}>Summe {gueltig.length} {gueltig.length === 1 ? 'Beleg' : 'Belege'}{ohneBeleg > 0 ? ' (ohne Stornos ohne Stornobeleg)' : ''}</td>
                 <td className={tdSum}>{fmtEur(s('netto20'))}</td><td className={tdSum}>{fmtEur(s('ust20'))}</td>
                 <td className={tdSum}>{fmtEur(s('netto13'))}</td><td className={tdSum}>{fmtEur(s('ust13'))}</td>
                 <td className={tdSum}>{fmtEur(s('netto10'))}</td><td className={tdSum}>{fmtEur(s('ust10'))}</td>
@@ -127,7 +129,8 @@ export default async function RechnungsjournalPage({ searchParams }: { searchPar
       <p className="text-[11px] text-s112-tertiary leading-relaxed print:text-[8.5px]">
         Beträge in Euro. Netto und USt je Steuersatz wie auf der Rechnung (Positionsbrutto abzüglich Rabatt und Sonderrabatt); Netto
         gesamt, USt gesamt, Kundennummer und Land enthält die CSV. Stornierte Rechnungen bleiben mit ihren Beträgen aufgeführt
-        (Lückenlosigkeit der Nummern), zählen aber nicht zur Summe. Erstellt mit software:112 am {datumText(heute)}; ersetzt keine steuerliche Beratung.
+        (Lückenlosigkeit der Nummern); der Stornobeleg (ST-…) bucht am Storno-Datum mit negativen Beträgen gegen, beide zählen
+        zur Summe. Nur ältere Stornos ohne Stornobeleg zählen nicht. Erstellt mit software:112 am {datumText(heute)}; ersetzt keine steuerliche Beratung.
       </p>
     </div>
   )
@@ -135,7 +138,7 @@ export default async function RechnungsjournalPage({ searchParams }: { searchPar
 
 function JournalZeile({ z, td, tdNum, eur }: { z: RechnungsjournalZeile; td: string; tdNum: string; eur: (n: number | null) => string }) {
   return (
-    <tr className={z.storniert ? 'text-s112-tertiary' : ''}>
+    <tr className={zaehltInJournalSumme(z) ? '' : 'text-s112-tertiary'}>
       <td className={td + ' font-mono whitespace-nowrap'}>
         {z.rechnungsnummer && z.href ? <Link href={z.href} className="hover:text-s112-blue-700 print:no-underline">{z.rechnungsnummer}</Link> : z.rechnungsnummer ?? <span className="text-s112-warn-fg">ohne Nr.</span>}
         {z.quelle === 'export' && <span className="ml-1 text-[10px] text-s112-tertiary font-sans">Export</span>}
@@ -149,7 +152,9 @@ function JournalZeile({ z, td, tdNum, eur }: { z: RechnungsjournalZeile; td: str
       <td className={tdNum}>{eur(z.netto0)}</td>
       <td className={tdNum + ' font-semibold'}>{fmtEur(z.brutto)}</td>
       <td className={td}>
-        {z.storniert ? <span className="whitespace-nowrap">storniert{z.storniertAm ? ` ${datumText(wienDatum(z.storniertAm))}` : ''}</span> : ''}
+        {z.storniert ? <span className="whitespace-nowrap">storniert{z.storniertAm ? ` ${datumText(wienDatum(z.storniertAm))}` : ''}{z.storniertDurch ? ` durch ${z.storniertDurch}` : ''}</span> : ''}
+        {/* KAN-379: Stornobeleg mit Verweis auf die stornierte Rechnung */}
+        {z.stornoZu ? <span className="whitespace-nowrap">Storno zu {z.stornoZu}</span> : ''}
         {/* KAN-149 D1: wer und warum */}
         {z.storniert && (z.storniertVon || z.stornoGrund) && (
           <span className="block text-xs text-s112-muted">{[z.storniertVon, z.stornoGrund].filter(Boolean).join(' – ')}</span>

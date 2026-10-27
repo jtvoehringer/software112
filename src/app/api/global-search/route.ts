@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
   // storno-sichtbar: Suche findet auch stornierte Rechnungen (Kennzeichen storniert)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rechnungen, error: rechnungenErr } = await (supabase.from('rechnungen') as any)
-    .select('id, rechnungsnummer, datum, bezahlt, storniert')
+    .select('id, rechnungsnummer, datum, bezahlt, storniert, art')
     .ilike('rechnungsnummer', `%${q}%`)
     .eq('tenant_id', tenantId)
     .limit(5)
@@ -130,8 +130,8 @@ export async function GET(req: NextRequest) {
     results.push({
       id:         r.id,
       kategorie:  'verkauf',
-      titel:      `Rechnung ${r.rechnungsnummer}`,
-      untertitel: [r.datum ? new Date(r.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null, r.storniert ? 'storniert' : r.bezahlt ? 'bezahlt' : 'offen'].filter(Boolean).join(' · '),
+      titel:      `${r.art === 'storno' ? 'Stornobeleg' : 'Rechnung'} ${r.rechnungsnummer}`,   // KAN-379
+      untertitel: [r.datum ? new Date(r.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null, r.art === 'storno' ? null : r.storniert ? 'storniert' : r.bezahlt ? 'bezahlt' : 'offen'].filter(Boolean).join(' · '),
       href:       `/weinhandel/rechnungen/${r.id}`,
     })
   })

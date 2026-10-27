@@ -7,14 +7,15 @@ import { alle, bloecke, inBloecken } from '@/lib/supabase/alle'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import {
   mappingAufloesen, steuerfall, erloesSchluessel, steuercodeFuer,
-  bmdDatum, datumPlusTage, bmdCsv, bmdText, personenkontenCsv,
+  bmdDatum, datumPlusTage, bmdCsv, bmdText, bmdRechnungKopf, personenkontenCsv,
   type Mapping, type BmdZeile, type PersonenkontoZeile,
 } from '@/lib/buchhaltung/bmd'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { wienHeute } from '@/lib/csv'
 import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
-import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
+import { alsBeleg, lieferscheineSelect, STORNO_FELDER, zaehltMitBetrag } from '@/lib/verkauf/rechnungen'
+import { STORNIERT_ZAEHLT } from '@/lib/verkauf/umsatz'
 import { rund } from '@/lib/zahl/runden'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -243,24 +244,29 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
   let anzahl = 0, summe = 0
 
   // KAN-105: Beleg = Rechnung (rechnungen) mit den Positionen aller ihrer Lieferscheine; Belegdatum = Rechnungsdatum
+  // KAN-379: auch Stornobelege (Gutschrift, negative Beträge) und Rechnungen mit Stornobeleg (aus der Momentaufnahme –
+  // in ihrem Zeitraum weiter wirksam, wie die UVA); vor KAN-379 stornierte Rechnungen ohne Stornobeleg wie bisher nicht
+  // storno-sichtbar: KAN-379 – Rechnungen mit Stornobeleg zählen in ihrem Zeitraum, der Stornobeleg bucht gegen
   let q = (supabase.from('rechnungen') as any)
-    .select(`id, datum, rechnungsnummer, skonto_pct, skonto_tage, skonto_aktiv, bmd_export_id,
+    .select(`id, datum, rechnungsnummer, aktiv, storniert, skonto_pct, skonto_tage, skonto_aktiv, bmd_export_id, storno_positionen,
+      ${STORNO_FELDER},
       kontakt:kontakte!kontakt_id(id, vorname, nachname, land, zahlungsziel_tage, debitor_nr),
       firma:firmen!firma_id(id, name, land, zahlungsziel_tage, debitor_nr),
       ${lieferscheineSelect('typ, name, preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz, traubenverkauf_id')}`)
-    .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false)
+    .eq('tenant_id', tenantId).eq('aktiv', true).or(STORNIERT_ZAEHLT)
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
   const { data: roh, error: rohErr } = await alle<R>(q.order('datum').order('id'))
   if (rohErr) throw new AktionsFehler(`Verkäufe konnten nicht geladen werden: ${rohErr.message}`)
-  const posten = roh.map(alsBeleg)
+  const posten = roh.filter(zaehltMitBetrag).map(alsBeleg)
 
   for (const p of posten) {
     const firma = p.firma ?? null, kontakt = p.kontakt ?? null
     const land = firma?.land ?? kontakt?.land ?? 'AT'
     const name = firma?.name ?? [kontakt?.vorname, kontakt?.nachname].filter(Boolean).join(' ') ?? 'Barverkauf'
     const zahlungsziel = Number(firma?.zahlungsziel_tage ?? kontakt?.zahlungsziel_tage ?? STANDARD_ZAHLUNGSZIEL)
-    const belegnr = p.rechnungsnummer ?? p.id.slice(0, 8)
+    const kopf = bmdRechnungKopf(p, name)
+    const belegnr = kopf.belegnr
 
     // Positionen je Erlöskonto/Steuersatz zusammenfassen -> eine BMD-Zeile je Gruppe
     const gruppen = new Map<string, { schluessel: string; satz: number; fall: ReturnType<typeof steuerfall>; brutto: number }>()
@@ -288,9 +294,9 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
         buchsymbol: m.buchsymbol_ar, buchcode: '1',
         prozent: g.satz, steuercode: steuercodeFuer(g.fall, m),
         betrag: brutto, steuer: rund((brutto - netto), 2),
-        text: bmdText(`${name} RE ${belegnr}`), kost: '', extbelegnr: '',
-        nettodatum: bmdDatum(datumPlusTage(p.datum, zahlungsziel)),
-        skontopz: p.skonto_aktiv && Number(p.skonto_pct) > 0 ? Number(p.skonto_pct) : 0,
+        text: kopf.text, kost: '', extbelegnr: kopf.extbelegnr,
+        nettodatum: bmdDatum(kopf.gutschrift ? p.datum : datumPlusTage(p.datum, zahlungsziel)),
+        skontopz: !kopf.gutschrift && p.skonto_aktiv && Number(p.skonto_pct) > 0 ? Number(p.skonto_pct) : 0,
         dokument: '',
       })
       summe += brutto

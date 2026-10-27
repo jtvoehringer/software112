@@ -706,7 +706,8 @@ export default function ReportsClient({
                                     <td className="px-3 py-1.5 font-medium text-s112-text">{kundenName(p)}</td>
                                     <td className="px-3 py-1.5 text-right font-semibold text-s112-blue-700 tabular-nums">{eur(Number(p.netto) || 0)}</td>
                                     <td className="px-3 py-1.5 text-center">
-                                      {p.storniert ? <span className="text-s112-err">Storno</span>
+                                      {p.stornobeleg ? <span className="text-s112-muted">Stornobeleg</span>
+                                        : p.storniert ? <span className="text-s112-err">Storno</span>
                                         : p.bezahlt ? <span className="text-s112-ok-fg">Bezahlt</span>
                                         : <span className="text-s112-warn-fg">Offen</span>}
                                     </td>

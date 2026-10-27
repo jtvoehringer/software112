@@ -189,6 +189,23 @@ export function bmdText(s: string, max = 255): string {
   return t.length > max ? t.slice(0, max - 1) + '…' : t
 }
 
+/**
+ * KAN-379: Kopf einer Ausgangsrechnung im Buchungsstapel. Ein Stornobeleg (art = 'storno') geht als Gutschrift: eigene
+ * Belegnummer ST-…, Fremdbeleg-Nr. = Nummer der stornierten Rechnung (BMD gleicht damit den offenen Posten aus), Text
+ * „Storno … zu RE …“, fällig am Belegdatum, ohne Skonto. Die negativen Beträge liefern die Positionen (alsBeleg).
+ */
+export function bmdRechnungKopf(
+  p: Record<string, unknown>,
+  name: string,
+): { belegnr: string; extbelegnr: string; text: string; gutschrift: boolean } {
+  const belegnr = (p.rechnungsnummer as string | null | undefined) ?? String(p.id ?? '').slice(0, 8)
+  if (p.art === 'storno') {
+    const original = (p.storno_von as { rechnungsnummer?: string | null } | null | undefined)?.rechnungsnummer ?? ''
+    return { belegnr, extbelegnr: original, text: bmdText(`${name} Storno ${belegnr}${original ? ` zu RE ${original}` : ''}`), gutschrift: true }
+  }
+  return { belegnr, extbelegnr: '', text: bmdText(`${name} RE ${belegnr}`), gutschrift: false }
+}
+
 // ── Stammdaten (Personenkonten) ─────────────────────────────────────────────
 export type PersonenkontoZeile = {
   kontonummer: string

@@ -28,7 +28,7 @@ afterEach(() => { if (TZ_VORHER === undefined) delete process.env.TZ; else proce
 
 const pos = (preis_brutto, menge, ust_satz, teil = {}) => ({ preis_brutto, menge, rabatt_pct: 0, sonderrabatt_pct: 0, ust_satz, ...teil })
 const rechnung = (id, datum, positionen, teil = {}) => ({
-  id, tenant_id: T, datum, rechnungsnummer: `R-${id}`, aktiv: true, storniert: false, bezahlt: false, bezahlt_am: null, bmd_export_id: null,
+  id, tenant_id: T, datum, rechnungsnummer: `R-${id}`, art: 'rechnung', storniert_durch_id: null, aktiv: true, storniert: false, bezahlt: false, bezahlt_am: null, bmd_export_id: null,
   partner_daten: null, kontakt: null, firma: null,
   lieferscheine: [{ id: `ls-${id}`, lieferscheinnummer: `L-${id}`, datum, verkauf_positionen: positionen }],
   ...teil,
@@ -161,7 +161,9 @@ describe('KAN-346: Umsatz netto nach Rechnungsdatum', () => {
     assert.deepEqual(data.map(r => r.id).sort(), ['r1', 'r2'])
     assert.equal(U.umsatzNetto(data), 200)
     const a = db.aufrufe.find(x => x.tabelle === 'rechnungen')
-    for (const [op, k, v] of [['eq', 'tenant_id', T], ['eq', 'aktiv', true], ['eq', 'storniert', false]]) {
+    // KAN-379: nicht storniert ODER storniert mit Stornobeleg (Gegenbuchung im Zeitraum des Stornobelegs)
+    assert.ok(a.filter.some(f => f[0] === 'or' && f[1] === 'storniert.eq.false,storniert_durch_id.not.is.null'), 'or storniert')
+    for (const [op, k, v] of [['eq', 'tenant_id', T], ['eq', 'aktiv', true]]) {
       assert.ok(a.filter.some(f => f[0] === op && f[1] === k && f[2] === v), `${op} ${k}`)
     }
     assert.ok(!db.aufrufe.some(x => x.tabelle === 'verkaufsposten'))
