@@ -142,7 +142,7 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
                   <td className="px-2 py-1.5">{z.empfaengerKurz || '–'}</td>
                   <td className="px-2 py-1.5 tabular-nums">{tag(z.lieferdatum)}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{z.position}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{z.menge === null ? '–' : `${fmtNum(z.menge, { max: 2 })} ${z.einheit ?? ''}`}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap druck-einzeilig">{z.menge === null ? '–' : `${fmtNum(z.menge, { max: 2 })} ${z.einheit ?? ''}`}</td>
                   <td className="px-2 py-1.5">{z.art ?? '–'}</td>
                   <td className="px-2 py-1.5" title={z.traubensorte ?? undefined}>{sortenKuerzel(z.traubensorte) ?? z.traubensorte ?? '–'}</td>
                   <td className="px-2 py-1.5">{z.jahrgang ?? '–'}</td>
