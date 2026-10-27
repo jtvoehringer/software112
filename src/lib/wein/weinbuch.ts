@@ -42,7 +42,7 @@ import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleTex
 import { abstufungText } from '@/lib/kellerbuch/abstufen'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { zukaufTbsVermerk } from '@/lib/handel/tbsNummer'
-import { ladePnVerlauf, pnStandAm, pnStandText, pnVerlaufEreignisse } from '@/lib/kellerbuch/pruefnummerVerlauf'
+import { ladePnVerlauf, pnStandAm, pnStandText, pnVerlaufEreignisse, type PnVerlauf } from '@/lib/kellerbuch/pruefnummerVerlauf'
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
 import { alle } from '@/lib/supabase/alle'
 import {
@@ -79,6 +79,8 @@ export interface TimelineEvent {
   titel: string
   details: string[]
   badge?: string
+  /** KAN-365: Gebinde, aus dem der Wein kam (Umzug: Von-Gebinde, Verschnitt: Quellgebinde) – eigene CSV-Spalte */
+  quellgebinde?: string | null
 }
 
 export interface WeinbuchCharge {
@@ -106,6 +108,8 @@ export interface Weinbuch {
   warnungen: string[]
   /** Tag der Füllung, mit der die (jetzt leere) Charge abgeschlossen wurde – danach keine Einträge mehr; sonst null */
   abgeschlossenAm: string | null
+  /** KAN-365: Prüfnummer-Verlauf der Charge (pruefnummer_chargen) – für „Prüfnummer (gültig am Datum)“ je Zeile */
+  pnVerlauf?: PnVerlauf[]
 }
 
 export const HINWEIS_EROEFFNUNGSBESTAND = 'Eröffnungsbestand – Ried-Maßnahmen vor der Übernahme nicht in software:112 erfasst.'
@@ -524,6 +528,7 @@ export async function buildWeinbuch(
       datum: u.datum,
       typ: 'umzug',
       titel: `${von} → ${nach}`,
+      quellgebinde: (u.von_behaelter as R | null)?.name ?? null,
       details: [
         liter && `${fmtNum(parseFloat(liter))} L`,
         u.schwund_liter && `Schwund: ${fmtNum(parseFloat(u.schwund_liter))} L`,
@@ -599,9 +604,11 @@ export async function buildWeinbuch(
     : new Map<string, { name: string | null; rekonstruiert?: true }>()
   for (const v of verschnEin) {
     merkeStorno(v)
+    const quellNamen: string[] = []
     const quelleTexte = ((v.quellen ?? []) as R[]).map((q: R) => {
       const qid = q.quell_weinausbau_id ?? (q.quelle as R | null)?.id
       const g = qid ? quellGebinde.get(quellGebindeSchluessel(v.id, qid)) ?? null : null
+      if (g?.name && !quellNamen.includes(g.name)) quellNamen.push(g.name)
       // KAN-112: nachträglich ermitteltes Gebinde mit Hinweis „Gebinde rekonstruiert“
       return `Verschneidung von ${verschnittQuelleText((q.quelle as R | null)?.name, g?.name ?? null, `${fmtNum(parseFloat(q.menge_liter ?? 0))} L`, g?.rekonstruiert)}`
     })
@@ -610,6 +617,7 @@ export async function buildWeinbuch(
       typ: 'verschneidung',
       titel: 'Verschneidung – eingehend',
       details: [...quelleTexte, v.notizen].filter(Boolean) as string[],
+      quellgebinde: quellNamen.length > 0 ? quellNamen.join(', ') : null,
     })
   }
 
@@ -745,9 +753,11 @@ export async function buildWeinbuch(
   }
 
   // KAN-200: Prüfnummer je Charge (pruefnummer_chargen) – Übernahme per Umzug und Ende für den Tankbestand
+  let pnVerlauf: PnVerlauf[] | undefined
   if (tenantId) {
     try {
       const verlauf = (await ladePnVerlauf(supabase, tenantId, [id])).get(id) ?? []
+      pnVerlauf = verlauf
       wa.pruefnummer = pnStandText(pnStandAm(verlauf))
       for (const e of pnVerlaufEreignisse(verlauf)) events.push({ ...e, typ: 'dac' })
     } catch (e) {
@@ -783,5 +793,5 @@ export async function buildWeinbuch(
   const abgeschlossenAm = parseFloat(String(wa.menge_liter ?? 0)) <= 0.5 && endTage.length > 0 ? endTage[endTage.length - 1] : null
   const imWeinbuch = abgeschlossenAm ? events.filter(ev => !tag(ev.datum) || tag(ev.datum) <= abgeschlossenAm) : events
 
-  return { wa, events: imWeinbuch, warnungen, abgeschlossenAm }
+  return { wa, events: imWeinbuch, warnungen, abgeschlossenAm, pnVerlauf }
 }

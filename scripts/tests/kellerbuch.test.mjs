@@ -404,9 +404,30 @@ describe('weinbuch und weinbuch-sammlung', () => {
     }
     const text = csv.csvText(weinbuch.weinbuchZeilen(wb), weinbuch.SPALTEN_WEINBUCH)
     const [kopf, a, b] = zellen(text)
-    assert.deepEqual(kopf, ['Charge', 'Jahrgang', 'Rebsorte', 'BKI-Kürzel', 'Gebinde (aktuell)', 'Datum', 'Art', 'Ereignis', 'Details', 'Status', 'Prüfnummer der Charge (aktuell)'])   // KAN-200: Spalte am Ende
-    assert.deepEqual(a, ['GV 2025', '2025', 'Grüner Veltliner', 'GV', 'Tank 1', '20.09.2025', 'Pressung', 'Pressung', '1.000 L Most | Weingärten: Ried Hochrain', '', ''])
-    assert.deepEqual(b.slice(5), ['01.03.2026', 'DAC / Prüfnummer', 'DAC-Antrag', 'Prüfnummer: N 1234/26', 'Genehmigt', ''])
+    assert.deepEqual(kopf, ['Charge', 'Jahrgang', 'Rebsorte', 'BKI-Kürzel', 'Gebinde (aktuell)', 'Datum', 'Art', 'Ereignis', 'Details', 'Status', 'Prüfnummer der Charge (aktuell)', 'Quellgebinde', 'Prüfnummer (gültig am Datum)'])   // KAN-200, KAN-365: Spalten am Ende
+    assert.deepEqual(a, ['GV 2025', '2025', 'Grüner Veltliner', 'GV', 'Tank 1', '20.09.2025', 'Pressung', 'Pressung', '1.000 L Most | Weingärten: Ried Hochrain', '', '', '', ''])
+    assert.deepEqual(b.slice(5), ['01.03.2026', 'DAC / Prüfnummer', 'DAC-Antrag', 'Prüfnummer: N 1234/26', 'Genehmigt', '', '', ''])
+  })
+  // KAN-365 (UAT 27.10.2026): Quellgebinde als eigene Spalte; Prüfnummer, die am Datum der Zeile für den Tankbestand galt
+  test('KAN-365: Quellgebinde und Prüfnummer (gültig am Datum) je Zeile', () => {
+    const pn = (nr, ab, bis, status = 'genehmigt') => ({ antragId: nr, chargeId: C1, pruefnummer: nr, status, gueltigAb: ab, gueltigBis: bis, endeGrund: bis ? 'verschnitt' : null, quelleChargeId: null, quelleChargeName: null, quelleVorgang: null })
+    const wb = {
+      wa: { id: C1, name: 'GV 2025', jahrgang: 2025, rebsorte: 'Grüner Veltliner', qualitaetsstufe: null, status: 'ausbau', menge_liter: 500, behaelter_id: G1, behaelter_name: 'Tank 1', pruefnummer: 'N 2/26' },
+      events: [
+        { datum: '2026-01-10', typ: 'umzug', titel: 'Tank 3 → Tank 1', details: ['500 L'], quellgebinde: 'Tank 3' },
+        { datum: '2026-03-01', typ: 'analyse', titel: 'Analyse', details: [] },
+        { datum: '2026-04-01', typ: 'verschneidung', titel: 'Verschneidung – eingehend', details: ['Verschneidung von A (Fass 2) · 50 L'], quellgebinde: 'Fass 2, Fass 4' },
+        { datum: '2026-05-31T22:30:00+00:00', typ: 'dac', titel: 'DAC-Antrag', details: [] },
+      ],
+      pnVerlauf: [pn('N 1/26', '2026-02-01', '2026-04-01'), pn('N 2/26', '2026-06-01', null), pn('N 9/26', '2026-01-01', null, 'eingereicht')],
+    }
+    const z = weinbuch.weinbuchZeilen(wb)
+    assert.deepEqual(z.map(x => x.quellgebinde), ['Tank 3', null, 'Fass 2, Fass 4', null])
+    // 10.01. noch keine (N 9/26 nur eingereicht), 01.03. N 1/26, 01.04. durch Verschnitt erloschen → leer,
+    // DAC-Zeitpunkt 31.05. 22:30 UTC = 01.06. Wiener Zeit → N 2/26
+    assert.deepEqual(z.map(x => x.pruefnummerAmDatum), [null, 'N 1/26', null, 'N 2/26'])
+    const [, a] = zellen(csv.csvText(z, weinbuch.SPALTEN_WEINBUCH))
+    assert.deepEqual(a.slice(-3), ['N 2/26', 'Tank 3', ''])
   })
   test('unbekannte Charge → 404; Sammlung mit Filter und Dateiname', async () => {
     const daten = kellerDaten()
@@ -506,7 +527,7 @@ describe('weinbuch und weinbuch-sammlung', () => {
     // sondern mit Vermerk und Hinweis (Druck darf gegenüber früher nichts verlieren)
     assert.deepEqual(w.tabelle.slice(1).map(c => [c[5], c[7]]), [['01.08.2025', 'Reinigung'], ['20.09.2025', 'Pressung'], ['05.11.2025', 'Bentonit'], ['01.03.2026', 'GV Klassik'], ['01.04.2026', 'Fassverkauf'], ['02.04.2026', 'Fassverkauf']])
     // KAN-44 Teil 3: Fassverkäufe stehen im Weinbuch, der vor KAN-145 stornierte gekennzeichnet
-    assert.deepEqual(w.tabelle.slice(5).map(c => c.at(-2)), ['', 'storniert'])
+    assert.deepEqual(w.tabelle.slice(5).map(c => c[9]), ['', 'storniert'])   // Spalte Status
     assert.match(w.tabelle[1][8], /Zuordnung zur Charge nicht eindeutig/)
     assert.doesNotMatch(w.tabelle[3][8], /nicht eindeutig/)
     assert.ok(w.warnungen.some(x => /^1 Kellerbehandlung ohne Charge ist keiner Charge eindeutig zuzuordnen/.test(x)))

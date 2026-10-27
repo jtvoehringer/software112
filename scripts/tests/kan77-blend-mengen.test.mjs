@@ -209,6 +209,7 @@ describe('KAN-77 Lader gegen die Attrappe', nurMitHooks, () => {
     const ev = wb.events.find(e => e.typ === 'verschneidung')
     assert.ok(ev, 'Verschnitt-Ereignis fehlt')
     assert.deepEqual(ev.details, ['Verschneidung von Zwischencharge (Stahltank 03) · 48 L'])
+    assert.equal(ev.quellgebinde, 'Stahltank 03')   // KAN-365: eigene CSV-Spalte Quellgebinde
     const { weinbuchZeilen } = await laden('lib/behoerden/weinbuch.ts')
     assert.ok(weinbuchZeilen(wb).some(z => z.details.includes('Stahltank 03') && !z.details.includes('Stahltank 04')))
   })
