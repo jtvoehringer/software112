@@ -136,6 +136,13 @@ describe('KAN-358: alle Stellen nutzen die gemeinsame Regel', () => {
     }
     assert.doesNotMatch(quelle('src/app/api/zukauf-stammdaten/route.ts'), /\.eq\('aktiv', true\)/)
   })
+  // Nachtrag (Entscheidung Jörgen 27.10.2026): auch die Chargenliste der Chargen-Seite (Verschneiden- und Umziehen-Widget)
+  test('Chargen-Seite: Verschnitt-Quellen und Umzug-Ziele nur offene Chargen (aktiv, nicht storniert, nicht abgeschlossen)', () => {
+    const s = quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/page.tsx')
+    assert.match(s, IMPORT)
+    assert.match(s, /alle\(nurBelegendeChargen\(tf\(\(supabase\.from\('weinausbau'\) as any\)\n\s*\.select\('id, name, menge_liter[^']*'\)\n\s*\.neq\('id', id\)\)\)\n\s*\.order\('name'\)\.order\('id'\)\)/)
+    assert.doesNotMatch(s, /\.eq\('aktiv', true\)\n\s*\.neq\('id', id\)/)
+  })
 })
 
 describe('KAN-358: alle()-Wächter kennt nurBelegendeChargen als Filter-Hülle', () => {
