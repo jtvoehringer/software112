@@ -11,7 +11,8 @@ import {
   bewerten, ladeMusterhofPruefung, mailInhalt, resetFaelligAb, kellerbuchSoll,
 } from '../../src/lib/demo/musterhofResetAmpel.ts'
 
-const quelle = f => readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8')
+// CRLF → LF: unter Windows (core.autocrlf) scheiterten die zeilenübergreifenden Muster
+const quelle = f => readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 /** Quelltext ohne Kommentarzeilen (Zeilen, die mit // bzw. /** oder * beginnen) */
 const code = f => quelle(f).split('\n').filter(z => !/^\s*(\/\/|\/?\*)/.test(z)).join('\n')
 
