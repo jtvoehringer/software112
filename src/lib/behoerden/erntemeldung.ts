@@ -266,6 +266,9 @@ export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   // KAN-148 C1b: stornierte Einträge bleiben in der Liste, gekennzeichnet – wieder hinten angefügt
   { kopf: 'Storniert am', typ: 'zeitpunkt', wert: z => z.storniertAm },
   { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
+  // KAN-364 (Entscheidung Jörgen 27.10.2026): Weinbaugebiet der Lese – genauestes Gebiet (Weinbaugebiet am Ried, sonst aus
+  // dem Herkunft-Code, sonst das Bundesland), wie im Kopf der AMA-Meldung; hinten angefügt, die bisherigen Spalten bleiben
+  { kopf: 'Weinbaugebiet', typ: 'text', wert: z => z.gebietGenau },
 ]
 
 /** KAN-148 C1b: nur nicht stornierte Lesedaten (Summen, Meldungen) */
