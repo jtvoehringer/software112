@@ -120,8 +120,9 @@ export default function AppShell({
         </main>
 
         {/* KAN-338/359: Pop-ups (Fehler-Hinweis, Erfolg) und Rückfrage-Dialog hängen im Root-Layout (src/app/layout.tsx) */}
-        {/* Assistent-Panel (rechts, Design-Phase D – UI-Hülle) */}
-        <AssistantPanel />
+        {/* Assistent-Panel (rechts, Design-Phase D – UI-Hülle). KAN-366 (UAT 27.10.2026): der schwebende Knopf druckte mit –
+            „contents“ lässt das Panel am Bildschirm Teil des Flex-Layouts, im Druck fällt alles weg */}
+        <div className="contents print:hidden" data-print="hide"><AssistantPanel /></div>
       </div>
     </div>
   )

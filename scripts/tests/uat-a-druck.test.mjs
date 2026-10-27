@@ -164,6 +164,18 @@ describe('KAN-366: Sammelliste Transportbescheinigungen', () => {
     assert.equal(kuerzel.sortenKuerzel(kuerzel.formatRebsorteMitKuerzel('Grüner Veltliner')), 'GV')
   })
 
+  test('Nachtrag 27.10.2026 (2): Menge bleibt im Druck einzeilig, Assistent-Knopf druckt nicht', () => {
+    const s = quelle(SEITE)
+    assert.match(s, /<td className="[^"]*\bwhitespace-nowrap druck-einzeilig\b[^"]*">\{z\.menge === null/)
+    const css = quelle('src/app/globals.css')
+    const druck = css.slice(css.indexOf('@media print'))
+    // die Ausnahme steht nach der allgemeinen Umbruch-Regel (gleiche !important-Stufe, spezifischer und später)
+    const allgemein = druck.indexOf('th, td { white-space: normal !important;')
+    const ausnahme = druck.indexOf('th.druck-einzeilig, td.druck-einzeilig { white-space: nowrap !important; }')
+    assert.ok(allgemein >= 0 && ausnahme > allgemein, 'druck-einzeilig nach th, td { white-space: normal }')
+    assert.match(quelle('src/components/layout/AppShell.tsx'), /<div className="contents print:hidden" data-print="hide"><AssistantPanel \/><\/div>/)
+  })
+
   test('Druck im Querformat über DruckFormatKnopf, eigener DruckKnopf entfernt', () => {
     const s = quelle(SEITE)
     assert.match(s, /<DruckFormatKnopf standard="quer" \/>/)
