@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
+import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -20,10 +21,10 @@ export async function GET() {
     const [behaelterRows, { data: weinausbau, error: weinausbauErr }, { data: laender, error: laenderErr }] = await Promise.all([
       // eigene + freigegebene Gebinde, fremd belegte ausgenommen (Kellergemeinschaft, Migration 203)
       ladeBehaelter(supabase, tenantId, { alsZiel: true }),
-      alle((supabase.from('weinausbau') as any)
+      // Chargen in den Gebinden (Inhalt der Ziel-Gebinde-Auswahl) – KAN-358: Belegung wie Umzug und Abstufen (leereGebinde.ts)
+      alle(nurBelegendeChargen((supabase.from('weinausbau') as any)
         .select('id, name, menge_liter, behaelter_id, rebsorte')
-        .eq('tenant_id', tenantId)
-        .eq('aktiv', true)
+        .eq('tenant_id', tenantId))
         .order('name').order('id')),
       // KAN-186: Ursprungsland des Zukaufs (land_iso) – globaler Katalog ohne tenant_id (ISO-Länder)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

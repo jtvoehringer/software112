@@ -8,6 +8,8 @@ import { notFound } from 'next/navigation'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { abstufenHerkuenfte, abstufenZusaetze, abstufungText } from '@/lib/kellerbuch/abstufen'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
+import { BELEGUNG_SPALTEN, GEBINDE_ANLEGEN_PFAD, leereGebinde as leereGebindeAus, nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
+import { mitZurueck } from '@/lib/navigation/zurueck'
 import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import AbstufenForm from './AbstufenForm'
@@ -38,9 +40,10 @@ export default async function AbstufenPage({ params }: { params: Promise<{ id: s
     tf((supabase.from('charge_umstufungen') as any)
       .select('id, datum, menge_liter, alt_qualitaetsstufe, alt_zusatzbezeichnung, alt_erzeugnis, alt_herkunft_code, neu_qualitaetsstufe, neu_zusatzbezeichnung, neu_erzeugnis, neu_herkunft_code, grund, erstellt_von_name, quelle:quelle_weinausbau_id(name)')
       .eq('weinausbau_id', id).order('datum', { ascending: false })),
-    // belegte Gebinde (aktive Chargen) – Teilmenge nur in ein leeres Gebinde
+    // belegte Gebinde – Teilmenge nur in ein leeres Gebinde; KAN-358: dieselbe Regel wie Umzug und Zukauf
+    // (abgeschlossene, inaktive und stornierte Chargen belegen kein Gebinde)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    alle(tf((supabase.from('weinausbau') as any).select('behaelter_id').eq('aktiv', true).is('storniert_am', null).not('behaelter_id', 'is', null).order('id'))),
+    alle(nurBelegendeChargen(tf((supabase.from('weinausbau') as any).select(BELEGUNG_SPALTEN))).not('behaelter_id', 'is', null).order('id')),
     ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
   ])
   const waRaw = geladen(waRawRes, 'Chargen')
@@ -49,8 +52,7 @@ export default async function AbstufenPage({ params }: { params: Promise<{ id: s
   if (!waRaw) notFound()
   const wa = waRaw as R
   const alt = { ...normalisiereQualitaet(wa), herkunft: (wa.herkunft_code as string | null) ?? null }
-  const belegt = new Set(((belegtRaw ?? []) as R[]).map(b => String(b.behaelter_id)))
-  const leereGebinde = behaelter.filter(b => !belegt.has(b.id) && !b.gesperrt && b.id !== wa.behaelter_id)
+  const leereGebinde = leereGebindeAus(behaelter, (belegtRaw ?? []) as R[], { ausser: wa.behaelter_id as string | null })
     .map(b => ({ id: b.id, name: b.name as string }))
   const bestand = Number(wa.menge_liter) || 0
   const abstufbar = writeOk && !wa.storniert_am && wa.aktiv !== false && bestand > 0.01
@@ -75,6 +77,7 @@ export default async function AbstufenPage({ params }: { params: Promise<{ id: s
           zusaetze={abstufenZusaetze(alt)}
           herkuenfte={abstufenHerkuenfte(alt)}
           leereGebinde={leereGebinde}
+          gebindeAnlegenHref={mitZurueck(GEBINDE_ANLEGEN_PFAD, `/kellerbuch/weinausbau/${wa.id}/abstufen`)}
         />
       ) : (
         <p className="text-sm text-s112-muted">

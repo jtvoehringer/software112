@@ -3,6 +3,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
+import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import UmziehenClient from './UmziehenClient'
@@ -35,14 +36,13 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
     bhRows,
     umzugRawRes,
   ] = await Promise.all([
-    // Aktive Chargen mit Behälter-Info (für Quellen-Auflösung)
-    alle(tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, weinart, menge_liter, qualitaetsstufe, status, behaelter_id, behaelter:behaelter_id(id, name, volumen_liter)')
-      .eq('aktiv', true)
-      .neq('status', 'abgeschlossen')
+    // Aktive Chargen mit Behälter-Info (für Quellen-Auflösung und den Inhalt der Ziel-Gebinde);
+    // KAN-358: Belegung wie leereGebinde.ts (abgeschlossene, inaktive und stornierte Chargen belegen kein Gebinde)
+    alle(nurBelegendeChargen(tf((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, rebsorte, weinart, menge_liter, qualitaetsstufe, status, behaelter_id, behaelter:behaelter_id(id, name, volumen_liter)')))
       .not('behaelter_id', 'is', null)
       .gt('menge_liter', 0)
-      .order('name').order('id'))),
+      .order('name').order('id')),
 
     // Alle aktiven Behälter als Ziele - eigene + freigegebene (Kellergemeinschaft),
     // ohne fremd belegte (Migration 203)

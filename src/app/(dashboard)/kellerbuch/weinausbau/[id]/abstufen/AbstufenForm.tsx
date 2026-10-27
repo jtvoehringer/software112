@@ -10,13 +10,16 @@ import { ABSTUFEN_GRUND_MIN, abstufenFehler, abstufenStufen, teilmengeFehler, ty
 import { QUALITAET_OPTS, qualitaetAnzeige } from '@/lib/wein/qualitaet'
 import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { serverRueckfrage } from '@/lib/ui/rueckfrage'
+import Link from '@/components/ui/Link'
 
 type Option = { value: string; label: string }
 
 // KAN-82: Formular „Abstufen“ – ganze Charge oder Teilmenge (mit Umzug in ein leeres Gebinde), nur niedriger, Pflichtgrund
-export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, herkuenfte, leereGebinde }: {
+export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, herkuenfte, leereGebinde, gebindeAnlegenHref }: {
   chargeId: string; bestand: number; heute: string; alt: ChargeMerkmale
   zusaetze: Option[]; herkuenfte: Option[]; leereGebinde: { id: string; name: string }[]
+  /** KAN-358: Link „Gebinde anlegen“, wenn kein leeres Gebinde frei ist (Teilmenge ausgegraut) */
+  gebindeAnlegenHref: string
 }) {
   const router = useRouter()
   // Liste der Zieltabelle weinausbau (KAN-73), eingeschränkt auf die bisherige und niedrigere Stufen
@@ -89,7 +92,12 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
           <input type="radio" name="umfang" checked={umfang === 'teil'} disabled={leereGebinde.length === 0} onChange={() => setUmfang('teil')} className="accent-s112-teal" />
           Teilmenge – wird in ein leeres Gebinde umgezogen und dort abgestuft
         </label>
-        {leereGebinde.length === 0 && <p className="text-xs text-s112-muted">Kein leeres Gebinde frei – für eine Teilmenge zuerst ein Gebinde leeren.</p>}
+        {leereGebinde.length === 0 && (
+          <p className="text-xs text-s112-muted">
+            Kein leeres Gebinde frei – für eine Teilmenge zuerst ein Gebinde leeren oder{' '}
+            <Link href={gebindeAnlegenHref} className="text-s112-blue-700 underline hover:text-s112-teal">Gebinde anlegen</Link>.
+          </p>
+        )}
       </fieldset>
 
       {umfang === 'teil' && (

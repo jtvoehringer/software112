@@ -28,6 +28,7 @@ import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { wienHeute } from '@/lib/csv'
 import { pnWirkungAus, pnWirkungUnklarHinweis, type PnWirkung } from '@/lib/kellerbuch/pnWirkung'
 import { ABSTUFEN_GRUND_MIN, abstufenFehler, teilmengeFehler } from '@/lib/kellerbuch/abstufen'
+import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { umziehen } from './umziehen/actions'
 import { chargePflichtFehler, chargePnSperre, chargePnSperreText, NUR_ABSTUFEN_MELDUNG } from '@/lib/kellerbuch/chargeRegeln'
 import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, behandlungZugangFehler, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
@@ -656,9 +657,10 @@ export async function chargeAbstufen(formData: FormData): Promise<{ bestaetigung
     const zielBehaelter = String(formData.get('ziel_behaelter_id') ?? '')
     if (!zielBehaelter) throw new AktionsFehler('Bitte das leere Gebinde für die Teilmenge wählen.')
     if (zielBehaelter === charge.behaelter_id) throw new AktionsFehler('Die Teilmenge muss in ein anderes, leeres Gebinde.')
+    // KAN-358: „leer“ wie beim Umzug und Zukauf – abgeschlossene, inaktive und stornierte Chargen belegen kein Gebinde
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count, error: belegtErr } = await (supabase.from('weinausbau') as any)
-      .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('behaelter_id', zielBehaelter).eq('aktiv', true).is('storniert_am', null)
+    const { count, error: belegtErr } = await nurBelegendeChargen((supabase.from('weinausbau') as any)
+      .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('behaelter_id', zielBehaelter))
     if (belegtErr) throw new AktionsFehler(dbFehlerText(belegtErr, 'Gebinde konnte nicht geprüft werden'))
     if ((count ?? 0) > 0) throw new AktionsFehler('Das gewählte Gebinde ist nicht leer – die Teilmenge braucht ein leeres Gebinde.')
 
@@ -670,8 +672,8 @@ export async function chargeAbstufen(formData: FormData): Promise<{ bestaetigung
     const r = await umziehen(fd)
     if (r && 'bestaetigung' in r && r.bestaetigung) throw new AktionsFehler(r.bestaetigung)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: neuRaw, error: neuErr } = await (supabase.from('weinausbau') as any)
-      .select('id').eq('tenant_id', tenantId).eq('behaelter_id', zielBehaelter).eq('aktiv', true).is('storniert_am', null)
+    const { data: neuRaw, error: neuErr } = await nurBelegendeChargen((supabase.from('weinausbau') as any)
+      .select('id').eq('tenant_id', tenantId).eq('behaelter_id', zielBehaelter))
       .order('created_at', { ascending: false }).limit(1)
     if (neuErr || !(neuRaw as R[] | null)?.[0]) throw new AktionsFehler('Der Umzug ist gebucht, die neue Charge wurde aber nicht gefunden – bitte im Gebinde prüfen und dort abstufen.')
     zielId = String((neuRaw as R[])[0].id)
