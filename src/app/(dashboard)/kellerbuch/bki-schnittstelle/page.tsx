@@ -75,7 +75,8 @@ export default async function BkiSchnittstellePage({ searchParams }: { searchPar
   }
 
   return (
-    <div className="space-y-6">
+    // KAN-369: Drucklayout nach KAN-373 (kleine Druckschrift, Zellen einzeilig, Links schwarz)
+    <div className="space-y-6 druck-formular">
       <LagerTabs aktiv="gesamt" />
       <div>
         <h1 className="text-2xl font-semibold text-s112-text">BKI-Schnittstelle – Gesamtexport</h1>

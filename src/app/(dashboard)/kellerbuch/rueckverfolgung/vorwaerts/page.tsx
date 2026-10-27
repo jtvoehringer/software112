@@ -10,6 +10,7 @@ import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { fmtNum } from '@/lib/format'
 import { ladeRueckruf, type RueckrufStart } from '@/lib/behoerden/rueckruf'
+import { betriebUndModuleLaden } from '@/lib/behoerden/zugriff'
 
 export const metadata: Metadata = { title: 'Rückverfolgung vorwärts' }
 export const dynamic = 'force-dynamic'
@@ -60,13 +61,16 @@ export default async function RueckrufPage({ searchParams }: { searchParams: Pro
   else if (sp.pressung && UUID_RE.test(sp.pressung)) start = { art: 'pressung', id: sp.pressung }
 
   const r = start ? await ladeRueckruf(supabase, tenantId, start) : null
+  // KAN-361: Druckkopf mit Betrieb, Betriebsnummer und Stand
+  const betrieb = r ? (await betriebUndModuleLaden(supabase, tenantId)).betrieb : null
+  const stand = new Date().toLocaleString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const csvParam = start ? { [start.art]: start.id } : {}
   const sel = 'form-input text-sm'
   const th = 'px-3 py-2 text-left text-xs font-medium text-s112-text-2'
   const td = 'px-3 py-1.5 text-sm align-top'
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-6 druck-formular">
       <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
         <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link><span>/</span>
         <Link href="/kellerbuch/rueckverfolgung" className="hover:text-s112-blue-700">Rückverfolgung</Link><span>/</span>
@@ -118,6 +122,9 @@ export default async function RueckrufPage({ searchParams }: { searchParams: Pro
 
       {r && (
         <>
+          <p className="hidden print:block text-xs text-s112-text-2">
+            {betrieb?.name ?? 'Betrieb'} · Betriebsnummer {betrieb?.betriebsnummer ?? '–'} · Stand {stand}
+          </p>
           <section className="space-y-1">
             <h2 className="font-semibold text-s112-text">Start: {r.start.name}</h2>
             <p className="text-xs text-s112-muted">
