@@ -23,6 +23,7 @@ import { chargePnSperre } from '@/lib/kellerbuch/chargeRegeln'
 import SchwundBuchenForm from './SchwundBuchenForm'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
+import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { umziehen } from '../../umziehen/actions'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
@@ -91,12 +92,12 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .select('weingarten_id')
       .eq('weinausbau_id', id)),
 
-    // Alle anderen aktiven Chargen (für Verschneidungs- und Umziehen-Formular)
-    alle(tf((supabase.from('weinausbau') as any)
+    // Alle anderen offenen Chargen (für Verschneidungs- und Umziehen-Formular) – KAN-358: dieselbe Regel wie „leeres
+    // Gebinde“ (aktiv, nicht storniert, nicht abgeschlossen), sonst stünden stornierte bzw. abgeschlossene Chargen zur Wahl
+    alle(nurBelegendeChargen(tf((supabase.from('weinausbau') as any)
       .select('id, name, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, behaelter_id, rebsorte, weinart')
-      .eq('aktiv', true)
-      .neq('id', id)
-      .order('name').order('id'))),
+      .neq('id', id)))
+      .order('name').order('id')),
 
     // Verschneidungen: diese Charge als Ziel – KAN-77: mit Quell-Charge (Quellgebinde) und Qualität für das Badge
     tf((supabase.from('verschneidungen') as any)
