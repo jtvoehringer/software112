@@ -3,19 +3,23 @@
 import { useRouter } from 'next/navigation'
 import StornoButton from '@/components/StornoButton'
 
-// KAN-103 (08.10.2026): Rechnung stornieren – die Rechnung behält ihre Nummer (keine eigene Stornonummer), der Lieferschein
-// ist danach wieder „nicht berechnet“, der Bestand bleibt. Die Datenbank lehnt ab, solange gültige Zahlungen bestehen oder
-// die Rechnung schon an BMD übergeben ist.
-// KAN-355: erwartbare Ablehnungen (Rechnung im gesperrten Zeitraum, Zahlungen, BMD) kommen als { error } und erscheinen am Knopf.
-export default function RechnungStornoKnopf({ action }: { action: (grund: string) => Promise<void | { error: string }> }) {
+// KAN-103 (08.10.2026): Rechnung stornieren – der Lieferschein ist danach wieder „nicht berechnet“, der Bestand bleibt.
+// KAN-355: erwartbare Ablehnungen (Zahlungen, BMD, gesperrter Zeitraum) kommen als { error } und erscheinen am Formular.
+// KAN-379 (27.10.2026): Storno als eigener Stornobeleg (ST-…) am Storno-Datum (vorbelegt heute, nicht vor dem
+// Rechnungsdatum, nicht im gesperrten Zeitraum) – die Rechnung bleibt in ihrem Zeitraum unverändert.
+export default function RechnungStornoKnopf({ action, stornoDatum }: {
+  action: (grund: string, stornoDatum: string | null) => Promise<void | { error: string; feld?: 'datum' }>
+  stornoDatum: { heute: string; ab?: string | null }
+}) {
   const router = useRouter()
   return (
     <StornoButton
       label="Rechnung stornieren"
-      hinweis="Die Rechnung bleibt mit ihrer Nummer als storniert erhalten; der Lieferschein ist danach wieder nicht berechnet, der Bestand bleibt. Zahlungen bitte vorher stornieren."
-      action={async (grund) => {
+      hinweis="Es entsteht ein Stornobeleg (ST-…) mit negativen Beträgen am Storno-Datum; die Rechnung bleibt in ihrem Zeitraum unverändert. Der Lieferschein ist danach wieder nicht berechnet, der Bestand bleibt. Zahlungen bitte vorher stornieren."
+      stornoDatum={{ ...stornoDatum, hilfe: 'Datum des Stornobelegs – nicht in einem abgeschlossenen Monat oder übermittelten UVA-Zeitraum.' }}
+      action={async (grund, _datum, sDatum) => {
         try {
-          return await action(grund)
+          return await action(grund, sDatum)
         } finally {
           router.refresh()
         }

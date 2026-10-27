@@ -168,7 +168,8 @@ describe('KAN-379: Storno einer Rechnung im gesperrten Zeitraum über den Storno
     assert.deepEqual(rpcs(d), ['rpc:s112_rechnung_stornieren'])
     const MELDUNG = 'Storno mit Datum 16.03.2026 nicht möglich: Monat 3/2026 ist bereits abgeschlossen. Bitte ein Storno-Datum im offenen Zeitraum wählen.'
     db({ erstellenFehler: { code: '42501', message: MELDUNG, hint: 'periodensperre' } })
-    assert.deepEqual(await verkauf.rechnungStornieren(RE_ZU, VP_ZU, 'Preis falsch verrechnet'), { error: MELDUNG })
+    // KAN-379 Teil 3: Ablehnung zum Datum (Periodensperre) erscheint am Feld „Storno-Datum“
+    assert.deepEqual(await verkauf.rechnungStornieren(RE_ZU, VP_ZU, 'Preis falsch verrechnet'), { error: MELDUNG, feld: 'datum' })
     d = db()
     assert.match((await verkauf.rechnungStornieren(RE_OFFEN, VP_ZU, 'kurz')).error, /Grund/)
     assert.deepEqual(rpcs(d), [])

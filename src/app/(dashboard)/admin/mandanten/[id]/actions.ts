@@ -378,6 +378,12 @@ export async function saveKellerwirtschaftAdmin(tenantId: string, formData: Form
 
 // ── Rechnungsnummer-Einstellungen speichern ───────────────────────────────────
 
+/** KAN-379: Präfix des Stornobelegs – nur Buchstaben/Ziffern, höchstens 8, leer = „ST“ */
+function stornoPrefixAus(wert: FormDataEntryValue | null): string {
+  const p = String(wert ?? '').replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase()
+  return p || 'ST'
+}
+
 export async function saveVerkaufEinstellungen(tenantId: string, formData: FormData) {
   await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
@@ -390,6 +396,9 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
   // serverseitiges Whitelisting der Platzhalter nötig, die DB-Funktion ersetzt
   // nur bekannte Tokens und lässt alles andere unverändert im Suffix stehen.
   const rSuffix  = ((formData.get('rechnung_suffix') as string) ?? '').trim().slice(0, 16)
+  // KAN-379: Nummernkreis Stornobeleg – Präfix 1–8 Buchstaben/Ziffern, 3–8 Stellen (dieselben Grenzen prüft die Datenbank)
+  const sPrefix  = stornoPrefixAus(formData.get('storno_prefix'))
+  const sStellen = Math.max(3, Math.min(8, parseInt(dezimal(formData.get('storno_stellen') as string)) || 4))   // null-vorgabe-ok: Stellenzahl 3–8, eine 0 ist keine gültige Eingabe
   const kPrefix  = (formData.get('account_prefix') as string)?.trim() || 'K'
   const kStellen = Math.max(1, Math.min(8, parseInt(dezimal(formData.get('account_stellen') as string)) || 4))   // null-vorgabe-ok: Stellenzahl 1–8, eine 0 ist keine gültige Eingabe
 
@@ -399,6 +408,8 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
       rechnung_prefix:  rPrefix,
       rechnung_stellen: rStellen,
       rechnung_suffix:  rSuffix,
+      storno_prefix:    sPrefix,
+      storno_stellen:   sStellen,
       account_prefix:    kPrefix,
       account_stellen:    kStellen,
       ust_satz_standard: (zahlAus(formData.get('ust_satz_standard')) ?? 13),

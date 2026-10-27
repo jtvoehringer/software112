@@ -1261,6 +1261,9 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   const [prefix,   setPrefix]   = useState(settings.rechnung_prefix)
   const [stellen,  setStellen]  = useState(settings.rechnung_stellen)
   const [suffix,   setSuffix]   = useState(settings.rechnung_suffix)
+  // KAN-379: Stornobeleg – Präfix-JJJJ-Nummer (Jahr des Storno-Datums), Zähler läuft endlos weiter
+  const [sPrefix,  setSPrefix]  = useState(settings.storno_prefix)
+  const [sStellen, setSStellen] = useState(settings.storno_stellen)
   const hatJahresPlatzhalter = suffix.includes('{JJ')
   const heuer = new Date().getFullYear()
   const naechste = `${prefix}-${String(zaehler).padStart(stellen, '0')}${resolveSuffix(suffix, heuer)}`
@@ -1381,6 +1384,42 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             Ohne Jahres-Platzhalter im Suffix läuft der Zähler wie bisher endlos weiter (kein automatischer Reset – sonst wären Nummern nicht mehr eindeutig).
           </p>
         )}
+
+        {/* Stornobeleg (KAN-379) */}
+        <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider pt-2">Stornobeleg</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Präfix</label>
+            <input aria-label="Präfix Stornobeleg"
+              name="storno_prefix"
+              value={sPrefix}
+              onChange={e => setSPrefix(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())}
+              maxLength={8}
+              placeholder="ST"
+              className={inputCls()}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Stellen</label>
+            <input aria-label="Stellen Stornobeleg"
+              name="storno_stellen"
+              type="number" step="1"
+              value={sStellen}
+              onChange={e => setSStellen(Math.max(3, Math.min(8, parseInt(e.target.value) || 4 /* null-vorgabe-ok: Stellenzahl 3–8, eine 0 ist keine gültige Eingabe */)))}
+              min={3} max={8}
+              className={inputCls()}
+            />
+          </div>
+        </div>
+        <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
+          <p className="text-xs text-s112-muted">Nächster Stornobeleg</p>
+          <p className="text-base font-mono font-semibold text-s112-blue-700 tracking-wider">
+            {`${sPrefix || 'ST'}-${heuer}-${String(settings.storno_zaehler).padStart(sStellen, '0')}`}
+          </p>
+        </div>
+        <p className="text-xs text-s112-muted -mt-2">
+          Ein Storno erzeugt einen eigenen Beleg mit negativen Beträgen am Storno-Datum; das Jahr in der Nummer ist das Jahr des Storno-Datums.
+        </p>
 
         {/* Accountnummer */}
         <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider pt-2">Accountnummer</p>

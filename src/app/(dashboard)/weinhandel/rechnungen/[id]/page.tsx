@@ -96,6 +96,14 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
             sentAt={r.rechnung_versendet_am ?? null} sentTo={r.rechnung_versendet_an ?? null} />
         </div>
       )}
+      {/* KAN-379: Stornobeleg als PDF „Stornorechnung“ per E-Mail */}
+      {storno && membership && canWrite(membership, 'warenwirtschaft') && (
+        <div className="no-print">
+          <RechnungVersandPanel pfad={`/api/weinhandel/rechnungen/${r.id}/send`} titel="Stornorechnung"
+            defaultEmail={String((r.kontakt as R | null)?.email ?? (r.firma as R | null)?.email ?? '')}
+            sentAt={r.rechnung_versendet_am ?? null} sentTo={r.rechnung_versendet_an ?? null} />
+        </div>
+      )}
       {r.storniert && (
         <p role="note" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 no-print">
           Storniert{r.storniert_am ? ` am ${new Date(r.storniert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : ''}{r.storno_grund ? ` – ${r.storno_grund}` : ''}
