@@ -34,6 +34,7 @@ DECLARE
   v_ls5   uuid;    -- Verkauf sofort (Spiegel)
   v_ls6   uuid;    -- Rechnung, Tank auf stornierter Charge → Abbruch nach dem Rechnungsstorno
   v_r6    uuid;
+  v_mvp   uuid;    -- Verkauf des Musterhofs (fremd für B)
   v_txt   text;
   v_json  jsonb;
 BEGIN
@@ -77,6 +78,7 @@ BEGIN
   v_r6 := public.s112_rechnung_erstellen(v_b, ARRAY[v_ls6], v_heute, '[]'::jsonb, NULL);
   UPDATE public.weinausbau SET storniert_am = now(), storno_grund = 'S112TEST Charge storniert' WHERE id = v_wx;
   PERFORM set_config('s112.loeschen_erlaubt', '', true);
+  INSERT INTO public.verkaufsposten (tenant_id, datum, notizen, rechnung_spaeter) VALUES ((v_a ->> 'm')::uuid, v_heute, 'S112TEST KAN-356 fremd', true) RETURNING id INTO v_mvp;
 
   PERFORM pg_temp.s112_mutiere('ohne_tb_pruefung',
     replace(pg_get_functiondef(c_fn::regprocedure), $r$AND t.status = 'ausgestellt'$r$, 'AND false'));
@@ -88,6 +90,11 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('leser_abgelehnt',
     split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_ls1, 'S112TEST Leser darf nicht')), ': ', 1), '42501');
   PERFORM pg_temp.s112_als(v_bw);
+  -- IDOR: fremder Verkauf unter dem eigenen Betrieb → nicht gefunden; fremder Betrieb → kein Zugriff
+  v_erg := v_erg || pg_temp.s112_erwarte('idor_fremder_verkauf',
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_mvp, 'S112TEST fremder Verkauf')), ': ', 1), 'P0002');
+  v_erg := v_erg || pg_temp.s112_erwarte('idor_fremder_betrieb',
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_a ->> 'm', v_mvp, 'S112TEST fremder Betrieb')), ': ', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('grund_zu_kurz',
     split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_ls1, 'kurz')), ': ', 1), '23514');
   v_txt := pg_temp.s112_fehlertext(format(c_rpc, v_b, v_ls2, 'S112TEST Sammelrechnung'));
@@ -128,6 +135,6 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_ls1, 'S112TEST noch einmal')), ': ', 1), '22023');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 14);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 16);
 END
 $test$;
