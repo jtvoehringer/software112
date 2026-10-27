@@ -204,11 +204,11 @@ describe('lesedaten', () => {
     const text = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN)
     // KAN-128: Zeilen vor Migration A (ohne Einheit, ohne °Oe) – °Oe aus dem °KMW, gemessen in °KMW
     assert.equal(text, BOM + [
-      'Lesedatum;Ried;KG-Nr.;GST-Nr.;Rebsorte;BKI-Kürzel;Menge (kg);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Lesemethode;Notizen;Lese;Storniert am;Storno-Grund',
-      '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;9000,00;17,40;85,7;°KMW;Qualitätswein;Handlese;;;;',
-      '15.09.2026;Ried Satz;12003;88;Gemischer Satz;;1000,00;;;;Qualitätswein;;;;;',
-      '24.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;2500,00;19,25;95,5;°KMW;Qualitätswein;Selektionslese;\'=Achtung;;;',
-      '02.10.2026;Ried Hochstraß;;;Zweigelt;ZW;6000,00;19,00;94,2;°KMW;Kabinett;Maschinenlese;;;;',
+      'Lesedatum;Ried;KG-Nr.;GST-Nr.;Rebsorte;BKI-Kürzel;Menge (kg);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Lesemethode;Notizen;Lese;Storniert am;Storno-Grund;Weinbaugebiet',
+      '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;9000,00;17,40;85,7;°KMW;Qualitätswein;Handlese;;;;;',
+      '15.09.2026;Ried Satz;12003;88;Gemischer Satz;;1000,00;;;;Qualitätswein;;;;;;',
+      '24.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;2500,00;19,25;95,5;°KMW;Qualitätswein;Selektionslese;\'=Achtung;;;;',
+      '02.10.2026;Ried Hochstraß;;;Zweigelt;ZW;6000,00;19,00;94,2;°KMW;Kabinett;Maschinenlese;;;;;',
     ].join('\r\n') + '\r\n')
     assert.equal(warnungen.length, 1)
     assert.match(warnungen[0], /„Gemischer Satz“ steht nicht in der BKI-Kürzelliste/)
@@ -227,10 +227,10 @@ describe('lesedaten', () => {
     const db = supabaseDoppel({ ...TABELLEN_ERNTE, ernte_parzellen: lese })
     const { zeilen, warnungen } = await ernte.ladeLesedaten(db, 'jg26')
     const zeile = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN).slice(1).split('\r\n')
-    assert.equal(zeile[1], '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;17,00;83,5;°Oe;Kabinett;;;;;')
-    assert.equal(zeile[2], '11.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;18,97;94,0;°Oe;Kabinett;;;;;')
-    assert.equal(zeile[3], '12.09.2026;Ried Hochstraß;;;Zweigelt;ZW;1000,00;19,00;94,2;°KMW;Spätlese;;;;;')
-    assert.equal(zeile[4], '13.09.2026;Ried Hochstraß;;;Zweigelt;ZW;500,00;14,99;73,0;°Oe;Landwein;;;;;')
+    assert.equal(zeile[1], '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;17,00;83,5;°Oe;Kabinett;;;;;;')
+    assert.equal(zeile[2], '11.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;18,97;94,0;°Oe;Kabinett;;;;;;')
+    assert.equal(zeile[3], '12.09.2026;Ried Hochstraß;;;Zweigelt;ZW;1000,00;19,00;94,2;°KMW;Spätlese;;;;;;')
+    assert.equal(zeile[4], '13.09.2026;Ried Hochstraß;;;Zweigelt;ZW;500,00;14,99;73,0;°Oe;Landwein;;;;;;')
     // gespeicherte Werte bleiben für das Bearbeiten-Formular unverändert
     assert.deepEqual(zeilen.map(z => [z.kmw, z.oechsle, z.mostgewichtEinheit]), [[17, 83.5, 'oechsle'], [18.97, 94, 'oechsle'], [19, 94.2, 'kmw'], [null, 73, null]])
     assert.ok(!warnungen.some(w => /Mostgewicht/.test(w)), warnungen.join('\n'))   // 19,0 °KMW: keine X-Warnung
@@ -251,8 +251,21 @@ describe('lesedaten', () => {
     const z2 = mit.zeilen.find(z => z.id === 's2')
     assert.deepEqual([z2.storniertAm, z2.stornoGrund, z2.storniertVon], ['2026-09-30T10:15:00+00:00', 'Doppelt erfasst', 'Karin'])
     const linien = csv.csvText(mit.zeilen, ernte.SPALTEN_LESEDATEN).slice(1).split('\r\n')
-    assert.match(linien[2], /;30\.09\.2026 12:15;Doppelt erfasst$/)   // Zeitpunkt in Europe/Vienna
-    assert.match(linien[1], /;;$/)
+    assert.match(linien[2], /;30\.09\.2026 12:15;Doppelt erfasst;$/)   // Zeitpunkt in Europe/Vienna; KAN-364: Weinbaugebiet dahinter
+    assert.match(linien[1], /;;;$/)
+  })
+
+  // KAN-364 (Entscheidung Jörgen 27.10.2026): Weinbaugebiet der Lese als letzte Spalte – genauestes Gebiet wie im AMA-Kopf
+  test('KAN-364: Lesedaten-CSV mit Weinbaugebiet (Ried, sonst Herkunft-Code, sonst leer)', async () => {
+    const lese = [
+      { id: 'k1', jahrgang_id: 'jg26', weingarten_id: 'w1', grundstueck_id: null, ernte_datum: '2026-09-10', menge_kg: 100, weingarten: { ...WG.w1, weinbaugebiet: 'Kremstal' }, grundstueck: null },
+      { id: 'k2', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-11', menge_kg: 100, weingarten: { ...WG.w2, trauben_herkunft_code: 'wiener_gemischter_satz_dac' }, grundstueck: null },
+      { id: 'k3', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-12', menge_kg: 100, weingarten: WG.w2, grundstueck: null },
+    ]
+    const { zeilen } = await ernte.ladeLesedaten(supabaseDoppel({ ...TABELLEN_ERNTE, ernte_parzellen: lese }), 'jg26')
+    const linien = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN).slice(1).split('\r\n')
+    assert.equal(linien[0].split(';').at(-1), 'Weinbaugebiet')
+    assert.deepEqual(linien.slice(1, 4).map(l => l.split(';').at(-1)), ['Kremstal', 'Wien', ''])
   })
 
   test('KAN-128: widersprüchliche Altzeile (°Oe gemessen, °KMW passt nicht) → X-Warnung mit Bezug', async () => {
@@ -281,12 +294,13 @@ describe('lesedaten', () => {
     const text = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN)
     const linien = text.slice(1).split('\r\n')
     // KAN-129 (Frage 8): „Lese“ hinter „Notizen“; KAN-148: danach nur die beiden Storno-Spalten
-    assert.deepEqual(linien[0].split(';').slice(-4), ['Notizen', 'Lese', 'Storniert am', 'Storno-Grund'])
-    assert.equal(linien[0].split(';').length, 16)                   // bisherige 12 Spalten unverändert davor
+    // KAN-364: Weinbaugebiet hinter den Storno-Spalten
+    assert.deepEqual(linien[0].split(';').slice(-5), ['Notizen', 'Lese', 'Storniert am', 'Storno-Grund', 'Weinbaugebiet'])
+    assert.equal(linien[0].split(';').length, 17)                   // bisherige 12 Spalten unverändert davor
     const notiz = id => {
       const i = zeilen.findIndex(z => z.id === id)
       // ohne die (hier leeren) Spalten „Lese“, „Storniert am“, „Storno-Grund“ am Ende
-      return linien[i + 1].slice('26.09.2026;Ried Hochstraß;;;Zweigelt;ZW;'.length).replace(/;;;$/, '')
+      return linien[i + 1].slice('26.09.2026;Ried Hochstraß;;;Zweigelt;ZW;'.length).replace(/;;;;$/, '')
     }
     assert.equal(notiz('n1'), '0,00;;;;;;Wildschaden')
     assert.equal(notiz('n2'), '500,00;;;;;;')
