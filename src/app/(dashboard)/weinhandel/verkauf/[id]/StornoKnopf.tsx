@@ -25,6 +25,7 @@ export default function StornoKnopf({
   const router = useRouter()
   return (
     <StornoButton
+      mitText
       hinweis={meldung}
       label="Verkauf stornieren"
       datumFeld={erstattung ? { label: 'Erstattet am (optional)', hilfe: 'Nur, wenn bezahlte Beträge zurückgezahlt wurden.' } : undefined}

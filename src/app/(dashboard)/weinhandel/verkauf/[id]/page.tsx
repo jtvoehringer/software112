@@ -16,6 +16,7 @@ import { ersterOffenerRechnungstag } from '@/lib/verkauf/rechnungsdatum'
 import RechnungStornoKnopf from './RechnungStornoKnopf'
 import VerkaufSamtRechnungStornoKnopf from './VerkaufSamtRechnungStornoKnopf'
 import { wienHeute } from '@/lib/csv'
+import { datumText } from '@/lib/behoerden/buchhaltung-gemeinsam'
 import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
@@ -74,7 +75,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [postenRawRes, settings, zahlungenRawRes, traubenverkaufRes, tbRawRes] = await Promise.all([
+  const [postenRawRes, settings, zahlungenRawRes, traubenverkaufRes, tbRawRes, stornierteRechnungenRes] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, lieferscheinnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
@@ -115,10 +116,23 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .eq('tenant_id', tenantId ?? '')
       .is('storniert_am', null)
       .maybeSingle(),
+    // KAN-379 Nachtrag: stornierte Rechnungen dieses Lieferscheins (nach dem Storno ist er wieder „nicht berechnet“ – die
+    // Verbindung steht nur noch in der Momentaufnahme storno_positionen) samt Stornobeleg
+    // storno-sichtbar: gerade die stornierten Rechnungen, als Hinweis mit Link auf Rechnung und Stornobeleg
+    // alle-ausnahme: stornierte Rechnungen eines einzelnen Lieferscheins – fachlich nur wenige Zeilen
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('rechnungen') as any)
+      .select('id, rechnungsnummer, datum, storniert_am, storniert_durch:rechnungen!storniert_durch_id(id, rechnungsnummer, datum)')
+      .eq('tenant_id', tenantId ?? '')
+      .eq('storniert', true)
+      .contains('storno_positionen', [{ lieferschein_id: id }])
+      .order('storniert_am', { ascending: true })
+      .order('id'),
   ])
   const postenRaw = geladen(postenRawRes, 'Verkäufe')
   const zahlungenRaw = geladen(zahlungenRawRes, 'Zahlungen')
   const tbRaw = geladen(tbRawRes, 'Transportbescheinigungen')
+  const stornierteRechnungen = (geladen(stornierteRechnungenRes, 'Stornierte Rechnungen') ?? []) as R[]
   const traubenverkaufAnzahl = gezaehlt(traubenverkaufRes, 'Traubenverkäufe')
   const tbsNr = tbsText((tbRaw as R | null)?.tbs_nummer, (tbRaw as R | null)?.tbs_jahr)
 
@@ -287,7 +301,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             {posten.rechnungsnummer ?? new Date(posten.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
           </span>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {posten.storniert && (
             <span className="text-xs font-semibold bg-s112-err-bg text-s112-err-fg px-2.5 py-1 rounded-full">
               STORNIERT
@@ -331,6 +345,24 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           {posten.storniert_von_name ? ` von ${posten.storniert_von_name}` : ''}
           {posten.storno_grund ? ` – ${posten.storno_grund}` : ''}
         </p>
+      )}
+
+      {/* KAN-379 Nachtrag: stornierte Rechnung(en) dieses Lieferscheins mit Link auf den Stornobeleg */}
+      {stornierteRechnungen.length > 0 && (
+        <div role="note" className="text-sm text-s112-text-2 bg-s112-bg border border-s112-border rounded-lg px-3 py-2 space-y-0.5">
+          {stornierteRechnungen.map(sr => {
+            const st = (sr.storniert_durch ?? null) as R | null
+            return (
+              <p key={String(sr.id)}>
+                Rechnung <Link href={`/weinhandel/rechnungen/${sr.id}`} className="font-mono text-s112-blue-700 hover:underline">{sr.rechnungsnummer}</Link> vom {datumText(sr.datum)} storniert
+                {st
+                  ? <> durch Stornobeleg <Link href={`/weinhandel/rechnungen/${st.id}`} className="font-mono text-s112-blue-700 hover:underline">{st.rechnungsnummer}</Link> vom {datumText(st.datum)}</>
+                  : sr.storniert_am ? <> am {new Date(sr.storniert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</> : null}
+                {st && ' – dort drucken oder per E-Mail senden.'}
+              </p>
+            )
+          })}
+        </div>
       )}
 
       {/* KAN-103: Lieferschein ohne Rechnung – Rechnung erstellen */}

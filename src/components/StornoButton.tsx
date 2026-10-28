@@ -31,9 +31,12 @@ interface Props {
   /** Formular schwebend unter dem Knopf (rechtsbündig) statt in der Zelle – für schmale Aktionsspalten in Tabellen,
    *  deren Spaltenbreite sich beim Öffnen nicht ändern soll */
   schwebend?: boolean
+  /** KAN-379 Nachtrag (UAT 28.10.2026): Knopf mit Beschriftung statt nur Symbol – wo mehrere Storno-Wege nebeneinander
+   *  stehen (Verkauf: „Rechnung stornieren“, „Verkauf samt Rechnung stornieren“), sonst nur am Tooltip unterscheidbar */
+  mitText?: boolean
 }
 
-export default function StornoButton({ action, hinweis, label, modus = 'storno', danach, datumFeld, stornoDatum, schwebend }: Props) {
+export default function StornoButton({ action, hinweis, label, modus = 'storno', danach, datumFeld, stornoDatum, schwebend, mitText }: Props) {
   const loeschen = modus === 'loeschen'
   const text = label ?? (loeschen ? 'Löschen' : 'Stornieren')
   const id = useId()
@@ -74,8 +77,11 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
   const knopf = (
     <button type="button" onClick={() => { setOffen(o => (schwebend ? !o : true)); setFehler(null) }} title={text} aria-label={text}
       aria-expanded={schwebend ? offen : undefined}
-      className="text-s112-err hover:text-s112-err-fg">
+      className={mitText
+        ? 'inline-flex items-center gap-1.5 text-xs font-medium text-s112-err-fg bg-s112-err-bg hover:bg-s112-err/20 border border-s112-err/30 px-2.5 py-1.5 rounded-lg transition-colors'
+        : 'text-s112-err hover:text-s112-err-fg'}>
       {loeschen ? <Trash2 className="w-4 h-4" /> : <Undo2 className="w-4 h-4" />}
+      {mitText && <span>{text}</span>}
     </button>
   )
 
@@ -103,7 +109,8 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
         placeholder="z. B. Menge falsch erfasst, doppelt gebucht"
         className="w-full border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
       {stornoDatum && (
-        <label className="text-[11px] font-medium text-s112-text-1">
+        // KAN-379 Nachtrag: hervorgehoben – vorbelegt mit heute wurde das Feld im UAT übersehen
+        <label className="text-xs font-semibold text-s112-text-1 bg-s112-warn-bg border border-s112-warn/40 rounded-md px-2 py-1.5">
           Storno-Datum <span className="text-s112-err">*</span>
           <input type="date" required value={sDatum} onChange={e => setSDatum(e.target.value)}
             min={stornoDatum.ab?.slice(0, 10) || undefined} max={stornoDatum.heute}

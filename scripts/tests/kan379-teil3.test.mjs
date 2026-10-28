@@ -241,3 +241,24 @@ describe('KAN-379: Rückbuchung beim Verkaufsstorno am Storno-Datum (stornoTagFu
     assert.equal(typeof heuteWien(), 'string')
   })
 })
+
+// KAN-379 Nachtrag (UAT 28.10.2026): Storno-Wege am Verkauf beschriftet, Storno-Datum hervorgehoben, nach dem Storno
+// Hinweis mit Links auf Rechnung und Stornobeleg (die Verbindung steht nur noch in der Momentaufnahme)
+describe('KAN-379 Nachtrag: Storno am Verkauf auffindbar', () => {
+  const q = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  const ordner = 'src/app/(dashboard)/weinhandel/verkauf/[id]/'
+  test('die drei Storno-Knöpfe am Verkauf zeigen ihre Beschriftung', () => {
+    for (const k of ['RechnungStornoKnopf', 'VerkaufSamtRechnungStornoKnopf', 'StornoKnopf']) {
+      assert.match(q(`${ordner}${k}.tsx`), /<StornoButton\n\s+mitText\n/, k)
+    }
+    const b = q('src/components/StornoButton.tsx')
+    assert.match(b, /\{mitText && <span>\{text\}<\/span>\}/)
+    assert.match(b, /bg-s112-warn-bg[^"]*">\n\s+Storno-Datum <span/)
+  })
+  test('Verkauf lädt stornierte Rechnungen über die Momentaufnahme und verlinkt den Stornobeleg', () => {
+    const s = q(`${ordner}page.tsx`)
+    assert.match(s, /\.contains\('storno_positionen', \[\{ lieferschein_id: id \}\]\)/)
+    assert.match(s, /storniert_durch:rechnungen!storniert_durch_id\(id, rechnungsnummer, datum\)/)
+    assert.match(s, /durch Stornobeleg <Link href=\{`\/weinhandel\/rechnungen\/\$\{st\.id\}`\}/)
+  })
+})

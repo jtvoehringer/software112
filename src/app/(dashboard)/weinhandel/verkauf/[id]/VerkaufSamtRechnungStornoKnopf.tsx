@@ -14,6 +14,7 @@ export default function VerkaufSamtRechnungStornoKnopf({ action, stornoDatum }: 
   const router = useRouter()
   return (
     <StornoButton
+      mitText
       label="Verkauf samt Rechnung stornieren"
       hinweis="Rechnung und Verkauf werden gemeinsam storniert: Es entsteht ein Stornobeleg (ST-…) am Storno-Datum, der Lagerbestand wird an diesem Tag zurückgebucht, zugehörige Traubenverkäufe (BKI) werden mitstorniert. Die Rechnung bleibt in ihrem Zeitraum unverändert. Zahlungen bitte vorher stornieren."
       stornoDatum={{ ...stornoDatum, hilfe: 'Datum des Stornobelegs und der Rückbuchung – nicht in einem abgeschlossenen Zeitraum.' }}
