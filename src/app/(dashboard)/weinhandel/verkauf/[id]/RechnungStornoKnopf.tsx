@@ -14,6 +14,7 @@ export default function RechnungStornoKnopf({ action, stornoDatum }: {
   const router = useRouter()
   return (
     <StornoButton
+      mitText
       label="Rechnung stornieren"
       hinweis="Es entsteht ein Stornobeleg (ST-…) mit negativen Beträgen am Storno-Datum; die Rechnung bleibt in ihrem Zeitraum unverändert. Der Lieferschein ist danach wieder nicht berechnet, der Bestand bleibt. Zahlungen bitte vorher stornieren."
       stornoDatum={{ ...stornoDatum, hilfe: 'Datum des Stornobelegs – nicht in einem abgeschlossenen Monat oder übermittelten UVA-Zeitraum.' }}
