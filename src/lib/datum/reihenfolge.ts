@@ -42,3 +42,15 @@ export function vergleicheTagUndZeit(a: Reihenfolgeschluessel, b: Reihenfolgesch
 export function nachTagUndZeit<T>(schluessel: (x: T) => Reihenfolgeschluessel, richtung: Richtung = 'auf'): (a: T, b: T) => number {
   return (a, b) => vergleicheTagUndZeit(schluessel(a), schluessel(b), richtung)
 }
+
+/** Termin (Kalender): Tag, ganztägige zuerst, dann Startzeit („HH:MM[:SS]“), zuletzt id – Ersatz für den reinen Datumsvergleich */
+export interface TerminSchluessel { datum: string; ganztags?: boolean | null; uhrzeit_von?: string | null; id?: string | null }
+
+export function vergleicheTermine(a: TerminSchluessel, b: TerminSchluessel): number {
+  const t = a.datum.slice(0, 10).localeCompare(b.datum.slice(0, 10))
+  if (t !== 0) return t
+  const za = a.ganztags || !a.uhrzeit_von ? '' : a.uhrzeit_von
+  const zb = b.ganztags || !b.uhrzeit_von ? '' : b.uhrzeit_von
+  if (za !== zb) return za.localeCompare(zb)
+  return String(a.id ?? '').localeCompare(String(b.id ?? ''))
+}

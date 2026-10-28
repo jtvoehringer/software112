@@ -36,7 +36,7 @@ export async function ladeAfaBuchungen(ctx: Ctx, jahr: number): Promise<AfaBuchu
 export async function ladeKandidaten(ctx: Ctx, eigeneTransaktionId: string | null = null): Promise<BuchungsKandidat[]> {
   const [buchungenRes, belegtRes] = await Promise.all([
     ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, ea_kategorien!kategorie_id!inner(name, konto_nr)')
-      .eq('typ', 'ausgabe').is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).lt('ea_kategorien.konto_nr', 1000).order('datum', { ascending: false }).limit(200)),
+      .eq('typ', 'ausgabe').is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).lt('ea_kategorien.konto_nr', 1000).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(200)),
     ctx.tf(ctx.q('ea_anlagen').select('transaktion_id').not('transaktion_id', 'is', null)),
   ])
   const buchungen = geladen(buchungenRes, 'Buchungen')

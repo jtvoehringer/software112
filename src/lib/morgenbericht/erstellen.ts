@@ -110,7 +110,7 @@ export async function erstelleMorgenbericht(tenant: { id: string; name: string |
 /** Jüngster Bericht (heute oder der letzte vorhandene) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeMorgenbericht(client: any, tenantId: string): Promise<Morgenbericht | null> {
-  const { data, error: dataErr } = await (client.from('morgenberichte') as any).select('*').eq('tenant_id', tenantId).order('datum', { ascending: false }).limit(1).maybeSingle()
+  const { data, error: dataErr } = await (client.from('morgenberichte') as any).select('*').eq('tenant_id', tenantId).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle()
   if (dataErr) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${dataErr.message}`)
   const r = data as R | null
   if (!r) return null

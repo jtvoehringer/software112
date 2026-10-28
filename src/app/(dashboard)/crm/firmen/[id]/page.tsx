@@ -57,7 +57,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     tf((supabase.from('aktivitaeten') as any)
       .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
       .eq('firma_id', id)
-      .order('datum', { ascending: false })),
+      .order('datum', { ascending: false }).order('uhrzeit_von', { ascending: false, nullsFirst: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })),
     // (Filterung "nur für mich sichtbar" -> siehe aRaw unten)
 
     tf((supabase.from('pipeline_eintraege') as any)
@@ -77,7 +77,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       `)
       .eq('firma_id', id)
       .eq('aktiv', true)
-      .order('datum', { ascending: false })),
+      .order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })),
   ])
   const fRaw = geladen(fRawRes, 'Firmen')
   const kRaw = geladen(kRawRes, 'Kontakte')

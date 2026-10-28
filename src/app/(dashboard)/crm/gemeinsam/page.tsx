@@ -51,7 +51,7 @@ export default async function GemeinsamesCrmPage({ searchParams }: { searchParam
       inBloecken<R>(ids, b =>
         // tenant-isolation-ignore: KAN-212 CRM-Gemeinschaft – Aktivitäten der freigebenden Betriebe (ohne private, RLS akt_crm_partner)
         (supabase.from('aktivitaeten') as any).select(`id, ${fk}, art, betreff, datum, erledigt`).in('tenant_id', eigentuemer).in(fk, b)
-          .order('datum', { ascending: false }).limit(500)),   // alle-ausnahme: letzte Aktivitäten je Block, Anzeige je Datensatz höchstens 5
+          .order('datum', { ascending: false }).order('uhrzeit_von', { ascending: false, nullsFirst: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(500)),   // alle-ausnahme: letzte Aktivitäten je Block, Anzeige je Datensatz höchstens 5
       inBloecken<R>(ids, b =>
         // tenant-isolation-ignore: KAN-212 CRM-Gemeinschaft – Pipeline der freigebenden Betriebe (RLS pipe_crm_partner)
         (supabase.from('pipeline_eintraege') as any).select(`id, ${fk}, titel, stufe, wert_euro, erwartetes_datum`).in('tenant_id', eigentuemer).in(fk, b)

@@ -149,7 +149,7 @@ export default async function ReportsPage() {
       .select('kontakt_id, datum')
       .in('kontakt_id', kontakte.map(k => k.id))
       .eq('erledigt', true)
-      .order('datum', { ascending: false })), 'Aktivitäten')
+      .order('datum', { ascending: false }).order('uhrzeit_von', { ascending: false, nullsFirst: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })), 'Aktivitäten')
     const letzteAkts = (letzteAktsRaw ?? []) as R[]
     const letztMap: Record<string, string> = {}
     letzteAkts.forEach((a: R) => { if (!letztMap[a.kontakt_id]) letztMap[a.kontakt_id] = a.datum })

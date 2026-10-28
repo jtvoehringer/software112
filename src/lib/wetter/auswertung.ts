@@ -27,7 +27,7 @@ export async function ladeWetterAuswertung(
     (client.from('weingarten') as any).select('id, name, ried, zentrum_lat, zentrum_lon').eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
     // alle-ausnahme: nur Spritzungen der letzten 45 Tage (BEHANDLUNG_RUECKBLICK_TAGE), weit unter 1.000
     (client.from('behandlungen') as any).select(`id, datum, art, ernte_fruehesteins, psm:pflanzenschutzmittel!psm_id(name, handelsname, wartezeit_tage), ${BEHANDLUNG_RIEDEN_SELECT}`)
-      .eq('tenant_id', tenantId).eq('art', 'spritzung').is('storniert_am', null).gte('datum', seit).order('datum', { ascending: false }),
+      .eq('tenant_id', tenantId).eq('art', 'spritzung').is('storniert_am', null).gte('datum', seit).order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }),
   ])
   if ((wgRawErr ?? bhRawErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(wgRawErr ?? bhRawErr).message}`)
   const rieden: WetterRied[] = ((wgRaw ?? []) as R[]).map(w => ({

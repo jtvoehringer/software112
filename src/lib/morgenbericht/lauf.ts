@@ -44,7 +44,7 @@ export async function laufMorgenberichte(budgetMs: number): Promise<{ betriebe: 
     (admin.from('tenant_einstellungen') as any).select('tenant_id, morgenbericht_aktiv'),
     // tenant-isolation-ignore: letzte Berichte aller Betriebe für die faire Reihenfolge (nur tenant_id, datum, ausloeser; eine Zeile je Betrieb und Tag)
     (admin.from('morgenberichte') as any).select('tenant_id, datum, ausloeser')
-      .gte('datum', new Date(start - REIHENFOLGE_TAGE * 86400000).toISOString().slice(0, 10)).order('datum', { ascending: false }).limit(1000),
+      .gte('datum', new Date(start - REIHENFOLGE_TAGE * 86400000).toISOString().slice(0, 10)).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(1000),
   ])
   // KAN-254: sonst „keine Betriebe“ – der Lauf endete still ohne Berichte (bzw. ohne Schalter/faire Reihenfolge)
   const ladeFehler = tenantsErr ?? einstErr ?? letzteErr
