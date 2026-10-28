@@ -3,7 +3,8 @@
 // Quelle bleibt buildWeinbuch() (lib/wein/weinbuch.ts): dieselben TimelineEvents wie auf
 // /kellerbuch/weinausbau/[id]/buch und /reports/weinbuecher-sammlung. Die CSV hat eine
 // Zeile je Ereignis: Charge, Datum, Art, Titel, Details (mit „ | “ verbunden), Status.
-// Die Sammlung lädt die Weinbücher nacheinander (jedes stößt selbst ~10 Abfragen an).
+// Die Sammlung lädt höchstens WEINBUCH_SAMMLUNG_MAX Chargen, je WEINBUCH_SAMMLUNG_PARALLEL gleichzeitig
+// (KAN-385: ohne Grenze lud die Seite alle Chargen des Betriebs nacheinander und kam nicht zustande).
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import type { CsvSpalte } from '@/lib/csv'
@@ -15,6 +16,7 @@ import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { text, type R } from './kellerbuch-hilfen'
 import { AktionsFehler } from '@/lib/fehler'
+import { MeldungsFehler } from './typen'
 
 export const WEINBUCH_TYP_LABEL: Record<EventTyp, string> = {
   feldbehandlung:   'Feldbehandlung',
@@ -130,30 +132,59 @@ export async function ladeWeinbuch(
 
 export type WeinbuchFilter = { jahrgang: number | null; sorte: string | null; bezeichnung: string | null }
 
-/** Weinbücher aller Chargen (auch abgeschlossener), die den Filtern entsprechen */
-export async function ladeWeinbuchSammlung(
-  supabase: any,
-  tenantId: string,
-  f: WeinbuchFilter,
-): Promise<{ weinbuecher: Weinbuch[]; zeilen: WeinbuchZeile[]; warnungen: string[] }> {
+/** KAN-385: höchstens so viele Weinbücher je Abruf (Seite und CSV) – sonst enger filtern */
+export const WEINBUCH_SAMMLUNG_MAX = 30
+/** KAN-385: so viele Weinbücher gleichzeitig (jedes stößt selbst rund 20 Abfragen an) */
+export const WEINBUCH_SAMMLUNG_PARALLEL = 5
+
+export type WeinbuchCharge = { id: string; name: string | null; jahrgang: number | null; rebsorte: string | null; status: string | null }
+
+export function zuVieleChargenText(anzahl: number): string {
+  return `${anzahl} Chargen entsprechen der Auswahl – höchstens ${WEINBUCH_SAMMLUNG_MAX} je Weinbuch-Sammlung. Bitte enger filtern (Jahrgang, Sorte oder Bezeichnung).`
+}
+
+/** Chargen (auch abgeschlossene), die den Filtern entsprechen – ohne ihre Weinbücher */
+export async function ladeWeinbuchChargen(supabase: any, tenantId: string, f: WeinbuchFilter): Promise<WeinbuchCharge[]> {
   let q = (supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte')
+    .select('id, name, jahrgang, rebsorte, status')
     .eq('tenant_id', tenantId)
   if (f.jahrgang !== null) q = q.eq('jahrgang', f.jahrgang)
   if (f.sorte) q = q.eq('rebsorte', f.sorte)
   if (f.bezeichnung) q = q.eq('name', f.bezeichnung)
   const { data, error } = await alle<R>(q.order('jahrgang', { ascending: false }).order('name').order('id'))
   if (error) throw new AktionsFehler(`Chargen konnten nicht geladen werden: ${error.message}`)
+  return data.map(c => ({ id: c.id, name: text(c.name), jahrgang: typeof c.jahrgang === 'number' ? c.jahrgang : null, rebsorte: text(c.rebsorte), status: text(c.status) }))
+}
 
-  // Nacheinander (nicht parallel) – jedes Weinbuch stößt selbst ~10 parallele Abfragen an; Journalbeginn einmal (KAN-44)
-  const journalBeginn = await ladeJournalBeginn(supabase, tenantId)
-  const weinbuecher: Weinbuch[] = []
-  let fehlend = 0
-  for (const c of data) {
-    const wb = await buildWeinbuch(supabase, c.id, tenantId, { journalBeginn })
-    if (wb) weinbuecher.push(wb)
-    else fehlend++
+/** f auf jedes Element, höchstens n gleichzeitig; Ergebnis in der Reihenfolge der Eingabe */
+export async function begrenztParallel<T, E>(liste: T[], n: number, f: (x: T) => Promise<E>): Promise<E[]> {
+  const ergebnis: E[] = new Array(liste.length)
+  let naechster = 0
+  const arbeiter = async () => {
+    while (naechster < liste.length) {
+      const i = naechster++
+      ergebnis[i] = await f(liste[i])
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(n, liste.length) }, arbeiter))
+  return ergebnis
+}
+
+/** Weinbücher der Chargen, die den Filtern entsprechen – mehr als WEINBUCH_SAMMLUNG_MAX → MeldungsFehler 400 */
+export async function ladeWeinbuchSammlung(
+  supabase: any,
+  tenantId: string,
+  f: WeinbuchFilter,
+  vorab?: WeinbuchCharge[],
+): Promise<{ weinbuecher: Weinbuch[]; zeilen: WeinbuchZeile[]; warnungen: string[] }> {
+  const chargen = vorab ?? await ladeWeinbuchChargen(supabase, tenantId, f)
+  if (chargen.length > WEINBUCH_SAMMLUNG_MAX) throw new MeldungsFehler(400, zuVieleChargenText(chargen.length))
+
+  // Journalbeginn einmal (KAN-44); je WEINBUCH_SAMMLUNG_PARALLEL Weinbücher gleichzeitig (KAN-385)
+  const journalBeginn = await ladeJournalBeginn(supabase, tenantId)
+  const geladen = await begrenztParallel(chargen, WEINBUCH_SAMMLUNG_PARALLEL, c => buildWeinbuch(supabase, c.id, tenantId, { journalBeginn }))
+  const weinbuecher = geladen.filter((wb): wb is Weinbuch => !!wb)
+  const fehlend = geladen.length - weinbuecher.length
   const warnungen = fehlend > 0 ? [`${fehlend} ${fehlend === 1 ? 'Weinbuch konnte' : 'Weinbücher konnten'} nicht geladen werden.`] : []
   for (const wb of weinbuecher) warnungen.push(...(wb.warnungen ?? []).map(w => `Charge „${wb.wa.name}“: ${w}`))
   warnungen.push(...fehlendeKuerzelHinweise(weinbuecher.map(wb => wb.wa.rebsorte), { einheit: ['Charge', 'Chargen'], stammdaten: 'Charge' }))

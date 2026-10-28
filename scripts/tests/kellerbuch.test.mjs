@@ -12,6 +12,7 @@
 import { register } from 'node:module'
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 register('./kellerbuch-hooks.mjs', import.meta.url)
 
@@ -442,6 +443,39 @@ describe('weinbuch und weinbuch-sammlung', () => {
     assert.equal(s.zeilen, 5)   // ein Weinbuch (GV 2025) mit fünf Ereignissen (seit KAN-44 mit den zwei Fassverkäufen)
     assert.equal(s.dateiname.utf8, 'Weinbuch-Sammlung_1234567_2025_Grüner-Veltliner_2026-09-24.csv')
     assert.equal(s.dateiname.ascii, 'Weinbuch-Sammlung_1234567_2025_Gruener-Veltliner_2026-09-24.csv')
+  })
+  // KAN-385 (UAT 28.10.2026): die Sammlung lud alle Chargen des Betriebs nacheinander und kam nicht zustande
+  test('KAN-385: mehr als WEINBUCH_SAMMLUNG_MAX Chargen → 400 „bitte enger filtern“ (CSV)', async () => {
+    const daten = kellerDaten()
+    const vorlage = daten.weinausbau[1]
+    for (let i = 0; i < weinbuch.WEINBUCH_SAMMLUNG_MAX; i++) {
+      daten.weinausbau.push({ ...vorlage, id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, name: `ZW ${i}` })
+    }
+    const sb = attrappe(daten, gebindeRpc(gebindeKeller))
+    await assert.rejects(ausfuehren('weinbuch-sammlung', '', sb), e => e instanceof typen.MeldungsFehler && e.status === 400 && /32 Chargen .* höchstens 30 .* enger filtern/.test(e.message))
+    // gefiltert unter der Grenze geht es weiter
+    const s = await ausfuehren('weinbuch-sammlung', 'jahrgang=2025', sb)
+    assert.equal(s.zeilen, 5)
+  })
+  test('KAN-385: begrenztParallel – höchstens n gleichzeitig, Ergebnis in Eingabereihenfolge', async () => {
+    let laufend = 0, hoechstens = 0
+    const r = await weinbuch.begrenztParallel([5, 1, 4, 2, 3, 0, 6], 3, async x => {
+      laufend++; hoechstens = Math.max(hoechstens, laufend)
+      await new Promise(res => setTimeout(res, x))
+      laufend--
+      return x * 10
+    })
+    assert.deepEqual(r, [50, 10, 40, 20, 30, 0, 60])
+    assert.equal(hoechstens, 3)
+    assert.deepEqual(await weinbuch.begrenztParallel([], 5, async x => x), [])
+  })
+  test('KAN-385: Seite lädt Weinbücher erst mit „anzeigen“, Jahrgang ohne Angabe = neuester', () => {
+    const seite = readFileSync(new URL('../../src/app/(dashboard)/reports/(pflicht)/weinbuecher-sammlung/page.tsx', import.meta.url), 'utf8')
+    assert.match(seite, /sp\.jahrgang === undefined \? \(optionen\.jahrgaenge\[0\] \?\? null\)/)
+    assert.match(seite, /const anzeigen = sp\.anzeigen === '1' && !zuViele/)
+    assert.match(seite, /anzeigen && tenantId \? await ladeWeinbuchSammlung\(supabase, tenantId, filter, chargen\)/)
+    const auswertung = readFileSync(new URL('../../src/app/(dashboard)/reports/ReportsClient.tsx', import.meta.url), 'utf8')
+    assert.match(auswertung, /params\.set\('anzeigen', '1'\)/)
   })
   // KAN-128 (Merge-Voraussetzung der Migration A): der Trigger schreibt in jede Lese mit °KMW das
   // gerechnete °Oe – das Weinbuch darf es nicht roh („86.7 °Oe“) und nicht als Messwert zeigen
