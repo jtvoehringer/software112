@@ -42,12 +42,12 @@ import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleTex
 import { abstufungText } from '@/lib/kellerbuch/abstufen'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { zukaufTbsVermerk } from '@/lib/handel/tbsNummer'
-import { ladePnVerlauf, pnStandAm, pnStandText, pnVerlaufEreignisse, type PnVerlauf } from '@/lib/kellerbuch/pruefnummerVerlauf'
+import { pnStandAm, pnStandText, pnVerlaufEreignisse, type PnVerlauf } from '@/lib/kellerbuch/pruefnummerVerlauf'
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
-import { alle } from '@/lib/supabase/alle'
+import { ladeWeinbuchDaten, type WeinbuchDaten } from '@/lib/wein/weinbuchDaten'
 import {
-  WB_JOURNAL_SPALTEN, eroeffnungEreignis, fassverkaufEreignis, journalAbweichungHinweis, journalEreignisse, journalSaldo,
-  vorJournal, zukaufEreignis, type WbJournalZeile,
+  eroeffnungEreignis, fassverkaufEreignis, journalAbweichungHinweis, journalEreignisse, journalSaldo,
+  vorJournal, zukaufEreignis,
 } from '@/lib/wein/weinbuchBestand'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
@@ -139,8 +139,9 @@ export const VERMERK_NICHT_EINDEUTIG = 'Zuordnung zur Charge nicht eindeutig (Be
 export async function buildWeinbuch(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any, id: string, tenantId: string | null,
-  /** journalBeginn: vorab geladen (Sammlung, einmal je Betrieb); undefined = hier laden */
-  opts: { journalBeginn?: string | null } = {},
+  /** journalBeginn: vorab geladen (Sammlung, einmal je Betrieb); undefined = hier laden.
+   *  daten: Rohdaten der Charge aus ladeWeinbuchDaten (Sammlung, KAN-385); undefined = hier laden */
+  opts: { journalBeginn?: string | null; daten?: WeinbuchDaten | null } = {},
 ): Promise<Weinbuch | null> {
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
@@ -148,14 +149,10 @@ export async function buildWeinbuch(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  // ── 1. Weinausbau-Charge laden ────────────────────────────────────────────
-  const { data: waRaw, error: waErr } = await tf((supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
-    .eq('id', id))
-    .maybeSingle()
-
-  if (waErr || !waRaw) return null
-  const waRow = waRaw as R
+  // ── 1. Charge und ihre Buchungen – ein Abfrageweg für Einzel-Weinbuch und Sammlung (KAN-385) ──────────
+  const d = opts.daten !== undefined ? opts.daten : (await ladeWeinbuchDaten(supabase, tenantId, [id])).get(id) ?? null
+  if (!d) return null
+  const waRow = d.wa
   const wa: WeinbuchCharge = {
     id: waRow.id,
     name: waRow.name,
@@ -169,100 +166,9 @@ export async function buildWeinbuch(
     kmw: waRow.kmw ?? null, oechsle: waRow.oechsle ?? null, mostgewicht_einheit: waRow.mostgewicht_einheit ?? null,
   }
 
-  // ── 2. Alle Daten parallel laden ─────────────────────────────────────────
-  const [
-    prRes,      // Pressungen → Weingärten
-    umRes,      // Umzüge
-    kbRes,      // Kellerbehandlungen
-    anRes,      // Analysen
-    dacRes,     // DAC-Anträge
-    fuellRes,       // Füllungen via fuellung_chargen
-    fuellDirektRes, // Direkte Füllungen (Fallback alte Daten)
-    wawRes,        // weinausbau_weingaerten (direkter Weingarten-Link)
-    verschnEinRes, // Verschneidungen eingehend (Ziel)
-    verschnAusRes, // Verschneidungen ausgehend (Quelle)
-  ] = await Promise.all([
-    // tenant-isolation-ignore: pressung_behaelter ohne tenant_id, Filter über die Pressung (!inner)
-    (tenantId ? (q: any) => q.eq('pressung.tenant_id', tenantId) : (q: any) => q)((supabase.from('pressung_behaelter') as any)
-      // storno-sichtbar: das Weinbuch zeigt eine stornierte Pressung gekennzeichnet und den Storno (KAN-148 C1c)
-      .select(`
-        menge_liter, storniert_am, storno_grund, storniert_von_name,
-        pressung:pressung_id!inner(
-          id, datum, erstellt_am, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am, kmw_grad, oechsle, mostgewicht_einheit,
-          pressung_weingaerten(
-            trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, storniert_am,
-            weingarten:weingarten_id(id, name, flaeche_ha),
-            grundstueck:grundstueck_id(gst_nr)
-          )
-        )
-      `)
-      .eq('weinausbau_id', id)),
-
-    tf((supabase.from('keller_umzuege') as any)
-      .select(`
-        id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_batch_id, umzug_typ, notizen,
-        storniert_am, storno_grund, storniert_von_name,
-        von_behaelter:von_behaelter_id(name),
-        nach_behaelter:nach_behaelter_id(name)
-      `)
-      // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
-      .eq('von_weinausbau_id', id)
-      .order('datum', { ascending: true }).order('erstellt_am', { ascending: true }).order('id')),
-
-    tf((supabase.from('keller_behandlungen') as any)
-      .select('id, datum, created_at, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
-      // storno-sichtbar: das Weinbuch zeigt stornierte Kellerbehandlungen gekennzeichnet (KAN-145 B3)
-      .eq('weinausbau_id', id)
-      .order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id')),
-
-    // storno-sichtbar: das Weinbuch zeigt stornierte Analysen gekennzeichnet (KAN-150 F2)
-    tf((supabase.from('weinanalysen') as any)
-      .select('id, analyse_datum, created_at, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen, storniert_am, storno_grund, storniert_von_name')
-      .eq('weinausbau_id', id)
-      .order('analyse_datum', { ascending: true }).order('created_at', { ascending: true }).order('id')),
-
-    // storno-sichtbar: das Weinbuch zeigt stornierte DAC-Anträge gekennzeichnet (KAN-150 F2)
-    tf((supabase.from('dac_antrag') as any)
-      .select('id, bezeichnung, dac_region, status, pruefnummer, eingereicht_am, bescheid_am, created_at, storniert_am, storno_grund, storniert_von_name')
-      .eq('weinausbau_id', id)
-      .order('created_at', { ascending: true })),
-
-    tf((supabase.from('fuellung_chargen') as any)
-      .select(`
-        anteil_liter,
-        fuellung:fuellung_id(
-          id, datum, erstellt_am, chargennummer, pruefnummer, name,
-          anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt, aktiv, storniert_am, storno_grund, storniert_von_name
-        )
-      `)
-      .eq('weinausbau_id', id)),
-
-    tf((supabase.from('fuellungen') as any)
-      .select('id, datum, erstellt_am, chargennummer, pruefnummer, name, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt, aktiv, storniert_am, storno_grund, storniert_von_name')
-      .eq('weinausbau_id', id)),
-
-    tf((supabase.from('weinausbau_weingaerten') as any)
-      .select('weingarten_id, weingarten:weingarten_id(id, name)')
-      .eq('weinausbau_id', id)),
-
-    tf((supabase.from('verschneidungen') as any)
-      .select(`id, datum, created_at, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name,
-        quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct, quell_behaelter_id, gebinde_rekonstruiert,
-          quelle:quell_weinausbau_id(id, name, rebsorte))`)
-      // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
-      .eq('ziel_weinausbau_id', id)
-      .order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id')),
-
-    (supabase.from('verschneidung_quellen') as any)
-      .select(`menge_liter, anteil_pct,
-        verschneidung:verschneidung_id(id, datum, created_at, notizen, storniert_am, storno_grund, storniert_von_name,
-          ziel:ziel_weinausbau_id(id, name))`)
-      .eq('quell_weinausbau_id', id),
-  ])
-
-  const pressungen    = (prRes.data ?? []) as R[]
-  const umzuegeRaw    = (umRes.data ?? []) as R[]
-  let kellerBeh     = (kbRes.data ?? []) as R[]
+  const pressungen    = d.pressungen
+  const umzuegeRaw    = d.umzuege
+  let kellerBeh     = d.kellerBeh
   const warnungen: string[] = []
   // Fallback: alte Einträge OHNE Charge (weinausbau_id leer) aus dem Gebinde der Charge.
   // Seit 24.09.2026 entfallen nur Behandlungen, die laut Belegung (Bewegungsbuch,
@@ -305,11 +211,11 @@ export async function buildWeinbuch(
       }
     }
   }
-  const analysen      = (anRes.data ?? []) as R[]
-  const dacAntraege   = (dacRes.data ?? []) as R[]
-  const fuellChargen  = (fuellRes.data ?? []) as R[]
+  const analysen      = d.analysen
+  const dacAntraege   = d.dacAntraege
+  const fuellChargen  = d.fuellChargen
   const fuellChargenIds = new Set(fuellChargen.map((fc: R) => (fc.fuellung as R | null)?.id).filter(Boolean))
-  const direktFuellungen = ((fuellDirektRes.data ?? []) as R[])
+  const direktFuellungen = d.fuellDirekt
     .filter((f: R) => !fuellChargenIds.has(f.id))
     .map((f: R) => ({ anteil_liter: null, fuellung: f }))
   // KAN-145 B3: aktive und stornierte Füllungen (gekennzeichnet); vor KAN-145 „gelöschte“ (aktiv = false ohne
@@ -319,8 +225,8 @@ export async function buildWeinbuch(
     return !f || f.aktiv !== false || !!f.storniert_am
   })
 
-  const verschnEin = (verschnEinRes.data ?? []) as R[]
-  const verschnAus = (verschnAusRes.data ?? []) as R[]   // stornierte mit Kennzeichen (KAN-145 B2b)
+  const verschnEin = d.verschnEin
+  const verschnAus = d.verschnAus   // stornierte mit Kennzeichen (KAN-145 B2b)
 
   // Umzüge: Ziel-Behälter via Batch-Lookup ergänzen
   const batchIds = [...new Set(
@@ -382,7 +288,7 @@ export async function buildWeinbuch(
     warnungen.push(cid === wa.id ? HINWEIS_EROEFFNUNGSBESTAND : `Charge „${text(c.name) ?? 'Vorgänger'}“: ${HINWEIS_EROEFFNUNGSBESTAND}`)
   }
   if (rvLesen.length === 0 && !waRow.ist_eroeffnungsbestand && ![...herkunft.values()].some(c => c.ist_eroeffnungsbestand)) {
-    const riede = ((wawRes.data ?? []) as R[]).map(r => text((r.weingarten as R | null)?.name)).filter(Boolean)
+    const riede = d.weingaerten.map(r => text((r.weingarten as R | null)?.name)).filter(Boolean)
     if (!warnungen.some(w => w.startsWith('Zukauf '))) {
       warnungen.push(`Keine Lese und keine Pressung zugeordnet – im Weinbuch stehen keine Ried-Maßnahmen${riede.length > 0 ? ` (Herkunft laut Charge: ${riede.join(', ')})` : ''}.`)
     }
@@ -585,17 +491,8 @@ export async function buildWeinbuch(
   }
 
   // KAN-384: Reihenfolge im Tag nach dem letzten Status-Ereignis des Antrags (zugeteilt, eingereicht …), sonst Anlage
-  const dacZeit = new Map<string, string>()
-  if (dacAntraege.length > 0) {
-    // alle-ausnahme: Ereignisse der Prüfnummernanträge einer einzelnen Charge, wenige
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: peRaw, error: peErr } = await tf((supabase.from('pruefnummer_ereignisse') as any)
-      .select('dac_antrag_id, erstellt_am')
-      .in('dac_antrag_id', dacAntraege.map(d => d.id))
-      .order('erstellt_am').order('id'))
-    if (peErr) warnungen.push(`Ereignisse der Prüfnummernanträge konnten nicht geladen werden (${peErr.message}) – Reihenfolge am Tag nach Anlage des Antrags.`)
-    for (const e of (peRaw ?? []) as R[]) dacZeit.set(e.dac_antrag_id, e.erstellt_am)   // aufsteigend: das letzte gewinnt
-  }
+  const dacZeit = d.dacZeit
+  if (d.dacZeitFehler) warnungen.push(d.dacZeitFehler)
   for (const dac of dacAntraege) {
     const datum = dac.bescheid_am ?? dac.eingereicht_am ?? dac.created_at ?? null
     if (!datum) continue
@@ -698,13 +595,8 @@ export async function buildWeinbuch(
   }
 
   // KAN-82: Abstufungen der Charge – Datum, Menge, alt → neu, Grund und Benutzer
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: umstRaw, error: umstErr } = await tf((supabase.from('charge_umstufungen') as any)
-    .select('id, datum, erstellt_am, menge_liter, alt_qualitaetsstufe, alt_zusatzbezeichnung, alt_erzeugnis, alt_herkunft_code, neu_qualitaetsstufe, neu_zusatzbezeichnung, neu_erzeugnis, neu_herkunft_code, grund, erstellt_von_name, quelle:quelle_weinausbau_id(name)')
-    .eq('weinausbau_id', id)
-    .order('datum', { ascending: true }).order('erstellt_am', { ascending: true }).order('id'))
-  if (umstErr) warnungen.push(`Abstufungen konnten nicht geladen werden: ${umstErr.message}`)
-  for (const u of (umstRaw ?? []) as R[]) {
+  if (d.umstufungenFehler) warnungen.push(d.umstufungenFehler)
+  for (const u of d.umstufungen) {
     const alt = { ...normalisiereQualitaet({ qualitaetsstufe: u.alt_qualitaetsstufe, zusatzbezeichnung: u.alt_zusatzbezeichnung, erzeugnis: u.alt_erzeugnis }), herkunft: u.alt_herkunft_code ?? null }
     const neu = { ...normalisiereQualitaet({ qualitaetsstufe: u.neu_qualitaetsstufe, zusatzbezeichnung: u.neu_zusatzbezeichnung, erzeugnis: u.neu_erzeugnis }), herkunft: u.neu_herkunft_code ?? null }
     events.push({
@@ -730,17 +622,11 @@ export async function buildWeinbuch(
       warnungen.push(e instanceof Error ? e.message : 'Journalbeginn konnte nicht geladen werden.')
     }
     if (journalBeginn) {
-      const { data: jz, error: jErr } = await alle<WbJournalZeile>(supabase.from('kellerbuch_buchungen')
-        .select(WB_JOURNAL_SPALTEN)
-        .eq('tenant_id', tenantId)
-        .eq('weinausbau_id', id)
-        .eq('bestand', 'offen')
-        .order('datum').order('beleg_nr').order('pos').order('id'))
-      if (jErr) {
-        warnungen.push(`Bewegungsjournal der Charge konnte nicht geladen werden (${jErr.message}) – Zukauf, Verkauf und Korrekturen fehlen.`)
+      if (d.journalFehler) {
+        warnungen.push(d.journalFehler)
       } else {
-        const abstufungTage = new Set(((umstRaw ?? []) as R[]).map(u => tag(u.datum)).filter(Boolean))
-        const zeilen = jz.map(z => ({ ...z, menge_liter: Number(z.menge_liter) || 0 }))
+        const abstufungTage = new Set(d.umstufungen.map(u => tag(u.datum)).filter(Boolean))
+        const zeilen = d.journal.map(z => ({ ...z, menge_liter: Number(z.menge_liter) || 0 }))
         events.push(...journalEreignisse(zeilen, { abstufungTage, journalBeginn }))
         if (zeilen.length > 0) {
           const h = journalAbweichungHinweis(journalSaldo(zeilen), parseFloat(String(wa.menge_liter ?? 0)) || 0)
@@ -749,25 +635,15 @@ export async function buildWeinbuch(
       }
     }
     // Vor dem Journalbeginn bzw. ohne Journal: aus den Bewegungstabellen
-    const [zkEigen, fvEigen] = await Promise.all([
-      // storno-sichtbar: das Weinbuch zeigt stornierte Zukäufe gekennzeichnet (KAN-44)
-      supabase.from('zukauf_posten')
-        .select('id, datum, erstellt_am, art, menge, einheit, rebsorte, jahrgang, aktiv, storniert_am, storno_grund, storniert_von_name, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
-        .eq('tenant_id', tenantId).eq('ziel_weinausbau_id', id).order('datum').order('erstellt_am').order('id'),
-      // storno-sichtbar: das Weinbuch zeigt stornierte Fassverkäufe gekennzeichnet (KAN-44)
-      supabase.from('verkauf_positionen')
-        .select('id, menge, verkaufsposten:verkaufsposten_id(datum, erstellt_am, rechnungsnummer, aktiv, storniert, storniert_am, storno_grund, storniert_von_name, partner_daten, firma:firma_id(name), kontakt:kontakt_id(vorname, nachname))')
-        .eq('tenant_id', tenantId).eq('weinausbau_id', id).eq('typ', 'tank').order('id'),
-    ])
-    if (zkEigen.error || fvEigen.error) warnungen.push('Zukäufe bzw. Fassverkäufe der Charge konnten nicht geladen werden.')
-    for (const z of (zkEigen.data ?? []) as R[]) {
+    if (d.zkFvFehler) warnungen.push('Zukäufe bzw. Fassverkäufe der Charge konnten nicht geladen werden.')
+    for (const z of d.zukaeufe) {
       momentaufnahmeAnwenden(z, ['lieferant_firma', 'lieferant_kontakt'])
       const ev = vorJournal(z.datum, journalBeginn) ? zukaufEreignis(z) : null
       if (!ev) continue
       merkeStorno(z)
       events.push(ev)
     }
-    for (const p of (fvEigen.data ?? []) as R[]) {
+    for (const p of d.fassverkaeufe) {
       const vp = p.verkaufsposten as R | null
       momentaufnahmeAnwenden(vp, ['firma', 'kontakt'])
       const ev = vorJournal(vp?.datum, journalBeginn) ? fassverkaufEreignis(p) : null
@@ -782,13 +658,13 @@ export async function buildWeinbuch(
   // KAN-200: Prüfnummer je Charge (pruefnummer_chargen) – Übernahme per Umzug und Ende für den Tankbestand
   let pnVerlauf: PnVerlauf[] | undefined
   if (tenantId) {
-    try {
-      const verlauf = (await ladePnVerlauf(supabase, tenantId, [id])).get(id) ?? []
+    if (d.pnFehler) {
+      warnungen.push(d.pnFehler)
+    } else {
+      const verlauf = d.pnVerlauf
       pnVerlauf = verlauf
       wa.pruefnummer = pnStandText(pnStandAm(verlauf))
       for (const e of pnVerlaufEreignisse(verlauf)) events.push({ ...e, typ: 'dac' })
-    } catch (e) {
-      warnungen.push(e instanceof Error ? e.message : 'Prüfnummer je Charge konnte nicht geladen werden.')
     }
   }
 

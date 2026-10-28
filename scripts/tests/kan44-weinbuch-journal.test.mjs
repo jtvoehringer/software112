@@ -156,8 +156,8 @@ describe('KAN-44 Teil 3: buildWeinbuch', nurMitHooks, () => {
     const w = await buildWeinbuch(datenbank(daten({ journalAb: '2026-01-10', menge: 520 })), 'A', T)
     assert.ok(w.warnungen.some(x => /Bewegungsjournal \(495 L\) weicht vom Bestand der Charge \(520 L\) ab/.test(x)), w.warnungen.join(' / '))
     const s = readFileSync(new URL('../../src/lib/behoerden/weinbuch.ts', import.meta.url), 'utf8')
-    assert.match(s, /const journalBeginn = await ladeJournalBeginn\(supabase, tenantId\)/)
-    assert.match(s, /buildWeinbuch\(supabase, c\.id, tenantId, \{ journalBeginn \}\)/)
+    assert.match(s, /const \[journalBeginn, daten\] = await Promise\.all\(\[\s*ladeJournalBeginn\(supabase, tenantId\),/)
+    assert.match(s, /buildWeinbuch\(supabase, c\.id, tenantId, \{ journalBeginn, daten: daten\.get\(c\.id\) \?\? null \}\)/)
   })
 
   test('Ende: leere Charge endet auch mit einem Fassverkauf', async () => {
