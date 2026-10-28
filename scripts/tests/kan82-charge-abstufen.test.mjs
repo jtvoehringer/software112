@@ -84,7 +84,8 @@ describe('KAN-82 Verdrahtung', () => {
   })
   test('Weinbuch zeigt Abstufungen samt Grund', () => {
     const w = quelle('src/lib/wein/weinbuch.ts')
-    assert.match(w, /from\('charge_umstufungen'\)/)
+    assert.match(quelle('src/lib/wein/weinbuchDaten.ts'), /from\('charge_umstufungen'\)/)   // KAN-385 Stufe 2: im Vorlader
+    assert.match(w, /for \(const u of d\.umstufungen\)/)
     assert.match(w, /typ: 'umstufung'/)
     assert.match(quelle('src/lib/behoerden/weinbuch.ts'), /umstufung:\s+'Abstufung'/)
   })

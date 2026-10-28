@@ -4,12 +4,15 @@
 // /kellerbuch/weinausbau/[id]/buch und /reports/weinbuecher-sammlung. Die CSV hat eine
 // Zeile je Ereignis: Charge, Datum, Art, Titel, Details (mit „ | “ verbunden), Status.
 // Die Sammlung lädt höchstens WEINBUCH_SAMMLUNG_MAX Chargen, je WEINBUCH_SAMMLUNG_PARALLEL gleichzeitig
-// (KAN-385: ohne Grenze lud die Seite alle Chargen des Betriebs nacheinander und kam nicht zustande).
+// (KAN-385: ohne Grenze lud die Seite alle Chargen des Betriebs nacheinander und kam nicht zustande). Seit Stufe 2
+// holt ladeWeinbuchDaten die Buchungen aller Chargen vorab mit wenigen Abfragen; je Charge bleibt nur, was von
+// ihrem Ergebnis abhängt (Ried, Ziel- und Quellgebinde, Zukäufe der Vorgänger).
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import type { CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { buildWeinbuch, type EventTyp, type Weinbuch } from '@/lib/wein/weinbuch'
+import { ladeWeinbuchDaten } from '@/lib/wein/weinbuchDaten'
 import { pnStandAm } from '@/lib/kellerbuch/pruefnummerVerlauf'
 import { wienTag } from '@/lib/datum/wien'
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
@@ -180,9 +183,13 @@ export async function ladeWeinbuchSammlung(
   const chargen = vorab ?? await ladeWeinbuchChargen(supabase, tenantId, f)
   if (chargen.length > WEINBUCH_SAMMLUNG_MAX) throw new MeldungsFehler(400, zuVieleChargenText(chargen.length))
 
-  // Journalbeginn einmal (KAN-44); je WEINBUCH_SAMMLUNG_PARALLEL Weinbücher gleichzeitig (KAN-385)
-  const journalBeginn = await ladeJournalBeginn(supabase, tenantId)
-  const geladen = await begrenztParallel(chargen, WEINBUCH_SAMMLUNG_PARALLEL, c => buildWeinbuch(supabase, c.id, tenantId, { journalBeginn }))
+  // Journalbeginn einmal (KAN-44); Buchungen aller Chargen vorab (KAN-385 Stufe 2); den Rest je Charge,
+  // je WEINBUCH_SAMMLUNG_PARALLEL Weinbücher gleichzeitig (Stufe 1)
+  const [journalBeginn, daten] = await Promise.all([
+    ladeJournalBeginn(supabase, tenantId),
+    ladeWeinbuchDaten(supabase, tenantId, chargen.map(c => c.id)),
+  ])
+  const geladen = await begrenztParallel(chargen, WEINBUCH_SAMMLUNG_PARALLEL, c => buildWeinbuch(supabase, c.id, tenantId, { journalBeginn, daten: daten.get(c.id) ?? null }))
   const weinbuecher = geladen.filter((wb): wb is Weinbuch => !!wb)
   const fehlend = geladen.length - weinbuecher.length
   const warnungen = fehlend > 0 ? [`${fehlend} ${fehlend === 1 ? 'Weinbuch konnte' : 'Weinbücher konnten'} nicht geladen werden.`] : []

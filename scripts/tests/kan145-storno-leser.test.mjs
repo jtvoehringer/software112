@@ -49,8 +49,10 @@ test('Verschnitt-Quellen: jede lesende Abfrage bettet die Verschneidung mit stor
     let m
     while ((m = re.exec(s))) {
       const danach = s.slice(m.index, m.index + 400)
-      // gefiltert (ohneStornierteVerschnitte) oder bewusst mit Kennzeichen (istStorniert/stornoAngaben, KAN-145 B2b)
-      if (/verschneidung:verschneidung_id\([^)]*storniert_am/.test(danach) && /ohneStornierteVerschnitte\(|istStorniert\(|stornoAngaben\(|merkeStorno\(/.test(s)) continue
+      // gefiltert (ohneStornierteVerschnitte) oder bewusst mit Kennzeichen (istStorniert/stornoAngaben, KAN-145 B2b);
+      // KAN-385: ein reiner Lader (weinbuchDaten.ts) kennzeichnet nicht selbst – dann mit // storno-sichtbar: <Grund>
+      const begruendet = /\/\/ storno-sichtbar: .{15,}/.test(s.slice(Math.max(0, m.index - 300), m.index + 400))
+      if (/verschneidung:verschneidung_id\([^)]*storniert_am/.test(danach) && (begruendet || /ohneStornierteVerschnitte\(|istStorniert\(|stornoAngaben\(|merkeStorno\(/.test(s))) continue
       funde.push(`${path.relative(SRC, f)}:${s.slice(0, m.index).split('\n').length}`)
     }
   }

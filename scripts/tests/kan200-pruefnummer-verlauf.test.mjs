@@ -80,7 +80,9 @@ describe('KAN-200/201: Verlauf der Prüfnummer je Charge', nurMitHooks, () => {
 describe('KAN-200/201: Verdrahtung', () => {
   test('Weinbuch: Verlauf geladen, Ereignisse als DAC-Eintrag, Kopf und CSV-Spalte', () => {
     const w = quelle('src/lib/wein/weinbuch.ts')
-    assert.match(w, /const verlauf = \(await ladePnVerlauf\(supabase, tenantId, \[id\]\)\)\.get\(id\) \?\? \[\]/)
+    // KAN-385 Stufe 2: geladen im Vorlader (für alle Chargen der Sammlung auf einmal)
+    assert.match(quelle('src/lib/wein/weinbuchDaten.ts'), /ladePnVerlauf\(supabase, tenantId, ids\)/)
+    assert.match(w, /const verlauf = d\.pnVerlauf/)
     assert.match(w, /for \(const e of pnVerlaufEreignisse\(verlauf\)\) events\.push\(\{ \.\.\.e, typ: 'dac' \}\)/)
     assert.match(quelle('src/lib/behoerden/weinbuch.ts'), /kopf: 'Prüfnummer der Charge \(aktuell\)'/)
     assert.match(quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/page.tsx'), /Prüfnummer: \{wa\.pruefnummer\}/)

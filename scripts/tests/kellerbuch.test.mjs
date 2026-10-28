@@ -457,6 +457,29 @@ describe('weinbuch und weinbuch-sammlung', () => {
     const s = await ausfuehren('weinbuch-sammlung', 'jahrgang=2025', sb)
     assert.equal(s.zeilen, 5)
   })
+  test('KAN-385 Stufe 2: Sammlung mit vorab geladenen Daten = Einzel-Weinbuch; je Quelle eine Abfrage statt einer je Charge', async () => {
+    const { buildWeinbuch } = await import('../../src/lib/wein/weinbuch.ts')
+    const { ladeWeinbuchDaten } = await import('../../src/lib/wein/weinbuchDaten.ts')
+    const daten = kellerDaten()
+    daten.weinausbau[0].behaelter = { name: 'Tank 1' }
+    const einzeln = await buildWeinbuch(attrappe(daten, gebindeRpc(gebindeKeller)), C1, T)
+    const sb = attrappe(daten, gebindeRpc(gebindeKeller))
+    const vorab = await ladeWeinbuchDaten(sb, T, [C1, C2])
+    assert.deepEqual([...vorab.keys()].sort(), [C1, C2].sort())
+    assert.deepEqual(await buildWeinbuch(sb, C1, T, { daten: vorab.get(C1) }), einzeln)
+    assert.ok(einzeln.events.length >= 5)
+    // Sammlung über zwei Chargen: Kellerbehandlungen, Analysen, Umzüge … je einmal (mit beiden Chargen), nicht je Charge
+    const sb2 = attrappe(daten, gebindeRpc(gebindeKeller))
+    await weinbuch.ladeWeinbuchSammlung(sb2, T, { jahrgang: null, sorte: null, bezeichnung: null })
+    for (const t of ['keller_behandlungen', 'weinanalysen', 'dac_antrag', 'charge_umstufungen', 'kellerbuch_buchungen']) {
+      const abfragen = sb2.log.filter(l => l.tabelle === t && l.filter.some(([op, k]) => op === 'in' && /weinausbau_id$/.test(k)))
+      assert.equal(abfragen.length, 1, t)
+      assert.deepEqual(abfragen[0].filter.find(([op]) => op === 'in')[2].slice().sort(), [C1, C2].sort(), t)
+      assert.ok(!sb2.log.some(l => l.tabelle === t && l.filter.some(([op, k, v]) => op === 'eq' && k === 'weinausbau_id' && v === C1)), `${t}: keine Einzelabfrage`)
+    }
+    // unbekannte Charge → kein Eintrag, Weinbuch null wie bisher
+    assert.equal(await buildWeinbuch(attrappe(daten), G2, T), null)
+  })
   test('KAN-385: begrenztParallel – höchstens n gleichzeitig, Ergebnis in Eingabereihenfolge', async () => {
     let laufend = 0, hoechstens = 0
     const r = await weinbuch.begrenztParallel([5, 1, 4, 2, 3, 0, 6], 3, async x => {
