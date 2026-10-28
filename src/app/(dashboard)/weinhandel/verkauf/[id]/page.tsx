@@ -122,10 +122,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     // alle-ausnahme: stornierte Rechnungen eines einzelnen Lieferscheins – fachlich nur wenige Zeilen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('rechnungen') as any)
-      .select('id, rechnungsnummer, datum, storniert_am, storniert_durch:rechnungen!storniert_durch_id(id, rechnungsnummer, datum)')
+      .select('id, rechnungsnummer, datum, storniert_am, storniert_durch:storniert_durch_id(id, rechnungsnummer, datum)')
       .eq('tenant_id', tenantId ?? '')
       .eq('storniert', true)
-      .contains('storno_positionen', [{ lieferschein_id: id }])
+      // Hotfix: als JSON-Text – ein Array macht supabase-js zum Postgres-Array-Literal ({[object Object]} → 22P02)
+      .filter('storno_positionen', 'cs', JSON.stringify([{ lieferschein_id: id }]))
       .order('storniert_am', { ascending: true })
       .order('id'),
   ])

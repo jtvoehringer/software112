@@ -31,6 +31,16 @@ describe('check-einbettung', () => {
     assert.match(m[0], /firmen!betriebsmittel_lager_bewegungen_lieferant_fkey/)
   })
 
+  test('Regression KAN-379 (28.10.2026): Selbstbezug tab!spalte liefert die Gegenrichtung – gemeldet, Spalte ist richtig', () => {
+    // rechnungen!storno_von_id(…) auf rechnungen = Zeilen, die auf diese zeigen ([]) → Stornobeleg mit 0 €
+    for (const q of ['rechnungen', null]) {
+      const m = meldungen('id, storno_von:rechnungen!storno_von_id(id, rechnungsnummer)', q)
+      assert.equal(m.length, 1, String(q))
+      assert.match(m[0], /Selbstbezug liefert die Gegenrichtung/)
+    }
+    assert.deepEqual(meldungen('id, storno_von:storno_von_id(id, rechnungsnummer), storniert_durch:storniert_durch_id(id)', 'rechnungen'), [])
+  })
+
   test('derselbe Spalten-Hinweis ist an einer Tabelle mit einspaltigem FK richtig (zukauf_posten)', () => {
     assert.deepEqual(meldungen('lieferant_firma:firmen!lieferant_firma_id(id, name)', 'zukauf_posten'), [])
   })

@@ -31,10 +31,11 @@ export function positionenDerRechnung(r: R): R[] {
 /**
  * KAN-379: select-Teil für Stornobelege (rechnungen.art = 'storno') – der Stornobeleg rechnet mit der Momentaufnahme
  * seines Originals (storno_von), das Original nennt seinen Stornobeleg (storniert_durch). Jeder Leser, der Beträge
- * braucht, nimmt das mit; alsBeleg() macht daraus negative Positionen.
+ * braucht, nimmt das mit; alsBeleg() macht daraus negative Positionen. Hotfix 28.10.2026: Einbettung über die Spalte
+ * (storno_von_id(…) = verwiesene Zeile); mit Tabellen-Hinweis rechnungen!… wäre es auf derselben Tabelle die Gegenrichtung (Liste).
  */
 export const STORNO_FELDER =
-  'art, storniert_durch_id, storno_von:rechnungen!storno_von_id(id, rechnungsnummer, datum, storno_positionen), storniert_durch:rechnungen!storniert_durch_id(id, rechnungsnummer, datum)'
+  'art, storniert_durch_id, storno_von:storno_von_id(id, rechnungsnummer, datum, storno_positionen), storniert_durch:storniert_durch_id(id, rechnungsnummer, datum)'
 
 /** KAN-379: Stornobeleg (Gegenbuchung zu einer Rechnung)? */
 export function istStornobeleg(r: R): boolean {

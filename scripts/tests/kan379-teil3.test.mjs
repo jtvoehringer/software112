@@ -257,8 +257,11 @@ describe('KAN-379 Nachtrag: Storno am Verkauf auffindbar', () => {
   })
   test('Verkauf lädt stornierte Rechnungen über die Momentaufnahme und verlinkt den Stornobeleg', () => {
     const s = q(`${ordner}page.tsx`)
-    assert.match(s, /\.contains\('storno_positionen', \[\{ lieferschein_id: id \}\]\)/)
-    assert.match(s, /storniert_durch:rechnungen!storniert_durch_id\(id, rechnungsnummer, datum\)/)
+    // Hotfix 28.10.2026: JSON-Text statt Array – supabase-js machte aus dem Array {[object Object]} → 22P02 auf JEDER
+    // Verkaufsseite; Einbettung über die Spalte (verwiesene Zeile), nicht rechnungen!… (Gegenrichtung)
+    assert.match(s, /\.filter\('storno_positionen', 'cs', JSON\.stringify\(\[\{ lieferschein_id: id \}\]\)\)/)
+    assert.doesNotMatch(s, /\.contains\('storno_positionen'/)
+    assert.match(s, /storniert_durch:storniert_durch_id\(id, rechnungsnummer, datum\)/)
     assert.match(s, /durch Stornobeleg <Link href=\{`\/weinhandel\/rechnungen\/\$\{st\.id\}`\}/)
   })
 })
