@@ -49,7 +49,7 @@ export default async function NeuePage({
           .eq('weinausbau_id', preCharge)
           .eq('tenant_id', tenantId)
           .is('storniert_am', null)   // KAN-150 F2: stornierte Analysen gelten nicht
-          .order('analyse_datum', { ascending: false })
+          .order('analyse_datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     // KAN-98: je Charge höchstens ein offener Antrag
     preCharge

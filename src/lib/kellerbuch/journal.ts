@@ -171,7 +171,7 @@ export async function ladeKellerbuchAbschluesse(supabase: any, tenantId: string)
   const { data, error } = await (supabase.from('kellerbuch_abschluesse') as any)
     .select('id, abgeschlossen_bis, abgeschlossen_am, bemerkung')
     .eq('tenant_id', tenantId)
-    .order('abgeschlossen_bis', { ascending: false })
+    .order('abgeschlossen_bis', { ascending: false }).order('id', { ascending: false })
   if (error) throw new AktionsFehler(`Kellerbuch-Abschlüsse konnten nicht geladen werden (${error.message})`)
   return (data ?? []) as KellerbuchAbschluss[]
 }

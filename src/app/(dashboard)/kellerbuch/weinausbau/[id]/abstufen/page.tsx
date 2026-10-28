@@ -39,7 +39,7 @@ export default async function AbstufenPage({ params }: { params: Promise<{ id: s
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('charge_umstufungen') as any)
       .select('id, datum, menge_liter, alt_qualitaetsstufe, alt_zusatzbezeichnung, alt_erzeugnis, alt_herkunft_code, neu_qualitaetsstufe, neu_zusatzbezeichnung, neu_erzeugnis, neu_herkunft_code, grund, erstellt_von_name, quelle:quelle_weinausbau_id(name)')
-      .eq('weinausbau_id', id).order('datum', { ascending: false })),
+      .eq('weinausbau_id', id).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })),
     // belegte Gebinde – Teilmenge nur in ein leeres Gebinde; KAN-358: dieselbe Regel wie Umzug und Zukauf
     // (abgeschlossene, inaktive und stornierte Chargen belegen kein Gebinde)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

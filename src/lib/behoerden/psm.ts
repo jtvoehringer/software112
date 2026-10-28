@@ -36,6 +36,7 @@ import { verteileMassnahme, WARNUNG_GLEICH, type GstAnteil, type WiGst } from '@
 import { gstAktiv, gstImJahr } from '@/lib/wein/grundstueckAktiv'
 import { anwenderText, ART_VERWENDUNG_LABEL, istArtVerwendung } from '@/lib/behandlungen/erfassungsfrist'
 import { AktionsFehler } from '@/lib/fehler'
+import { vergleicheTagUndZeit } from '@/lib/datum/reihenfolge'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -610,6 +611,13 @@ export type BehandlungenFilter = {
  * behandlung_grundstuecke hat keine tenant_id – die Grundstücke kommen deshalb eingebettet
  * über die mandantengefilterte Maßnahme (nicht als eigene, ungefilterte Abfrage).
  */
+/** KAN-384: Reihenfolge der Maßnahmen – Datum, Startzeit (ohne Startzeit zuerst), Erfassungszeitpunkt, id */
+export function massnahmenReihenfolge(a: Pick<PsmBehandlung, 'datum' | 'id' | 'uhrzeitVon' | 'erfasstAm'>, b: Pick<PsmBehandlung, 'datum' | 'id' | 'uhrzeitVon' | 'erfasstAm'>): number {
+  return a.datum.localeCompare(b.datum)
+    || (a.uhrzeitVon ?? '').localeCompare(b.uhrzeitVon ?? '')
+    || vergleicheTagUndZeit({ tag: a.datum, zeit: a.erfasstAm, id: a.id }, { tag: b.datum, zeit: b.erfasstAm, id: b.id })
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeBehandlungen(supabase: any, tenantId: string, f: BehandlungenFilter = {}): Promise<{ behandlungen: PsmBehandlung[]; warnungen: string[] }> {
   if (f.ids) {
@@ -617,7 +625,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
     const teile: { behandlungen: PsmBehandlung[]; warnungen: string[] }[] = []
     for (let i = 0; i < ids.length; i += 100) teile.push(await ladeBehandlungen(supabase, tenantId, { ...f, ids: null, nurIds: ids.slice(i, i + 100) } as BehandlungenFilter))
     return {
-      behandlungen: teile.flatMap(t => t.behandlungen).sort((a, b) => a.datum.localeCompare(b.datum) || a.id.localeCompare(b.id)),
+      behandlungen: teile.flatMap(t => t.behandlungen).sort(massnahmenReihenfolge),
       warnungen: [...new Set(teile.flatMap(t => t.warnungen))],
     }
   }
@@ -641,7 +649,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
   if (f.art) q = q.eq('art', f.art)
   const nurIds = (f as { nurIds?: string[] }).nurIds
   if (nurIds) q = q.in('id', nurIds.length > 0 ? nurIds : ['00000000-0000-0000-0000-000000000000'])
-  const { data, error } = await alle<R>(q.order('datum').order('id'))
+  const { data, error } = await alle<R>(q.order('datum').order('uhrzeit_von', { nullsFirst: true }).order('created_at').order('id'))
   if (error) throw new AktionsFehler(`Maßnahmen konnten nicht geladen werden: ${error.message}`)
 
   // Anwender und erfassender Benutzer (→ auth.users): Namen aus profiles, nur wenn überhaupt gesetzt

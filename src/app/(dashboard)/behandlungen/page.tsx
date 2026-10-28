@@ -77,7 +77,7 @@ export default async function BehandlungenPage() {
         psm:psm_id ( name, wartezeit_tage ),
         behandlung_grundstuecke ( flaeche_ha, grundstueck:grundstueck_id ( flaeche_ha, weingarten:weingarten_id ( id, name, ried ) ) )
       `)
-      .order('datum', { ascending: false })
+      .order('datum', { ascending: false }).order('uhrzeit_von', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
       .limit(200)),
 
     // Kosten je Maßnahme (Punkt 7, Migration 139)

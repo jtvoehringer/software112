@@ -26,6 +26,8 @@ export type WeinbuchMengenTyp = 'eroeffnung' | 'zukauf' | 'verkauf' | 'bestand'
 
 export type WeinbuchMengenEreignis = {
   datum: string
+  /** KAN-384: Erfassungszeitpunkt – Reihenfolge innerhalb des Tages */
+  zeitpunkt?: string | null
   typ: WeinbuchMengenTyp
   titel: string
   details: string[]
@@ -46,9 +48,11 @@ export type WbJournalZeile = {
   storno_von_id: string | null
   rekonstruiert: boolean
   hinweis: string | null
+  /** KAN-384: Erfassungszeitpunkt der Journalzeile */
+  erstellt_am?: string | null
 }
 
-export const WB_JOURNAL_SPALTEN = 'id, beleg_nr, pos, datum, buchungsart_code, menge_liter, partner_name, partner_land, quelle_tabelle, storno_von_id, rekonstruiert, hinweis'
+export const WB_JOURNAL_SPALTEN = 'id, beleg_nr, pos, datum, buchungsart_code, menge_liter, partner_name, partner_land, quelle_tabelle, storno_von_id, rekonstruiert, hinweis, erstellt_am'
 
 /** Bezeichnungen der Buchungsarten (kat_buchungsart) – Rückfall, falls der Katalog nicht geladen werden kann */
 export const BUCHUNGSART_TEXT: Record<string, string> = {
@@ -125,6 +129,7 @@ export function journalEreignisse(
     const partner = z.partner_name ? `${Number(z.menge_liter) < 0 ? 'an' : 'von'} ${z.partner_name}${z.partner_land && z.partner_land !== 'AT' ? ` (${z.partner_land})` : ''}` : null
     ereignisse.push({
       datum,
+      zeitpunkt: z.erstellt_am ?? null,
       typ: mengenTyp(z.buchungsart_code, z.quelle_tabelle),
       titel,
       badge: z.storno_von_id ? 'Storno' : storniert.has(z.id) ? 'storniert' : undefined,
@@ -169,7 +174,7 @@ export function zukaufEreignis(z: R): WeinbuchMengenEreignis | null {
   const name = partnerName(z.lieferant_firma, z.lieferant_kontakt)
   const menge = z.menge != null ? Number(z.menge) : null
   return {
-    datum, typ: 'zukauf', titel: ZUKAUF_TEXT[z.art] ?? 'Zukauf',
+    datum, zeitpunkt: z.erstellt_am ?? null, typ: 'zukauf', titel: ZUKAUF_TEXT[z.art] ?? 'Zukauf',
     details: [
       menge != null && Number.isFinite(menge) ? `Menge: +${zahlLokal(menge, { maximumFractionDigits: 3 })} ${z.einheit ?? 'l'}` : null,
       name ? `von ${name}` : null,
@@ -186,7 +191,7 @@ export function fassverkaufEreignis(p: R): WeinbuchMengenEreignis | null {
   const menge = Number(p.menge) || 0
   const name = partnerName(vp?.firma, vp?.kontakt)
   return {
-    datum, typ: 'verkauf', titel: 'Fassverkauf',
+    datum, zeitpunkt: vp?.erstellt_am ?? null, typ: 'verkauf', titel: 'Fassverkauf',
     badge: vp?.storniert && !vp?.storniert_am ? 'storniert' : undefined,   // Storno vor KAN-145 (ohne Zeitpunkt)
     details: [
       `Menge: ${literMitVorzeichen(-menge)}`,
@@ -203,7 +208,7 @@ export function eroeffnungEreignis(wa: R): WeinbuchMengenEreignis | null {
   const l = Number(wa.anfangsbestand_liter ?? wa.menge_liter ?? 0)
   if (!datum || !(l > 0)) return null
   return {
-    datum, typ: 'eroeffnung', titel: 'Eröffnungsbestand',
+    datum, zeitpunkt: wa.created_at ?? null, typ: 'eroeffnung', titel: 'Eröffnungsbestand',
     details: [`Menge: ${literMitVorzeichen(l)}`, 'Übernahme aus dem Altsystem'],
   }
 }

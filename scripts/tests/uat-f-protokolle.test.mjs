@@ -62,9 +62,9 @@ describe('KAN-350: Sortierung der Protokolle am Bildschirm', () => {
     assert.doesNotMatch(s, /csvPfad\([^)]*sort/)
   })
 
-  test('Ladefunktion des Behandlungsprotokolls sortiert aufsteigend (Datum, id)', () => {
+  test('Ladefunktion des Behandlungsprotokolls sortiert aufsteigend (Datum, Startzeit, Erfassung, id – KAN-384)', () => {
     const p = quelle('src/lib/behoerden/psm.ts')
-    assert.match(p, /alle<R>\(q\.order\('datum'\)\.order\('id'\)\)/)
+    assert.match(p, /alle<R>\(q\.order\('datum'\)\.order\('uhrzeit_von', \{ nullsFirst: true \}\)\.order\('created_at'\)\.order\('id'\)\)/)
     assert.doesNotMatch(p.slice(p.indexOf('export async function ladePsmAufzeichnung')), /^\s*sort/m)
   })
 
