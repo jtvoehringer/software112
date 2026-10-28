@@ -53,16 +53,17 @@ export function WeinbuchTimeline({ events, zeigeLegende = true }: { events: Time
                     <style.icon size={18} strokeWidth={1.75} className="text-white" />
                   </div>
                   <div className={`flex-1 rounded-xl border p-4 ${style.card}`}>
-                    <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <div>
-                        <p className="font-semibold text-s112-text text-sm">{ev.titel}</p>
+                    {/* KAN-384 (UAT 28.10.2026): Datum immer rechts – der Text davor bricht um, statt das Datum unter sich zu schieben */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-s112-text text-sm wrap-break-word">{ev.titel}</p>
                         {ev.badge && (
                           <span className="inline-block text-xs font-medium text-s112-text-2 bg-white/70 border border-s112-line rounded-full px-2 py-0.5 mt-0.5">
                             {ev.badge}
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-s112-text-2 tabular-nums shrink-0">
+                      <span className="text-xs text-s112-text-2 tabular-nums shrink-0 whitespace-nowrap">
                         {fmtDate(ev.datum)}
                       </span>
                     </div>

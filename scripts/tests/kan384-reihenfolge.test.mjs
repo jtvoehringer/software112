@@ -130,3 +130,12 @@ describe('KAN-384 PR 2', () => {
     assert.match(k, /gegen\.map\(g => \(\{ \.\.\.g, zeitpunkt: z\.storniert_am \?\? null \}\)\)/)
   })
 })
+
+// KAN-384 UAT 28.10.2026: Datum im Weinbuch immer rechts, langer Titel bricht um (kein flex-wrap im Kopf der Karte)
+describe('KAN-384: Weinbuch-Karte', () => {
+  test('Datum rechts, Text davor bricht um', () => {
+    const t = quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/WeinbuchTimeline.tsx')
+    assert.match(t, /<div className="flex items-start justify-between gap-2">\n\s+<div className="min-w-0 flex-1">/)
+    assert.match(t, /tabular-nums shrink-0 whitespace-nowrap">\n\s+\{fmtDate\(ev\.datum\)\}/)
+  })
+})
