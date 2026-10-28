@@ -118,7 +118,7 @@ export default function KellerbehandlungenPage() {
       .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, zugang_liter, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name), storniert_am, storno_grund, storniert_von_name')
       // storno-sichtbar: Liste zeigt stornierte Behandlungen gekennzeichnet, ohne Aktionen (KAN-145 B3)
       .eq('behaelter_id', behaelterId)
-      .order('datum', { ascending: false })
+      .order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
     let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard, pn_wirkung').order('sort_order').order('name')
     // KAN-107: aktive Stoffe des Stoffkontos (wenige Stammdaten je Betrieb)
     // alle-ausnahme: Stammdaten-Auswahl der aktiven Stoffe des Betriebs, wenige

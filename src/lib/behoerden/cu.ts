@@ -29,7 +29,7 @@ import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { verteileMassnahme, type Verteilung, type WiGst } from '@/lib/wein/massnahmeAnteile'
 import type { LadeErgebnis } from './typen'
 import {
-  behandlungKurz, betriebsflaecheWi, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
+  behandlungKurz, betriebsflaecheWi, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste, massnahmenReihenfolge,
   mittelmenge, mittelmengeKg, riedText, spritzbruehe, weingartenText, aufwandEinheitText, STELLEN_MENGE,
   type PsmBehandlung, type WeingartenStamm,
 } from './psm'
@@ -171,7 +171,7 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
   const jeGst = new Map<number, Map<string, { kgHa: number; wgId: string }>>()
   const wiGst = new Map<string, WiGst[]>(weingaerten.map(w => [w.id, w.wiGst ?? []]))
 
-  for (const b of [...behandlungen].sort((a, c) => a.datum.localeCompare(c.datum) || a.id.localeCompare(c.id))) {
+  for (const b of [...behandlungen].sort(massnahmenReihenfolge)) {   // KAN-384
     const gehalt = cuGehalt(b)
     if (!gehalt) continue
     const mm = mittelmengeKg(b, { literAlsKg: true })

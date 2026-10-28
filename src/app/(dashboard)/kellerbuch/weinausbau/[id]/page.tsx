@@ -104,7 +104,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct, quell_behaelter_id, gebinde_rekonstruiert, quelle:quell_weinausbau_id(id, name, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis))')
       .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('ziel_weinausbau_id', id)
-      .order('datum', { ascending: false })),
+      .order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })),
   ])
   // Sweep 87 (KAN-279): ein Lesefehler wirft (Fehlergrenze) statt „Charge nicht gefunden“ bzw. fehlender Bewegungen
   const rows = geladen(rowsRes, 'Charge')
@@ -234,7 +234,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const pncRaw = geladen(await tf((supabase.from('pruefnummer_chargen') as any)
     .select('id, dac_antrag_id, gueltig_ab, gueltig_bis, ende_grund, quelle_vorgang, antrag:dac_antrag_id(pruefnummer, status, storniert_am)')
     .eq('weinausbau_id', weinausbau.id)
-    .order('gueltig_ab', { ascending: false })), 'Prüfnummern der Charge')
+    .order('gueltig_ab', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })), 'Prüfnummern der Charge')
   const pnGueltigkeit = ((pncRaw ?? []) as R[]).filter(g => (g.antrag as R | null)?.pruefnummer && !(g.antrag as R | null)?.storniert_am)
   const pnGilt = pnGueltigkeit.find(g => !g.gueltig_bis && (g.antrag as R).status === 'genehmigt') ?? null
   const pnErloschen = pnGilt ? null : (pnGueltigkeit.find(g => g.gueltig_bis) ?? null)

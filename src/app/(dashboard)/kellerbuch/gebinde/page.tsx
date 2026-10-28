@@ -81,7 +81,7 @@ export default async function GebindePage({
     tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, umzug_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), storniert_am, storno_grund, storniert_von_name')
       // storno-sichtbar: Liste zeigt stornierte Buchungen gekennzeichnet, ohne Aktionen (KAN-145 B2b)
-      .order('datum', { ascending: false })
+      .order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })
       .limit(200)),
   ])
   const eroeffnungRaw = geladen(eroeffnungRawRes, 'Chargen')

@@ -53,7 +53,7 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
         .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
         .eq('weinausbau_id', dac0.weinausbau_id)
         .is('storniert_am', null)   // KAN-150 F2: stornierte Analysen gelten nicht
-        .order('analyse_datum', { ascending: false }))
+        .order('analyse_datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }))
     : { data: [] }
   const analysen = (anRaw ?? []) as R[]
 

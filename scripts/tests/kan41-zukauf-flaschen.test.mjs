@@ -95,7 +95,7 @@ describe('Verdrahtung', () => {
   })
   test('Bewegungsbuch: Flaschenzukauf als Zugang ohne Tankabgang; Rückverfolgung ohne Auto-Zuordnung', () => {
     const B = quelle('src/lib/behoerden/bewegungsbuch.ts')
-    assert.match(B, /if \(!f\.weinausbau_id && f\.zukauf_posten_id\) \{[\s\S]{0,200}art: 'zukauf',[\s\S]{0,300}menge: 0,/)
+    assert.match(B, /if \(!f\.weinausbau_id && f\.zukauf_posten_id\) \{[\s\S]{0,260}art: 'zukauf',[\s\S]{0,300}menge: 0,/)
     const R = quelle('src/lib/behoerden/rueckverfolgung.ts')
     const zk = R.indexOf('} else if (fuellung.zukauf_posten_id) {')
     const auto = R.indexOf('// Auto-Match: Rebsorte + Jahrgang')

@@ -49,7 +49,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
     .select(UMZUG_SELECT)
     .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
     .or(`von_behaelter_id.eq.${id},nach_behaelter_id.eq.${id}`)
-    .order('datum', { ascending: false })), 'Umzüge')
+    .order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })), 'Umzüge')
 
   const initial = (initialRaw ?? []) as R[]
 

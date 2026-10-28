@@ -53,6 +53,8 @@ import {
 import { rund } from '../zahl/runden.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { AktionsFehler } from '../fehler.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { nachTagUndZeit } from '../datum/reihenfolge.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -75,6 +77,8 @@ export type EventTyp =
 
 export interface TimelineEvent {
   datum: string        // ISO date string zum Sortieren
+  /** KAN-384: Erfassungszeitpunkt – Reihenfolge innerhalb des Tages (fehlt er, steht der Eintrag am Tagesanfang) */
+  zeitpunkt?: string | null
   typ: EventTyp
   titel: string
   details: string[]
@@ -184,7 +188,7 @@ export async function buildWeinbuch(
       .select(`
         menge_liter, storniert_am, storno_grund, storniert_von_name,
         pressung:pressung_id!inner(
-          id, datum, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am, kmw_grad, oechsle, mostgewicht_einheit,
+          id, datum, erstellt_am, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am, kmw_grad, oechsle, mostgewicht_einheit,
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, storniert_am,
             weingarten:weingarten_id(id, name, flaeche_ha),
@@ -196,26 +200,26 @@ export async function buildWeinbuch(
 
     tf((supabase.from('keller_umzuege') as any)
       .select(`
-        datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_batch_id, umzug_typ, notizen,
+        id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_batch_id, umzug_typ, notizen,
         storniert_am, storno_grund, storniert_von_name,
         von_behaelter:von_behaelter_id(name),
         nach_behaelter:nach_behaelter_id(name)
       `)
       // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
       .eq('von_weinausbau_id', id)
-      .order('datum', { ascending: true })),
+      .order('datum', { ascending: true }).order('erstellt_am', { ascending: true }).order('id')),
 
     tf((supabase.from('keller_behandlungen') as any)
-      .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
+      .select('id, datum, created_at, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
       // storno-sichtbar: das Weinbuch zeigt stornierte Kellerbehandlungen gekennzeichnet (KAN-145 B3)
       .eq('weinausbau_id', id)
-      .order('datum', { ascending: true })),
+      .order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id')),
 
     // storno-sichtbar: das Weinbuch zeigt stornierte Analysen gekennzeichnet (KAN-150 F2)
     tf((supabase.from('weinanalysen') as any)
-      .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen, storniert_am, storno_grund, storniert_von_name')
+      .select('id, analyse_datum, created_at, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen, storniert_am, storno_grund, storniert_von_name')
       .eq('weinausbau_id', id)
-      .order('analyse_datum', { ascending: true })),
+      .order('analyse_datum', { ascending: true }).order('created_at', { ascending: true }).order('id')),
 
     // storno-sichtbar: das Weinbuch zeigt stornierte DAC-Anträge gekennzeichnet (KAN-150 F2)
     tf((supabase.from('dac_antrag') as any)
@@ -227,14 +231,14 @@ export async function buildWeinbuch(
       .select(`
         anteil_liter,
         fuellung:fuellung_id(
-          id, datum, chargennummer, pruefnummer, name,
+          id, datum, erstellt_am, chargennummer, pruefnummer, name,
           anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt, aktiv, storniert_am, storno_grund, storniert_von_name
         )
       `)
       .eq('weinausbau_id', id)),
 
     tf((supabase.from('fuellungen') as any)
-      .select('id, datum, chargennummer, pruefnummer, name, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt, aktiv, storniert_am, storno_grund, storniert_von_name')
+      .select('id, datum, erstellt_am, chargennummer, pruefnummer, name, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt, aktiv, storniert_am, storno_grund, storniert_von_name')
       .eq('weinausbau_id', id)),
 
     tf((supabase.from('weinausbau_weingaerten') as any)
@@ -242,16 +246,16 @@ export async function buildWeinbuch(
       .eq('weinausbau_id', id)),
 
     tf((supabase.from('verschneidungen') as any)
-      .select(`id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name,
+      .select(`id, datum, created_at, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name,
         quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct, quell_behaelter_id, gebinde_rekonstruiert,
           quelle:quell_weinausbau_id(id, name, rebsorte))`)
       // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
       .eq('ziel_weinausbau_id', id)
-      .order('datum', { ascending: true })),
+      .order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id')),
 
     (supabase.from('verschneidung_quellen') as any)
       .select(`menge_liter, anteil_pct,
-        verschneidung:verschneidung_id(id, datum, notizen, storniert_am, storno_grund, storniert_von_name,
+        verschneidung:verschneidung_id(id, datum, created_at, notizen, storniert_am, storno_grund, storniert_von_name,
           ziel:ziel_weinausbau_id(id, name))`)
       .eq('quell_weinausbau_id', id),
   ])
@@ -270,12 +274,12 @@ export async function buildWeinbuch(
   // (alle Behandlungen des Gebindes) nichts still verlieren (Review 25.09.2026).
   if (kellerBeh.length === 0 && wa.behaelter_id && tenantId) {
     const { data: kbFallbackRaw, error: kbFallbackErr } = await (supabase.from('keller_behandlungen') as any)
-      .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
+      .select('id, datum, created_at, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
       // storno-sichtbar: das Weinbuch zeigt stornierte Kellerbehandlungen gekennzeichnet (KAN-145 B3)
       .eq('tenant_id', tenantId)
       .eq('behaelter_id', wa.behaelter_id)
       .is('weinausbau_id', null)
-      .order('datum', { ascending: true })
+      .order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id')
     if (kbFallbackErr) warnungen.push(`Kellerbehandlungen ohne Charge konnten nicht geladen werden (${kbFallbackErr.message}).`)
     const kandidaten = (kbFallbackRaw ?? []) as R[]
     if (kandidaten.length > 0) {
@@ -359,9 +363,9 @@ export async function buildWeinbuch(
     const zkSelect = 'id, datum, art, menge, einheit, rebsorte, jahrgang, ziel_weinausbau_id, partner_daten, tbs_nummer_lieferant, tbs_jahr_lieferant, lieferant_firma:firmen!lieferant_firma_id(name, betrieb_nr), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname, betrieb_nr)'
     const [zkZiel, zkTrauben] = await Promise.all([
       (supabase.from('zukauf_posten') as any).select(zkSelect).eq('tenant_id', tenantId).eq('aktiv', true)
-        .in('ziel_weinausbau_id', [...herkunft.keys()]).order('datum'),
+        .in('ziel_weinausbau_id', [...herkunft.keys()]).order('datum').order('erstellt_am').order('id'),
       trauben.length > 0
-        ? (supabase.from('zukauf_posten') as any).select(zkSelect).eq('tenant_id', tenantId).in('id', trauben).order('datum')
+        ? (supabase.from('zukauf_posten') as any).select(zkSelect).eq('tenant_id', tenantId).in('id', trauben).order('datum').order('erstellt_am').order('id')
         : Promise.resolve({ data: [], error: null }),
     ])
     if (zkZiel.error || zkTrauben.error) warnungen.push('Zukäufe konnten nicht geladen werden – Hinweise zum Lieferbetrieb fehlen.')
@@ -471,6 +475,7 @@ export async function buildWeinbuch(
       .filter(Boolean).join(', ')
     events.push({
       datum: p.datum,
+      zeitpunkt: p.erstellt_am ?? null,
       typ: 'pressung',
       titel: p.weinbezeichnung ? `Pressung – ${p.weinbezeichnung}` : 'Pressung',
       details: [
@@ -494,6 +499,7 @@ export async function buildWeinbuch(
     const riede = [...new Set(zeilen.map(l => l.weingarten).filter(Boolean))].join(', ')
     events.push({
       datum: tag(p.datum),
+      zeitpunkt: p.erstellt_am ?? null,
       typ: 'pressung',
       titel: `${p.weinbezeichnung ? `Pressung – ${p.weinbezeichnung}` : 'Pressung'} (${ueberText(zeilen[0])})`,
       details: [
@@ -511,6 +517,7 @@ export async function buildWeinbuch(
       const menge = u.schwund_liter ?? u.brutto_liter ?? u.menge_liter
       events.push({
         datum: u.datum,
+        zeitpunkt: u.erstellt_am ?? null,
         typ: 'schwund',
         titel: behaelterName ? `Schwund – ${behaelterName}` : 'Schwund',
         details: [
@@ -526,6 +533,7 @@ export async function buildWeinbuch(
     merkeStorno(u)
     events.push({
       datum: u.datum,
+      zeitpunkt: u.erstellt_am ?? null,
       typ: 'umzug',
       titel: `${von} → ${nach}`,
       quellgebinde: (u.von_behaelter as R | null)?.name ?? null,
@@ -541,6 +549,7 @@ export async function buildWeinbuch(
     merkeStorno(kb)
     events.push({
       datum: kb.datum,
+      zeitpunkt: kb.created_at ?? null,
       typ: 'kellerbehandlung',
       titel: typName,
       details: [
@@ -568,12 +577,25 @@ export async function buildWeinbuch(
     merkeStorno(a)   // KAN-150 F2
     events.push({
       datum: a.analyse_datum,
+      zeitpunkt: a.created_at ?? null,
       typ: 'analyse',
       titel: `Analyse${a.labor ? ` – ${a.labor}` : ''}`,
       details: params,
     })
   }
 
+  // KAN-384: Reihenfolge im Tag nach dem letzten Status-Ereignis des Antrags (zugeteilt, eingereicht …), sonst Anlage
+  const dacZeit = new Map<string, string>()
+  if (dacAntraege.length > 0) {
+    // alle-ausnahme: Ereignisse der Prüfnummernanträge einer einzelnen Charge, wenige
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: peRaw, error: peErr } = await tf((supabase.from('pruefnummer_ereignisse') as any)
+      .select('dac_antrag_id, erstellt_am')
+      .in('dac_antrag_id', dacAntraege.map(d => d.id))
+      .order('erstellt_am').order('id'))
+    if (peErr) warnungen.push(`Ereignisse der Prüfnummernanträge konnten nicht geladen werden (${peErr.message}) – Reihenfolge am Tag nach Anlage des Antrags.`)
+    for (const e of (peRaw ?? []) as R[]) dacZeit.set(e.dac_antrag_id, e.erstellt_am)   // aufsteigend: das letzte gewinnt
+  }
   for (const dac of dacAntraege) {
     const datum = dac.bescheid_am ?? dac.eingereicht_am ?? dac.created_at ?? null
     if (!datum) continue
@@ -581,6 +603,7 @@ export async function buildWeinbuch(
     merkeStorno(dac)   // KAN-150 F2
     events.push({
       datum,
+      zeitpunkt: dacZeit.get(dac.id) ?? dac.created_at ?? null,
       typ: 'dac',
       titel: dac.bezeichnung,
       badge: statusBadge,
@@ -614,6 +637,7 @@ export async function buildWeinbuch(
     })
     events.push({
       datum: v.datum,
+      zeitpunkt: v.created_at ?? null,
       typ: 'verschneidung',
       titel: 'Verschneidung – eingehend',
       details: [...quelleTexte, v.notizen].filter(Boolean) as string[],
@@ -630,6 +654,7 @@ export async function buildWeinbuch(
     merkeStorno(vq)
     events.push({
       datum: v.datum,
+      zeitpunkt: v.created_at ?? null,
       typ: 'verschneidung',
       titel: 'Verschneidung – abgegeben',
       details: [detail, v.notizen].filter(Boolean) as string[],
@@ -652,6 +677,7 @@ export async function buildWeinbuch(
     merkeStorno(f)
     events.push({
       datum: f.datum,
+      zeitpunkt: f.erstellt_am ?? null,
       typ: 'fuellung',
       titel: f.name ?? 'Abfüllung',
       details: [
@@ -674,15 +700,16 @@ export async function buildWeinbuch(
   // KAN-82: Abstufungen der Charge – Datum, Menge, alt → neu, Grund und Benutzer
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: umstRaw, error: umstErr } = await tf((supabase.from('charge_umstufungen') as any)
-    .select('datum, menge_liter, alt_qualitaetsstufe, alt_zusatzbezeichnung, alt_erzeugnis, alt_herkunft_code, neu_qualitaetsstufe, neu_zusatzbezeichnung, neu_erzeugnis, neu_herkunft_code, grund, erstellt_von_name, quelle:quelle_weinausbau_id(name)')
+    .select('id, datum, erstellt_am, menge_liter, alt_qualitaetsstufe, alt_zusatzbezeichnung, alt_erzeugnis, alt_herkunft_code, neu_qualitaetsstufe, neu_zusatzbezeichnung, neu_erzeugnis, neu_herkunft_code, grund, erstellt_von_name, quelle:quelle_weinausbau_id(name)')
     .eq('weinausbau_id', id)
-    .order('datum', { ascending: true }))
+    .order('datum', { ascending: true }).order('erstellt_am', { ascending: true }).order('id'))
   if (umstErr) warnungen.push(`Abstufungen konnten nicht geladen werden: ${umstErr.message}`)
   for (const u of (umstRaw ?? []) as R[]) {
     const alt = { ...normalisiereQualitaet({ qualitaetsstufe: u.alt_qualitaetsstufe, zusatzbezeichnung: u.alt_zusatzbezeichnung, erzeugnis: u.alt_erzeugnis }), herkunft: u.alt_herkunft_code ?? null }
     const neu = { ...normalisiereQualitaet({ qualitaetsstufe: u.neu_qualitaetsstufe, zusatzbezeichnung: u.neu_zusatzbezeichnung, erzeugnis: u.neu_erzeugnis }), herkunft: u.neu_herkunft_code ?? null }
     events.push({
       datum: u.datum,
+      zeitpunkt: u.erstellt_am ?? null,
       typ: 'umstufung',
       titel: `Abstufung: ${abstufungText(alt, neu)}`,
       details: [
@@ -725,11 +752,11 @@ export async function buildWeinbuch(
     const [zkEigen, fvEigen] = await Promise.all([
       // storno-sichtbar: das Weinbuch zeigt stornierte Zukäufe gekennzeichnet (KAN-44)
       supabase.from('zukauf_posten')
-        .select('id, datum, art, menge, einheit, rebsorte, jahrgang, aktiv, storniert_am, storno_grund, storniert_von_name, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
-        .eq('tenant_id', tenantId).eq('ziel_weinausbau_id', id).order('datum').order('id'),
+        .select('id, datum, erstellt_am, art, menge, einheit, rebsorte, jahrgang, aktiv, storniert_am, storno_grund, storniert_von_name, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+        .eq('tenant_id', tenantId).eq('ziel_weinausbau_id', id).order('datum').order('erstellt_am').order('id'),
       // storno-sichtbar: das Weinbuch zeigt stornierte Fassverkäufe gekennzeichnet (KAN-44)
       supabase.from('verkauf_positionen')
-        .select('id, menge, verkaufsposten:verkaufsposten_id(datum, rechnungsnummer, aktiv, storniert, storniert_am, storno_grund, storniert_von_name, partner_daten, firma:firma_id(name), kontakt:kontakt_id(vorname, nachname))')
+        .select('id, menge, verkaufsposten:verkaufsposten_id(datum, erstellt_am, rechnungsnummer, aktiv, storniert, storniert_am, storno_grund, storniert_von_name, partner_daten, firma:firma_id(name), kontakt:kontakt_id(vorname, nachname))')
         .eq('tenant_id', tenantId).eq('weinausbau_id', id).eq('typ', 'tank').order('id'),
     ])
     if (zkEigen.error || fvEigen.error) warnungen.push('Zukäufe bzw. Fassverkäufe der Charge konnten nicht geladen werden.')
@@ -772,6 +799,7 @@ export async function buildWeinbuch(
     ev.badge = 'storniert'
     events.push({
       datum: tag(st.am),
+      zeitpunkt: st.am,
       typ: ev.typ,
       titel: `Storno: ${ev.titel}`,
       badge: 'Storno',
@@ -783,7 +811,8 @@ export async function buildWeinbuch(
     })
   }
 
-  events.sort((a, b) => a.datum.localeCompare(b.datum))
+  // KAN-384: Tag, dann Erfassungszeitpunkt (Storno-Einträge: Zeitpunkt des Stornos); stabil für Einträge ohne Zeitpunkt
+  events.sort(nachTagUndZeit(ev => ({ tag: ev.datum, zeit: ev.zeitpunkt ?? (ev.datum && ev.datum.length > 10 ? ev.datum : null) })))
 
   // Ende (KAN-127): leere Charge mit Füllungen → nach der letzten Füllung keine Einträge mehr; seit KAN-44 zählt auch
   // ein Fassverkauf (die Charge kann verkauft statt gefüllt worden sein)

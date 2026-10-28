@@ -67,7 +67,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
     tf((supabase.from('weinanalysen') as any)
       .select('id, analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, kmw, oechsle, mostgewicht_einheit, bewertung, notizen, storniert_am, storniert_von_name, storno_grund')
       .eq('weinausbau_id', id)
-      .order('analyse_datum', { ascending: false })),
+      .order('analyse_datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })),
   ])
   const waRaw = geladen(waRawRes, 'Chargen')
   const anRaw = geladen(anRawRes, 'Analysen')

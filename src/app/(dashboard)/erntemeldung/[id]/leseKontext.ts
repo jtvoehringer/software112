@@ -92,7 +92,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       .select(`id, lese_id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad, oechsle, mostgewicht_einheit, storniert_am, storno_grund, storniert_von_name,
         weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, storniert_am, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, storniert_am, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang, qualitaetsstufe))`)
-      .eq('jahrgang_id', id).order('datum', { ascending: false })),
+      .eq('jahrgang_id', id).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })),
 
     // Gebinde für die Pressung: eigene + freigegebene, fremd belegte ausgenommen (Migration 203)
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
@@ -118,7 +118,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('traubenverkauf') as any)
       .select('id, lese_id, storniert_am, storno_grund, storniert_von_name, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
-      .eq('jahrgang_id', id).order('datum', { ascending: false })),
+      .eq('jahrgang_id', id).order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })),
 
     // Kontakte + Firmen für den Abnehmer lädt das Formular seit 05.10.2026 per Suche (PartnerSuche, /api/crm/suche) –
     // vorher alle 8.290 Kontakte und 4.652 Firmen (Gebeshuber) als Auswahlliste bei jedem Aufruf der Jahrgangsseite
