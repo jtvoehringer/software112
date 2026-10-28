@@ -10,6 +10,8 @@
  * Geprüft wird jede Einbettung in einem Text-Literal gegen scripts/fremdschluessel.json:
  *  - `ziel!hinweis(`  – ziel muss eine Tabelle sein; der Hinweis ist der Name eines Fremdschlüssels zwischen ziel und einer
  *                       anderen Tabelle oder eine Spalte, die ALLEIN einen solchen Fremdschlüssel bildet.
+ *  - Selbstbezug `tab!spalte_id(` auf derselben Tabelle (KAN-379): liefert die Gegenrichtung (Liste) – für die
+ *    verwiesene Zeile `alias:spalte_id(` verwenden.
  *  - `spalte_id(` bzw. `spalte_id!inner(` (Einbettung über die Spalte) – die Spalte muss allein einen Fremdschlüssel bilden.
  * Verbund-Fremdschlüssel daher immer über ihren Namen ansprechen: `firmen!betriebsmittel_lager_bewegungen_lieferant_fkey(…)`.
  *
@@ -66,7 +68,11 @@ function pruefeLiteral(lit, ix, quelle = null) {
     if (h && !MODIFIKATOR.has(h)) {
       eingebettet = ix.tabellen.has(x) ? x : null
       if (!eingebettet) funde.push({ pos, meldung: `„${x}!${h}“: ${x} ist keine bekannte Tabelle` })
-      else {
+      else if ((!p || p === x) && (ix.einspaltig.get(h) ?? []).some(f => f.t === x && f.z === x)) {
+        // KAN-379 Hotfix (28.10.2026): Selbstbezug über eine Spalte – `rechnungen!storno_von_id(…)` auf rechnungen ist die
+        // GEGENRICHTUNG (Zeilen, die auf diese zeigen) und lieferte still [] statt der Originalrechnung
+        funde.push({ pos, meldung: `„${x}!${h}“: Selbstbezug liefert die Gegenrichtung (Zeilen, die auf diese zeigen) – für die verwiesene Zeile „alias:${h}(…)“, für die Liste begründen (einbettung-ignore)` })
+      } else {
         const nachName = ix.namen.get(h)
         if (nachName) {
           const ok = p ? verbindet(nachName, p, x) : (nachName.t === x || nachName.z === x)

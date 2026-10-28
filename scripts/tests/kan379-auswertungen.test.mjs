@@ -58,8 +58,11 @@ describe('KAN-379: Stornobeleg als Beleg (alsBeleg, zaehltMitBetrag)', () => {
     assert.equal(B.zaehltMitBetrag(altfall), false)
     assert.equal(B.zaehltMitBetrag({ ...beleg, aktiv: false }), false)
     assert.equal(B.zaehltMitBetrag(normal), true)
-    assert.match(B.STORNO_FELDER, /storno_von:rechnungen!storno_von_id\(id, rechnungsnummer, datum, storno_positionen\)/)
-    assert.match(B.STORNO_FELDER, /storniert_durch:rechnungen!storniert_durch_id\(id, rechnungsnummer, datum\)/)
+    // Hotfix 28.10.2026: über die Spalte (verwiesene Zeile) – „rechnungen!storno_von_id“ wäre auf derselben Tabelle die
+    // Gegenrichtung (Liste) und machte jeden Stornobeleg zu 0 € (UAT: ST-2026-0002 „zu Rechnung vom –“)
+    assert.match(B.STORNO_FELDER, /storno_von:storno_von_id\(id, rechnungsnummer, datum, storno_positionen\)/)
+    assert.match(B.STORNO_FELDER, /storniert_durch:storniert_durch_id\(id, rechnungsnummer, datum\)/)
+    assert.doesNotMatch(B.STORNO_FELDER, /rechnungen!/)
   })
 })
 
@@ -80,7 +83,7 @@ describe('KAN-379: Umsatz, offene Posten, BMD-Zähler', () => {
     assert.equal(error, null)
     assert.deepEqual(data.map(r => r.id).sort(), ['r7', 'r9', 's1'])
     assert.equal(U.umsatzNetto(data), 50)
-    assert.match(U.UMSATZ_RECHNUNG_SELECT, /storno_positionen, art, storniert_durch_id, storno_von:rechnungen!storno_von_id/)
+    assert.match(U.UMSATZ_RECHNUNG_SELECT, /storno_positionen, art, storniert_durch_id, storno_von:storno_von_id/)
   })
   test('Belegliste der Umsatz-Auswertung: Stornobeleg gekennzeichnet (nicht „Offen“), Betrag negativ', () => {
     const z = U.umsatzBelegZeile(B.alsBeleg(beleg), 'rechnung')
