@@ -268,7 +268,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                       <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
                         {FLASCHEN_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      {/* KAN-383: „Bestand / Gesamt“ immer in einer Zeile */}
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
                         <span className={`font-semibold tabular-nums ${bestandClr}`}>{fmtNum(bestand)}</span>
                         <span className="text-xs text-s112-muted ml-1">/ {fmtNum(gesamt)}</span>
                       </td>
