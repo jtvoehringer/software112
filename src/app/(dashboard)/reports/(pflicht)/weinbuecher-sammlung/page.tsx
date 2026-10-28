@@ -9,7 +9,10 @@ import { WeinbuchTimeline } from '@/app/(dashboard)/kellerbuch/weinausbau/[id]/b
 import PrintButton from '@/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/PrintButton'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { ladeWeinbuchFilter, ladeWeinbuchSammlung, WEINBUCH_STATUS_LABEL, type WeinbuchFilter } from '@/lib/behoerden/weinbuch'
+import {
+  ladeWeinbuchChargen, ladeWeinbuchFilter, ladeWeinbuchSammlung, zuVieleChargenText,
+  WEINBUCH_SAMMLUNG_MAX, WEINBUCH_STATUS_LABEL, type WeinbuchCharge, type WeinbuchFilter,
+} from '@/lib/behoerden/weinbuch'
 import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Weinbuch-Sammlung' }
@@ -22,29 +25,37 @@ export const dynamic = 'force-dynamic'
 // ergibt. Pflichtmeldung (reports/(pflicht)): Betriebsleiter auch ohne Modul Controlling.
 // Seit 24.09.2026 mit eigener Filterauswahl und CSV (dieselbe Ladefunktion,
 // lib/behoerden/weinbuch.ts).
+// KAN-385 (UAT 28.10.2026): erst auswählen – beim Öffnen nur Filter (Jahrgang = neuester) und
+// Chargenliste; die Weinbücher erst mit „Weinbücher anzeigen“ (anzeigen=1), höchstens
+// WEINBUCH_SAMMLUNG_MAX Chargen. Ohne jahrgang in der URL gilt der neueste, „Alle“ = jahrgang=.
 export default async function WeinbuecherSammlungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ jahrgang?: string; sorte?: string; bezeichnung?: string }>
+  searchParams: Promise<{ jahrgang?: string; sorte?: string; bezeichnung?: string; anzeigen?: string }>
 }) {
   const sp = await searchParams
-  const jahrgangZahl = sp.jahrgang && /^\d{4}$/.test(sp.jahrgang.trim()) ? Number(sp.jahrgang.trim()) : null
-  const filter: WeinbuchFilter = {
-    jahrgang: jahrgangZahl,
-    sorte: sp.sorte?.trim() || null,
-    bezeichnung: sp.bezeichnung?.trim() || null,
-  }
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [sammlung, optionen] = tenantId
-    ? await Promise.all([ladeWeinbuchSammlung(supabase, tenantId, filter), ladeWeinbuchFilter(supabase, tenantId)])
-    : [{ weinbuecher: [], zeilen: [], warnungen: [] }, { jahrgaenge: [], sorten: [], bezeichnungen: [] }]
-  const weinbuecher = sammlung.weinbuecher
+  const optionen = tenantId
+    ? await ladeWeinbuchFilter(supabase, tenantId)
+    : { jahrgaenge: [], sorten: [], bezeichnungen: [] }
+  const jahrgangZahl = sp.jahrgang && /^\d{4}$/.test(sp.jahrgang.trim()) ? Number(sp.jahrgang.trim()) : null
+  const filter: WeinbuchFilter = {
+    jahrgang: sp.jahrgang === undefined ? (optionen.jahrgaenge[0] ?? null) : jahrgangZahl,
+    sorte: sp.sorte?.trim() || null,
+    bezeichnung: sp.bezeichnung?.trim() || null,
+  }
+  const chargen: WeinbuchCharge[] = tenantId ? await ladeWeinbuchChargen(supabase, tenantId, filter) : []
+  const zuViele = chargen.length > WEINBUCH_SAMMLUNG_MAX
+  const anzeigen = sp.anzeigen === '1' && !zuViele && chargen.length > 0
+  const sammlung = anzeigen && tenantId ? await ladeWeinbuchSammlung(supabase, tenantId, filter, chargen) : null
+  const weinbuecher = sammlung?.weinbuecher ?? []
 
   const filterAktiv = !!(filter.jahrgang || filter.sorte || filter.bezeichnung)
   const auswahl = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
+  const knopf = 'px-4 py-2 rounded-xl text-sm font-semibold'
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 p-6 print:p-0">
@@ -62,20 +73,21 @@ export default async function WeinbuecherSammlungPage({
               <BookOpen size={22} strokeWidth={1.75} className="text-s112-blue-700" />Weinbuch-Sammlung
             </h1>
             <p className="text-sm text-s112-muted mt-0.5">
-              {weinbuecher.length} {weinbuecher.length === 1 ? 'Charge' : 'Chargen'}
-              {filterAktiv ? ' · gefiltert' : ' · alle Chargen'}
+              {chargen.length} {chargen.length === 1 ? 'Charge' : 'Chargen'}
+              {filterAktiv ? '' : ' · alle Chargen'}
               {filter.jahrgang ? ` · Jahrgang ${filter.jahrgang}` : ''}
               {filter.sorte ? ` · ${filter.sorte}` : ''}
               {filter.bezeichnung ? ` · ${filter.bezeichnung}` : ''}
             </p>
           </div>
-          <div className="flex items-start gap-2">
-            <PrintButton />
-            <CsvExportKnopf href={csvPfad('weinbuch-sammlung', { jahrgang: filter.jahrgang, sorte: filter.sorte, bezeichnung: filter.bezeichnung })} />
-          </div>
+          {!zuViele && chargen.length > 0 && (
+            <div className="flex items-start gap-2">
+              {anzeigen && <PrintButton />}
+              <CsvExportKnopf href={csvPfad('weinbuch-sammlung', { jahrgang: filter.jahrgang, sorte: filter.sorte, bezeichnung: filter.bezeichnung })} />
+            </div>
+          )}
         </div>
 
-        {/* Filter direkt auf der Seite (bisher nur im Tab „Weinbücher“ der Auswertungen) */}
         <form method="get" className="card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang</label>
@@ -98,23 +110,45 @@ export default async function WeinbuecherSammlungPage({
               {optionen.bezeichnungen.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
-          <div className="sm:col-span-3 flex items-center gap-3">
-            <button type="submit" className="text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold bg-s112-teal hover:bg-s112-teal/90">
-              Auswahl anzeigen
+          <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
+            <button type="submit" className={`${knopf} text-s112-text-2 border border-s112-border hover:bg-s112-bg`}>
+              Chargen auswählen
             </button>
-            {filterAktiv && (
-              <Link href="/reports/weinbuecher-sammlung" className="text-sm text-s112-muted hover:text-s112-blue-700">Alle Chargen</Link>
-            )}
+            <button type="submit" name="anzeigen" value="1" className={`${knopf} text-s112-yellow bg-s112-teal hover:bg-s112-teal/90`}>
+              Weinbücher anzeigen
+            </button>
           </div>
         </form>
-        {sammlung.warnungen.length > 0 && (
+
+        {zuViele && (
+          <p role="status" className="text-sm bg-s112-warn-bg text-s112-warn-fg border border-s112-warn/30 px-3 py-2 rounded-lg">
+            {zuVieleChargenText(chargen.length)}
+          </p>
+        )}
+        {sammlung && sammlung.warnungen.length > 0 && (
           <ul className="text-xs text-s112-warn-fg list-disc pl-4">
             {sammlung.warnungen.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         )}
+
+        {/* Chargenliste der Auswahl – die Weinbücher selbst erst nach „Weinbücher anzeigen“ */}
+        {!anzeigen && chargen.length > 0 && (
+          <div className="card divide-y divide-s112-line">
+            {chargen.map(c => (
+              <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+                <Link href={`/kellerbuch/weinausbau/${c.id}/buch`} className="min-w-0 truncate font-medium text-s112-text hover:text-s112-blue-700">
+                  {c.name ?? '–'}
+                </Link>
+                <span className="shrink-0 text-xs text-s112-muted">
+                  {[c.jahrgang, c.rebsorte, c.status ? WEINBUCH_STATUS_LABEL[c.status] ?? c.status : null].filter(Boolean).join(' · ')}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {weinbuecher.length === 0 ? (
+      {chargen.length === 0 ? (
         <p className="text-center text-s112-muted py-12">Keine Chargen für diese Auswahl gefunden.</p>
       ) : (
         weinbuecher.map((wb, i) => (

@@ -439,6 +439,14 @@ export default function ReportsClient({
     return params
   }
 
+  // KAN-385: die Sammlung belegt ohne jahrgang den neuesten vor – „Alle“ hier ausdrücklich mitgeben; Weinbücher gleich zeigen
+  function sammlungParams() {
+    const params = wbParams()
+    if (!wbJahrgang) params.set('jahrgang', '')
+    params.set('anzeigen', '1')
+    return params
+  }
+
   async function ladeWeinbuecher(e?: React.FormEvent) {
     e?.preventDefault()
     setWbLaden(true); setWbFehler(null)
@@ -1283,7 +1291,7 @@ export default function ReportsClient({
                 </button>
                 {wbResult && wbResult.chargen.length > 0 && (
                   <a
-                    href={`/reports/weinbuecher-sammlung?${wbParams().toString()}`}
+                    href={`/reports/weinbuecher-sammlung?${sammlungParams().toString()}`}
                     target="_blank" rel="noopener noreferrer"
                     className="ml-auto flex items-center gap-1.5 text-sm font-medium text-s112-blue-700 border border-s112-teal/40 px-4 py-2 rounded-xl hover:bg-s112-teal/10 transition-colors"
                   >
