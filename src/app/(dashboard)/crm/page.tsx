@@ -3,6 +3,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
+import { vergleicheTermine } from '@/lib/datum/reihenfolge'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
@@ -153,7 +154,7 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
       ist_privat: true,
       erstellt_von: b.erstellt_von,
     })),
-  ].sort((a, b) => a.datum.localeCompare(b.datum))
+  ].sort(vergleicheTermine)   // KAN-384: am selben Tag nach Uhrzeit
 
   // Mitglieder des Betriebs für die Verantwortlich-Auswahl (Aufgabenzuordnung, 22.9.2026)
   const [mitglieder, outlook] = await Promise.all([

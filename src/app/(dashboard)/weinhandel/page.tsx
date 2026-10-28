@@ -86,7 +86,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     tf((supabase.from('traubenverkauf') as any)
       .select('id, datum, menge_kg, preis_per_kg, liefernummer, weingarten:weingarten_id(name), firma:firma_id(name), kontakt:kontakt_id(vorname, nachname)')
       .is('storniert_am', null)
-      .order('datum', { ascending: false })
+      .order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
       .limit(5)),
   ])
   const fuellungenRaw = geladen(fuellungenRawRes, 'Füllungen')

@@ -45,7 +45,7 @@ export default async function DauerauftraegePage() {
     (supabase.from('ea_dauerauftraege') as any)
       .select('*, ea_kategorien(name), konten(name)')
       .eq('tenant_id', tenantId)
-      .order('naechste_faelligkeit'),
+      .order('naechste_faelligkeit').order('erstellt_am').order('id'),
     (supabase.from('ea_kategorien') as any)
       .select('id, name, typ')
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)

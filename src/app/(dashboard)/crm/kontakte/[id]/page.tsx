@@ -54,7 +54,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     tf((supabase.from('aktivitaeten') as any)
       .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
       .eq('kontakt_id', id)
-      .order('datum', { ascending: false })),
+      .order('datum', { ascending: false }).order('uhrzeit_von', { ascending: false, nullsFirst: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })),
 
     tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
@@ -69,7 +69,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
       `)
       .eq('kontakt_id', id)
       .eq('aktiv', true)
-      .order('datum', { ascending: false })),
+      .order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })),
 
     // Auswahllisten für das Bearbeiten-Formular (02.10.2026) – ohne sie setzte
     // Speichern auf der Detailseite Firma und Rabattgruppe auf leer

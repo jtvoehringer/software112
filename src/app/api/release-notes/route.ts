@@ -16,7 +16,7 @@ export async function GET() {
 
   // Neueste aktive Release Note holen
   const { data: notes, error: notesErr } = await (s.from('release_notes') as any)
-    .select('*').eq('aktiv', true).order('veroeffentlicht_am', { ascending: false }).limit(1)
+    .select('*').eq('aktiv', true).order('veroeffentlicht_am', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(1)
   if (notesErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(notesErr)}` }, { status: 500 })
   const note = (notes ?? [])[0] as R | undefined
   if (!note) return NextResponse.json({ note: null })

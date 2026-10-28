@@ -127,7 +127,7 @@ export default async function DashboardPage() {
     .select('id, art, betreff, datum, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
     .eq('erledigt', false).gte('datum', heuteStr)
     .not('art', 'in', '(verkauf,notiz,email)')
-    .order('datum', { ascending: true }).limit(4)), 'Termine')
+    .order('datum', { ascending: true }).order('uhrzeit_von', { ascending: true, nullsFirst: true }).order('erstellt_am').order('id').limit(4)), 'Termine')
   const naechsteAkt = (naechsteAktivitaetenRaw ?? []) as R[]
   function aktKundenName(a: R): string {
     if (a.kontakt) return [a.kontakt.vorname, a.kontakt.nachname].filter(Boolean).join(' ')
@@ -156,7 +156,7 @@ export default async function DashboardPage() {
         .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
         .eq('erledigt', false).or(`erstellt_von.eq.${currentUser.id},and(erstellt_von.is.null,ist_privat.not.is.true)`)
         .gte('datum', heuteStr).lte('datum', in30)
-        .order('datum', { ascending: true }).limit(10))
+        .order('datum', { ascending: true }).order('uhrzeit_von', { ascending: true, nullsFirst: true }).order('erstellt_am').order('id').limit(10))
     : { data: [] }
 
   return (

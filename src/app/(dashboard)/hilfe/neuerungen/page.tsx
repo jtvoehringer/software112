@@ -18,7 +18,7 @@ export default async function NeuerungenPage() {
   const data = geladen(await (supabase.from('release_notes') as any)
     .select('id, version, titel, features, fixes, veroeffentlicht_am')
     .eq('aktiv', true)
-    .order('veroeffentlicht_am', { ascending: false })
+    .order('veroeffentlicht_am', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })
     .limit(50), 'Neuerungen')
   const notes = (data ?? []) as R[]
 

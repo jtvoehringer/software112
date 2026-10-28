@@ -99,3 +99,34 @@ describe('KAN-384: Wächter check-reihenfolge', () => {
     assert.match(quelle('package.json'), /node scripts\/check-reihenfolge\.js/)
   })
 })
+
+// KAN-384 PR 2: CRM, Verkauf, Buchhaltung, Dashboard, API – keine Altfälle mehr, Termine nach Uhrzeit
+describe('KAN-384 PR 2', () => {
+  test('keine Altfälle mehr – jede Datumssortierung hat einen zweiten Schlüssel', () => {
+    const { ALTFAELLE: alt, pruefeWurzel } = require('../check-reihenfolge.js')
+    assert.equal(alt.size, 0)
+    const e = pruefeWurzel(new URL('../..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
+    assert.deepEqual(e.funde, [])
+  })
+  test('vergleicheTermine: Tag, ganztägig zuerst, dann Startzeit, dann id', async () => {
+    const { vergleicheTermine } = await import('../../src/lib/datum/reihenfolge.ts')
+    const t = [
+      { id: 'c', datum: '2026-10-28', uhrzeit_von: '14:00:00' },
+      { id: 'b', datum: '2026-10-28', uhrzeit_von: '09:30:00' },
+      { id: 'd', datum: '2026-10-27', uhrzeit_von: '18:00:00' },
+      { id: 'a', datum: '2026-10-28', ganztags: true, uhrzeit_von: '08:00:00' },
+    ]
+    assert.deepEqual(t.sort(vergleicheTermine).map(x => x.id), ['d', 'a', 'b', 'c'])
+  })
+  test('Aktivitäten nach Datum, Uhrzeit, Erfassung; Kalender und Kontenabstimmung im Code', () => {
+    assert.match(quelle('src/app/(dashboard)/crm/kontakte/[id]/page.tsx'),
+      /\.order\('datum', \{ ascending: false \}\)\.order\('uhrzeit_von', \{ ascending: false, nullsFirst: false \}\)\.order\('erstellt_am', \{ ascending: false \}\)\.order\('id', \{ ascending: false \}\)/)
+    assert.match(quelle('src/app/(dashboard)/dashboard/_shared/data.ts'),
+      /\.order\('datum', \{ ascending: true \}\)\.order\('uhrzeit_von', \{ ascending: true, nullsFirst: true \}\)\.order\('erstellt_am'\)\.order\('id'\)/)
+    assert.match(quelle('src/app/(dashboard)/crm/page.tsx'), /\]\.sort\(vergleicheTermine\)/)
+    assert.match(quelle('src/app/(dashboard)/crm/CRMUebersichtClient.tsx'), /\.sort\(vergleicheTermine\),/)
+    const k = quelle('src/app/(dashboard)/konten/[id]/abstimmung/page.tsx')
+    assert.match(k, /bewegungen\.sort\(nachTagUndZeit\(b => \(\{ tag: b\.datum, zeit: b\.zeitpunkt, id: b\.id \}\)\)\)/)
+    assert.match(k, /gegen\.map\(g => \(\{ \.\.\.g, zeitpunkt: z\.storniert_am \?\? null \}\)\)/)
+  })
+})

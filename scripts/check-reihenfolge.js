@@ -15,7 +15,7 @@
  * ). Zeitstempel-Spalten (erstellt_am, created_at …) sind eindeutig genug und nicht betroffen.
  * Begründete Ausnahme: // reihenfolge-ok: <Grund, mind. 15 Zeichen> in derselben Zeile oder bis zu vier Zeilen davor
  * (z. B. „höchstens eine Zeile je Tag (Monatsabschluss)“).
- * ALTFAELLE: Dateien, die beim Einführen noch nicht umgestellt waren (Abbau mit KAN-384 PR 2) – dort zählen Funde nur.
+ * ALTFAELLE: Dateien, deren Funde nur gezählt werden – seit KAN-384 PR 2 (28.10.2026) leer.
  *
  * Aufruf: node scripts/check-reihenfolge.js [--liste]   (Exit 1 bei Funden; --liste zeigt auch die Altfälle)
  * Für Tests: require('./check-reihenfolge.js') → { pruefeText, pruefeWurzel, DATUMSSPALTEN, ALTFAELLE } ohne Seiteneffekte.
@@ -35,26 +35,8 @@ const DATUMSSPALTEN = new Set(('abgabefrist,abgang_am,abgeschlossen_am,abgeschlo
   + 'premium_support_bis,premium_support_seit,stichtag,svs_option_seit,tirage_datum,veroeffentlicht_am,zeitraum_bis,'
   + 'zeitraum_von,zulassungsgueltig').split(','))
 
-/** Noch nicht umgestellte Dateien (KAN-384 PR 2 baut die Liste ab) */
-const ALTFAELLE = new Set([
-  'src/app/(dashboard)/buchhaltung/anlagen/daten.ts',
-  'src/app/(dashboard)/buchhaltung/dauerauftraege/page.tsx',
-  'src/app/(dashboard)/crm/firmen/[id]/page.tsx',
-  'src/app/(dashboard)/crm/gemeinsam/page.tsx',
-  'src/app/(dashboard)/crm/kontakte/[id]/page.tsx',
-  'src/app/(dashboard)/dashboard/_shared/data.ts',
-  'src/app/(dashboard)/dashboard/verkauf/page.tsx',
-  'src/app/(dashboard)/hilfe/neuerungen/page.tsx',
-  'src/app/(dashboard)/reports/(controlling)/page.tsx',
-  'src/app/(dashboard)/weinhandel/page.tsx',
-  'src/app/(dashboard)/weinhandel/verkauf/[id]/page.tsx',
-  'src/app/api/kostenrechnung/route.ts',
-  'src/app/api/release-notes/route.ts',
-  'src/app/api/verkauf-stammdaten/route.ts',
-  'src/lib/morgenbericht/erstellen.ts',
-  'src/lib/morgenbericht/lauf.ts',
-  'src/lib/wetter/auswertung.ts',
-])
+/** Noch nicht umgestellte Dateien – seit KAN-384 PR 2 leer; neue Stellen bekommen einen zweiten Schlüssel oder reihenfolge-ok */
+const ALTFAELLE = new Set([])
 
 function pruefeText(text) {
   const code = ohneKommentare(text)

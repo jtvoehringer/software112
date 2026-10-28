@@ -101,7 +101,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .select('id, betrag, art, datum, notizen, erstellt_am, storniert_am, storniert_von_name, storno_grund')
       .eq('verkaufsposten_id', id)
       .eq('tenant_id', tenantId ?? '')
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true }).order('erstellt_am').order('id'),
     // Traubenverkäufe (BKI) zu diesem Beleg – ein Storno storniert sie mit (Hinweis im Storno-Dialog)
     (supabase.from('traubenverkauf') as any)
       .select('id', { count: 'exact', head: true })

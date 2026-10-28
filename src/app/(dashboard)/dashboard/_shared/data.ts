@@ -131,8 +131,8 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
   // inBloecken (05.10.2026): Gebeshuber hat 172 Behälter – ab ≈ 350 IDs scheitert die URL. Gebraucht wird nur der
   // jeweils neueste Eintrag je Charge bzw. Behälter; alle Zeilen eines Schlüssels liegen im selben Block.
   const [analysenRes, massnahmenRes] = await Promise.all([
-    inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl, kmw, oechsle, mostgewicht_einheit').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))),
-    inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).is('storniert_am', null).order('datum', { ascending: false }).limit(500))),
+    inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl, kmw, oechsle, mostgewicht_einheit').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(500))),
+    inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).is('storniert_am', null).order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(500))),
   ])
   const analysenRaw = geladen(analysenRes, 'Analysen')
   const massnahmenRaw = geladen(massnahmenRes, 'Kellerbehandlungen')
@@ -291,11 +291,11 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   const doppik = !!opts.modulEa && !!opts.doppik
   const seit = toDateStr(new Date(ctx.heute.getFullYear() - 1, ctx.heute.getMonth(), 1))
   const [eigeneRes, uvaRes, jgRes, dacRes, wfRes, offenVpRes, offenEaRes] = await Promise.all([
-    ctx.tf(ctx.q('fristen').select('id, bezeichnung, beschreibung, kategorie, faellig_am, wiederholung, href, status, erledigt_am').order('faellig_am')),
+    ctx.tf(ctx.q('fristen').select('id, bezeichnung, beschreibung, kategorie, faellig_am, wiederholung, href, status, erledigt_am').order('faellig_am').order('erstellt_am').order('id')),
     opts.modulEa && !doppik ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [], error: null }),
     ctx.tf(ctx.q('weinjahrgaenge').select('id, jahrgang, ama_gemeldet, ama_meldedatum, ama_erntemeldungen(status, eingereicht_am, version)').eq('jahrgang', jahr).limit(1)),
     ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).is('storniert_am', null).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
-    ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').is('storniert_am', null).gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
+    ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').is('storniert_am', null).gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').order('created_at').order('id').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
     // Sweep 93 (KAN-288): nicht übergebene Belege werden je Periode gezählt – vollständig statt .limit(1000)
     // KAN-375: Rechnungen ohne BMD-Übergabe nach Rechnungsdatum – dieselbe Zählung wie die Finanzübersicht
@@ -481,7 +481,7 @@ export async function ladeNaechsteTermine(ctx: Ctx, limit = 5) {
     .select('id, art, betreff, datum, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
     .eq('erledigt', false).gte('datum', ctx.heuteStr)
     .not('art', 'in', '(verkauf,notiz,email)')
-    .order('datum', { ascending: true }).limit(limit)), 'Termine')
+    .order('datum', { ascending: true }).order('uhrzeit_von', { ascending: true, nullsFirst: true }).order('erstellt_am').order('id').limit(limit)), 'Termine')
   return ((data ?? []) as R[]).map(a => ({
     id: a.id as string, betreff: (a.betreff || a.art) as string, datum: a.datum as string,
     wer: a.kontakt ? [a.kontakt.vorname, a.kontakt.nachname].filter(Boolean).join(' ') : (a.firma?.name ?? '') as string,
@@ -508,7 +508,7 @@ export async function ladeAufgabenTermine(ctx: Ctx, tage = 30, limit = 60): Prom
       .select('id, art, betreff, datum, ganztags, uhrzeit_von, verantwortlich_id, fuer_alle, ist_privat, erstellt_von, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
       .eq('erledigt', false).not('datum', 'is', null).lte('datum', bisStr)
       .not('art', 'in', '(verkauf,notiz,email)')
-      .order('datum', { ascending: true }).limit(limit * 3)),
+      .order('datum', { ascending: true }).order('uhrzeit_von', { ascending: true, nullsFirst: true }).order('erstellt_am').order('id').limit(limit * 3)),
     ladeMandantMitglieder(ctx.tenantId),
   ])
   const data = geladen(aktRes, 'Aufgaben und Termine')

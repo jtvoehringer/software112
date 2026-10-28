@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { geladen } from '@/lib/supabase/geladen'
 import { mitStornoGegenzeile } from '@/lib/finanzen/stornoGegenzeile'
+import { nachTagUndZeit } from '@/lib/datum/reihenfolge'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import AbstimmungClient from './AbstimmungClient'
@@ -29,13 +30,15 @@ export type Bewegung = {
   /** KAN-149 D2b: stornierte Zahlung/Umbuchung (an ihrem Tag) bzw. deren Gegenzeile am Storno-Tag */
   storniert?: boolean
   gegenzeile?: boolean
+  /** KAN-384: Erfassungszeitpunkt – Reihenfolge am selben Tag (Gegenzeile: Zeitpunkt des Stornos) */
+  zeitpunkt?: string | null
 }
 
 /** Bewegung plus Gegenzeile am Storno-Tag (KAN-149 D2b, lib/finanzen/stornoGegenzeile.ts) */
 function stornoPaar(b: Bewegung, z: R): Bewegung[] {
   const [orig, ...gegen] = mitStornoGegenzeile(b, { storniertAm: z.storniert_am, grund: z.storno_grund }, 'beschreibung',
     { gegenzeile: true, abgeglichen: false, gesperrt: true })
-  return gegen.length ? [{ ...orig, storniert: true }, ...gegen] : [orig]
+  return gegen.length ? [{ ...orig, storniert: true }, ...gegen.map(g => ({ ...g, zeitpunkt: z.storniert_am ?? null }))] : [orig]
 }
 
 /** Kassabuch (Behördenmeldung „kassabuch“): Druckseite und CSV für das laufende Jahr */
@@ -76,19 +79,19 @@ export default async function AbstimmungPage({
   const [zahlungenRawRes, txRawRes, umbVonRawRes, umbNachRawRes] = await Promise.all([
     // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('zahlungen') as any)
-      .select('id, betrag, datum, abgeglichen, storniert_am, storno_grund, verkaufsposten(rechnungsnummer)')
+      .select('id, betrag, datum, erstellt_am, abgeglichen, storniert_am, storno_grund, verkaufsposten(rechnungsnummer)')
       .eq('tenant_id', tenantId).eq('konto_id', kontoId),
     // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('ea_transaktionen') as any)
-      .select('id, typ, betrag_brutto, datum, beschreibung, abgeglichen, is_locked, storniert_am, storno_von_id')
+      .select('id, typ, betrag_brutto, datum, erstellt_am, beschreibung, abgeglichen, is_locked, storniert_am, storno_von_id')
       .eq('tenant_id', tenantId).eq('konto_id', kontoId),
     // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('konto_umbuchungen') as any)
-      .select('id, betrag, datum, beschreibung, von_abgeglichen, nach_konto_id, storniert_am, storno_grund')
+      .select('id, betrag, datum, erstellt_am, beschreibung, von_abgeglichen, nach_konto_id, storniert_am, storno_grund')
       .eq('tenant_id', tenantId).eq('von_konto_id', kontoId),
     // storno-sichtbar: Liste/Druck zeigt stornierte Buchungen gekennzeichnet (storniert_am wird mitgeladen) – Abstimmung
     (supabase.from('konto_umbuchungen') as any)
-      .select('id, betrag, datum, beschreibung, nach_abgeglichen, von_konto_id, storniert_am, storno_grund')
+      .select('id, betrag, datum, erstellt_am, beschreibung, nach_abgeglichen, von_konto_id, storniert_am, storno_grund')
       .eq('tenant_id', tenantId).eq('nach_konto_id', kontoId),
   ])
   const zahlungenRaw = geladen(zahlungenRawRes, 'Zahlungen')
@@ -99,27 +102,27 @@ export default async function AbstimmungPage({
   const bewegungen: Bewegung[] = [
     // KAN-149 D2b: stornierte Zahlungen/Umbuchungen an ihrem Tag gekennzeichnet, Gegenzeile am Storno-Tag
     ...((zahlungenRaw ?? []) as R[]).flatMap(z => stornoPaar({
-      id: z.id as string, quelle: 'zahlung' as const, datum: z.datum as string,
+      id: z.id as string, quelle: 'zahlung' as const, datum: z.datum as string, zeitpunkt: z.erstellt_am ?? null,
       beschreibung: `Zahlungseingang${z.verkaufsposten?.rechnungsnummer ? ` RE ${z.verkaufsposten.rechnungsnummer}` : ''}`,
       betrag: Number(z.betrag ?? 0), abgeglichen: !!z.abgeglichen, gesperrt: false,
     }, z)),
     // KAN-149 D2c: E&A-Stornos sind echte Gegenbuchungen (negativer Betrag, eigener Abgleich) – Original und
     // Gegenbuchung nur grau gekennzeichnet
     ...((txRaw ?? []) as R[]).map(t => ({
-      id: t.id as string, quelle: 'ea_transaktion' as const, datum: t.datum as string,
+      id: t.id as string, quelle: 'ea_transaktion' as const, datum: t.datum as string, zeitpunkt: t.erstellt_am ?? null,
       beschreibung: `${t.beschreibung as string}${t.storniert_am ? ' (storniert)' : ''}`,
       betrag: (t.typ === 'einnahme' ? 1 : -1) * Number(t.betrag_brutto ?? 0),
       abgeglichen: !!t.abgeglichen, gesperrt: !!t.is_locked,
       storniert: !!t.storniert_am || !!t.storno_von_id,
     })),
     ...((umbVonRaw ?? []) as R[]).flatMap(u => stornoPaar({
-      id: u.id as string, quelle: 'umbuchung_von' as const, datum: u.datum as string,
+      id: u.id as string, quelle: 'umbuchung_von' as const, datum: u.datum as string, zeitpunkt: u.erstellt_am ?? null,
       beschreibung: u.beschreibung || `⇆ an ${kontoNamen.get(u.nach_konto_id) ?? 'anderes Konto'}`,
       betrag: -Number(u.betrag ?? 0), abgeglichen: !!u.von_abgeglichen, gesperrt: false,
       andereKontoId: u.nach_konto_id as string,
     }, u)),
     ...((umbNachRaw ?? []) as R[]).flatMap(u => stornoPaar({
-      id: u.id as string, quelle: 'umbuchung_nach' as const, datum: u.datum as string,
+      id: u.id as string, quelle: 'umbuchung_nach' as const, datum: u.datum as string, zeitpunkt: u.erstellt_am ?? null,
       beschreibung: u.beschreibung || `⇆ von ${kontoNamen.get(u.von_konto_id) ?? 'anderes Konto'}`,
       betrag: Number(u.betrag ?? 0), abgeglichen: !!u.nach_abgeglichen, gesperrt: false,
       andereKontoId: u.von_konto_id as string,
@@ -127,7 +130,7 @@ export default async function AbstimmungPage({
   ]
 
   // Chronologisch für den Saldenlauf, danach für die Anzeige umgedreht (neueste zuerst)
-  bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
+  bewegungen.sort(nachTagUndZeit(b => ({ tag: b.datum, zeit: b.zeitpunkt, id: b.id })))   // KAN-384
 
   const vorEroeffnung = bewegungen.filter(b => b.datum <= konto.eroeffnungsdatum)
   const nachEroeffnung = bewegungen.filter(b => b.datum > konto.eroeffnungsdatum)

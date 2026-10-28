@@ -9,6 +9,7 @@ import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
 import { tastaturBedienbar } from '@/lib/ui/tastatur'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
+import { vergleicheTermine } from '@/lib/datum/reihenfolge'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -1456,7 +1457,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
   }, [outlookJahr, outlookMonat])
 
   const alleEintraege = useMemo(
-    () => [...eintraege, ...outlookEintraege].sort((a, b) => a.datum.localeCompare(b.datum)),
+    () => [...eintraege, ...outlookEintraege].sort(vergleicheTermine),   // KAN-384: am selben Tag nach Uhrzeit
     [eintraege, outlookEintraege]
   )
 

@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
   if (a === 'eintraege') {
     const { data, error: dataErr } = await (s.from('kosteneintraege') as any)
       .select('id, datum, betrag, beschreibung, objekt_typ, periode, transaktions_nr, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
-      .eq('tenant_id', t).order('datum', { ascending: false }).limit(300)
+      .eq('tenant_id', t).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(300)
     if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     // WG-Splits nachladen
     const ids = (data ?? []).map((e: R) => e.id)
