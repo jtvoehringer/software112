@@ -109,7 +109,7 @@ $f$;
 -- der Zeile oder der Elternzeile) – für sie entsteht je Persona eine eigene Zeile.
 CREATE FUNCTION pg_temp.t12_pro_persona(p_tab text) RETURNS boolean LANGUAGE sql IMMUTABLE AS $f$
   SELECT p_tab IN ('assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten', 'benachrichtigungen',
-                   'user_email_connections', 'profiles', 'release_notes_gesehen')
+                   'user_email_connections', 'profiles', 'release_notes_gesehen', 'benutzer_dashboard')
 $f$;
 
 -- Frische Beispielzeile in schreibbarem Zustand (als postgres). Musterhof p_m, Betrieb B p_b, Plattform-Admin p_pa.
@@ -129,7 +129,7 @@ BEGIN
   ELSIF p_tab = 'profiles' THEN
     SELECT to_jsonb(x.*) INTO v_z FROM public.profiles x WHERE x.id = p_persona;
     RETURN v_z;
-  ELSIF p_tab = 'release_notes_gesehen' THEN
+  ELSIF p_tab IN ('release_notes_gesehen', 'benutzer_dashboard') THEN
     RETURN pg_temp.s112_beispiel(p_tab, NULL, p_persona);
   ELSIF p_tab = 'tenants' THEN
     SELECT to_jsonb(x.*) INTO v_z FROM public.tenants x WHERE x.id = p_m;
@@ -195,6 +195,7 @@ DECLARE
   -- eigene Benutzerzeilen, die ein Leser schreiben darf (Tabelle:Aktion)
   c_leser_eigen constant text[] := ARRAY['benachrichtigungen:UPDATE', 'benachrichtigungen:DELETE', 'profiles:INSERT',
     'profiles:UPDATE', 'release_notes_gesehen:INSERT', 'release_notes_gesehen:UPDATE', 'release_notes_gesehen:DELETE',
+    'benutzer_dashboard:INSERT', 'benutzer_dashboard:UPDATE', 'benutzer_dashboard:DELETE',   -- KAN-388
     'user_email_connections:DELETE'];
   c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'behandlungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen',
     'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellungen', 'konto_umbuchungen',
@@ -550,7 +551,10 @@ BEGIN
       -- UNIQUE (user_id, release_note_id): aus der Matrix oben kann schon eine Zeile des Eigentümers existieren
       'release_notes_gesehen', coalesce((SELECT to_jsonb(x.*) FROM public.release_notes_gesehen x WHERE x.user_id = v_owner LIMIT 1),
                                         pg_temp.s112_beispiel('release_notes_gesehen', NULL, v_owner)),
-      'profiles', (SELECT to_jsonb(x.*) FROM public.profiles x WHERE x.id = v_owner));
+      'profiles', (SELECT to_jsonb(x.*) FROM public.profiles x WHERE x.id = v_owner),
+      -- KAN-388: PK user_id – aus der Matrix oben kann schon eine Zeile des Eigentümers existieren
+      'benutzer_dashboard', coalesce((SELECT to_jsonb(x.*) FROM public.benutzer_dashboard x WHERE x.user_id = v_owner),
+                                     pg_temp.s112_beispiel('benutzer_dashboard', NULL, v_owner)));
     v_ez := v_ez || jsonb_build_object(
       'assistent_nachrichten', pg_temp.s112_beispiel('assistent_nachrichten', c_m, v_owner,
         jsonb_build_object('unterhaltung_id', v_ez -> 'assistent_unterhaltungen' ->> 'id')),

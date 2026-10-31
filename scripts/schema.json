@@ -201,6 +201,11 @@
 "email_gesendet_am",
 "erstellt_am"
 ],
+"benutzer_dashboard": [
+"user_id",
+"layout",
+"aktualisiert_am"
+],
 "bestandsprotokoll": [
 "id",
 "tenant_id",

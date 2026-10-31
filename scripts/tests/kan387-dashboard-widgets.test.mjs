@@ -81,7 +81,7 @@ describe('Abschnitte', () => {
 describe('Seite', () => {
   const p = quelle('src/app/(dashboard)/dashboard/page.tsx')
   test('baut aus dem Register und lädt nur benötigte Quellen', () => {
-    assert.match(p, /sichtbareWidgets\(STANDARD_LAYOUT,/)
+    assert.match(p, /sichtbareWidgets\(eigenesLayout \?\? STANDARD_LAYOUT,/)   // seit KAN-388: ohne eigenes Layout der Standard
     assert.match(p, /ladeWidgetDaten\(ctx, einst, benoetigteQuellen\(widgets\)\)/)
     assert.match(p, /abschnitt\.nurHandy \? 'sm:hidden '/)
   })
