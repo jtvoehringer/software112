@@ -1,14 +1,10 @@
 import type { Metadata } from 'next'
-import { geladen, gezaehlt } from '@/lib/supabase/geladen'
-import Link from '@/components/ui/Link'
-import { Wine, Package, ReceiptText, ListChecks, ShoppingCart, Calendar, Wallet, FlaskConical, Grape } from 'lucide-react'
-import { DashHeader, Tile, Card, Badge, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from './_shared/ui'
-import { getCtx, ladeKeller, ladeFlaschenlager, ladeOffenePosten, ladeFristen, ladeEinstellungen, ladeAufgabenTermine, ladeWeingarten, type R, type AufgabeTermin } from './_shared/data'
-import { ladeFinanzen } from '@/lib/finanzen/uebersicht'
-import { ladeMorgenbericht } from '@/lib/morgenbericht/erstellen'
-import { canWrite } from '@/lib/auth/roles'
-import MorgenberichtKarte from './morgenbericht/MorgenberichtKarte'
-import { TrendingUp, ArrowRightLeft, Sparkles } from 'lucide-react'
+import { geladen } from '@/lib/supabase/geladen'
+import { DashHeader, fmtDate } from './_shared/ui'
+import { getCtx, ladeEinstellungen, type R } from './_shared/data'
+import { ladeWidgetDaten } from './_shared/widgetDaten'
+import { STANDARD_LAYOUT, sichtbareWidgets, benoetigteQuellen, abschnitte, type WidgetAbschnitt, type WidgetId } from '@/lib/dashboard/widgets'
+import { WIDGET_KOMPONENTEN, schnellaktionenFuer, type WidgetProps } from './_widgets'
 
 export const metadata: Metadata = { title: 'Übersicht' }
 export const dynamic = 'force-dynamic'
@@ -18,84 +14,25 @@ export const dynamic = 'force-dynamic'
 // (Keller, Flaschenlager, Offene Posten, Aufgaben), "Nächste Schritte" über
 // alle Module und die Karte "Morgenbericht" (täglicher Scan + Wetter je Ried). Die Verkaufs-Kennzahlen des
 // bisherigen Dashboards leben unverändert in der Sicht "Verkauf & CRM".
-
-type Schritt = { key: string; titel: string; hinweis: string; wann: string; badge: string; tone: BadgeTone; href: string; rang: number }
+// Seit KAN-387 (31.10.2026) aus Widgets gebaut: Register lib/dashboard/widgets.ts, Darstellung in _widgets/,
+// geladen werden nur die Daten der sichtbaren Widgets.
 
 export default async function UebersichtPage() {
   const ctx = await getCtx()
-  const einst = await ladeEinstellungen(ctx)
-  const jahr = ctx.heute.getFullYear()
-
-  const [keller, flaschen, offen, fristen, aufgabenTermine, weingarten, profilRes, checklistRes, finanzen, morgenbericht] = await Promise.all([
-    ladeKeller(ctx, einst.messintervallTage),
-    ladeFlaschenlager(ctx),
-    ladeOffenePosten(ctx),
-    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
-    ladeAufgabenTermine(ctx),
-    ladeWeingarten(ctx),
+  const [einst, profilRes] = await Promise.all([
+    ladeEinstellungen(ctx),
     ctx.userId ? ctx.q('profiles').select('full_name').eq('id', ctx.userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    ctx.tf(ctx.q('checklisten_punkte').select('id, checkliste:checkliste_id!inner(jahr, typ)', { count: 'exact', head: true }).eq('erledigt', false).eq('checkliste.jahr', jahr)),
-    // Finanzübersicht-Kachel (Rückmeldung 8.9.2026): "wo stehe ich" auf einen Klick
-    einst.modulEa ? ladeFinanzen(ctx, { art: einst.doppik ? 'doppik' : 'ea', uvaZeitraum: einst.uvaZeitraum }) : Promise.resolve(null),
-    // Morgenbericht (Migration 201): jüngster gespeicherter Bericht
-    ctx.tenantId ? ladeMorgenbericht(ctx.supabase, ctx.tenantId) : Promise.resolve(null),
   ])
   const profil = geladen(profilRes, 'Benutzer')
-  const checklistOffen = gezaehlt(checklistRes, 'Checklisten-Punkte')
 
   const vorname = ((profil as R | null)?.full_name ?? '').split(/\s+/)[0] || null
   const stunde = ctx.heute.getHours()
   const gruss = stunde < 11 ? 'Guten Morgen' : stunde < 17 ? 'Guten Tag' : 'Guten Abend'
 
-  const fristenDringend = fristen.filter(f => f.status === 'ueberfaellig' || f.status === 'faellig')
-  const aufgaben = fristenDringend.length + keller.messungFaellig + (checklistOffen ?? 0)
-
-  // ── Nächste Schritte: aus Keller, Fristen, Terminen und Wartefristen ──────
-  const schritte: Schritt[] = []
-  for (const c of keller.chargen.filter(c => c.messungFaellig).slice(0, 3)) {
-    schritte.push({
-      key: `mess:${c.id}`, titel: `Gärkontrolle – ${c.name}`, hinweis: c.tageSeitMessung === null ? 'Noch keine Analyse erfasst' : `Letzte Messung vor ${c.tageSeitMessung} Tagen${c.behaelter ? ` · ${c.behaelter}` : ''}`,
-      wann: 'heute', badge: 'FÄLLIG', tone: 'warn', href: `/kellerbuch/weinausbau/${c.id}`, rang: 1,
-    })
-  }
-  for (const c of keller.chargen.filter(c => c.status === 'abfuellung').slice(0, 2)) {
-    schritte.push({
-      key: `fuell:${c.id}`, titel: `Abfüllung planen – ${c.name}`, hinweis: `${fmtNum(c.menge_liter)} L füllfertig${c.behaelter ? ` · ${c.behaelter}` : ''}`,
-      wann: 'offen', badge: 'FÜLLFERTIG', tone: 'info', href: `/kellerbuch/weinausbau/${c.id}`, rang: 3,
-    })
-  }
-  for (const f of fristenDringend.slice(0, 4)) {
-    schritte.push({
-      key: f.key, titel: f.bezeichnung, hinweis: f.hinweis, wann: f.faelligAm ? `bis ${fmtDate(f.faelligAm, { day: '2-digit', month: '2-digit' })}` : '–',
-      badge: f.status === 'ueberfaellig' ? 'ÜBERFÄLLIG' : 'FÄLLIG', tone: f.status === 'ueberfaellig' ? 'err' : 'warn', href: f.href ?? '/dashboard/fristen', rang: f.status === 'ueberfaellig' ? 0 : 2,
-    })
-  }
-  for (const w of weingarten.wartefristen.filter(w => tageBis(w.freiAb) <= 14).slice(0, 2)) {
-    schritte.push({
-      key: `wf:${w.id}`, titel: `Wartefrist endet – ${w.ried}`, hinweis: `Behandlung vom ${fmtDate(w.datum)} · Lese frei ab ${fmtDate(w.freiAb)}`,
-      wann: fmtDate(w.freiAb, { day: '2-digit', month: '2-digit' }), badge: 'WARTEFRIST', tone: 'gray', href: '/behandlungen', rang: 4,
-    })
-  }
-  // Termine/Aufgaben stehen seit 22.9.2026 in der eigenen Karte „Aufgaben & Termine“ (Meine / Betrieb)
-  schritte.sort((a, b) => a.rang - b.rang)
-
-  // ── Schnellaktionen nur am Handy (KAN-181): je nach Schreibrecht im Modul ──
-  const schnellaktionen = [
-    { href: '/erntemeldung/erfassen',        icon: Grape,          label: 'Lese erfassen', modul: 'rieden' as const },
-    { href: '/behandlungen/neu',             icon: FlaskConical,   label: 'Maßnahme',      modul: 'rieden' as const },
-    { href: '/kellerbuch/umziehen?neu=1',    icon: ArrowRightLeft, label: 'Umziehen',      modul: 'kellerbuch' as const },
-    { href: '/weinhandel/verkauf/neu',       icon: ShoppingCart,   label: 'Verkauf',       modul: 'warenwirtschaft' as const },
-  ].filter(a => canWrite(ctx.role, a.modul))
-
-  // ── Schnellzugriff: „Produktion“ (KAN-119) nur mit Schreibrecht im Kellerbuch ──
-  const schnellzugriff = [
-    { href: '/weinhandel/verkauf/neu',    icon: ShoppingCart, label: 'Neuer Verkauf' },
-    { href: '/crm',                        icon: Calendar,     label: 'Aktivität' },
-    { href: '/weinhandel/offene-posten',   icon: Wallet,       label: 'Offene Posten' },
-    { href: '/erntemeldung',               icon: Wine,         label: 'Lese / Pressung' },
-    { href: '/behandlungen/neu',           icon: FlaskConical, label: 'Maßnahme erfassen' },
-    ...(canWrite(ctx.role, 'kellerbuch') ? [{ href: '/kellerbuch/produktion/neu', icon: Sparkles, label: 'Produktion' }] : []),
-  ]
+  const mitSchnellaktionen = schnellaktionenFuer(ctx).length > 0
+  const widgets = sichtbareWidgets(STANDARD_LAYOUT, { modulEa: einst.modulEa, schnellaktionen: mitSchnellaktionen })
+  const d = await ladeWidgetDaten(ctx, einst, benoetigteQuellen(widgets))
+  const props: WidgetProps = { ctx, einst, d, mitSchnellaktionen }
 
   return (
     <div className="space-y-6 2xl:space-y-4">
@@ -103,167 +40,25 @@ export default async function UebersichtPage() {
         title={`${gruss}${vorname ? `, ${vorname}` : ''} 👋`}
         sub={<><span className="max-sm:hidden">Kellerbuch, Weingarten, Verkauf und Meldungen an einem Ort – alles, was heute ansteht, auf einen Blick. </span>{ctx.tenantName && <span className="text-s112-tertiary">{ctx.tenantName} · </span>}<span className="text-s112-tertiary">Stand {fmtDate(ctx.heute, { weekday: 'long', day: '2-digit', month: 'long' })}</span></>}
       />
-
-      {/* ── Schnellaktionen (nur Handy) ─────────────────────────────────────── */}
-      {schnellaktionen.length > 0 && (
-        <div className="sm:hidden grid grid-cols-2 gap-2">
-          {schnellaktionen.map(a => (
-            <Link key={a.href} href={a.href}
-              className="bg-white border border-s112-line rounded-xl px-3 py-3 flex items-center gap-2 text-base font-medium text-s112-text">
-              <a.icon size={20} strokeWidth={1.75} className="text-s112-blue-700 shrink-0" aria-hidden="true" />
-              <span>{a.label}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* ── Kennzahlen ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <Tile label="Kellerbestand" icon={Wine} href="/dashboard/kellerbuch"
-          value={`${fmtNum(keller.gesamtLiter)} L`}
-          sub={keller.jungweinLiter > 0 ? `davon ${fmtNum(keller.jungweinLiter)} L Jahrgang ${jahr}` : `${keller.behaelterBelegt} von ${keller.behaelterGesamt} Gebinden belegt`} />
-        <Tile label="Flaschenlager" icon={Package} href="/weinhandel"
-          value={`${fmtNum(flaschen.bestand)} Fl.`}
-          sub={flaschen.abgefuelltWoche > 0 ? `+${fmtNum(flaschen.abgefuelltWoche)} abgefüllt diese Woche` : `${flaschen.nachRebsorte.length} Rebsorten am Lager`}
-          tone={flaschen.abgefuelltWoche > 0 ? 'ok' : undefined} />
-        <Tile label="Offene Posten" icon={ReceiptText} href="/weinhandel/offene-posten"
-          value={fmtEur(offen.summe)}
-          sub={offen.anzahl === 0 ? 'Keine offenen Posten' : offen.ueberfaellig > 0 ? `${offen.ueberfaellig} überfällig · ${fmtEur(offen.ueberfaelligSumme)}` : `${offen.anzahl} offen · Ø ${offen.avgAlterTage} Tage seit Rechnung`}
-          tone={offen.ueberfaellig > 0 ? 'err' : undefined} />
-        <Tile label="Offene Aufgaben" icon={ListChecks} href="/dashboard/fristen"
-          value={fmtNum(aufgaben)}
-          sub={fristenDringend.length > 0 ? `${fristenDringend.length} Meldefrist${fristenDringend.length === 1 ? '' : 'en'} < ${einst.vorwarnungTage} Tage` : keller.messungFaellig > 0 ? `${keller.messungFaellig} Gärkontrolle${keller.messungFaellig === 1 ? '' : 'n'} fällig` : 'Nichts Dringendes'}
-          tone={fristenDringend.some(f => f.status === 'ueberfaellig') ? 'err' : fristenDringend.length > 0 || keller.messungFaellig > 0 ? 'warn' : undefined} />
-      </div>
-
-      {/* ── Finanzen (E&A / Doppik) ─────────────────────────────────────── */}
-      {finanzen && (() => {
-        const f = finanzen
-        const d = f.ytd.ergebnisVj === 0 ? null : (f.ytd.ergebnis - f.ytd.ergebnisVj) / Math.abs(f.ytd.ergebnisVj) * 100
-        const offenUebergabe = f.uebergabe ? f.uebergabe.rechnungenOffen + f.uebergabe.belegeOffen : 0
-        return (
-          <Link href="/buchhaltung/uebersicht" className="block bg-white border border-s112-line rounded-xl px-[18px] py-3.5 hover:border-s112-teal hover:shadow-xs transition-all">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <TrendingUp size={16} strokeWidth={1.75} className="text-s112-blue-700" />
-                <span className="font-display font-semibold text-[14.5px] text-s112-text">Finanzen {jahr}</span>
-                <span className="text-[12px] text-s112-tertiary">bis heute · {einst.doppik ? 'Belege für den Steuerberater' : 'E&A-Rechnung'}</span>
-              </div>
-              <div className="flex items-center gap-x-6 gap-y-1 sm:gap-y-6 flex-wrap text-[13px]">
-                <span><span className="text-s112-text-2">Ergebnis </span><span className={`font-mono font-semibold ${f.ytd.ergebnis < 0 ? 'text-s112-err-fg' : ''}`}>{fmtEur(f.ytd.ergebnis)}</span>{d !== null && <span className={`ml-1 text-[12px] ${d < 0 ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{d >= 0 ? '+' : ''}{d.toFixed(0)} % VJ</span>}</span>
-                <span><span className="text-s112-text-2">Liquidität </span><span className={`font-mono font-semibold ${f.liquiditaet.summe < 0 ? 'text-s112-err-fg' : ''}`}>{fmtEur(f.liquiditaet.summe)}</span></span>
-                <span><span className="text-s112-text-2">Forderungen </span><span className="font-mono font-semibold">{fmtEur(f.forderungen.summe)}</span></span>
-                {f.uebergabe
-                  ? <Badge tone={offenUebergabe > 0 ? 'warn' : 'ok'}>{offenUebergabe > 0 ? `${offenUebergabe} Belege nicht übergeben` : 'alles übergeben'}</Badge>
-                  : f.uva && <Badge tone={f.uva.status === 'uebermittelt' ? 'ok' : f.uva.faelligAm < ctx.heuteStr ? 'err' : 'warn'}>UVA {f.uva.label}: {f.uva.status === 'uebermittelt' ? 'übermittelt' : f.uva.status === 'entwurf' ? 'Entwurf' : 'offen'}</Badge>}
-                {f.unvollstaendig.length > 0 && <Badge tone="err">Zahlen unvollständig</Badge>}
-                <span className="text-[12px] text-s112-blue-700">Finanzübersicht →</span>
-              </div>
-            </div>
-          </Link>
-        )
-      })()}
-
-      {/* Auf großen Bildschirmen (2xl) wandert der Schnellzugriff als schmale
-          Spalte nach rechts, damit die Übersicht ohne Scrollen auf den Bildschirm
-          passt (Idee 18.9.2026); darunter bleibt die Zeile unter den Karten. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_230px] gap-5 2xl:gap-4">
-        {/* ── Nächste Schritte ───────────────────────────────────────────── */}
-        <Card title="Nächste Schritte" right={<Link href="/dashboard/fristen" className="text-[11.5px] text-s112-blue-700 hover:underline">alle Fristen →</Link>}>
-          {schritte.length === 0 ? (
-            <Empty>Nichts Dringendes – keine fälligen Messungen oder Fristen.</Empty>
-          ) : (
-            <table className="w-full">
-              <tbody>
-                {schritte.slice(0, 8).map(s => (
-                  <tr key={s.key} className="border-b border-s112-line last:border-0 hover:bg-s112-bg">
-                    <td className="py-2.5 pr-2">
-                      <Link href={s.href} className="block">
-                        <span className="block text-[13.5px] font-semibold text-s112-text">{s.titel}</span>
-                        <span className="block text-[12px] text-s112-text-2">{s.hinweis}</span>
-                      </Link>
-                    </td>
-                    <td className="py-2.5 px-2 font-mono text-[12px] text-s112-text-2 whitespace-nowrap text-right">{s.wann}</td>
-                    <td className="py-2.5 pl-2 text-right"><Badge tone={s.tone}>{s.badge}</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Card>
-
-        {/* ── Morgenbericht (ersetzt seit 10.9.2026 „Datenfluss statt Zettelwirtschaft“) ── */}
-        <MorgenberichtKarte bericht={morgenbericht} darfSchreiben={canWrite(ctx.role, 'betrieb')} wetterHinweis={!einst.wetterAktiv || !einst.modulWeingarten ? 'Wetter & Empfehlungen sind für diesen Betrieb deaktiviert (Mein Betrieb → Branding & Regeln).' : null} />
-
-        {/* ── Aufgaben & Termine: mir zugewiesen / für alle vs. Betrieb (Migration 224, 22.9.2026) ── */}
-        <Card title="Aufgaben & Termine" className="lg:col-span-2 2xl:col-span-2 2xl:order-last"
-          right={<Link href="/crm" className="text-[11.5px] text-s112-blue-700 hover:underline">Kalender →</Link>}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-            <AufgabenSpalte titel="Meine" hinweis="mir zugewiesen oder für alle" eintraege={aufgabenTermine.meine} heute={ctx.heuteStr}
-              leer="Nichts für mich – keine zugewiesenen Aufgaben oder Termine." meine />
-            <AufgabenSpalte titel="Betrieb" hinweis="anderen zugewiesen oder niemandem" eintraege={aufgabenTermine.betrieb} heute={ctx.heuteStr}
-              leer="Keine weiteren offenen Aufgaben oder Termine im Betrieb." />
-          </div>
-        </Card>
-
-      {/* ── Schnellzugriff ─────────────────────────────────────────────────── */}
-      {/* am Handy durch die Schnellaktionen oben ersetzt – nur wenn es welche gibt (Leser behalten den Schnellzugriff) */}
-      <div className={`${schnellaktionen.length > 0 ? 'max-sm:hidden ' : ''}lg:col-span-2 2xl:col-span-1`}>
-        <h2 className="text-xs font-semibold text-s112-muted uppercase tracking-wider mb-3">Schnellzugriff</h2>
-        <div className={`grid grid-cols-2 sm:grid-cols-3 ${schnellzugriff.length > 5 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} 2xl:grid-cols-1 gap-3`}>
-          {schnellzugriff.map(item => (
-            <Link key={item.href} href={item.href}
-              className="bg-white border border-s112-line rounded-xl p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-xs transition-all">
-              <item.icon size={20} strokeWidth={1.75} className="text-s112-blue-700" />
-              <span className="text-sm font-medium text-s112-text">{item.label}</span>
-            </Link>
-          ))}
-        </div>
-        <p className="mt-3 text-[11px] text-s112-tertiary flex items-center gap-1"><Grape size={12} strokeWidth={1.5} /> Tipp: Strg K öffnet Seiten, Aktionen und die Suche von überall.</p>
-      </div>
-      </div>
+      {abschnitte(widgets).map(a => <Abschnitt key={a.widgets[0].def.id} abschnitt={a} props={props} />)}
     </div>
   )
 }
 
-// ── Spalte „Meine“ / „Betrieb“ der Karte Aufgaben & Termine ──────────────────
-function AufgabenSpalte({ titel, hinweis, eintraege, heute, leer, meine = false }: {
-  titel: string; hinweis: string; eintraege: AufgabeTermin[]; heute: string; leer: string; meine?: boolean
-}) {
-  const offen = eintraege.length
+// ── Ein Abschnitt: Kacheln (2 bzw. 4 je Zeile) oder Karten (1 bzw. 2 je Zeile, „breit“ über beide) ──
+function Abschnitt({ abschnitt, props }: { abschnitt: WidgetAbschnitt; props: WidgetProps }) {
+  const raster = abschnitt.art === 'kacheln' ? 'grid grid-cols-2 lg:grid-cols-4 gap-3.5' : 'grid grid-cols-1 lg:grid-cols-2 gap-5 2xl:gap-4'
   return (
-    <div className="min-w-0">
-      <div className="flex items-baseline justify-between mb-1.5">
-        <h3 className="text-[12.5px] font-semibold text-s112-text">{titel} <span className="font-mono font-normal text-s112-tertiary">({offen})</span></h3>
-        <span className="text-[11px] text-s112-tertiary">{hinweis}</span>
-      </div>
-      {offen === 0 ? (
-        <p className="text-[12px] text-s112-tertiary py-2">{leer}</p>
-      ) : (
-        <table className="w-full">
-          <tbody>
-            {eintraege.slice(0, 6).map(a => (
-              <tr key={a.id} className="border-b border-s112-line last:border-0 hover:bg-s112-bg">
-                <td className="py-2 pr-2 min-w-0">
-                  <Link href={`/crm?aktivitaet=${a.id}`} className="block min-w-0">
-                    <span className="block text-[13px] font-semibold text-s112-text truncate">{a.betreff}</span>
-                    <span className="block text-[11.5px] text-s112-text-2 truncate">
-                      {a.wer || (a.istAufgabe ? 'Aufgabe' : 'Termin')}{!meine && <> · <span className="text-s112-tertiary">{a.verantwortlich}</span></>}{meine && a.fuerAlle && <> · <span className="text-s112-tertiary">für alle</span></>}
-                    </span>
-                  </Link>
-                </td>
-                <td className={`py-2 px-2 font-mono text-[12px] whitespace-nowrap text-right ${a.ueberfaellig ? 'text-s112-err-fg' : 'text-s112-text-2'}`}>
-                  {a.datum === heute ? 'heute' : fmtDate(a.datum, { weekday: 'short', day: '2-digit', month: '2-digit' })}{a.uhrzeit ? ` ${a.uhrzeit}` : ''}
-                </td>
-                <td className="py-2 pl-2 text-right"><Badge tone={a.ueberfaellig ? 'err' : a.istAufgabe ? 'warn' : 'info'}>{a.ueberfaellig ? 'ÜBERFÄLLIG' : a.istAufgabe ? 'AUFGABE' : 'TERMIN'}</Badge></td>
-              </tr>
-            ))}
-            {offen > 6 && (
-              <tr><td colSpan={3} className="pt-1.5 text-[11.5px]"><Link href="/crm" className="text-s112-blue-700 hover:underline">{offen - 6} weitere im Kalender →</Link></td></tr>
-            )}
-          </tbody>
-        </table>
-      )}
+    <div className={`${abschnitt.nurHandy ? 'sm:hidden ' : ''}${raster}`}>
+      {abschnitt.widgets.map(w => {
+        const Komponente = WIDGET_KOMPONENTEN[w.def.id as WidgetId]
+        // *:h-full: Karten einer Zeile bleiben gleich hoch wie bisher im gemeinsamen Raster
+        return (
+          <div key={w.def.id} className={`min-w-0 *:h-full ${w.groesse === 'breit' ? 'col-span-full' : ''}`}>
+            <Komponente {...props} />
+          </div>
+        )
+      })}
     </div>
   )
 }

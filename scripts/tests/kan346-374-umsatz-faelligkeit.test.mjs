@@ -243,7 +243,7 @@ describe('Verdrahtung', () => {
     assert.match(d, /await ladeOffenePostenListe\(ctx\.supabase, ctx\.tenantId, ctx\.heuteStr\)/)
     assert.match(d, /offenePostenSumme\(liste\)/)
     assert.doesNotMatch(d, /export function posSum|ZAHLUNGSZIEL_TAGE/)
-    assert.match(quelle('src/app/(dashboard)/dashboard/page.tsx'), /Ø \$\{offen\.avgAlterTage\} Tage seit Rechnung/)
+    assert.match(quelle('src/app/(dashboard)/dashboard/_widgets/kacheln.tsx'), /Ø \$\{offen\.avgAlterTage\} Tage seit Rechnung/)
   })
 
   test('Verkaufs-Dashboard: Umsatzreihe zentral und beschriftet, überfällige Rechnungen nach Verzug', () => {
