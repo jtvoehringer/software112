@@ -152,14 +152,19 @@ describe('Verkauf (Etappe 4)', () => {
 describe('Dashboard (Etappe 5)', () => {
   const DB = 'src/app/(dashboard)/dashboard'
   test('Schnellaktionen nur am Handy, je nach Schreibrecht', () => {
-    const q = quelle(`${DB}/page.tsx`)
-    assert.match(q, /<div className="sm:hidden grid grid-cols-2 gap-2">/)
+    // seit KAN-387 Widget der Übersicht: Abschnitt nur fürs Handy (sm:hidden) aus dem Register, Inhalt in _widgets/schnell.tsx
+    const q = quelle(`${DB}/_widgets/schnell.tsx`)
+    assert.match(q, /<div className="grid grid-cols-2 gap-2">/)
     for (const href of ['/erntemeldung/erfassen', '/behandlungen/neu', '/kellerbuch/umziehen?neu=1', '/weinhandel/verkauf/neu']) {
       assert.ok(q.includes(`href: '${href}'`), href)
     }
     assert.match(q, /\.filter\(a => canWrite\(ctx\.role, a\.modul\)\)/)
-    assert.match(q, /schnellaktionen\.length > 0 &&/)
-    assert.ok(q.includes("${schnellaktionen.length > 0 ? 'max-sm:hidden ' : ''}lg:col-span-2 2xl:col-span-1"))   // Leser ohne Schnellaktionen behalten den Schnellzugriff
+    assert.match(q, /if \(schnellaktionen\.length === 0\) return null/)
+    assert.match(q, /className=\{mitSchnellaktionen \? 'max-sm:hidden' : undefined\}/)   // Leser ohne Schnellaktionen behalten den Schnellzugriff
+    assert.match(quelle('src/lib/dashboard/widgets.ts'), /id: 'schnellaktionen'.*sichtbar: k => k\.schnellaktionen, nurHandy: true/)
+    const seite = quelle(`${DB}/page.tsx`)
+    assert.match(seite, /const mitSchnellaktionen = schnellaktionenFuer\(ctx\)\.length > 0/)
+    assert.match(seite, /abschnitt\.nurHandy \? 'sm:hidden '/)
   })
   test('Kacheln, Fristen und überfällige Rechnungen passen auf 375 px', () => {
     const ui = quelle(`${DB}/_shared/ui.tsx`)

@@ -57,7 +57,7 @@ describe('KAN-119: Verdrahtung', () => {
     assert.match(form, /aria-current=\{s === schritt \? 'step' : undefined\}/)
   })
   test('Schnellzugriff: „Produktion“ nur mit Schreibrecht im Kellerbuch', () => {
-    const d = quelle('src/app/(dashboard)/dashboard/page.tsx')
+    const d = quelle('src/app/(dashboard)/dashboard/_widgets/schnell.tsx') // seit KAN-387 Widget der Übersicht
     assert.match(d, /\.\.\.\(canWrite\(ctx\.role, 'kellerbuch'\) \? \[\{ href: '\/kellerbuch\/produktion\/neu', icon: Sparkles, label: 'Produktion' \}\] : \[\]\)/)
     assert.match(d, /\{schnellzugriff\.map\(item =>/)
   })
