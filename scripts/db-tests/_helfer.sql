@@ -895,6 +895,8 @@ BEGIN
       v_b := pg_temp.s112_zeile('konten', p_tenant) ->> 'id';
     END IF;
     v_w := v_w || jsonb_build_object('von_konto_id', v_a, 'nach_konto_id', v_b, 'betrag', 1);
+  ELSIF p_tab = 'benutzer_dashboard' THEN
+    v_w := v_w || '{"layout": []}'::jsonb;   -- KAN-388: CHECK Array
   ELSIF p_tab = 'sonstige_artikel_bewegungen' THEN
     v_w := v_w || '{"art": "zugang", "menge": 1}'::jsonb;   -- KAN-115: CHECK Vorzeichen/Bezug
   ELSIF p_tab = 'produktion_eingaenge' THEN   -- KAN-118: CHECK produktion_eingaenge_wein / _wein_liter
@@ -1014,6 +1016,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('behaelter',                     'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
     ('behandlung_grundstuecke',       'SA,TA,W*{rieden}',                       '-{rieden}',                              'SA,TA,W*{rieden}'),
     ('behandlungen',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-88: stornieren statt löschen (endgültig nur über s112_storniert_loeschen)
+    ('benutzer_dashboard',            'L,SA,TA,W',                              'L,SA,TA,W',                              'L,SA,TA,W'),   -- KAN-388: nur die eigene Zeile
     ('benachrichtigungen',            '-',                                      'L,SA,TA,W',                              'L,SA,TA,W'),
     ('bestandsprotokoll',             '-',                                      '-',                                      '-'),
     ('bestellung_positionen',         'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
@@ -1186,7 +1189,7 @@ BEGIN
       'profiles.profiles: insert own', 'profiles.profiles: update own',
       'rebsorten.rebsorten: everyone can read', 'release_notes_gesehen.rng_own', 'svs_parameter.svsp_select']
     WHEN 'g_tabellen' THEN ARRAY[
-      'crm_freigaben', 'elabel_zutaten', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
+      'benutzer_dashboard', 'crm_freigaben', 'elabel_zutaten', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
       'svs_parameter', 'tenants',
       'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
@@ -1213,7 +1216,7 @@ BEGIN
       -- KAN-167: Betriebsmittel (Stammdaten: Löschen/TRUNCATE, aktiv; Lagerbuchungen: Ändern, Storno, Löschen, TRUNCATE)
       'betriebsmittel', 'betriebsmittel_lager_bewegungen']
     WHEN 'abo_ausnahmen' THEN ARRAY[
-      'benachrichtigungen', 'crm_freigaben', 'elabel_zutaten', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
+      'benachrichtigungen', 'benutzer_dashboard', 'crm_freigaben', 'elabel_zutaten', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections',
       'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39: globale Kataloge
     WHEN 'abo_status_gesperrt' THEN ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']

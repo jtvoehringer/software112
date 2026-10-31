@@ -28,6 +28,8 @@ export type WidgetDef = {
   id: string
   titel: string
   groesse: WidgetGroesse
+  /** wählbare Größen (KAN-388); ohne Angabe nur `groesse` */
+  groessen?: readonly WidgetGroesse[]
   quellen: readonly WidgetQuelle[]
   sichtbar?: (k: WidgetKontext) => boolean
   /** nur am Handy (unter sm) – steht in einem eigenen Abschnitt, damit am PC kein leerer Abstand bleibt */
@@ -41,21 +43,29 @@ export const WIDGETS = [
   { id: 'offene-posten', titel: 'Offene Posten', groesse: 'klein', quellen: ['offenePosten'] },
   { id: 'offene-aufgaben', titel: 'Offene Aufgaben', groesse: 'klein', quellen: ['keller', 'fristen', 'checklisten'] },
   { id: 'finanzen', titel: 'Finanzen', groesse: 'breit', quellen: ['finanzen'], sichtbar: k => k.modulEa },
-  { id: 'naechste-schritte', titel: 'Nächste Schritte', groesse: 'mittel', quellen: ['keller', 'fristen', 'weingarten'] },
-  { id: 'morgenbericht', titel: 'Morgenbericht', groesse: 'mittel', quellen: ['morgenbericht'] },
-  { id: 'aufgaben-termine', titel: 'Aufgaben & Termine', groesse: 'breit', quellen: ['aufgabenTermine'] },
+  { id: 'naechste-schritte', titel: 'Nächste Schritte', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['keller', 'fristen', 'weingarten'] },
+  { id: 'morgenbericht', titel: 'Morgenbericht', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['morgenbericht'] },
+  { id: 'aufgaben-termine', titel: 'Aufgaben & Termine', groesse: 'breit', groessen: ['mittel', 'breit'], quellen: ['aufgabenTermine'] },
   { id: 'schnellzugriff', titel: 'Schnellzugriff', groesse: 'breit', quellen: [] },
 ] as const satisfies readonly WidgetDef[]
 
 export type WidgetId = (typeof WIDGETS)[number]['id']
 
-/** Ein Eintrag eines Layouts: Widget und (ab KAN-388 wählbar) Größe */
+/** Ein Eintrag eines Layouts: eingeblendetes Widget und (seit KAN-388 wählbar) Größe */
 export type LayoutEintrag = { id: string; groesse?: WidgetGroesse }
 
-/** Die Übersicht wie bis KAN-387 – Standard für alle ohne eigenes Layout */
+/** Die Übersicht wie bis KAN-387 – Standard für alle ohne eigenes Layout (keine Zeile in benutzer_dashboard) */
 export const STANDARD_LAYOUT: readonly LayoutEintrag[] = WIDGETS.map(w => ({ id: w.id }))
 
 const NACH_ID = new Map<string, WidgetDef>(WIDGETS.map(w => [w.id, w]))
+
+export function erlaubteGroessen(def: WidgetDef): readonly WidgetGroesse[] {
+  return def.groessen ?? [def.groesse]
+}
+
+function groesseFuer(def: WidgetDef, g: WidgetGroesse | undefined): WidgetGroesse {
+  return g && erlaubteGroessen(def).includes(g) ? g : def.groesse
+}
 
 export type SichtbaresWidget = { def: WidgetDef; groesse: WidgetGroesse }
 
@@ -68,7 +78,7 @@ export function sichtbareWidgets(layout: readonly LayoutEintrag[], k: WidgetKont
     if (!def || gesehen.has(def.id)) continue
     gesehen.add(def.id)
     if (def.sichtbar && !def.sichtbar(k)) continue
-    out.push({ def, groesse: e.groesse ?? def.groesse })
+    out.push({ def, groesse: groesseFuer(def, e.groesse) })
   }
   return out
 }
@@ -92,4 +102,77 @@ export function abschnitte(widgets: readonly SichtbaresWidget[]): WidgetAbschnit
     else out.push({ art, nurHandy, widgets: [w] })
   }
   return out
+}
+
+// ── Eigenes Layout (KAN-388) ─────────────────────────────────────────────────────────────────────────────
+
+/** Höchstzahl der Einträge – dieselbe Grenze prüft die Datenbank (CHECK benutzer_dashboard_layout_form) */
+export const LAYOUT_MAX = 50
+
+/** Gespeichertes bzw. gesendetes Layout prüfen: nur bekannte ids, keine doppelten, nur wählbare Größen (sonst ohne
+ *  Größe = Standardgröße), höchstens LAYOUT_MAX Einträge. null = keine Liste (dann gilt der Standard). */
+export function layoutPruefen(roh: unknown): LayoutEintrag[] | null {
+  if (!Array.isArray(roh)) return null
+  const out: LayoutEintrag[] = []
+  const gesehen = new Set<string>()
+  for (const e of roh) {
+    if (out.length >= LAYOUT_MAX) break
+    const id = e && typeof e === 'object' ? (e as { id?: unknown }).id : undefined
+    const def = typeof id === 'string' ? NACH_ID.get(id) : undefined
+    if (!def || gesehen.has(def.id)) continue
+    gesehen.add(def.id)
+    const g = (e as { groesse?: unknown }).groesse
+    const groesse = typeof g === 'string' ? groesseFuer(def, g as WidgetGroesse) : def.groesse
+    out.push(groesse === def.groesse ? { id: def.id } : { id: def.id, groesse })
+  }
+  return out
+}
+
+/** Eine Zeile im Fenster „Dashboard anpassen“. verfuegbar = false: im aktiven Betrieb nicht sichtbar (Modul, Rechte) –
+ *  wird nicht angeboten, bleibt aber an seiner Stelle gespeichert. */
+export type EditorEintrag = { id: string; titel: string; an: boolean; verfuegbar: boolean; groesse: WidgetGroesse; groessen: readonly WidgetGroesse[] }
+
+/** Zeilen fürs Anpassen: zuerst die eingeblendeten in Layout-Reihenfolge, dann die übrigen verfügbaren (aus) in
+ *  Register-Reihenfolge – neue Widgets erscheinen so nie ungefragt. Nicht verfügbare, ausgeblendete fallen weg. */
+export function editorEintraege(layout: readonly LayoutEintrag[] | null, k: WidgetKontext): EditorEintrag[] {
+  const zeile = (def: WidgetDef, an: boolean, g?: WidgetGroesse): EditorEintrag => ({
+    id: def.id, titel: def.titel, an, verfuegbar: !def.sichtbar || def.sichtbar(k), groesse: groesseFuer(def, g), groessen: erlaubteGroessen(def),
+  })
+  const out: EditorEintrag[] = []
+  for (const e of layoutPruefen(layout ?? STANDARD_LAYOUT) ?? []) out.push(zeile(NACH_ID.get(e.id)!, true, e.groesse))
+  const drin = new Set(out.map(e => e.id))
+  for (const def of WIDGETS as readonly WidgetDef[]) {
+    if (drin.has(def.id)) continue
+    const z = zeile(def, false)
+    if (z.verfuegbar) out.push(z)
+  }
+  return out
+}
+
+/** Verfügbare Zeile um eine Stelle nach oben (-1) bzw. unten (+1) – über nicht verfügbare hinweg, die an ihrem Platz bleiben */
+export function verschieben(liste: readonly EditorEintrag[], id: string, richtung: -1 | 1): EditorEintrag[] {
+  const out = [...liste]
+  const i = out.findIndex(e => e.id === id)
+  if (i < 0 || !out[i].verfuegbar) return out
+  let j = i + richtung
+  while (j >= 0 && j < out.length && !out[j].verfuegbar) j += richtung
+  if (j < 0 || j >= out.length) return out
+  ;[out[i], out[j]] = [out[j], out[i]]
+  return out
+}
+
+/** Zeile an die Stelle einer anderen ziehen (am PC) – nur zwischen verfügbaren */
+export function verschiebenNach(liste: readonly EditorEintrag[], id: string, zielId: string): EditorEintrag[] {
+  const von = liste.findIndex(e => e.id === id)
+  const nach = liste.findIndex(e => e.id === zielId)
+  if (von < 0 || nach < 0 || von === nach || !liste[von].verfuegbar || !liste[nach].verfuegbar) return [...liste]
+  const out = [...liste]
+  const [e] = out.splice(von, 1)
+  out.splice(nach, 0, e)
+  return out
+}
+
+/** Zu speicherndes Layout: alle eingeblendeten (auch hier nicht verfügbare) in Reihenfolge, Größe nur, wenn abweichend */
+export function layoutAusEditor(liste: readonly EditorEintrag[]): LayoutEintrag[] {
+  return layoutPruefen(liste.filter(e => e.an).map(e => ({ id: e.id, groesse: e.groesse }))) ?? []
 }

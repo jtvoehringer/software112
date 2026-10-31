@@ -126,7 +126,7 @@ DECLARE
   -- Winzer wählt das Terminal an der Kasse, keine Geheimnisse in der Tabelle) – Ist-Stand wird festgehalten.
   c_mitglied_liest constant text[] := ARRAY['sumup_terminals'];
   -- Tabellen, die anon derzeit gar nicht lesen darf (kein SELECT-Grant) – erlaubt, aber als Liste festgehalten
-  c_anon_ohne_grant constant text[] := ARRAY['bestandsprotokoll', 'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'fuellung_bewegungen', 'meldung_abgaben',
+  c_anon_ohne_grant constant text[] := ARRAY['benutzer_dashboard', 'bestandsprotokoll', 'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'fuellung_bewegungen', 'meldung_abgaben',
     'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping',
     'kellerbuch_buchungen', 'kellerbuch_abschluesse', 'charge_herkunft', 'pruefnummer_ereignisse', 'pruefnummer_chargen', 'charge_umstufungen', 'keller_verarbeitungen', 'keller_zugangskorrekturen', 'fuellung_etikettierungen', 'kellermittel', 'kellermittel_buchungen', 'reifemessungen', 'sonstige_artikel_bewegungen', 'lieferadressen',
     'elabel_zutaten', 'elabels', 'elabel_umleitungen', 'produktionen', 'produktion_eingaenge', 'rechnungen', 'psm_uebermittlungen', 'lohnversektungen'];   -- KAN-167, KAN-37 B, KAN-39, KAN-40, KAN-192, KAN-97, KAN-99, KAN-82, KAN-216: REVOKE ALL … FROM anon
@@ -254,6 +254,7 @@ BEGIN
   -- Inaktive Release-Note (nur Plattform-Admins sehen sie) und eine Gesehen-Zeile von m_ta
   INSERT INTO public.release_notes (version, titel, aktiv) VALUES ('s112test', 'S112TEST inaktive Note', false) RETURNING id INTO v_rn;
   INSERT INTO public.release_notes_gesehen (user_id, release_note_id) VALUES (v_m_ta, v_rn);
+  INSERT INTO public.benutzer_dashboard (user_id, layout) VALUES (v_m_ta, '[]');   -- KAN-388: nur der Eigentümer liest
 
   -- Varianten-Zeilen: je Betrieb M und B eine Zeile mit Spalte = true und eine mit = false (vor dem Katalog-
   -- Durchlauf, damit auch die K-Listen der Kindtabellen sie sehen könnten)
@@ -477,7 +478,12 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('profil_gleicher_betrieb_b_w',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.profiles WHERE id = %L::uuid', v_b_ta)), '1');
 
+  v_erg := v_erg || pg_temp.s112_erwarte('dashboard_fremd_b_w',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.benutzer_dashboard WHERE user_id = %L::uuid', v_m_ta)), '0');
+
   PERFORM pg_temp.s112_als(v_m_ta);
+  v_erg := v_erg || pg_temp.s112_erwarte('dashboard_eigen_m_ta',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.benutzer_dashboard WHERE user_id = %L::uuid', v_m_ta)), '1');
   v_erg := v_erg || pg_temp.s112_erwarte('rng_eigen_m_ta',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.release_notes_gesehen WHERE user_id = %L::uuid', v_m_ta)), '1');
   PERFORM pg_temp.s112_als(v_pa);
