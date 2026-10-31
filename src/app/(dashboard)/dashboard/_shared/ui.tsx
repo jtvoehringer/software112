@@ -72,9 +72,10 @@ export function Tile({ label, value, sub, icon: Icon, href, tone }: {
     </>
   )
   const cls = 'bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 min-w-0'
+  // data-keine-meldung (KAN-389 Nachtrag): rote/gelbe Unterzeile ist eine Kennzahl, keine Fehlermeldung (MeldungsPopup)
   return href
-    ? <Link href={href} className={`${cls} hover:shadow-xs hover:border-s112-blue-100 transition-all`}>{inner}</Link>
-    : <div className={cls}>{inner}</div>
+    ? <Link href={href} data-keine-meldung className={`${cls} hover:shadow-xs hover:border-s112-blue-100 transition-all`}>{inner}</Link>
+    : <div data-keine-meldung className={cls}>{inner}</div>
 }
 
 export type BadgeTone = 'ok' | 'warn' | 'err' | 'info' | 'gray'
@@ -86,7 +87,8 @@ export function Badge({ tone = 'gray', children }: { tone?: BadgeTone; children:
     info: 'bg-s112-blue-50 text-s112-blue-700',
     gray: 'bg-[#F2F3F5] text-s112-text-1',
   }
-  return <span className={`inline-flex items-center gap-1 font-mono text-[10.5px] font-semibold tracking-[.03em] uppercase rounded-sm px-2 py-0.5 whitespace-nowrap ${map[tone]}`}>{children}</span>
+  // data-keine-meldung (KAN-389 Nachtrag): Status-Abzeichen („ÜBERFÄLLIG“) sind keine Fehlermeldung (MeldungsPopup)
+  return <span data-keine-meldung className={`inline-flex items-center gap-1 font-mono text-[10.5px] font-semibold tracking-[.03em] uppercase rounded-sm px-2 py-0.5 whitespace-nowrap ${map[tone]}`}>{children}</span>
 }
 
 export function Note({ children, className = '' }: { children: ReactNode; className?: string }) {

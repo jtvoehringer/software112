@@ -125,6 +125,17 @@ describe('Verdrahtung', () => {
     const w = quelle(`${D}/_shared/widgetDaten.ts`)
     assert.match(w, /wenn\('umsatz',[\s\S]{0,200}umsatzFenster\(ctx\.heute\)[\s\S]{0,200}geladen\(await ladeUmsatzRechnungen\(ctx\.supabase, ctx\.tenantId, von, bis\), 'Umsatzreihe'\)/)
   })
+  // Nachtrag (UAT Jörgen 31.10.2026): nach dem Speichern der Anordnung baut die Übersicht die Widgets neu auf – rote
+  // Abzeichen („ÜBERFÄLLIG“) und Kachel-Unterzeilen außer Sicht lösten „Fehlermeldung außer Sicht“ aus, ohne Meldung
+  test('Abzeichen und Kacheln sind keine Meldung für das Pop-up', () => {
+    const ui = quelle(`${D}/_shared/ui.tsx`)
+    assert.match(ui, /<span data-keine-meldung className=\{`inline-flex items-center gap-1 font-mono/)
+    assert.match(ui, /<Link href=\{href\} data-keine-meldung className=\{`\$\{cls\}/)
+    assert.match(ui, /<div data-keine-meldung className=\{cls\}>/)
+    const p = quelle('src/components/MeldungsPopup.tsx')
+    assert.match(p, /const pruefe = \(el: Element\) => \{[\s\S]{0,500}if \(el\.closest\('\[data-keine-meldung\]'\)\) return/)
+  })
+
   test('Übersicht gibt das Weingarten-Modul an das Register weiter', () => {
     assert.match(quelle(`${D}/page.tsx`), /modulWeingarten: einst\.modulWeingarten/)
   })
