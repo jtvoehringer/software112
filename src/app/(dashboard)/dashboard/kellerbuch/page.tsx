@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import { Warehouse, FlaskConical, Droplets } from 'lucide-react'
-import { DashHeader, Tile, Note, fmtNum } from '../_shared/ui'
+import { DashHeader, Note } from '../_shared/ui'
+import { GebindeBelegtKachel, AktiveGaerungenKachel, FuellfertigKachel } from '../_shared/bausteine'
 import { getCtx, ladeKeller, ladeEinstellungen } from '../_shared/data'
 import { canWrite } from '@/lib/auth/roles'
 import ChargenKanban from './ChargenKanban'
@@ -40,16 +40,10 @@ export default async function KellerbuchSichtPage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <Tile label="Gebinde belegt" icon={Warehouse} href="/kellerbuch"
-          value={`${keller.behaelterBelegt} / ${keller.behaelterGesamt}`}
-          sub={`Kapazität ${fmtNum(keller.kapazitaet)} L · ${fmtNum(keller.gesamtLiter)} L im Keller`} />
-        <Tile label="Aktive Gärungen" icon={FlaskConical}
-          value={fmtNum(keller.gaerungen)}
-          sub={keller.messungFaellig > 0 ? `${keller.messungFaellig} Messung${keller.messungFaellig === 1 ? '' : 'en'} fällig (≥ ${einst.messintervallTage} Tage)` : keller.gaerungen > 0 ? 'Alle Messungen aktuell' : 'Keine Gärung aktiv'}
-          tone={keller.messungFaellig > 0 ? 'warn' : keller.gaerungen > 0 ? 'ok' : undefined} />
-        <Tile label="Füllfertig" icon={Droplets}
-          value={fmtNum(keller.fuellfertig)}
-          sub={keller.fuellfertig > 0 ? `${fmtNum(keller.chargen.filter(c => c.status === 'abfuellung').reduce((s, c) => s + c.menge_liter, 0))} L bereit zur Abfüllung` : 'Keine Charge in Abfüllung'} />
+        {/* KAN-389: gemeinsame Bausteine mit den Widgets der Übersicht */}
+        <GebindeBelegtKachel keller={keller} />
+        <AktiveGaerungenKachel keller={keller} messintervallTage={einst.messintervallTage} />
+        <FuellfertigKachel keller={keller} />
       </div>
 
       <div>

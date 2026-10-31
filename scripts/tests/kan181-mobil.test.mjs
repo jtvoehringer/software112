@@ -173,7 +173,7 @@ describe('Dashboard (Etappe 5)', () => {
     const fristen = quelle(`${DB}/fristen/FristenClient.tsx`)
     assert.match(fristen, /<table className="w-full min-w-\[520px\]">/)
     assert.doesNotMatch(fristen, /className="form-input"/)
-    const verkauf = quelle(`${DB}/verkauf/page.tsx`)
+    const verkauf = quelle(`${DB}/_shared/bausteine.tsx`)   // KAN-389: Tabelle als gemeinsamer Baustein der Sicht Verkauf
     assert.equal((verkauf.match(/grid-cols-\[1\.6fr_\.9fr_\.9fr\] sm:grid-cols-\[1\.6fr_1fr_\.9fr_\.9fr_40px\]/g) ?? []).length, 2)
     assert.doesNotMatch(quelle(`${DB}/weingarten/LeseCheckliste.tsx`), /className="form-input"/)
   })

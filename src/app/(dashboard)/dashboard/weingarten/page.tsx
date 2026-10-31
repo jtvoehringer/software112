@@ -6,6 +6,7 @@ import RiedKarte, { type KartenPin } from '@/components/weingarten/RiedKarte'
 import { googleMapsUrl } from '@/lib/geo/rieden'
 import { DashHeader, Tile, Card, Badge, Note, Empty, Th, Td, fmtNum, fmtDate } from '../_shared/ui'
 import { getCtx, ladeWeingarten, type R } from '../_shared/data'
+import { WartefristenKarte } from '../_shared/bausteine'
 import { canWrite } from '@/lib/auth/roles'
 import LeseCheckliste, { type Punkt } from './LeseCheckliste'
 
@@ -109,22 +110,8 @@ export default async function WeingartenSichtPage() {
             <Note className="mt-3">Die Checkliste startet aus einer Vorlage – abhaken statt Zettel suchen. Punkte lassen sich je Betrieb ergänzen.</Note>
           </Card>
 
-          {wg.wartefristen.length > 0 && (
-            <Card title="Laufende Wartefristen" right={<Link href="/behandlungen" className="text-[11.5px] text-s112-blue-700 hover:underline">Maßnahmen →</Link>}>
-              <div className="overflow-x-auto"><table className="w-full">
-                <thead><tr><Th>Ried</Th><Th>Behandlung</Th><Th right>Lese frei ab</Th></tr></thead>
-                <tbody>
-                  {wg.wartefristen.slice(0, 6).map(w => (
-                    <tr key={w.id}>
-                      <Td className="font-semibold">{w.ried}</Td>
-                      <Td mono>{fmtDate(w.datum)}</Td>
-                      <Td right><Badge tone="warn">{fmtDate(w.freiAb)}</Badge></Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table></div>
-            </Card>
-          )}
+          {/* KAN-389: gemeinsamer Baustein mit dem Widget „Wartefristen je Ried“ */}
+          {wg.wartefristen.length > 0 && <WartefristenKarte wartefristen={wg.wartefristen} />}
         </div>
       </div>
     </div>

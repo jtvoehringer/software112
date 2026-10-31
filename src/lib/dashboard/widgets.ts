@@ -14,7 +14,7 @@ export type WidgetGroesse = 'klein' | 'mittel' | 'breit'
 /** Datenquellen der Übersicht – jede wird höchstens einmal geladen, auch wenn mehrere Widgets sie brauchen */
 export type WidgetQuelle =
   | 'keller' | 'flaschen' | 'offenePosten' | 'fristen' | 'checklisten'
-  | 'weingarten' | 'finanzen' | 'morgenbericht' | 'aufgabenTermine'
+  | 'weingarten' | 'finanzen' | 'morgenbericht' | 'aufgabenTermine' | 'umsatz'
 
 /** Was die Sichtbarkeit entscheidet (aus Rolle und Betriebseinstellungen) */
 export type WidgetKontext = {
@@ -22,11 +22,23 @@ export type WidgetKontext = {
   modulEa: boolean
   /** mindestens eine Schnellaktion erlaubt (Schreibrecht in Rieden, Kellerbuch oder Warenwirtschaft) */
   schnellaktionen: boolean
+  /** Weingarten-Modul aktiv (tenant_einstellungen.modul_weingarten, KAN-389) – ohne Angabe aus */
+  modulWeingarten?: boolean
+}
+
+/** Herkunft eines Widgets – gliedert die weiteren Widgets im Fenster „Dashboard anpassen“ (KAN-389) */
+export type WidgetBereich = 'uebersicht' | 'verkauf' | 'keller' | 'weingarten' | 'fristen'
+
+export const BEREICH_TITEL: Record<WidgetBereich, string> = {
+  uebersicht: 'Übersicht', verkauf: 'Verkauf & CRM', keller: 'Kellerbuch', weingarten: 'Weingarten & Ernte', fristen: 'Meldungen & Fristen',
 }
 
 export type WidgetDef = {
   id: string
   titel: string
+  bereich: WidgetBereich
+  /** false = nicht im Standard, nur über „Dashboard anpassen“ (KAN-389) */
+  standard?: boolean
   groesse: WidgetGroesse
   /** wählbare Größen (KAN-388); ohne Angabe nur `groesse` */
   groessen?: readonly WidgetGroesse[]
@@ -37,16 +49,26 @@ export type WidgetDef = {
 }
 
 export const WIDGETS = [
-  { id: 'schnellaktionen', titel: 'Schnellaktionen (Handy)', groesse: 'breit', quellen: [], sichtbar: k => k.schnellaktionen, nurHandy: true },
-  { id: 'kellerbestand', titel: 'Kellerbestand', groesse: 'klein', quellen: ['keller'] },
-  { id: 'flaschenlager', titel: 'Flaschenlager', groesse: 'klein', quellen: ['flaschen'] },
-  { id: 'offene-posten', titel: 'Offene Posten', groesse: 'klein', quellen: ['offenePosten'] },
-  { id: 'offene-aufgaben', titel: 'Offene Aufgaben', groesse: 'klein', quellen: ['keller', 'fristen', 'checklisten'] },
-  { id: 'finanzen', titel: 'Finanzen', groesse: 'breit', quellen: ['finanzen'], sichtbar: k => k.modulEa },
-  { id: 'naechste-schritte', titel: 'Nächste Schritte', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['keller', 'fristen', 'weingarten'] },
-  { id: 'morgenbericht', titel: 'Morgenbericht', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['morgenbericht'] },
-  { id: 'aufgaben-termine', titel: 'Aufgaben & Termine', groesse: 'breit', groessen: ['mittel', 'breit'], quellen: ['aufgabenTermine'] },
-  { id: 'schnellzugriff', titel: 'Schnellzugriff', groesse: 'breit', quellen: [] },
+  { id: 'schnellaktionen', titel: 'Schnellaktionen (Handy)', bereich: 'uebersicht', groesse: 'breit', quellen: [], sichtbar: k => k.schnellaktionen, nurHandy: true },
+  { id: 'kellerbestand', titel: 'Kellerbestand', bereich: 'uebersicht', groesse: 'klein', quellen: ['keller'] },
+  { id: 'flaschenlager', titel: 'Flaschenlager', bereich: 'uebersicht', groesse: 'klein', quellen: ['flaschen'] },
+  { id: 'offene-posten', titel: 'Offene Posten', bereich: 'uebersicht', groesse: 'klein', quellen: ['offenePosten'] },
+  { id: 'offene-aufgaben', titel: 'Offene Aufgaben', bereich: 'uebersicht', groesse: 'klein', quellen: ['keller', 'fristen', 'checklisten'] },
+  { id: 'finanzen', titel: 'Finanzen', bereich: 'uebersicht', groesse: 'breit', quellen: ['finanzen'], sichtbar: k => k.modulEa },
+  { id: 'naechste-schritte', titel: 'Nächste Schritte', bereich: 'uebersicht', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['keller', 'fristen', 'weingarten'] },
+  { id: 'morgenbericht', titel: 'Morgenbericht', bereich: 'uebersicht', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['morgenbericht'] },
+  { id: 'aufgaben-termine', titel: 'Aufgaben & Termine', bereich: 'uebersicht', groesse: 'breit', groessen: ['mittel', 'breit'], quellen: ['aufgabenTermine'] },
+  { id: 'schnellzugriff', titel: 'Schnellzugriff', bereich: 'uebersicht', groesse: 'breit', quellen: [] },
+  // KAN-389: weitere Widgets aus den Sichten – nicht im Standard, dieselben Bausteine wie die Sicht (dashboard/_shared)
+  { id: 'umsatz-trend', titel: 'Umsatz-Trend (12 Monate)', bereich: 'verkauf', standard: false, groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['umsatz'] },
+  { id: 'top-kunden', titel: 'Top-Kunden (12 Monate)', bereich: 'verkauf', standard: false, groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['umsatz'] },
+  { id: 'ueberfaellige-rechnungen', titel: 'Überfällige Rechnungen', bereich: 'verkauf', standard: false, groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['offenePosten'] },
+  { id: 'gebinde-belegt', titel: 'Gebinde belegt', bereich: 'keller', standard: false, groesse: 'klein', quellen: ['keller'] },
+  { id: 'aktive-gaerungen', titel: 'Aktive Gärungen', bereich: 'keller', standard: false, groesse: 'klein', quellen: ['keller'] },
+  { id: 'fuellfertig', titel: 'Füllfertig', bereich: 'keller', standard: false, groesse: 'klein', quellen: ['keller'] },
+  { id: 'gaerkontrolle', titel: 'Gärkontrolle fällig', bereich: 'keller', standard: false, groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['keller'] },
+  { id: 'wartefristen', titel: 'Wartefristen je Ried', bereich: 'weingarten', standard: false, groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['weingarten'], sichtbar: k => !!k.modulWeingarten },
+  { id: 'meldefristen', titel: 'Nächste Meldefristen', bereich: 'fristen', standard: false, groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['fristen'] },
 ] as const satisfies readonly WidgetDef[]
 
 export type WidgetId = (typeof WIDGETS)[number]['id']
@@ -54,8 +76,9 @@ export type WidgetId = (typeof WIDGETS)[number]['id']
 /** Ein Eintrag eines Layouts: eingeblendetes Widget und (seit KAN-388 wählbar) Größe */
 export type LayoutEintrag = { id: string; groesse?: WidgetGroesse }
 
-/** Die Übersicht wie bis KAN-387 – Standard für alle ohne eigenes Layout (keine Zeile in benutzer_dashboard) */
-export const STANDARD_LAYOUT: readonly LayoutEintrag[] = WIDGETS.map(w => ({ id: w.id }))
+/** Die Übersicht wie bis KAN-387 – Standard für alle ohne eigenes Layout (keine Zeile in benutzer_dashboard);
+ *  Widgets mit standard: false (KAN-389) gehören nicht dazu */
+export const STANDARD_LAYOUT: readonly LayoutEintrag[] = (WIDGETS as readonly WidgetDef[]).filter(w => w.standard !== false).map(w => ({ id: w.id }))
 
 const NACH_ID = new Map<string, WidgetDef>(WIDGETS.map(w => [w.id, w]))
 
@@ -130,13 +153,13 @@ export function layoutPruefen(roh: unknown): LayoutEintrag[] | null {
 
 /** Eine Zeile im Fenster „Dashboard anpassen“. verfuegbar = false: im aktiven Betrieb nicht sichtbar (Modul, Rechte) –
  *  wird nicht angeboten, bleibt aber an seiner Stelle gespeichert. */
-export type EditorEintrag = { id: string; titel: string; an: boolean; verfuegbar: boolean; groesse: WidgetGroesse; groessen: readonly WidgetGroesse[] }
+export type EditorEintrag = { id: string; titel: string; bereich: WidgetBereich; an: boolean; verfuegbar: boolean; groesse: WidgetGroesse; groessen: readonly WidgetGroesse[] }
 
 /** Zeilen fürs Anpassen: zuerst die eingeblendeten in Layout-Reihenfolge, dann die übrigen verfügbaren (aus) in
  *  Register-Reihenfolge – neue Widgets erscheinen so nie ungefragt. Nicht verfügbare, ausgeblendete fallen weg. */
 export function editorEintraege(layout: readonly LayoutEintrag[] | null, k: WidgetKontext): EditorEintrag[] {
   const zeile = (def: WidgetDef, an: boolean, g?: WidgetGroesse): EditorEintrag => ({
-    id: def.id, titel: def.titel, an, verfuegbar: !def.sichtbar || def.sichtbar(k), groesse: groesseFuer(def, g), groessen: erlaubteGroessen(def),
+    id: def.id, titel: def.titel, bereich: def.bereich, an, verfuegbar: !def.sichtbar || def.sichtbar(k), groesse: groesseFuer(def, g), groessen: erlaubteGroessen(def),
   })
   const out: EditorEintrag[] = []
   for (const e of layoutPruefen(layout ?? STANDARD_LAYOUT) ?? []) out.push(zeile(NACH_ID.get(e.id)!, true, e.groesse))
@@ -149,27 +172,39 @@ export function editorEintraege(layout: readonly LayoutEintrag[] | null, k: Widg
   return out
 }
 
-/** Verfügbare Zeile um eine Stelle nach oben (-1) bzw. unten (+1) – über nicht verfügbare hinweg, die an ihrem Platz bleiben */
+/** Verfügbare, eingeblendete Zeile um eine Stelle nach oben (-1) bzw. unten (+1) – über nicht verfügbare hinweg, die an
+ *  ihrem Platz bleiben; nie über die Grenze zu den ausgeblendeten (KAN-389) */
 export function verschieben(liste: readonly EditorEintrag[], id: string, richtung: -1 | 1): EditorEintrag[] {
   const out = [...liste]
   const i = out.findIndex(e => e.id === id)
   if (i < 0 || !out[i].verfuegbar) return out
   let j = i + richtung
   while (j >= 0 && j < out.length && !out[j].verfuegbar) j += richtung
-  if (j < 0 || j >= out.length) return out
+  if (j < 0 || j >= out.length || out[j].an !== out[i].an) return out
   ;[out[i], out[j]] = [out[j], out[i]]
   return out
 }
 
-/** Zeile an die Stelle einer anderen ziehen (am PC) – nur zwischen verfügbaren */
+/** Zeile an die Stelle einer anderen ziehen (am PC) – nur zwischen verfügbaren, eingeblendeten */
 export function verschiebenNach(liste: readonly EditorEintrag[], id: string, zielId: string): EditorEintrag[] {
   const von = liste.findIndex(e => e.id === id)
   const nach = liste.findIndex(e => e.id === zielId)
-  if (von < 0 || nach < 0 || von === nach || !liste[von].verfuegbar || !liste[nach].verfuegbar) return [...liste]
+  if (von < 0 || nach < 0 || von === nach || !liste[von].verfuegbar || !liste[nach].verfuegbar || !liste[von].an || !liste[nach].an) return [...liste]
   const out = [...liste]
   const [e] = out.splice(von, 1)
   out.splice(nach, 0, e)
   return out
+}
+
+/** Ein- bzw. ausblenden (KAN-389): eingeblendet rückt ans Ende der eingeblendeten, ausgeblendet an den Anfang der
+ *  ausgeblendeten – die Liste bleibt „eingeblendete zuerst“, die Reihenfolge der übrigen bleibt unverändert */
+export function umschalten(liste: readonly EditorEintrag[], id: string, an: boolean): EditorEintrag[] {
+  const e = liste.find(x => x.id === id)
+  if (!e || e.an === an) return [...liste]
+  const rest = liste.filter(x => x.id !== id)
+  const grenze = rest.findIndex(x => !x.an)
+  const stelle = grenze < 0 ? rest.length : grenze
+  return [...rest.slice(0, stelle), { ...e, an }, ...rest.slice(stelle)]
 }
 
 /** Zu speicherndes Layout: alle eingeblendeten (auch hier nicht verfügbare) in Reihenfolge, Größe nur, wenn abweichend */

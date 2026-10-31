@@ -17,6 +17,15 @@ export type Charge = {
 }
 
 export type FristStatus = 'ueberfaellig' | 'faellig' | 'offen' | 'erledigt' | 'laufend'
+
+/** Ampel der Fristen – Sicht „Meldungen & Fristen“ (FristenClient) und Widget „Nächste Meldefristen“ (KAN-389) */
+export const FRIST_STATUS: Record<FristStatus, { label: string; tone: 'ok' | 'warn' | 'err' | 'info' | 'gray' }> = {
+  ueberfaellig: { label: 'Überfällig', tone: 'err' },
+  faellig:      { label: 'Fällig',     tone: 'warn' },
+  offen:        { label: 'Offen',      tone: 'gray' },
+  laufend:      { label: 'Laufend',    tone: 'info' },
+  erledigt:     { label: 'Erledigt',   tone: 'ok' },
+}
 export type Frist = {
   key: string
   id?: string                 // nur betriebseigene (Tabelle fristen)

@@ -11,7 +11,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import * as W from '../../src/lib/dashboard/widgets.ts'
 
 const quelle = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
-const ALLES = { modulEa: true, schnellaktionen: true }
+const ALLES = { modulEa: true, schnellaktionen: true, modulWeingarten: true }
 const LESER_OHNE_EA = { modulEa: false, schnellaktionen: false }
 const ids = l => l.map(e => e.id)
 
@@ -39,10 +39,13 @@ describe('layoutPruefen', () => {
 })
 
 describe('editorEintraege', () => {
-  test('ohne eigenes Layout: Standard, alles an', () => {
+  test('ohne eigenes Layout: Standard an, die Widgets außerhalb des Standards (KAN-389) aus', () => {
     const e = W.editorEintraege(null, ALLES)
-    assert.deepEqual(ids(e), W.STANDARD_LAYOUT.map(x => x.id))
-    assert.ok(e.every(x => x.an && x.verfuegbar))
+    const n = W.STANDARD_LAYOUT.length
+    assert.deepEqual(ids(e).slice(0, n), W.STANDARD_LAYOUT.map(x => x.id))
+    assert.ok(e.slice(0, n).every(x => x.an && x.verfuegbar))
+    assert.ok(e.slice(n).every(x => !x.an && x.verfuegbar))
+    assert.equal(e.length, W.WIDGETS.length)
   })
   test('eigenes Layout zuerst, dann die übrigen verfügbaren aus – neue Widgets nie ungefragt an', () => {
     const e = W.editorEintraege([{ id: 'morgenbericht', groesse: 'breit' }, { id: 'kellerbestand' }], ALLES)

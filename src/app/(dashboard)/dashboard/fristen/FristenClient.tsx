@@ -7,20 +7,12 @@
 import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { Plus, Check, RotateCcw, Trash2 } from 'lucide-react'
-import { Badge, Th, Td, fmtDate, type BadgeTone } from '../_shared/ui'
-import type { Frist, FristStatus } from '../_shared/types'
+import { Badge, Th, Td, fmtDate } from '../_shared/ui'
+import { FRIST_STATUS as STATUS, type Frist } from '../_shared/types'
 import { KATEGORIE_LABEL } from './vorlage'
 import { standardfristenAnlegen, fristAnlegen, fristErledigen, fristWiedereroeffnen, fristLoeschen } from './actions'
 import { HINWEISE_EVENT } from '@/components/layout/Topbar'
 import { fehlerText } from '@/lib/fehler'
-
-const STATUS: Record<FristStatus, { label: string; tone: BadgeTone }> = {
-  ueberfaellig: { label: 'Überfällig', tone: 'err' },
-  faellig:      { label: 'Fällig',     tone: 'warn' },
-  offen:        { label: 'Offen',      tone: 'gray' },
-  laufend:      { label: 'Laufend',    tone: 'info' },
-  erledigt:     { label: 'Erledigt',   tone: 'ok' },
-}
 
 export default function FristenClient({ fristen, darfSchreiben, vorwarnungTage }: { fristen: Frist[]; darfSchreiben: boolean; vorwarnungTage: number }) {
   const [pending, start] = useTransition()

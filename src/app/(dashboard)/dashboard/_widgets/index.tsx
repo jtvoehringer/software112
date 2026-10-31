@@ -4,6 +4,10 @@ import type { WidgetProps } from './typen'
 import { KellerbestandWidget, FlaschenlagerWidget, OffenePostenWidget, OffeneAufgabenWidget } from './kacheln'
 import { FinanzenWidget, NaechsteSchritteWidget, MorgenberichtWidget, AufgabenTermineWidget } from './karten'
 import { SchnellaktionenWidget, SchnellzugriffWidget } from './schnell'
+import {
+  UmsatzTrendWidget, TopKundenWidget, UeberfaelligeRechnungenWidget, GebindeBelegtWidget, AktiveGaerungenWidget,
+  FuellfertigWidget, GaerkontrolleWidget, WartefristenWidget, MeldefristenWidget,
+} from './sichten'
 
 // KAN-387: Darstellung je Widget des Registers (lib/dashboard/widgets.ts) – der Typ erzwingt eine Komponente je id
 export const WIDGET_KOMPONENTEN: Record<WidgetId, ComponentType<WidgetProps>> = {
@@ -17,6 +21,15 @@ export const WIDGET_KOMPONENTEN: Record<WidgetId, ComponentType<WidgetProps>> = 
   'morgenbericht': MorgenberichtWidget,
   'aufgaben-termine': AufgabenTermineWidget,
   'schnellzugriff': SchnellzugriffWidget,
+  'umsatz-trend': UmsatzTrendWidget,
+  'top-kunden': TopKundenWidget,
+  'ueberfaellige-rechnungen': UeberfaelligeRechnungenWidget,
+  'gebinde-belegt': GebindeBelegtWidget,
+  'aktive-gaerungen': AktiveGaerungenWidget,
+  'fuellfertig': FuellfertigWidget,
+  'gaerkontrolle': GaerkontrolleWidget,
+  'wartefristen': WartefristenWidget,
+  'meldefristen': MeldefristenWidget,
 }
 
 export type { WidgetProps } from './typen'
