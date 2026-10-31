@@ -71,6 +71,9 @@ export default function MeldungsPopup() {
     const pruefe = (el: Element) => {
       if (wurzel.current?.contains(el)) return
       if (el.closest('[data-rueckfrage]')) return   // der Rückfrage-Dialog ist keine Meldung
+      // KAN-389 Nachtrag (31.10.2026): Kennzahl-Kacheln und Status-Abzeichen des Dashboards sind rot/gelb, aber keine
+      // Meldung – nach dem Speichern der Anordnung baut die Übersicht sie neu auf, „Zur Meldung“ führte ins Leere
+      if (el.closest('[data-keine-meldung]')) return
       const a = art(el)
       if (!a) return
       const text = popupText(el.textContent ?? '')
