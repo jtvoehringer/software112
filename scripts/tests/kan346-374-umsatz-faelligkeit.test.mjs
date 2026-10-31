@@ -248,13 +248,17 @@ describe('Verdrahtung', () => {
 
   test('Verkaufs-Dashboard: Umsatzreihe zentral und beschriftet, überfällige Rechnungen nach Verzug', () => {
     const v = quelle('src/app/(dashboard)/dashboard/verkauf/page.tsx')
+    // KAN-389: Reihe, Balken und Tabelle sind gemeinsame Bausteine mit den Widgets der Übersicht
+    const b = quelle('src/app/(dashboard)/dashboard/_shared/bausteine.tsx')
     assert.match(v, /ladeUmsatzRechnungen\(supabase, tenantId, absatzVon, absatzBis\)/)
-    assert.match(v, /umsatzJeMonat\(umsatzRechnungen \?\? \[\], monate\)/)
-    assert.match(v, /\{UMSATZ_BESCHRIFTUNG\}<\/h2>/)
+    assert.match(v, /umsatzReihe\(umsatzRechnungen \?\? \[\], monate\)/)
+    assert.match(b, /const jeMonat = umsatzJeMonat\(rechnungen, monate\)/)
+    assert.match(b, /\{UMSATZ_BESCHRIFTUNG\}<\/h2>/)
     assert.match(v, /ladeOffenePosten\(ctx\)/)
-    assert.match(v, /\.filter\(p => p\.ueberfaellig\)\n\s+\.sort\(\(a, b\) => b\.verzugTage - a\.verzugTage\)/)
-    assert.match(v, /title=\{faelligText\(v\)\}/)
-    assert.doesNotMatch(v, /ZAHLUNGSZIEL_TAGE|function posSum|tageSeit/)
+    assert.match(v, /ueberfaelligeRechnungen\(offen\.liste\)/)
+    assert.match(b, /\.filter\(p => p\.ueberfaellig\)\n\s+\.sort\(\(a, b\) => b\.verzugTage - a\.verzugTage\)/)
+    assert.match(b, /title=\{faelligText\(v\)\}/)
+    for (const q of [v, b]) assert.doesNotMatch(q, /ZAHLUNGSZIEL_TAGE|function posSum|tageSeit\(/)
   })
 
   test('Umsatz-Auswertung: Route und Belegliste über die zentrale Funktion, Fehler ausgewertet', () => {

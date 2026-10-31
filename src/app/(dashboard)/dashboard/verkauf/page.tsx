@@ -6,8 +6,8 @@ import Link from '@/components/ui/Link'
 import { ReceiptText, Package, Users, ShoppingCart, Calendar, Wallet } from 'lucide-react'
 import { DashHeader, Card, BarRow, Empty, fmtNum, fmtEur } from '../_shared/ui'
 import { getCtx, ladeFlaschenlager, ladeOffenePosten } from '../_shared/data'
-import { ladeUmsatzRechnungen, umsatzJeMonat, UMSATZ_BESCHRIFTUNG } from '@/lib/verkauf/umsatz'
-import { faelligText } from '@/lib/verkauf/faelligkeit'
+import { umsatzFenster, umsatzReihe, ueberfaelligeRechnungen, UmsatzTrendKarte, UeberfaelligeRechnungenKarte, TopKundenKarte } from '../_shared/bausteine'
+import { ladeUmsatzRechnungen, umsatzJeKunde } from '@/lib/verkauf/umsatz'
 import { AktionsFehler } from '@/lib/fehler'
 import { wienJetzt, lokalerTag } from '@/lib/datum/wien'
 
@@ -55,9 +55,8 @@ export default async function DashboardPage() {
   const vorwochenStartStr = toDateStr(vorwochenStart)
   const vorwochenEndeStr  = toDateStr(new Date(wochenStart.getTime() - 86400000))
 
-  // 12-Monats-Fenster für die Absatzreihe im Balkendiagramm
-  const absatzVon = toDateStr(new Date(heute.getFullYear(), heute.getMonth() - 11, 1))
-  const absatzBis = toDateStr(new Date(heute.getFullYear(), heute.getMonth() + 1, 0))
+  // 12-Monats-Fenster für die Absatzreihe im Balkendiagramm (KAN-389: dasselbe Fenster wie das Widget „Umsatz-Trend“)
+  const { von: absatzVon, bis: absatzBis, monate } = umsatzFenster(heute)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q = (t: string) => (supabase.from(t) as any)
@@ -104,20 +103,12 @@ export default async function DashboardPage() {
   const auftraegeVorwoche = auftraegeVorwocheCount ?? 0
   const auftraegeDelta    = auftraegeWoche - auftraegeVorwoche
 
-  // Umsatzreihe: 12 Monate, älteste zuerst, netto nach Rechnungsdatum (KAN-346)
-  const monate = Array.from({ length: 12 }, (_, i) => toDateStr(new Date(heute.getFullYear(), heute.getMonth() - 11 + i, 1)).slice(0, 7))
-  const jeMonat = umsatzJeMonat(umsatzRechnungen ?? [], monate)
-  const absatzSeries = monate.map(m => {
-    const [y, mo] = m.split('-').map(Number)
-    return { label: new Date(y, mo - 1, 1).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short' }), value: jeMonat.get(m)?.umsatz ?? 0 }
-  })
-  const absatzMax = Math.max(1, ...absatzSeries.map(s => s.value))
+  // Umsatzreihe: 12 Monate, älteste zuerst, netto nach Rechnungsdatum (KAN-346); Top-Kunden aus denselben Rechnungen (KAN-389)
+  const absatzSeries = umsatzReihe(umsatzRechnungen ?? [], monate)
+  const topKunden = umsatzJeKunde(umsatzRechnungen ?? [])
 
   // Überfällige Rechnungen (KAN-374): ab Fälligkeit nach Kundenziel, längster Verzug zuerst
-  const belege = offen.liste
-    .filter(p => p.ueberfaellig)
-    .sort((a, b) => b.verzugTage - a.verzugTage)
-    .slice(0, 5)
+  const belege = ueberfaelligeRechnungen(offen.liste)
 
   // Nächste unerledigte Aktivitäten (für "Nächste Termine")
   // art-Ausschluss analog zum Kalender (crm/page.tsx) ergänzt (7.8.2026): automatisch
@@ -233,68 +224,11 @@ export default async function DashboardPage() {
       {/* ── Balkendiagramm + Tabelle ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
-        {/* Umsatz (bis 5.8.2026: Absatz in Flaschen - auf Wunsch auf Umsatz in € umgestellt) */}
-        <div className="lg:col-span-2 bg-white border border-s112-line rounded-xl p-[18px]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-[14px] text-s112-text">{UMSATZ_BESCHRIFTUNG}</h2>
-            <span className="text-[11.5px] text-s112-tertiary">letzte 12 Monate</span>
-          </div>
-          <div className="h-[120px] flex items-end gap-2.5">
-            {absatzSeries.map((s, i) => {
-              const color = i === 11 ? 'bg-s112-teal' : i >= 9 ? 'bg-s112-blue-300' : 'bg-s112-blue-100'
-              const heightPct = Math.max(3, Math.round((s.value / absatzMax) * 100))
-              return (
-                <div key={i} className={`flex-1 h-full flex flex-col justify-end ${i < 6 ? 'hidden sm:flex' : ''}`} title={`${s.label}: ${fmtEur(s.value)}`}>
-                  <div className={`w-full rounded-t-[5px] ${color}`} style={{ height: `${heightPct}%` }} />
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex justify-between mt-2">
-            {absatzSeries.map((s, i) => (
-              <span key={i} className={`flex-1 text-center font-mono text-[10.5px] text-s112-tertiary ${i < 6 ? 'hidden sm:block' : ''}`}>{s.label}</span>
-            ))}
-          </div>
-        </div>
+        {/* Umsatz (bis 5.8.2026: Absatz in Flaschen - auf Wunsch auf Umsatz in € umgestellt); seit KAN-389 gemeinsamer Baustein mit dem Widget */}
+        <UmsatzTrendKarte reihe={absatzSeries} className="lg:col-span-2" />
 
         {/* Überfällige Rechnungen (bis 5.8.2026: Letzte Belege - auf Wunsch umgestellt) */}
-        <div className="lg:col-span-3 bg-white border border-s112-line rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-[18px] pt-4 pb-2">
-            <h2 className="font-display font-semibold text-[14px] text-s112-text">Überfällige Rechnungen</h2>
-            <Link href="/weinhandel/offene-posten" className="text-[11.5px] text-s112-blue-700 hover:underline">alle →</Link>
-          </div>
-          {belege.length === 0 ? (
-            <p className="text-sm text-s112-text-2 px-[18px] pb-5">Keine überfälligen Rechnungen.</p>
-          ) : (
-            <div>
-              <div className="grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-s112-bg border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
-                <span>Kunde</span>
-                <span className="max-sm:hidden">Rechnung</span>
-                <span>Verzug</span>
-                <span className="text-right">Offen</span>
-                <span className="max-sm:hidden" />
-              </div>
-              {belege.map(v => (
-                <Link key={v.id} href={`/weinhandel/rechnungen/${v.id}`}
-                  className="contents">
-                  <div className="col-span-5 grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F2F3F5] text-[13px] hover:bg-s112-bg transition-colors">
-                    <span className="text-s112-text truncate">{v.kunde}</span>
-                    <span className="max-sm:hidden font-mono text-s112-text-2">{v.rechnungsnummer ?? '–'}</span>
-                    <span>
-                      <span title={faelligText(v)} className="inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-s112-err-bg text-s112-err-fg">
-                        {v.verzugTage} Tage
-                      </span>
-                    </span>
-                    <span className="font-mono text-right text-s112-text tabular-nums">
-                      {fmtEur(v.offen)}
-                    </span>
-                    <span className="max-sm:hidden text-right text-s112-tertiary">⋯</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        <UeberfaelligeRechnungenKarte belege={belege} className="lg:col-span-3" />
       </div>
 
       {/* ── Untere zwei Spalten ─────────────────────────────────────── */}
@@ -360,7 +294,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Flaschenbestand nach Rebsorte (neu, Dashboard-Relaunch) ───────── */}
+      {/* ── Top-Kunden (KAN-389) und Flaschenbestand nach Rebsorte (neu, Dashboard-Relaunch) ───────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <TopKundenKarte kunden={topKunden} />
       <Card title="Flaschenbestand nach Rebsorte" right={<Link href="/weinhandel" className="text-[11.5px] text-s112-blue-700 hover:underline">Warenlager →</Link>}>
         {flaschen.nachRebsorte.length === 0 ? (
           <Empty action={{ href: '/weinhandel/fuellungen/neu', label: 'Erste Füllung anlegen' }}>Noch keine Füllungen mit Bestand.</Empty>
@@ -373,6 +309,7 @@ export default async function DashboardPage() {
           </div>
         )}
       </Card>
+      </div>
 
       {/* ── Schnellzugriff ───────────────────────────────────────────── */}
       {/* "Füllen" und "Umziehen" auf Wunsch entfernt (5.8.2026) - Grid entsprechend auf

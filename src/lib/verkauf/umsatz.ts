@@ -98,6 +98,29 @@ export function umsatzJeMonat(rechnungen: readonly R[], monate: readonly string[
   return out
 }
 
+/** KAN-389: Umsatz je Kunde (Firma vor Kontakt) über dieselben Rechnungen wie umsatzJeMonat – Stornobelege mindern
+ *  ihren Kunden; nur Kunden mit Umsatz > 0, absteigend (bei Gleichstand nach Name), höchstens `anzahl` */
+export type UmsatzKunde = { schluessel: string; kunde: string; href: string | null; umsatz: number; anzahl: number }
+
+export function umsatzJeKunde(rechnungen: readonly R[], anzahl = 5): UmsatzKunde[] {
+  const out = new Map<string, UmsatzKunde>()
+  for (const r of rechnungen) {
+    if (!zaehltAlsUmsatz(r)) continue
+    const firma = (r.firma ?? null) as R | null
+    const kontakt = (r.kontakt ?? null) as R | null
+    const name = firma?.name ? String(firma.name) : kontakt ? [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ') : ''
+    const schluessel = firma?.id ? `f:${firma.id}` : kontakt?.id ? `k:${kontakt.id}` : name ? `n:${name}` : 'ohne'
+    const href = firma?.id ? `/crm/firmen/${firma.id}` : kontakt?.id ? `/crm/kontakte/${kontakt.id}` : null
+    const z = out.get(schluessel) ?? { schluessel, kunde: name || 'Ohne Kunde', href, umsatz: 0, anzahl: 0 }
+    z.umsatz = rund2(z.umsatz + rechnungNetto(r))
+    if (r.art !== 'storno') z.anzahl += 1
+    out.set(schluessel, z)
+  }
+  return Array.from(out.values()).filter(k => k.umsatz > 0)
+    .sort((a, b) => b.umsatz - a.umsatz || a.kunde.localeCompare(b.kunde, 'de'))
+    .slice(0, anzahl)
+}
+
 // ── Lader ────────────────────────────────────────────────────────────────────
 
 /** KAN-379: PostgREST-Filter „nicht storniert oder storniert mit Stornobeleg“ (genau prüft zaehltMitBetrag) */
@@ -105,7 +128,7 @@ export const STORNIERT_ZAEHLT = 'storniert.eq.false,storniert_durch_id.not.is.nu
 
 /** select-Teil der Umsatz-Rechnungen (mit Kunde für die Belegliste der Auswertung) */
 export const UMSATZ_RECHNUNG_SELECT =
-  `id, datum, rechnungsnummer, aktiv, storniert, bezahlt, bmd_export_id, storno_positionen, ${STORNO_FELDER}, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen!firma_id(name), ${lieferscheineSelect(UMSATZ_POSITIONEN)}`
+  `id, datum, rechnungsnummer, aktiv, storniert, bezahlt, bmd_export_id, storno_positionen, ${STORNO_FELDER}, kontakt:kontakte!kontakt_id(id, vorname, nachname), firma:firmen!firma_id(id, name), ${lieferscheineSelect(UMSATZ_POSITIONEN)}`
 
 /**
  * Rechnungen mit Rechnungsdatum von–bis (einschließlich, 'JJJJ-MM-TT') des Betriebs, die als Umsatz zählen – vollständig

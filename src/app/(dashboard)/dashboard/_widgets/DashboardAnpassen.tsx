@@ -6,7 +6,7 @@ import { useDialog } from '@/components/ui/useDialog'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { fehlerText } from '@/lib/fehler'
-import { layoutAusEditor, verschieben, verschiebenNach, type EditorEintrag, type WidgetGroesse } from '@/lib/dashboard/widgets'
+import { BEREICH_TITEL, layoutAusEditor, umschalten, verschieben, verschiebenNach, type EditorEintrag, type WidgetBereich, type WidgetGroesse } from '@/lib/dashboard/widgets'
 import { dashboardSpeichern, dashboardZuruecksetzen } from '../actions'
 
 // KAN-388: Knopf „Dashboard anpassen“ und Fenster zum Ein-/Ausblenden, Verschieben (Pfeile, am PC auch Ziehen) und
@@ -14,6 +14,7 @@ import { dashboardSpeichern, dashboardZuruecksetzen } from '../actions'
 // verfügbare Widgets werden nicht angeboten, bleiben aber an ihrem Platz gespeichert.
 
 const GROESSE_TEXT: Record<WidgetGroesse, string> = { klein: 'Kachel', mittel: 'halbe Breite', breit: 'ganze Breite' }
+const BEREICHE = Object.keys(BEREICH_TITEL) as WidgetBereich[]
 
 export default function DashboardAnpassen({ eintraege, eigenes }: { eintraege: EditorEintrag[]; eigenes: boolean }) {
   const [offen, setOffen] = useState(false)
@@ -35,7 +36,8 @@ function Fenster({ start, eigenes, schliessen }: { start: EditorEintrag[]; eigen
   const [fehler, setFehler] = useState<string | null>(null)
   const [gezogen, setGezogen] = useState<string | null>(null)
   const dialog = useDialog(true, laeuft ? undefined : schliessen, 'Dashboard anpassen')
-  const angeboten = liste.filter(e => e.verfuegbar)
+  const eingeblendet = liste.filter(e => e.verfuegbar && e.an)
+  const weitere = liste.filter(e => e.verfuegbar && !e.an)
   const nichtVerfuegbar = liste.filter(e => !e.verfuegbar)
 
   const aendern = (id: string, teil: Partial<EditorEintrag>) => setListe(l => l.map(e => (e.id === id ? { ...e, ...teil } : e)))
@@ -83,22 +85,25 @@ function Fenster({ start, eigenes, schliessen }: { start: EditorEintrag[]; eigen
         </div>
         <p className="px-5 text-[12.5px] text-s112-text-2">Häkchen blendet ein oder aus, die Pfeile (am PC auch Ziehen) ändern die Reihenfolge. Gilt für dich in allen Betrieben, am Handy in derselben Reihenfolge.</p>
 
-        <ul className="px-5 py-3 space-y-1.5" aria-label="Widgets der Übersicht">
-          {angeboten.map((e, i) => (
+        <h3 className="px-5 pt-3 text-[11.5px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">Auf deiner Übersicht</h3>
+        {eingeblendet.length === 0 && <p className="px-5 pt-1.5 text-[12.5px] text-s112-text-2">Noch nichts eingeblendet – unten ein Widget anhaken.</p>}
+        <ul className="px-5 py-2 space-y-1.5" aria-label="Eingeblendete Widgets">
+          {eingeblendet.map((e, i) => (
             <li key={e.id}
               draggable={!laeuft}
               onDragStart={() => setGezogen(e.id)}
               onDragEnd={() => setGezogen(null)}
               onDragOver={ev => { if (gezogen && gezogen !== e.id) ev.preventDefault() }}
               onDrop={ev => { ev.preventDefault(); if (gezogen) setListe(l => verschiebenNach(l, gezogen, e.id)); setGezogen(null) }}
-              className={`flex items-center gap-2 border rounded-lg px-2.5 py-2 ${gezogen === e.id ? 'border-s112-teal bg-s112-bg' : 'border-s112-line'} ${e.an ? '' : 'opacity-60'}`}>
+              className={`flex items-center gap-2 border rounded-lg px-2.5 py-2 ${gezogen === e.id ? 'border-s112-teal bg-s112-bg' : 'border-s112-line'}`}>
               <GripVertical size={16} strokeWidth={1.5} className="text-s112-tertiary shrink-0 max-sm:hidden cursor-grab" aria-hidden="true" />
               <label className="flex items-center gap-2 flex-1 min-w-0 text-[13.5px] text-s112-text">
-                <input type="checkbox" checked={e.an} disabled={laeuft} onChange={ev => aendern(e.id, { an: ev.target.checked })} />
+                <input type="checkbox" checked disabled={laeuft} onChange={() => setListe(l => umschalten(l, e.id, false))} />
                 <span className="truncate">{e.titel}</span>
+                {e.bereich !== 'uebersicht' && <span className="max-sm:hidden shrink-0 text-[11px] text-s112-tertiary">{BEREICH_TITEL[e.bereich]}</span>}
               </label>
               {e.groessen.length > 1 && (
-                <select aria-label={`Größe ${e.titel}`} value={e.groesse} disabled={laeuft || !e.an}
+                <select aria-label={`Größe ${e.titel}`} value={e.groesse} disabled={laeuft}
                   onChange={ev => aendern(e.id, { groesse: ev.target.value as WidgetGroesse })}
                   className="border border-s112-line rounded-md text-[12.5px] px-1.5 py-1 bg-white">
                   {e.groessen.map(g => <option key={g} value={g}>{GROESSE_TEXT[g]}</option>)}
@@ -107,12 +112,34 @@ function Fenster({ start, eigenes, schliessen }: { start: EditorEintrag[]; eigen
               <button type="button" aria-label={`${e.titel} nach oben`} disabled={laeuft || i === 0}
                 onClick={() => setListe(l => verschieben(l, e.id, -1))}
                 className="p-1 rounded text-s112-text-2 hover:text-s112-text disabled:opacity-30"><ArrowUp size={16} strokeWidth={1.75} /></button>
-              <button type="button" aria-label={`${e.titel} nach unten`} disabled={laeuft || i === angeboten.length - 1}
+              <button type="button" aria-label={`${e.titel} nach unten`} disabled={laeuft || i === eingeblendet.length - 1}
                 onClick={() => setListe(l => verschieben(l, e.id, 1))}
                 className="p-1 rounded text-s112-text-2 hover:text-s112-text disabled:opacity-30"><ArrowDown size={16} strokeWidth={1.75} /></button>
             </li>
           ))}
         </ul>
+
+        {/* KAN-389: ausgeblendete Widgets nach Herkunft – Anhaken setzt sie ans Ende der Übersicht */}
+        {weitere.length > 0 && (
+          <>
+            <h3 className="px-5 pt-3 text-[11.5px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">Weitere Widgets</h3>
+            {BEREICHE.filter(b => weitere.some(e => e.bereich === b)).map(b => (
+              <div key={b} className="px-5 pt-2">
+                <p className="text-[12px] font-semibold text-s112-text-2 mb-1">{BEREICH_TITEL[b]}</p>
+                <ul className="space-y-1.5" aria-label={`Weitere Widgets ${BEREICH_TITEL[b]}`}>
+                  {weitere.filter(e => e.bereich === b).map(e => (
+                    <li key={e.id} className="flex items-center gap-2 border border-s112-line rounded-lg px-2.5 py-2">
+                      <label className="flex items-center gap-2 flex-1 min-w-0 text-[13.5px] text-s112-text-2">
+                        <input type="checkbox" checked={false} disabled={laeuft} onChange={() => setListe(l => umschalten(l, e.id, true))} />
+                        <span className="truncate">{e.titel}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </>
+        )}
 
         {nichtVerfuegbar.length > 0 && (
           <p className="px-5 text-[12px] text-s112-tertiary">
