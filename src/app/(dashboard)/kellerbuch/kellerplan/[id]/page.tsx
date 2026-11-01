@@ -5,7 +5,7 @@ import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import { BrotkrumenLink } from '@/components/ui/Link'
 import KellerplanEditor from './KellerplanEditor'
 import { schreibSperre } from '@/lib/auth/sperren'
 import type { PlanCharge } from '@/lib/keller/kellerplanZiehen'
@@ -144,9 +144,9 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       {/* Breadcrumb + Header */}
       <div className="flex items-center justify-between mb-5 no-print">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
+          <BrotkrumenLink href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</BrotkrumenLink>
           <span>/</span>
-          <Link href="/kellerbuch/kellerplan" className="hover:text-s112-blue-700">Kellerplan</Link>
+          <BrotkrumenLink href="/kellerbuch/kellerplan" className="hover:text-s112-blue-700">Kellerplan</BrotkrumenLink>
           <span>/</span>
           <span className="text-s112-text font-medium">{plan.name}</span>
         </nav>

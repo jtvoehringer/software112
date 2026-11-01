@@ -32,7 +32,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
               }`}
             >
               {g.label}
-              <LinkSpinner className="text-s112-teal" />
+              <LinkSpinner />
             </Link>
           )
         })}
@@ -68,7 +68,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
                 >
                   {item.child && <span className="w-1 h-1 rounded-full bg-s112-tertiary/70" />}
                   {item.label}
-                  <LinkSpinner className="text-s112-blue-700" />
+                  <LinkSpinner />
                 </Link>
               )
             })}

@@ -2,7 +2,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { BookOpen, GitMerge } from 'lucide-react'
 import { ladeWeinbuch } from '@/lib/behoerden/weinbuch'
@@ -36,9 +36,9 @@ export default async function WeinbuchPage({
 
       {/* Breadcrumb (ausgeblendet beim Drucken) */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted flex-wrap print:hidden">
-        <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
+        <BrotkrumenLink href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</BrotkrumenLink>
         <span>/</span>
-        <Link href={`/kellerbuch/weinausbau/${id}`} className="hover:text-s112-blue-700">{wa.name}</Link>
+        <BrotkrumenLink href={`/kellerbuch/weinausbau/${id}`} className="hover:text-s112-blue-700">{wa.name}</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text font-medium">Weinbuch</span>
       </nav>

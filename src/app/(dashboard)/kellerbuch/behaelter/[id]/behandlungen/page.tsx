@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { useParams } from 'next/navigation'
 import { FlaskConical, BarChart3, ArrowLeftRight, Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
@@ -317,9 +317,9 @@ export default function KellerbehandlungenPage() {
       {ladeFehler && <p role="alert" className="text-sm text-s112-err-fg print:hidden">{ladeFehler}</p>}
       {/* Breadcrumb */}
       <div className="flex flex-wrap items-center gap-2 text-sm text-s112-muted print:hidden">
-        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
+        <BrotkrumenLink href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</BrotkrumenLink>
         <span>/</span>
-        <Link href={`/kellerbuch/behaelter/${behaelterId}`} className="text-s112-text-1 font-medium hover:text-s112-blue-700 transition-colors">{behaelter.name}</Link>
+        <BrotkrumenLink href={`/kellerbuch/behaelter/${behaelterId}`} className="text-s112-text-1 font-medium hover:text-s112-blue-700 transition-colors">{behaelter.name}</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text-2">Kellerbehandlungen</span>
       </div>

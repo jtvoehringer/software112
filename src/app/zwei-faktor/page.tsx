@@ -18,6 +18,7 @@ import PasskeyVerwaltung from '@/components/PasskeyVerwaltung'
 import { authFehlerText } from '@/lib/auth/authFehler'
 import { fehlerText } from '@/lib/fehler'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
+import Kreisel from '@/components/ui/Kreisel'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
 type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
@@ -59,8 +60,8 @@ function ZweiFaktor() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
   useEffect(() => { void laden() }, [laden])
 
-  // KAN-78: Ziel aus dem Link (weiter) an die Betriebswahl weiterreichen
-  const weiter = () => { router.push(mitWeiter('/betrieb-waehlen', params.get('weiter'))); router.refresh() }
+  // KAN-78: Ziel aus dem Link (weiter) an die Betriebswahl weiterreichen; KAN-399: eine Navigation, direkt über /auth/betrieb
+  const weiter = () => { window.location.assign(mitWeiter('/auth/betrieb', params.get('weiter'))) }
 
   // Einrichtung starten: offene (unbestätigte) Versuche aufräumen, neuen Faktor anlegen
   const einrichtungStarten = async () => {
@@ -117,10 +118,7 @@ function ZweiFaktor() {
 
   const codeFeld = bestaetigt ? (
     <div role="status" aria-live="polite" className="flex items-center gap-3 bg-s112-ok-bg text-s112-ok-fg rounded-lg px-3 py-3 text-sm">
-      <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-      </svg>
+      <Kreisel />
       <span><strong>Code bestätigt.</strong> Du wirst angemeldet und weitergeleitet …</span>
     </div>
   ) : (

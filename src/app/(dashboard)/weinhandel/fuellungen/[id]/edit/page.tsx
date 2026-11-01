@@ -8,7 +8,7 @@ import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { Wine } from 'lucide-react'
 import { updateFuellung, pruefnummerNachtragen } from '../../../actions'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
@@ -235,7 +235,7 @@ export default async function EditFuellungPage({
     <div className="max-w-2xl">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weinhandel" className="hover:text-s112-blue-700">Warenwirtschaft</Link>
+        <BrotkrumenLink href="/weinhandel" className="hover:text-s112-blue-700">Warenwirtschaft</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text font-medium">Füllung bearbeiten</span>
       </nav>

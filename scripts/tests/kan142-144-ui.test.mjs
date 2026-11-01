@@ -117,7 +117,7 @@ describe('KAN-142: Menüpfade unter „Rieden“', () => {
     }
     const ama = quelle('src/app/(dashboard)/reports/(pflicht)/ama/page.tsx')
     assert.match(ama, /Brotkrume wie die Navigation: Rieden › Lese › AMA-Erntemeldung/)
-    assert.match(ama, /<Link href="\/erntemeldung" className="[^"]*">Lese<\/Link>/)
+    assert.match(ama, /<BrotkrumenLink href="\/erntemeldung" className="[^"]*">Lese<\/BrotkrumenLink>/)   // KAN-399: mit Kreisel
   })
 })
 

@@ -5,7 +5,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { losText } from '@/lib/handel/losnummer'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { stornoVerkauf, stornoZahlung, rechnungErstellen, rechnungStornieren, verkaufSamtRechnungStornieren } from '../actions'
 import StornoButton from '@/components/StornoButton'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
@@ -296,7 +296,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       {/* Breadcrumb */}
       <div className="flex flex-wrap gap-2 items-center justify-between no-print">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700">Verkauf</Link>
+          <BrotkrumenLink href="/weinhandel/verkauf" className="hover:text-s112-blue-700">Verkauf</BrotkrumenLink>
           <span>/</span>
           <span className="text-s112-text font-medium">
             {posten.rechnungsnummer ?? new Date(posten.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}

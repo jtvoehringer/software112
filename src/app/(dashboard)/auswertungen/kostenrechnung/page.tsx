@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import Link from '@/components/ui/Link'
+import { BrotkrumenLink } from '@/components/ui/Link'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { exportCSV as csvExportieren } from '@/lib/utils/csv'
 import { csvDateiname, runden } from '@/lib/csv'
@@ -76,7 +76,7 @@ export default function KostenAuswertungPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-5 print:p-0">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
-        <Link href="/reports" className="hover:text-s112-blue-700 transition-colors">Auswertungen</Link>
+        <BrotkrumenLink href="/reports" className="hover:text-s112-blue-700 transition-colors">Auswertungen</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text-1 font-medium">Kosten-Auswertung</span>
       </div>

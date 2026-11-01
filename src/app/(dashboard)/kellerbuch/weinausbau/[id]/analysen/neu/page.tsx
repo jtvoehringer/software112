@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
-import Link from '@/components/ui/Link'
+import { BrotkrumenLink } from '@/components/ui/Link'
 import { createAnalyse } from '@/app/(dashboard)/kellerbuch/actions'
 import { fehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -77,11 +77,11 @@ export default function AnalyseNeuPage({ params }: Props) {
 
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted flex-wrap">
-        <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
+        <BrotkrumenLink href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</BrotkrumenLink>
         <span>/</span>
-        <Link href={`/kellerbuch/weinausbau/${weinausbauId}`} className="hover:text-s112-blue-700">Charge</Link>
+        <BrotkrumenLink href={`/kellerbuch/weinausbau/${weinausbauId}`} className="hover:text-s112-blue-700">Charge</BrotkrumenLink>
         <span>/</span>
-        <Link href={`/kellerbuch/weinausbau/${weinausbauId}/analysen`} className="hover:text-s112-blue-700">Laboranalysen</Link>
+        <BrotkrumenLink href={`/kellerbuch/weinausbau/${weinausbauId}/analysen`} className="hover:text-s112-blue-700">Laboranalysen</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text font-medium">Neue Analyse</span>
       </nav>

@@ -1,5 +1,5 @@
 'use client'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvDatei, csvDateiname } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
@@ -56,7 +56,7 @@ export default function KellerAuswertungenClient({ daten, zeitraumHinweise = [] 
     <div className="max-w-5xl space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
-        <Link href="/reports" className="hover:text-s112-blue-700 transition-colors">Auswertungen</Link>
+        <BrotkrumenLink href="/reports" className="hover:text-s112-blue-700 transition-colors">Auswertungen</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text-1 font-medium">Keller-Auswertungen</span>
       </div>
