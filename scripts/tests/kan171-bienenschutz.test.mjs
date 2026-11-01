@@ -29,7 +29,7 @@ describe('KAN-171: Bienenschutz in der Blüte', () => {
     assert.match(a, /const bienenEingabe = \{\r?\n\s+bienengefaehrlich, bbch: \(formData\.get\('bbch_stadium'\) as string \| null\) \|\| null, bestaetigt: formData\.get\(BIENENSCHUTZ_FELD\) === '1',\r?\n\s+\}\r?\n\s+const bienen = bienenschutzFehler\(bienenEingabe\)\r?\n\s+if \(bienen\) throw new AktionsFehler\(bienen\)/)
   })
   test('Formulare und Assistent', () => {
-    assert.match(quelle('src/app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx'), /<BienenschutzHinweis bienengefaehrlich=\{felder\.psm !== 'hidden' && !!selectedPsm\?\.bienengefaehrlich\}\n\s+bbch=\{felder\.bbch !== 'hidden' \? bbch : null\} \/>/)
+    assert.match(quelle('src/app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx'), /<BienenschutzHinweis bienengefaehrlich=\{felder\.psm !== 'hidden' && \(!!selectedPsm\?\.bienengefaehrlich \|\| weitereBienen\)\}\n\s+bbch=\{felder\.bbch !== 'hidden' \? bbch : null\} \/>/)
     // seit KAN-325 folgt die gespeicherte Bestätigung als weiteres Prop
     assert.match(quelle('src/app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx'), /bbch=\{modus\.bbch === 'sichtbar' \? bbch : modus\.bbch === 'behalten' \? behandlung\.bbch_stadium : null\}(\s*\/>|\r?\n\s+bestaetigung=)/)
     const k = quelle('src/components/behandlungen/BienenschutzHinweis.tsx')

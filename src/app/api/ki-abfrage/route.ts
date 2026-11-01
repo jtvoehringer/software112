@@ -97,7 +97,7 @@ const TABELLEN_KONTEXT = `
   (Näherung); sonst kein Kupfermittel. In SQL: COALESCE(NULLIF(cu_gehalt_pct, 0), CASE WHEN wirkstoff ILIKE
   '%kupfer%' THEN NULLIF(wirkstoffgehalt_pct, 0) END).
   Die Spritzbrühe NIE über mehrere Maßnahmen summieren: eine Tankmischung steht als mehrere Maßnahmen (je Mittel
-  eine) mit derselben Brühe. Summen über Maßnahmen nur für die Mittelmenge, getrennt je Mittel und Einheit (kg und
+  eine, gemeinsame behandlungen.tankmischung_id) mit derselben Brühe – Brühe je Mischung nur einmal zählen. Summen über Maßnahmen nur für die Mittelmenge, getrennt je Mittel und Einheit (kg und
   l nie addieren). Beim JOIN auf behandlung_grundstuecke wiederholt sich jede Maßnahme je Grundstück – die Fläche
   daher zuerst je behandlung_id summieren (Unterabfrage/CTE), Werte der Maßnahme nicht über die Join-Zeilen summieren.
   VERTEILUNG AUF GRUNDSTÜCKE (KAN-132): „Ried“ = Tabelle weingarten, „Lage“ = lagen (weingarten.lage_id). Der Anteil
