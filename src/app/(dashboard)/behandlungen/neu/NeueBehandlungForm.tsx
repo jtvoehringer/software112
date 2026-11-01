@@ -33,6 +33,8 @@ import AnwendungFelder, { type MitgliedAuswahl } from './AnwendungFelder'
 import { PSM_FRIST_STANDARD_H, wienHeute } from '@/lib/behandlungen/erfassungsfrist'
 import BienenschutzHinweis from '@/components/behandlungen/BienenschutzHinweis'
 import { rundText } from '@/lib/zahl/runden'
+import WeitereMittel, { type WeiteresMittelZeile } from './WeitereMittel'
+import { tankmischungFehler, weitereMittelAus } from '@/lib/behandlungen/tankmischung'
 
 // Welche Felder je Maßnahmenart sichtbar/pflicht sind, steht in FELD_MATRIX (feldMatrix.ts), die
 // Mengenfelder in MENGEN_SICHT (mengenFelder.ts, über mengenSicht: Aufwand bei Sonstiges nur mit Mittel) –
@@ -83,6 +85,8 @@ export default function NeueBehandlungForm({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [selectedPsmId, setSelectedPsmId] = useState('')
+  // KAN-398: weitere Mittel derselben Spritzbrühe (Tankmischung)
+  const [weitere, setWeitere] = useState<WeiteresMittelZeile[]>([])
   // KAN-171: BBCH-Stadium für den Bienenschutz-Hinweis (bienengefährliches Mittel in der Blüte)
   const [bbch, setBbch] = useState('')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState('')
@@ -138,6 +142,7 @@ export default function NeueBehandlungForm({
   // (im Handler statt im Effekt: kein Render mit der neuen Art und den alten Werten; die Startwerte oben sind bereits leer)
   function artWechseln(neu: Art) {
     setArt(neu)
+    setWeitere([])   // KAN-398: Tankmischung nur bei einer Spritzung
     if (FELD_MATRIX[neu].psm === 'hidden') setSelectedPsmId('')
     if (FELD_MATRIX[neu].duengemittel === 'hidden') setSelectedDuengemittelId('')
     if (!artMitBetriebsmittel(neu)) { setSelectedBmId(''); setBmAufwand('') }
@@ -167,7 +172,12 @@ export default function NeueBehandlungForm({
     felder.duengemittel !== 'hidden' ? selectedDuengemittel?.oeko_zugelassen :
     undefined
   const mittelNichtOeko = gewaehltesMittelOeko === false
-  const bioSperre  = BIO_SPERRE.has(bioStatus) && mittelNichtOeko
+  // KAN-398: Tankmischung nur bei Spritzung mit gewähltem ersten Mittel; jedes Mittel unterliegt der Bio-Sperre
+  const mitMischung = art === 'spritzung' && !!selectedPsmId
+  const weitereAktiv = mitMischung ? weitere : []
+  const weitereNichtOeko = weitereAktiv.some(w => psm.find(p => p.id === w.psmId)?.oeko_zugelassen === false)
+  const weitereBienen = weitereAktiv.some(w => !!psm.find(p => p.id === w.psmId)?.bienengefaehrlich)
+  const bioSperre  = BIO_SPERRE.has(bioStatus) && (mittelNichtOeko || weitereNichtOeko)
   const bioWarnung = !bioSperre && BIO_WARNUNG.has(bioStatus) && mittelNichtOeko
 
   // Flache Lookup-Map für alle GST (id → GST-Objekt), für Flächenberechnung bei Einzelauswahl
@@ -307,6 +317,9 @@ export default function NeueBehandlungForm({
     if (!mengen.ok) { setError(mengen.fehler); return }
     if (m.konzentrationFehler) { setError(m.konzentrationFehler); return }
     const fd = new FormData(e.currentTarget)
+    // KAN-398: weitere Mittel – dieselbe Prüfung wie die Server Action
+    const tmFehler = tankmischungFehler(art, selectedPsmId || null, weitereMittelAus(fd))
+    if (tmFehler) { setError(tmFehler); return }
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
     selectedGSTs.forEach((_wgId, gstId) => fd.append('grundstueck_ids', gstId))
     // Mengen so, wie die Prüfung sie normalisiert hat; gesperrte (berechnete) Felder sind disabled und
@@ -368,7 +381,7 @@ export default function NeueBehandlungForm({
         {/* KAN-87: Uhrzeit, Anwender, Art der Verwendung, Hinweis Nacherfassung */}
         <AnwendungFelder mitglieder={mitglieder} ichId={ichId} mitPsm={felder.psm !== 'hidden' && !!selectedPsmId}
           fristRelevant={(felder.psm !== 'hidden' && !!selectedPsmId) || art === 'duengung'}
-          bienengefaehrlich={felder.psm !== 'hidden' && !!selectedPsm?.bienengefaehrlich}
+          bienengefaehrlich={felder.psm !== 'hidden' && (!!selectedPsm?.bienengefaehrlich || weitereBienen)}
           datum={datum} datumBis={datumBis} fristH={psmFristH} />
 
         {/* PSM */}
@@ -554,6 +567,12 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
+        {/* KAN-398: Tankmischung – weitere Mittel derselben Spritzbrühe */}
+        {mitMischung && (
+          <WeitereMittel psm={psm} erstesPsmId={selectedPsmId} zeilen={weitere} onZeilen={setWeitere}
+            bioSperre={BIO_SPERRE.has(bioStatus)} />
+        )}
+
         {/* Spritzbrühe gesamt (l) ↔ Wasseraufwand (l/ha) – Punkt 1 der Anforderung; die Brühe ist nie die Mittelmenge */}
         {art === 'spritzung' && (felder.mengeGesamt !== 'hidden' || felder.wasseraufwand !== 'hidden') && (
           <div>
@@ -639,7 +658,7 @@ export default function NeueBehandlungForm({
         )}
 
         {/* KAN-171: Bienenschutz – bienengefährliches Mittel in der Blüte nur mit Bestätigung */}
-        <BienenschutzHinweis bienengefaehrlich={felder.psm !== 'hidden' && !!selectedPsm?.bienengefaehrlich}
+        <BienenschutzHinweis bienengefaehrlich={felder.psm !== 'hidden' && (!!selectedPsm?.bienengefaehrlich || weitereBienen)}
           bbch={felder.bbch !== 'hidden' ? bbch : null} />
 
         {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) – einarbeitung_gesendet: nicht angehakt = „nein“

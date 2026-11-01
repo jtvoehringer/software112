@@ -26,6 +26,8 @@
 // Sperre steht, trägt <html> das Attribut SPERRE_ATTRIBUT: AutoRefresh lädt dann keine Daten des
 // anderen Betriebs unter die Überlagerung, die Befehlspalette (Strg K) bleibt zu.
 // Ein einzelner Tab verhält sich unverändert: keine Anzeige, keine Abfrage beim Laden.
+// KAN-400: Hat sich inzwischen ein anderer Benutzer angemeldet (ein Sitzungs-Cookie je Browser), sperrt der Wächter mit
+// „Anderer Benutzer angemeldet“ und bietet nur „Neu laden“ – „Zurück … wechseln“ ginge mit der fremden Sitzung nicht.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -33,9 +35,9 @@ import { ArrowLeftRight } from 'lucide-react'
 import { useDialog } from '@/components/ui/useDialog'
 import {
   BETRIEB_KANAL, BETRIEB_SPEICHER_KEY, SPERRE_ATTRIBUT, SPERRE_EREIGNIS,
-  abfrageStarten, aktivAusAntwort, dialogNamen, istPruefMeldung, meldungBauen, meldungLesen,
+  abfrageStarten, aktivAusAntwort, andererBenutzer, benutzerAusAntwort, benutzerGewechselt, benutzerSperrText, dialogNamen, istPruefMeldung, meldungBauen, meldungLesen,
   mitSeitenBetrieb, pruefMeldungBauen, sperrGrund, sperrText, wechselUrl, weichtAb,
-  type AbfrageErgebnis, type Betrieb, type BetriebsMeldung, type PruefAnlass, type PruefMeldung,
+  type AbfrageErgebnis, type Benutzer, type Betrieb, type BetriebsMeldung, type PruefAnlass, type PruefMeldung,
 } from '@/lib/tenant/waechter'
 import {
   NUR_LESEN_EREIGNIS, anfragePfad, schreibAnfrageArt, sperrAntwort, sperrArtFuer, sperrArtImText, zurueckhalten,
@@ -136,11 +138,15 @@ export function BetriebsPruefMelder() {
   return null
 }
 
-type Sperre = { neu: Betrieb | null; ausAnderemTab: boolean }
+/** benutzer: KAN-400 – inzwischen ist ein anderer Benutzer angemeldet (dann zählt nur „Neu laden“) */
+type Sperre = { neu: Betrieb | null; ausAnderemTab: boolean; benutzer?: Benutzer | null }
 
-export default function BetriebsWaechter({ tenantId, name, mandant, schreibgesperrt = false }: Betrieb & { schreibgesperrt?: boolean }) {
-  // Betrieb, mit dem diese Seite geladen wurde – bleibt bis zum Neuladen fest
-  const [seite] = useState<Betrieb>(() => (mandant ? { tenantId, name, mandant } : { tenantId, name }))
+export default function BetriebsWaechter({ tenantId, name, mandant, userId, benutzer, schreibgesperrt = false }: Betrieb & { schreibgesperrt?: boolean }) {
+  // Betrieb (und Benutzer, KAN-400), mit dem diese Seite geladen wurde – bleibt bis zum Neuladen fest
+  const [seite] = useState<Betrieb>(() => ({
+    ...(mandant ? { tenantId, name, mandant } : { tenantId, name }),
+    ...(userId ? { userId, benutzer: benutzer ?? '' } : {}),
+  }))
   const [sperre, setSperre] = useState<Sperre | null>(null)
   const [wechselt, setWechselt] = useState(false)
   const gesperrt = useRef(false)
@@ -148,10 +154,10 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
   const laeuft = useRef(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  const sperren = useCallback((neu: Betrieb | null, ausAnderemTab: boolean) => {
+  const sperren = useCallback((neu: Betrieb | null, ausAnderemTab: boolean, anderer: Benutzer | null = null) => {
     if (gesperrt.current) return
     gesperrt.current = true
-    setSperre({ neu, ausAnderemTab })
+    setSperre({ neu, ausAnderemTab, benutzer: anderer })
   }, [])
 
   /** Aktiven Betrieb beim Server erfragen; hinweis = abweichende Meldung eines anderen Tabs */
@@ -165,12 +171,15 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
     let ergebnis: AbfrageErgebnis = { ok: false }
     try {
       const res = await fetch('/api/betrieb/aktiv', { cache: 'no-store' })
-      if (res.ok) ergebnis = { ok: true, aktiv: aktivAusAntwort(await res.json()) }
+      if (res.ok) { const j = await res.json(); ergebnis = { ok: true, aktiv: aktivAusAntwort(j), benutzer: benutzerAusAntwort(j) } }
     } catch {
       // offline bzw. keine JSON-Antwort – ergebnis bleibt { ok: false }
     } finally {
       laeuft.current = false
     }
+    // KAN-400: ein anderer Benutzer geht vor – sonst böte der Dialog einen Wechsel an, der mit dessen Sitzung nicht geht
+    const anderer = benutzerGewechselt(seite.userId, ergebnis, hinweis)
+    if (anderer) { sperren(null, anlass === 'meldung', anderer); return }
     const neu = sperrGrund(seite.tenantId, ergebnis, hinweis)
     if (neu) sperren(neu, anlass === 'meldung')
   }, [seite, sperren])
@@ -199,7 +208,9 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
       const m = meldungLesen(roh)
       if (!m || m.tab === tab) return
       if (istPruefMeldung(m)) { void pruefen('meldung'); return }
-      if (weichtAb(seite.tenantId, m)) void pruefen('meldung', { tenantId: m.tenantId, name: m.name, mandant: m.mandant })
+      if (weichtAb(seite.tenantId, m) || andererBenutzer(seite.userId, m)) {
+        void pruefen('meldung', { tenantId: m.tenantId, name: m.name, mandant: m.mandant, userId: m.userId, benutzer: m.benutzer })
+      }
     }
 
     const kanal = kanalOeffnen()
@@ -238,10 +249,11 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
     }
   }, [pruefen])
 
-  // Layout mit anderem Betrieb neu gerendert (router.refresh/AutoRefresh nach Wechsel)
+  // Layout mit anderem Betrieb bzw. (KAN-400) für einen anderen Benutzer neu gerendert (router.refresh/AutoRefresh)
   useEffect(() => {
-    if (weichtAb(seite.tenantId, { tenantId, name })) sperren(mandant ? { tenantId, name, mandant } : { tenantId, name }, false)
-  }, [seite, tenantId, name, mandant, sperren])
+    if (andererBenutzer(seite.userId, { tenantId, name, userId })) sperren(null, false, { userId: userId!, benutzer: benutzer ?? '' })
+    else if (weichtAb(seite.tenantId, { tenantId, name })) sperren(mandant ? { tenantId, name, mandant } : { tenantId, name }, false)
+  }, [seite, tenantId, name, mandant, userId, benutzer, sperren])
 
   // Sperre signalisieren (AutoRefresh, Befehlspalette) und Hintergrund sperren: alles außer der
   // Überlagerung inert – auch später eingehängte Elemente
@@ -266,7 +278,8 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
   }, [sperre])
 
   // Fokus in der Überlagerung halten; kein Schließen per Escape
-  const dialog = useDialog(!!sperre, undefined, 'Betrieb gewechselt')
+  const titel = sperre?.benutzer ? 'Anderer Benutzer angemeldet' : 'Betrieb gewechselt'
+  const dialog = useDialog(!!sperre, undefined, titel)
 
   if (!sperre) return null
 
@@ -286,10 +299,10 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
             <span className="w-10 h-10 rounded-full bg-s112-warn-bg text-s112-warn-fg flex items-center justify-center shrink-0" aria-hidden="true">
               <ArrowLeftRight size={20} strokeWidth={1.75} />
             </span>
-            <h2 id="betriebswaechter-titel" className="text-lg font-semibold text-s112-text">Betrieb gewechselt</h2>
+            <h2 id="betriebswaechter-titel" className="text-lg font-semibold text-s112-text">{titel}</h2>
           </div>
           <p id="betriebswaechter-text" className="text-sm text-s112-text-1">
-            {sperrText(sperre.ausAnderemTab, namen.alt, namen.neu)}
+            {sperre.benutzer ? benutzerSperrText(sperre.benutzer.benutzer) : sperrText(sperre.ausAnderemTab, namen.alt, namen.neu)}
           </p>
           <p id="betriebswaechter-verlust" className="text-sm text-s112-text-1">
             Nicht gespeicherte Eingaben auf dieser Seite gehen dabei verloren.
@@ -299,15 +312,17 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
               className="flex-1 bg-s112-teal text-s112-yellow py-2.5 px-4 rounded-xl font-semibold hover:bg-s112-teal/90 text-sm disabled:opacity-60">
               Neu laden
             </button>
-            <button type="button" onClick={zurueck} disabled={wechselt}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-s112-border text-s112-text-2 hover:bg-s112-bg text-sm disabled:opacity-60">
-              Zurück zu ‚{namen.alt}‘ wechseln
-            </button>
+            {!sperre.benutzer && (
+              <button type="button" onClick={zurueck} disabled={wechselt}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-s112-border text-s112-text-2 hover:bg-s112-bg text-sm disabled:opacity-60">
+                Zurück zu ‚{namen.alt}‘ wechseln
+              </button>
+            )}
           </div>
           <p className="text-xs text-s112-muted">
-            Alle Tabs und Fenster dieses Browsers arbeiten im selben Betrieb – „Zurück … wechseln“ gilt daher für alle, andere
-            offene Tabs werden dann ihrerseits gesperrt. Für paralleles Arbeiten in zwei Betrieben einen zweiten Browser, ein
-            zweites Browserprofil oder ein privates Fenster verwenden.
+            {sperre.benutzer
+              ? 'Alle Tabs und Fenster dieses Browsers teilen sich eine Anmeldung. Für zwei Benutzer gleichzeitig einen zweiten Browser, ein zweites Browserprofil oder ein privates Fenster verwenden.'
+              : 'Alle Tabs und Fenster dieses Browsers arbeiten im selben Betrieb – „Zurück … wechseln“ gilt daher für alle, andere offene Tabs werden dann ihrerseits gesperrt. Für paralleles Arbeiten in zwei Betrieben einen zweiten Browser, ein zweites Browserprofil oder ein privates Fenster verwenden.'}
           </p>
         </div>
       </div>

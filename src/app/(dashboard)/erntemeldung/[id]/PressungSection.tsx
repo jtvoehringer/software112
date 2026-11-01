@@ -135,9 +135,11 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone, onWarnung }: {
+function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, vorauswahl, onDone, onWarnung }: {
   /** KAN-359: Hinweis nach teilweisem Speichern – bleibt in der Pressungs-Karte stehen, wenn das Formular schließt */
   onWarnung: (text: string) => void
+  /** KAN-394: Options-IDs der vorbelegten Traubenzeile (erster Treffer) – nur beim Anlegen */
+  vorauswahl?: readonly string[] | null
   jahrgangId: string; leseId: string | null; leseArt: string | null; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
@@ -312,6 +314,13 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
     return tage.length > 1 && tage.some(t => t.datum === r.ernte_datum) ? `${ort}|${r.ernte_datum}` : `${ort}|`
   }
   const ausgewaehlt = new Set(wgRows.map(zeilenSchluessel))
+  // KAN-394: einmal beim Öffnen die Traubenzeile aus den Lesedaten übernehmen (beim Rendern statt im Effekt)
+  const [vorauswahlErledigt, setVorauswahlErledigt] = useState(!!pressung || !vorauswahl)
+  if (!vorauswahlErledigt) {
+    setVorauswahlErledigt(true)
+    const z = vorauswahl?.map(id => zeileAusOption(id)).find((r): r is WGRow => !!r)
+    if (z) setWgRows([z])
+  }
   /** Neue Traubenzeile aus einer Option (GST/Lesetag oder Zukauf) */
   function zeileHinzufuegen(val: string) {
     const z = zeileAusOption(val)
@@ -852,7 +861,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, leseId, leseArt, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk }: {
+export default function PressungSection({ jahrgangId, leseId, leseArt, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, vorauswahl }: {
   jahrgangId: string; pressungen: Pressung[]
   /** KAN-129: gewählte Lese (Reiter) – Pressungen und Lese-Einträge dieser Lese */
   leseId: string | null
@@ -863,8 +872,10 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; writeOk: boolean; adminOk: boolean
+  /** KAN-394: „Pressen“ aus den Lesedaten – Formular offen, Traubenzeile dieses Orts (Options-IDs, erster Treffer) */
+  vorauswahl?: readonly string[] | null
 }) {
-  const [showForm, setShowForm]    = useState(false)
+  const [showForm, setShowForm]    = useState(writeOk && !!vorauswahl)
   const [editId, setEditId]        = useState<string | null>(null)
   const [collapsed, setCollapsed]  = useState(false)
   // KAN-359: Hinweis nach teilweise gespeicherter Pressung (bleibt stehen, bis man ihn schließt)
@@ -952,7 +963,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
         <PressungForm jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions} behOptions={behOptions}
           waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST}
           zukaufTrauben={zukaufTrauben}
-          behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} onWarnung={setWarnung} />
+          behaelterMitCharge={behaelterMitCharge} vorauswahl={vorauswahl} onDone={() => setShowForm(false)} onWarnung={setWarnung} />
       )}
 
       {/* Pressung-Liste */}

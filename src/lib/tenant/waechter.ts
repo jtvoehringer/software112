@@ -15,6 +15,10 @@
 //  2. Erkennen: Meldung bzw. Rückkehr in den Tab (visibilitychange/focus/pageshow)
 //               → GET /api/betrieb/aktiv; weicht der Betrieb ab, sperrt components/BetriebsWaechter.tsx
 //               den Tab bis zum Neuladen.
+//     KAN-400: Ein Browser hat genau eine Anmeldung (Sitzungs-Cookie für alle Tabs). Meldet sich in einem anderen
+//               Tab ein anderer Benutzer an, sperrt der Wächter mit „Anderer Benutzer angemeldet“ – ohne „Zurück
+//               … wechseln“, das mit der Sitzung des anderen Benutzers nicht ginge. Meldung und Abfrage tragen
+//               dafür den Benutzer mit (userId, benutzer = E-Mail).
 //  3. Ablehnen: Schreibende Anfragen (Server Actions, POST/PUT/PATCH/DELETE an /api) tragen den
 //               Betrieb der Seite im Header SEITEN_BETRIEB_HEADER; Server Actions und API-Routen
 //               lehnen ab, wenn er nicht zum Cookie passt (lib/auth/seitenBetrieb.ts).
@@ -39,14 +43,19 @@ const PRUEF_TYP = 's112-betrieb-pruefen'
 const MAX_ID_LAENGE = 100
 const MAX_NAME_LAENGE = 200
 
-/** mandant = tenants.name – unterscheidet Betriebe mit gleichem (frei wählbarem) Anzeigenamen */
-export type Betrieb = { tenantId: string; name: string; mandant?: string }
+/**
+ * mandant = tenants.name – unterscheidet Betriebe mit gleichem (frei wählbarem) Anzeigenamen; userId/benutzer = der
+ * angemeldete Benutzer (KAN-400)
+ */
+export type Betrieb = { tenantId: string; name: string; mandant?: string; userId?: string; benutzer?: string }
+/** Angemeldeter Benutzer laut Server bzw. Meldung (KAN-400); benutzer = E-Mail, leer = unbekannt */
+export type Benutzer = { userId: string; benutzer: string }
 export type BetriebsMeldung = Betrieb & { typ: typeof MELDUNG_TYP; tab: string; zeit: number }
 /** „Bitte aktiven Betrieb prüfen“ – von Seiten außerhalb des Arbeitsbereichs (ohne Betrieb) */
 export type PruefMeldung = { typ: typeof PRUEF_TYP; tab: string; zeit: number }
 /** Warum geprüft wird: Rückkehr in den Tab (gedrosselt), Meldung eines anderen Tabs, Zurück-Cache */
 export type PruefAnlass = 'rueckkehr' | 'meldung' | 'erzwingen'
-export type AbfrageErgebnis = { ok: true; aktiv: Betrieb | null } | { ok: false }
+export type AbfrageErgebnis = { ok: true; aktiv: Betrieb | null; benutzer?: Benutzer | null } | { ok: false }
 
 function id(v: unknown): string | null {
   return typeof v === 'string' && v.trim() && v.length <= MAX_ID_LAENGE ? v.trim() : null
@@ -58,7 +67,10 @@ function name(v: unknown): string {
 
 function betriebAus(tenantId: string, m: Record<string, unknown>): Betrieb {
   const mandant = name(m.mandant)
-  return mandant ? { tenantId, name: name(m.name), mandant } : { tenantId, name: name(m.name) }
+  const b: Betrieb = mandant ? { tenantId, name: name(m.name), mandant } : { tenantId, name: name(m.name) }
+  const userId = id(m.userId)
+  if (userId) { b.userId = userId; b.benutzer = name(m.benutzer) }
+  return b
 }
 
 /** Ist dieser Tab gerade gesperrt? (Befehlspalette, AutoRefresh) */
@@ -70,6 +82,7 @@ export function istTabGesperrt(): boolean {
 export function meldungBauen(betrieb: Betrieb, tab: string, zeit: number = Date.now()): BetriebsMeldung {
   const m: BetriebsMeldung = { typ: MELDUNG_TYP, tenantId: betrieb.tenantId, name: betrieb.name, tab, zeit }
   if (betrieb.mandant) m.mandant = betrieb.mandant
+  if (betrieb.userId) { m.userId = betrieb.userId; m.benutzer = betrieb.benutzer ?? '' }
   return m
 }
 
@@ -107,6 +120,35 @@ export function aktivAusAntwort(roh: unknown): Betrieb | null {
   const m = roh as Record<string, unknown>
   const tenantId = id(m.tenantId)
   return tenantId ? betriebAus(tenantId, m) : null
+}
+
+/** Angemeldeter Benutzer aus GET /api/betrieb/aktiv (auch ohne Betrieb); null = keine Aussage */
+export function benutzerAusAntwort(roh: unknown): Benutzer | null {
+  if (!roh || typeof roh !== 'object') return null
+  const m = roh as Record<string, unknown>
+  const userId = id(m.userId)
+  return userId ? { userId, benutzer: name(m.benutzer) } : null
+}
+
+/**
+ * KAN-400: Ist inzwischen ein anderer Benutzer angemeldet? Wie sperrGrund: die Antwort des Servers zählt; nur wenn die
+ * Abfrage scheitert, die Meldung eines anderen Tabs. Ohne Benutzer der Seite (ältere Seite) nie.
+ */
+export function benutzerGewechselt(seitenUser: string | null | undefined, ergebnis: AbfrageErgebnis, hinweis?: Betrieb | null): Benutzer | null {
+  if (!seitenUser) return null
+  if (ergebnis.ok) return ergebnis.benutzer && ergebnis.benutzer.userId !== seitenUser ? ergebnis.benutzer : null
+  return hinweis?.userId && hinweis.userId !== seitenUser ? { userId: hinweis.userId, benutzer: hinweis.benutzer ?? '' } : null
+}
+
+/** Meldung eines anderen Tabs mit anderem Benutzer (dann beim Server nachfragen) */
+export function andererBenutzer(seitenUser: string | null | undefined, gemeldet: Betrieb | null | undefined): boolean {
+  return !!seitenUser && !!gemeldet?.userId && gemeldet.userId !== seitenUser
+}
+
+/** Text des Sperrdialogs bei einem Benutzerwechsel (KAN-400) */
+export function benutzerSperrText(benutzer: string): string {
+  const wer = benutzer ? `‚${benutzer}‘` : 'ein anderer Benutzer'
+  return `In diesem Browser ist jetzt ${wer} angemeldet (z. B. in einem anderen Tab oder Fenster). Ein Browser kann nur einen Benutzer gleichzeitig angemeldet haben – diese Seite gehört noch zur vorherigen Anmeldung. Bitte neu laden; danach arbeitest du als ${wer}.`
 }
 
 /** Muss der Tab gesperrt werden? Nur bei einer eindeutigen, abweichenden Aussage. */

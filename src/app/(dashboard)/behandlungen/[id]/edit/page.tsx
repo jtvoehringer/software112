@@ -55,7 +55,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         bbch_stadium, schaderreger, witterung, temperatur_c, notizen,
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
         einarbeitung, einarbeitung_zeitpunkt,
-        uhrzeit_von, uhrzeit_bis, durchgefuehrt_von, anwender_name, art_verwendung, storniert_am,
+        uhrzeit_von, uhrzeit_bis, durchgefuehrt_von, anwender_name, art_verwendung, storniert_am, tankmischung_id,
         bienenschutz_bestaetigt_am, bienenschutz_bestaetigt_von_name,
         weingarten_id, menge_gesamt, behandelte_flaeche_ha,
         weingarten:weingarten_id(name),
@@ -229,6 +229,19 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     )
   }
 
+  // KAN-398: Tankmischung – die übrigen Mittel desselben Tanks (gemeinsame Felder gelten beim Speichern für alle)
+  let mischung: string[] = []
+  if (b0.tankmischung_id) {
+    // storno-sichtbar: nur zur Anzeige; stornierte Mittel der Mischung bleiben außen vor
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const andere = geladen(await (supabase.from('behandlungen') as any)
+      .select('id, psm:psm_id(name)')
+      .eq('tenant_id', tenantId).eq('tankmischung_id', b0.tankmischung_id).neq('id', id).is('storniert_am', null)
+      .order('id')
+      .limit(50), 'Tankmischung')   // alle-ausnahme: Mittel einer einzigen Tankmischung (höchstens sechs)
+    mischung = ((andere ?? []) as AR[]).map(a => (a.psm?.name as string | undefined) ?? 'Mittel')
+  }
+
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
@@ -240,6 +253,12 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         <h1 className="text-2xl font-semibold text-s112-text">Maßnahme bearbeiten</h1>
         <p className="text-sm text-s112-muted mt-0.5">Daten korrigieren oder ergänzen</p>
       </div>
+      {mischung.length > 0 && (
+        <p role="note" className="mb-4 rounded-xl border border-s112-border bg-s112-bg px-4 py-3 text-sm text-s112-text-1">
+          Teil einer Tankmischung mit {mischung.join(', ')}. Datum, Uhrzeit, Witterung, Temperatur, BBCH-Stadium und Anwender
+          gelten beim Speichern für alle Mittel des Tanks; Mittel, Aufwandmenge, Spritzbrühe und Rieden nur für dieses Mittel.
+        </p>
+      )}
       <BehandlungEditForm
         behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus}
         kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}

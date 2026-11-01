@@ -184,7 +184,8 @@
 "version",
 "bienenschutz_bestaetigt_am",
 "bienenschutz_bestaetigt_von",
-"bienenschutz_bestaetigt_von_name"
+"bienenschutz_bestaetigt_von_name",
+"tankmischung_id"
 ],
 "benachrichtigungen": [
 "id",
