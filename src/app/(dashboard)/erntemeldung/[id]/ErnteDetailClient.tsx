@@ -28,6 +28,7 @@ import {
   trefferTeilweise, verteileKg, verteilungsHinweis, type LeseAuswahl, type LeseTreffer, type LeseZiel,
 } from '@/lib/wein/leseErfassung'
 import { heuteWien } from '@/lib/datum/wien'
+import { pressenHref, type PressenVerfuegbar } from '@/lib/wein/pressenLink'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 // Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – genau die
@@ -801,11 +802,23 @@ function ErnteAbschlussUmschalter({ jahrgangId, gstId, abgeschlossen, writeOk }:
   )
 }
 
-function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setEditId, jahrgangId, abgeschlossen }: {
+/** KAN-394: Ried-Name der Lese-Zeile – mit noch nicht verpresster Menge ein Link ins Pressungs-Formular */
+function RiedName({ p, href }: { p: ErnteParzelle; href: string | null }) {
+  if (!href) return <>{p.weingarten_name}</>
+  return (
+    <Link href={href} title="Pressen" className="text-s112-blue-700 hover:underline">
+      {p.weingarten_name}<span className="sr-only"> pressen</span>
+    </Link>
+  )
+}
+
+function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setEditId, jahrgangId, abgeschlossen, pressenLink }: {
   zeilen: ErnteParzelle[]; mehrereLesen: boolean; gesamtKg: number; writeOk: boolean
   editId: string | null; setEditId: (id: string | null) => void
   jahrgangId: string
   abgeschlossen: ReadonlySet<string>
+  /** KAN-394: Link „Pressen“ der Zeile bzw. null */
+  pressenLink: (p: ErnteParzelle) => string | null
 }) {
   return (
     <div className="md:hidden print:hidden space-y-2">
@@ -818,7 +831,7 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <p className={`text-sm font-medium ${p.storno ? 'text-s112-muted' : 'text-s112-text'}`}>
-                  {p.weingarten_name}
+                  <RiedName p={p} href={pressenLink(p)} />
                   {p.grundstueck_nr && <span className="ml-1.5 font-mono text-xs font-normal text-s112-muted">GST {p.grundstueck_nr}</span>}
                 </p>
                 <p className="text-xs text-s112-muted">
@@ -875,7 +888,7 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
 }
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, weingaerten, gstByWeingarten, abgeschlosseneGst, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt, erfassenOffen }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, weingaerten, gstByWeingarten, abgeschlosseneGst, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, pressenVerfuegbar, aktiveLeseNr, writeOk, adminOk, betriebName, csvErlaubt, erfassenOffen }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */
@@ -895,6 +908,8 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   hektarhoechstertrag: HektarhoechstertragStatus
   /** Pilot 30.09.2026: Pressungen stehen im Kellerbuch – hier nur Anzahl (gültige, gewählte Lese) und Verweis */
   pressungenAnzahl: number; pressungenHref: string
+  /** KAN-394: noch nicht verpresste kg der gewählten Lese je Grundstück bzw. Ried und deren Nummer – Link „Pressen“ */
+  pressenVerfuegbar: PressenVerfuegbar; aktiveLeseNr: number | null
   writeOk: boolean; adminOk: boolean
   /** Mandantenname für den Druckkopf (tenant_einstellungen.betrieb_name) */
   betriebName: string | null
@@ -923,6 +938,10 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   // KAN-148 Soll 9: stornierte ausblendbar
   const [stornierteZeigen, setStornierteZeigen] = useState(true)
   const tabellenZeilen = stornierteZeigen ? tabellenParzellen : gueltigeParzellen
+  // KAN-394: „Pressen“ nur mit Schreibrecht und für Zeilen der gewählten Lese (dafür gelten die verfügbaren kg)
+  const pressenLink = (p: ErnteParzelle) => writeOk
+    ? pressenHref(pressungenHref, p, pressenVerfuegbar, !mehrereLesen || p.lese_nr === aktiveLeseNr)
+    : null
   const gesamtKg = gueltigeParzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
   const mitAktionen = writeOk || adminOk
   // Spalten der Lesedaten-Tabelle: Ried, GST, Sorte, Datum, kg, Notizen, Mostgewicht, Qualität (+ Aktionen)
@@ -1001,7 +1020,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         )}
 
         {tabellenParzellen.length > 0 && (
-          <LesedatenKarten zeilen={tabellenZeilen} mehrereLesen={mehrereLesen} gesamtKg={gesamtKg}
+          <LesedatenKarten zeilen={tabellenZeilen} mehrereLesen={mehrereLesen} gesamtKg={gesamtKg} pressenLink={pressenLink}
             writeOk={writeOk} editId={editId} setEditId={id => { setEditId(id); setShowForm(false) }}
             jahrgangId={jahrgang.id} abgeschlossen={abgeschlossen} />
         )}
@@ -1041,7 +1060,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                     )}
                     <tr className={`group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 ${editId === p.id ? 'bg-s112-teal/5' : ''} ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
                       <td className="px-3 py-2 font-medium text-s112-text">
-                        {p.weingarten_name}
+                        <RiedName p={p} href={pressenLink(p)} />
                         {p.storno && (
                           <span className="block text-[11px] font-normal text-s112-warn-fg">
                             storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}

@@ -72,7 +72,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
   const {
     jg, writeOk, adminOk, crmSchreiben, betrieb, csvErlaubt, bkiErlaubt, lesen, lesenMitSperre, aktiveLese, aktiveLeseMitSperre,
     alleParzellen, parzellen, nachStichtag, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen,
-    verkauefe, tvQuelleOptions, zukaufTrauben, abgeschlosseneGst,
+    verkauefe, tvQuelleOptions, zukaufTrauben, abgeschlosseneGst, verfuegbareKg, verfuegbareKgByGST,
   } = await ladeLeseKontext(id, leseParam)
   const pressungenHref = `/kellerbuch/pressungen?jahrgang=${id}${aktiveLese && lesen.length > 1 ? `&lese=${aktiveLese.lfd_nr}` : ''}`
 
@@ -122,6 +122,8 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
         hektarhoechstertrag={hektarhoechstertrag}
         pressungenAnzahl={pressungen.filter(p => !p.storno).length}
         pressungenHref={pressungenHref}
+        pressenVerfuegbar={{ gst: verfuegbareKgByGST, wg: verfuegbareKg }}
+        aktiveLeseNr={aktiveLese?.lfd_nr ?? null}
         writeOk={writeOk}
         adminOk={adminOk}
         betriebName={betrieb.name}

@@ -10,11 +10,12 @@ import PressungSection from '@/app/(dashboard)/erntemeldung/[id]/PressungSection
 import { ladeLeseKontext } from '@/app/(dashboard)/erntemeldung/[id]/leseKontext'
 import { leseTitel } from '@/lib/wein/lesen'
 import { AktionsFehler } from '@/lib/fehler'
+import { pressenVorauswahl } from '@/lib/wein/pressenLink'
 
 export const metadata: Metadata = { title: 'Pressungen' }
 export const dynamic = 'force-dynamic'
 
-interface Props { searchParams: Promise<{ jahrgang?: string | string[]; lese?: string | string[] }> }
+interface Props { searchParams: Promise<{ jahrgang?: string | string[]; lese?: string | string[]; ried?: string | string[]; gst?: string | string[]; tag?: string | string[] }> }
 
 const einzeln = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
 
@@ -105,6 +106,7 @@ export default async function PressungenPage({ searchParams }: Props) {
         leseEintraege={k.leseEintraege}
         writeOk={k.writeOk}
         adminOk={k.adminOk}
+        vorauswahl={pressenVorauswahl(sp)}
       />
     </div>
   )
