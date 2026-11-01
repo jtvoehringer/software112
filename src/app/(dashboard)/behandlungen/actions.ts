@@ -26,6 +26,7 @@ import {
   anwenderAus, erfassungsverzugH, fristAus, fristRelevant, istArtVerwendung, nacherfassungHinweis, uhrzeitAus, uhrzeitFehler,
 } from '@/lib/behandlungen/erfassungsfrist'
 import { BIENENSCHUTZ_FELD, bienenschutzBestaetigtAm, bienenschutzFehler } from '@/lib/behandlungen/bienenschutz'
+import { erntefreiVerschoben, GEMEINSAME_SPALTEN, tankmischungFehler, weitereMittelAus } from '@/lib/behandlungen/tankmischung'
 
 /** KAN-169: Sperre nach der Lese der Ried (Trigger a_freeze_ernte) als verständliche Meldung, sonst der DB-Fehlertext */
 function massnahmeFehler(error: unknown, kontext: string): string {
@@ -437,6 +438,24 @@ async function anwendungSpalten(
   return spalten
 }
 
+/** Frühester Erntetermin = Datum + Wartezeit (Tage), durchgehend über UTC-Mitternacht (KAN-255) */
+function erntefreiAb(datum: string, wartezeit: number | null): string | null {
+  if (!datum || wartezeit == null) return null
+  const d = new Date(`${String(datum).slice(0, 10)}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + wartezeit)
+  return d.toISOString().split('T')[0]
+}
+
+/** KAN-398: Wartezeit eines weiteren Mittels der Tankmischung aus den Stammdaten (Katalog oder eigener Betrieb) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function psmWartezeit(supabase: any, tenantId: string, psmId: string): Promise<number | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('pflanzenschutzmittel') as any)
+    .select('wartezeit_tage').eq('id', psmId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Pflanzenschutzmittel konnte nicht geladen werden'))
+  return zahlOderNull((data as AR | null)?.wartezeit_tage)
+}
+
 /** Erfassungsfrist des Betriebs (Stunden, Standard 24) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladePsmFrist(supabase: any, tenantId: string): Promise<number> {
@@ -488,15 +507,15 @@ export async function createBehandlung(formData: FormData) {
   const einarbeitung    = einarbeitungAus(formData)   // KAN-154: nicht angehakt = false, nicht gesendet = null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 
-  await pruefeBioSperre(supabase, tenantId, psmId, duengemittelId)
+  // KAN-398: Tankmischung – weitere Mittel derselben Spritzbrühe (je Mittel eine Maßnahme, gemeinsame tankmischung_id)
+  const weitere = weitereMittelAus(formData)
+  const tmFehler = tankmischungFehler(art, psmId, weitere)
+  if (tmFehler) throw new AktionsFehler(tmFehler)
 
-  // Frühester Erntetermin berechnen
-  let ernteFruehesteins: string | null = null
-  if (datum && wartezeit != null) {
-    const d = new Date(`${String(datum).slice(0, 10)}T00:00:00Z`)   // KAN-255: durchgehend UTC (vorher lokales setDate)
-    d.setUTCDate(d.getUTCDate() + wartezeit)
-    ernteFruehesteins = d.toISOString().split('T')[0]
-  }
+  await pruefeBioSperre(supabase, tenantId, psmId, duengemittelId)
+  for (const w of weitere) await pruefeBioSperre(supabase, tenantId, w.psmId, null)
+
+  const ernteFruehesteins = erntefreiAb(datum, wartezeit)
 
   // 1. Betroffene Grundstücke ermitteln (vor dem Anlegen – ihre Fläche braucht die Mengenprüfung):
   //    a) alle aktiven Grundstücke der ganz ausgewählten Weingärten (Ried-Auswahl)
@@ -521,11 +540,37 @@ export async function createBehandlung(formData: FormData) {
   const bm = await betriebsmittelAus(supabase, tenantId, art, formData, psmId)   // KAN-167
   const anwendung = await anwendungSpalten(supabase, tenantId, formData, psmId, datum, datumBis, true)   // KAN-87
 
-  // 3. Behandlung anlegen – erfasst am/von setzt die Datenbank (Trigger b_erfassung) – Aufwand, Spritzbrühe/Düngermenge, Wasseraufwand und Reinkupfer aus der Prüfung
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: beh, error: behErr } = await (supabase.from('behandlungen') as any)
-    .insert({
+  // KAN-398: weitere Mittel der Tankmischung – Spritzbrühe und Wasseraufwand wie beim ersten Mittel, Aufwand je Mittel;
+  // Prüfung (Mengen, Uhrzeit/Bienenschutz, Wartezeit) je Mittel vor dem Anlegen, damit alle oder keine entstehen
+  const flaecheHa = summeFlaecheHa(Array.from(grundstueckeById.values(), g => g.flaeche_ha))
+  const weitereZeilen: Record<string, unknown>[] = []
+  const weitereHinweise: string[] = []
+  for (const [i, w] of weitere.entries()) {
+    const mw = pruefeMassnahmeMengen({
+      art, psmId: w.psmId,
+      ...(await ladeMengenStamm(supabase, tenantId, art, w.psmId, null)),
+      aufwand: w.aufwand, aufwandEinheit: w.einheit,
+      mengeGesamt: mengen.werte.menge_gesamt, mengeEinheit: mengen.werte.menge_einheit,
+      wasserLHa: mengen.werte.wasseraufwand_l_ha, konzentrationPct: null,
+      flaecheHa,
+    })
+    if (!mw.ok) throw new AktionsFehler(`Mittel ${i + 2} der Tankmischung: ${mw.fehler}`)
+    weitereHinweise.push(...mw.hinweise.map(h => `Mittel ${i + 2}: ${h}`))
+    weitereZeilen.push({
+      psm_id: w.psmId,
+      ...mw.werte,
+      ...(await anwendungSpalten(supabase, tenantId, formData, w.psmId, datum, datumBis, true)),
+      konzentration: null,
+      ernte_fruehesteins: erntefreiAb(datum, await psmWartezeit(supabase, tenantId, w.psmId)),
+    })
+  }
+  const tankmischungId = weitereZeilen.length > 0 ? crypto.randomUUID() : null
+
+  // 3. Behandlung anlegen – bei einer Tankmischung je Mittel eine, alle in einem Insert (alle oder keine) – erfasst am/von setzt die Datenbank (Trigger
+  //    b_erfassung) – Aufwand, Spritzbrühe/Düngermenge, Wasseraufwand und Reinkupfer aus der Prüfung
+  const hauptZeile: Record<string, unknown> = {
       tenant_id:            tenantId,
+      tankmischung_id:      tankmischungId,
       art,
       psm_id:               psmId,
       duengemittel_id:      duengemittelId,
@@ -547,20 +592,29 @@ export async function createBehandlung(formData: FormData) {
       laubarbeit_art:       laubarbeitArt,
       einarbeitung,
       einarbeitung_zeitpunkt: einarbeitungZeitpunkt,
-    })
-    .select('id')
-    .single()
+  }
+  // weitere Mittel: gemeinsame Angaben des ersten Mittels; Mittel, Mengen, Anwendung und Wartezeit je Mittel
+  const zeilen = [hauptZeile, ...weitereZeilen.map(z => ({ ...hauptZeile, ...z }))]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const einfuegen = (supabase.from('behandlungen') as any)
+    .insert(zeilen.length === 1 ? hauptZeile : zeilen)
+    .select('id, psm_id')
+  // ein Mittel wie bisher als Einzelsatz, eine Tankmischung als Liste
+  const { data: beh, error: behErr } = zeilen.length === 1 ? await einfuegen.single() : await einfuegen
 
   if (behErr) throw new AktionsFehler((behErr as AR).message)
-  const behandlungId = (beh as AR).id
+  const angelegt = (Array.isArray(beh) ? beh : beh ? [beh] : []) as AR[]
+  if (angelegt.length !== zeilen.length) throw new AktionsFehler(NICHT_GESPEICHERT)
+  // erstes Mittel = Maßnahme für Kosten und Rückgabe (Reihenfolge der Antwort nicht vorausgesetzt)
+  const behandlungId = (angelegt.find(b => b.psm_id === psmId) ?? angelegt[0]).id as string
 
-  // 4. Junction-Records anlegen (betroffene Grundstücke + flaeche_ha Snapshot, dedupliziert)
+  // 4. Junction-Records anlegen (betroffene Grundstücke + flaeche_ha Snapshot, dedupliziert) – für jedes Mittel
   if (grundstueckeById.size > 0) {
-    const junctionRows = Array.from(grundstueckeById.values()).map(g => ({
-      behandlung_id:  behandlungId,
+    const junctionRows = angelegt.flatMap(b => Array.from(grundstueckeById.values(), g => ({
+      behandlung_id:  b.id,
       grundstueck_id: g.id,
       flaeche_ha:     g.flaeche_ha ?? null,
-    }))
+    })))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: jErr } = await (supabase.from('behandlung_grundstuecke') as any).insert(junctionRows)
     if (jErr) throw new AktionsFehler((jErr as AR).message)
@@ -579,14 +633,14 @@ export async function createBehandlung(formData: FormData) {
   revalidatePath('/behandlungen')
   // KAN-87: Nacherfassung über der Frist (Pflanzenschutz und Düngung, ab Tagesende) – Hinweis, gespeichert wird
   // trotzdem (Markierung in der Liste)
-  const hinweise = [...mengen.hinweise]
+  const hinweise = [...mengen.hinweise, ...weitereHinweise]
   if (fristRelevant({ art, psmId })) {
     const frist = await ladePsmFrist(supabase, tenantId)
     const nach = nacherfassungHinweis(erfassungsverzugH({ datum, datumBis }, Date.now()), frist)
     if (nach) hinweise.push(nach)
   }
   // hinweise: gespeichert, aber prüfenswert (z. B. Spritzbrühe ≠ Wasseraufwand × Fläche) – für Formular und Assistent
-  return { id: behandlungId, hinweise }
+  return { id: behandlungId, ids: angelegt.map(b => b.id as string), hinweise }
 }
 
 export async function updateBehandlung(id: string, formData: FormData) {
@@ -629,19 +683,14 @@ export async function updateBehandlung(id: string, formData: FormData) {
 
   await pruefeBioSperre(supabase, tenantId, psmId, duengemittelId)   // KAN-154: wie beim Anlegen
 
-  let ernteFruehesteins: string | null = null
-  if (datum && wartezeit != null) {
-    const d = new Date(`${String(datum).slice(0, 10)}T00:00:00Z`)   // KAN-255: durchgehend UTC (vorher lokales setDate)
-    d.setUTCDate(d.getUTCDate() + wartezeit)
-    ernteFruehesteins = d.toISOString().split('T')[0]
-  }
+  const ernteFruehesteins = erntefreiAb(datum, wartezeit)
 
   // Mengen prüfen und ergänzen (KAN-133) – Fläche = Σ der Grundstücke dieser Maßnahme. behandlung_grundstuecke hat
   // keine tenant_id, daher eingebettet über die Maßnahme des Betriebs.
   // storno-sichtbar: Einzelsatz – eine stornierte Maßnahme lehnt die Prüfung darunter ab (KAN-88)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bisher, error: bisherErr } = await (supabase.from('behandlungen') as any)
-    .select('id, betriebsmittel_id, storniert_am, behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
+    .select('id, datum, tankmischung_id, betriebsmittel_id, storniert_am, behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -676,6 +725,9 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const bm = await betriebsmittelAus(supabase, tenantId, art, formData, psmId, (bisher as AR).betriebsmittel_id ?? null)   // KAN-167
   const anwendung = await anwendungSpalten(supabase, tenantId, formData, psmId, datum, datumBis, false)   // KAN-87 (erfasst am/von bleibt)
 
+  const tankmischungId = ((bisher as AR).tankmischung_id as string | null) ?? null
+  if (tankmischungId && art !== 'spritzung') throw new AktionsFehler('Die Maßnahme gehört zu einer Tankmischung und bleibt eine Spritzung – für eine andere Art bitte stornieren und neu erfassen.')
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: geaendert, error } = await (supabase.from('behandlungen') as any)
     .update({
@@ -694,6 +746,31 @@ export async function updateBehandlung(id: string, formData: FormData) {
     .eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(massnahmeFehler(error, 'Speichern fehlgeschlagen'))
   if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
+
+  // KAN-398: Tankmischung – Datum, Uhrzeit, Witterung, BBCH und Anwender gelten für alle Mittel des Tanks; „Erntefrei
+  // ab“ der anderen Mittel verschiebt sich um dieselben Tage wie das Datum
+  if (tankmischungId) {
+    const neu: Record<string, unknown> = {
+      datum, datum_bis: datumBis, witterung, temperatur_c: temperatur, bbch_stadium: bbch, ...anwendung,
+    }
+    const gemeinsam = Object.fromEntries(GEMEINSAME_SPALTEN.filter(sp => sp in neu).map(sp => [sp, neu[sp]]))
+    // storno-sichtbar: stornierte Mittel der Mischung bleiben unverändert (s112_storno_schutz)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: andere, error: aErr } = await (supabase.from('behandlungen') as any)
+      .select('id, ernte_fruehesteins')
+      .eq('tenant_id', tenantId).eq('tankmischung_id', tankmischungId).neq('id', id).is('storniert_am', null)
+      .order('id')
+      .limit(50)   // alle-ausnahme: Mittel einer einzigen Tankmischung (höchstens sechs)
+    if (aErr) throw new AktionsFehler(dbFehlerText(aErr, 'Gespeichert, aber die übrigen Mittel der Tankmischung konnten nicht geladen werden'))
+    for (const a of (andere ?? []) as AR[]) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: ok, error: e } = await (supabase.from('behandlungen') as any)
+        .update({ ...gemeinsam, ernte_fruehesteins: erntefreiVerschoben(a.ernte_fruehesteins ?? null, String((bisher as AR).datum), datum) })
+        .eq('id', a.id).eq('tenant_id', tenantId).select('id')
+      if (e) throw new AktionsFehler(massnahmeFehler(e, 'Gespeichert, aber ein weiteres Mittel der Tankmischung konnte nicht angepasst werden'))
+      if (!(ok as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)
+    }
+  }
 
   if (neueGst) {
     const bisherIds = new Set(bisherBG.map(bg => String(bg.grundstueck_id)))
@@ -746,6 +823,36 @@ export async function stornoBehandlung(id: string, grund: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: e } = await (supabase.from('kosteneintraege') as any).delete().eq('behandlung_id', id).eq('tenant_id', tenantId)
     if (e) throw new AktionsFehler(`Storniert, aber der Kosteneintrag der Maßnahme konnte nicht entfernt werden: ${dbFehlerText(e)}`)
+    revalidatePath('/controlling/kostenrechnung')
+  }
+  revalidatePath('/behandlungen')
+  revalidatePath('/behandlungen/berichte')
+  revalidatePath('/behandlungen/lager')
+}
+
+/**
+ * KAN-398: alle (noch nicht stornierten) Mittel einer Tankmischung in einem Schritt stornieren – eine Anweisung, also
+ * alle oder keines (z. B. bei der Sperre nach der Lese, KAN-169). Kosteneinträge gehen mit wie bei stornoBehandlung.
+ */
+export async function stornoTankmischung(tankmischungId: string, grund: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('behandlungen') as any)
+    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
+    .eq('tenant_id', tenantId).eq('tankmischung_id', tankmischungId).is('storniert_am', null)
+    .select('id')
+  if (error) throw new AktionsFehler(massnahmeFehler(error, 'Storno fehlgeschlagen'))
+  const ids = ((data ?? []) as AR[]).map(b => b.id as string)
+  if (ids.length === 0) throw new AktionsFehler('Die Tankmischung wurde nicht gefunden oder ist schon storniert – bitte die Seite neu laden.')
+  if (await hatModul('modul_controlling')) {
+    // loeschen-ohne-pruefung: nicht jedes Mittel hat einen Kosteneintrag – 0 Zeilen sind in Ordnung
+    // alle-ausnahme: Mittel einer einzigen Tankmischung (höchstens sechs)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: e } = await (supabase.from('kosteneintraege') as any).delete().in('behandlung_id', ids).eq('tenant_id', tenantId)
+    if (e) throw new AktionsFehler(`Storniert, aber der Kosteneintrag der Tankmischung konnte nicht entfernt werden: ${dbFehlerText(e)}`)
     revalidatePath('/controlling/kostenrechnung')
   }
   revalidatePath('/behandlungen')

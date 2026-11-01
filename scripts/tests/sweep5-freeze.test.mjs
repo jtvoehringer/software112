@@ -104,7 +104,7 @@ describe('Sweep 5: Verdrahtung', () => {
     assert.match(e, /<FreezeKorrektur tabelle="behandlungen"/)
     assert.match(e, /betriebsleitung && \(/)
     const a = quelle(`${D}/behandlungen/actions.ts`)
-    assert.equal((a.match(/massnahmeFehler\(error, '/g) ?? []).length, 2)
+    assert.equal((a.match(/massnahmeFehler\(error, '/g) ?? []).length, 3)   // Bearbeiten, Storno, Storno der Tankmischung (KAN-398)
   })
   test('Korrektur-Baustein nur für die Betriebsleitung: Füllung, Kellerbehandlung, Charge', () => {
     const f = quelle(`${D}/weinhandel/fuellungen/[id]/edit/page.tsx`)

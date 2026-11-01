@@ -44,6 +44,8 @@ export type Behandlung = {
   storniert_am: string | null
   storniert_von_name: string | null
   storno_grund: string | null
+  /** KAN-398: Mittel derselben Tankmischung tragen dieselbe ID, sonst null */
+  tankmischung_id: string | null
   /** KAN-87: „nacherfasst (+n h)“ über der Erfassungsfrist (Pflanzenschutz und Düngung), sonst null */
   nacherfasst: string | null
   erfassung_ampel: ErfassungsAmpel | null
@@ -71,7 +73,7 @@ export default async function BehandlungenPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('behandlungen') as any)
       .select(`
-        id, datum, datum_bis, created_at, psm_id, art, storniert_am, storniert_von_name, storno_grund, weingarten_id, aufwandmenge, aufwandmenge_einheit,
+        id, datum, datum_bis, created_at, psm_id, art, storniert_am, storniert_von_name, storno_grund, tankmischung_id, weingarten_id, aufwandmenge, aufwandmenge_einheit,
         bbch_stadium, witterung, ernte_fruehesteins, notizen,
         weingarten:weingarten_id ( name, ried ),
         psm:psm_id ( name, wartezeit_tage ),
@@ -140,6 +142,7 @@ export default async function BehandlungenPage() {
       storniert_am:         b.storniert_am ?? null,
       storniert_von_name:   b.storniert_von_name ?? null,
       storno_grund:         b.storno_grund ?? null,
+      tankmischung_id:      b.tankmischung_id ?? null,
       nacherfasst:          nacherfasstText(verzug, psmFristH),
       erfassung_ampel:      verzug === null ? null : erfassungsAmpel(verzug, psmFristH),
       ernte_gesperrt:       null,

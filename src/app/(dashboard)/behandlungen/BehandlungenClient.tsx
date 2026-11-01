@@ -3,13 +3,14 @@
 import { useState, useSyncExternalStore, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Lock, Pencil } from 'lucide-react'
-import { loescheBehandlung, stornoBehandlung } from './actions'
+import { loescheBehandlung, stornoBehandlung, stornoTankmischung } from './actions'
 import StornoButton from '@/components/StornoButton'
 import type { Behandlung } from './page'
 import { fmtNum } from '@/lib/format'
 import { MASSNAHMEN_ART_LABEL, artFilterOptionen, filterMassnahmen } from '@/lib/behandlungen/arten'
 import { heuteWien } from '@/lib/datum/wien'
 import { nachDatumGruppiert, richtungAus, RICHTUNG_SPEICHER, RICHTUNG_VORGABE, type Richtung } from '@/lib/behandlungen/sortierung'
+import { mischungsInfo, mischungZusammen } from '@/lib/behandlungen/tankmischung'
 
 const WITTERUNG_LABEL: Record<string, string> = {
   sonnig: 'Sonnig', bewoelkt: 'Bewölkt',
@@ -103,7 +104,10 @@ export default function BehandlungenClient({
   const artOptionen = artFilterOptionen(behandlungen)
   const gefiltert = filterMassnahmen(behandlungen, artFilter, filter)
 
-  const grouped = nachDatumGruppiert(gefiltert, richtung)
+  // KAN-398: Mittel einer Tankmischung stehen direkt hintereinander und sind als Mischung gekennzeichnet
+  const grouped = nachDatumGruppiert(gefiltert, richtung).map(([d, g]) => [d, mischungZusammen(g)] as const)
+  // gezählt werden nur nicht stornierte Mittel (Kennzeichen „n/m“, gemeinsamer Storno an der ersten offenen Zeile)
+  const mischung = mischungsInfo(behandlungen.filter(b => !b.storniert_am))
 
   if (behandlungen.length === 0) {
     return (
@@ -175,14 +179,20 @@ export default function BehandlungenClient({
                 </tr>
               </thead>
               <tbody>
-                {gruppe.map(b => (
-                  <tr key={b.id} className={`border-b border-s112-border/40 last:border-0 transition-colors ${b.storniert_am ? 'opacity-70' : 'hover:bg-s112-bg/30'}`}>
+                {gruppe.map(b => { const tm = mischung.get(b.id); return (
+                  <tr key={b.id} className={`border-b border-s112-border/40 last:border-0 transition-colors ${b.storniert_am ? 'opacity-70' : 'hover:bg-s112-bg/30'} ${tm ? 'border-l-4 border-l-s112-teal/50' : ''}`}>
                     {/* Maßnahme hervorgehoben: Mittel (bzw. Art) fett, Art als Kennzeichen */}
                     <td className="px-4 py-2.5 align-top">
                       <div className={`font-semibold text-s112-text ${b.storniert_am ? 'line-through' : ''}`}>{b.psm_name ?? ART_LABEL[b.art] ?? b.art}</div>
                       <span className="inline-block mt-0.5 text-[11px] text-s112-text-2 bg-[#F2F3F5] px-2 py-0.5 rounded-full">
                         {ART_LABEL[b.art] ?? b.art}
                       </span>
+                      {tm && (
+                        <span className="inline-block mt-0.5 ml-1 text-[11px] text-s112-teal bg-s112-teal/10 px-2 py-0.5 rounded-full"
+                          title="Mehrere Mittel in derselben Spritzbrühe – je Mittel eine Maßnahme">
+                          Tankmischung {tm.nr}/{tm.anzahl}
+                        </span>
+                      )}
                       {/* KAN-87: Pflanzenschutz-Aufzeichnung über der Erfassungsfrist */}
                       {b.nacherfasst && (
                         <span className={`inline-block mt-0.5 ml-1 text-[11px] px-2 py-0.5 rounded-full ${b.erfassung_ampel === 'rot' ? 'bg-s112-err-bg text-s112-err-fg' : 'bg-s112-warn-bg text-s112-warn-fg'}`}
@@ -250,14 +260,19 @@ export default function BehandlungenClient({
                               </Link>
                               {/* KAN-88: stornieren statt löschen – auch Mitarbeiter mit Schreibrecht Rieden */}
                               <StornoButton action={grund => stornoBehandlung(b.id, grund)}
-                                hinweis="Die Maßnahme bleibt als storniert stehen und zählt nicht mehr zu Lager, Bilanzen und Meldungen; ein automatischer Kosteneintrag wird entfernt." />
+                                hinweis={tm ? 'Nur dieses Mittel der Tankmischung: Es bleibt als storniert stehen und zählt nicht mehr zu Lager, Bilanzen und Meldungen.' : 'Die Maßnahme bleibt als storniert stehen und zählt nicht mehr zu Lager, Bilanzen und Meldungen; ein automatischer Kosteneintrag wird entfernt.'} />
+                              {/* KAN-398: ganze Tankmischung in einem Schritt (alle oder keines) */}
+                              {tm?.erste && b.tankmischung_id && (
+                                <StornoButton label="Tankmischung stornieren" action={grund => stornoTankmischung(b.tankmischung_id!, grund)}
+                                  hinweis={`Alle ${tm.anzahl} Mittel dieser Tankmischung werden storniert, zählen nicht mehr zu Lager, Bilanzen und Meldungen; Kosteneinträge werden entfernt.`} />
+                              )}
                             </>
                           )}
                         </div>
                       </td>
                     )}
                   </tr>
-                ))}
+                ) })}
               </tbody>
             </table>
           </div>

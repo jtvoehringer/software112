@@ -184,7 +184,7 @@ describe('KAN-87 Verdrahtung', () => {
     assert.match(a, /const anwendung = await anwendungSpalten\(supabase, tenantId, formData, psmId, datum, datumBis, true\)/)
     assert.match(a, /const anwendung = await anwendungSpalten\(supabase, tenantId, formData, psmId, datum, datumBis, false\)/)
     assert.match(a, /nacherfassungHinweis\(erfassungsverzugH\(/)
-    assert.match(a, /return \{ id: behandlungId, hinweise \}/)
+    assert.match(a, /return \{ id: behandlungId, ids: angelegt\.map\(b => b\.id as string\), hinweise \}/)   // KAN-398: ids aller Mittel der Tankmischung
     // erfasst am/von schreibt die App nie selbst (Trigger b_erfassung)
     assert.doesNotMatch(a, /erfasst_von:|created_at:/)
   })
