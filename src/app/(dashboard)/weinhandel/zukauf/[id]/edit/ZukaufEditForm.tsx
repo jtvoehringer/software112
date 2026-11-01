@@ -21,7 +21,7 @@ import { herkunftOptionen } from '@/lib/herkunft'
 import { flaschenPruefnummerPflicht, herkunftAnzeige, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
 import { pruefnummerLabel } from '@/lib/zukauf/pruefnummerLabel'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
-import { rundText } from '@/lib/zahl/runden'
+import { preisFelder, type PreisQuelle } from '@/lib/zukauf/preis'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
 import { ZUKAUF_ERLAUBT_TROTZ_SPERRE } from '@/lib/zukauf/merkmalSperre'
@@ -213,9 +213,14 @@ export default function ZukaufEditForm({
     }).catch(() => {})
   }, [])
 
-  const preisProEinheit = menge && preisGesamt && parseFloat(menge) > 0
-    ? rundText(parseFloat(preisGesamt) / parseFloat(menge), 4)
-    : null
+  // KAN-397: Gesamtpreis und Preis je Einheit gekoppelt – das zuletzt bearbeitete Feld ist die Eingabe
+  const [preisEinheit, setPreisEinheit] = useState(() => preisFelder(initial.menge, initial.preis_gesamt, '', 'gesamt').einheit)
+  const [preisQuelle, setPreisQuelle] = useState<PreisQuelle>('gesamt')
+  function preisAendern(m: string, gesamt: string, proEinheit: string, quelle: PreisQuelle) {
+    const f = preisFelder(m, gesamt, proEinheit, quelle)
+    setPreisGesamt(f.gesamt); setPreisEinheit(f.einheit); setPreisQuelle(quelle)
+  }
+  const preisProEinheit = preisEinheit || null
 
   // Einstandspreis je Liter aus dem Preis vorbelegen, sobald sich Preis oder Einheit ändern – beim Rendern statt im
   // Effekt; Startwert null, damit es wie bisher auch beim ersten Anzeigen greift
@@ -541,7 +546,7 @@ export default function ZukaufEditForm({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>Menge *</label>
-              <input aria-label="Menge" type="number" value={menge} onChange={e => setMenge(e.target.value)}
+              <input aria-label="Menge" type="number" value={menge} onChange={e => { setMenge(e.target.value); preisAendern(e.target.value, preisGesamt, preisEinheit, preisQuelle) }}
                 required min="0.001" step="0.001" placeholder="0"
                 readOnly={mengeGesperrt} aria-readonly={mengeGesperrt}
                 className={inputCls + ' w-full' + (mengeGesperrt ? ' bg-s112-bg text-s112-muted cursor-not-allowed' : '')} />
@@ -559,16 +564,17 @@ export default function ZukaufEditForm({
             </div>
             <div>
               <label className={labelCls}>Gesamtpreis (€)</label>
-              <input aria-label="Gesamtpreis (€)" type="number" value={preisGesamt} onChange={e => setPreisGesamt(e.target.value)}
-                step="0.01" min="0" placeholder="0,00" className={inputCls + ' w-full'} />
+              <input aria-label="Gesamtpreis (€)" type="number" value={preisGesamt} onChange={e => preisAendern(menge, e.target.value, preisEinheit, 'gesamt')}
+                step="0.01" min="0" placeholder="0,00"
+                className={inputCls + ' w-full' + (preisQuelle === 'einheit' && preisGesamt ? ' border-dashed text-s112-text-2' : '')} />
+              {preisQuelle === 'einheit' && preisGesamt && <p className="text-xs text-s112-muted mt-1">≈ berechnet aus Preis / {einheit}</p>}
             </div>
             <div>
-              <label className={labelCls}>Preis / {einheit}</label>
-              <div className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed text-right tabular-nums'}>
-                {preisProEinheit != null
-                  ? `€ ${fmtNum(Number(preisProEinheit), { min: 2, max: 4 })}`
-                  : '–'}
-              </div>
+              <label className={labelCls}>Preis / {einheit} (€)</label>
+              <input aria-label={`Preis / ${einheit} (€)`} type="number" value={preisEinheit} onChange={e => preisAendern(menge, preisGesamt, e.target.value, 'einheit')}
+                step="0.0001" min="0" placeholder="0,00"
+                className={inputCls + ' w-full' + (preisQuelle === 'gesamt' && preisEinheit ? ' border-dashed text-s112-text-2' : '')} />
+              {preisQuelle === 'gesamt' && preisEinheit && <p className="text-xs text-s112-muted mt-1">≈ berechnet aus Gesamtpreis</p>}
             </div>
             {(art === 'wein' || art === 'most') && (
               <div>

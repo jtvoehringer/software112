@@ -94,7 +94,8 @@ describe('Verdrahtung Lese (Quelltext)', () => {
     assert.doesNotMatch(client, /name="oechsle"/)
     assert.doesNotMatch(client, /name="klosterneuburger"/)
     // gemeinsam (nur ganze Rieden) mit Qualitätsvorschau, je Grundstück, Bearbeiten
-    assert.match(client, /<MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau \/>/)
+    // KAN-393: meldet die °KMW für die Auswahl „Abstufen auf“
+    assert.match(client, /<MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau\s+onChange=\{wert => setMgGemeinsam\(wert\?\.kmw \?\? null\)\} \/>/)
     assert.match(client, /name=\{`gst_\$\{gstId\}_mostgewicht`\}/)
     assert.match(client, /<MostgewichtEingabe name="mostgewicht" startwert=\{mgStart\}/)
     // je Grundstück: Messwert + Einheit ins JSON, ungültige Eingabe blockiert das Absenden

@@ -37,6 +37,20 @@ export function leseStufeGedeckelt(obergrenze: string, abstufenAuf: string | nul
   return abstufungFehler(abstufenAuf, obergrenze) ? obergrenze : abstufenAuf
 }
 
+/**
+ * KAN-393: Auswahl „Abstufen auf“ der Sammelerfassung – nur Stufen UNTER der höchsten Obergrenze der Zeilen
+ * (°KMW je Zeile, null = ohne Mostgewicht; ohne Zeilen zählt das gemeinsame Mostgewicht als eine Zeile).
+ * Eiswein nur bei einer Eiswein-Lese. Jede Zeile wird beim Speichern zusätzlich auf ihre Obergrenze gedeckelt.
+ * `liste` = Stufenliste der Zieltabelle (LESE_QUALITAETEN, vom Formular übergeben – Wächter qualitaet.test.mjs).
+ */
+export function sammelAbstufenOptionen(liste: readonly QualitaetsOption[], leseArt: string | null | undefined, kmwJeZeile: readonly (number | null | undefined)[]): readonly QualitaetsOption[] {
+  const grenzen = (kmwJeZeile.length > 0 ? kmwJeZeile : [null]).map(k => leseObergrenze(leseArt, k))
+  const hoechste = grenzen.reduce((a, b) => (abstufungFehler(b, a) ? b : a))
+  const max = liste.find(o => o.value === hoechste)?.rang ?? 2
+  return liste.filter(o => o.rang < max && (leseArt === 'eiswein' || o.value !== 'eiswein'))
+    .slice().sort((a, b) => b.rang - a.rang)
+}
+
 /** Obergrenze der Herkunft: Code des Grundstücks, nach dem Sortenspiegel abgestuft */
 export function leseHerkunftObergrenze(gstHerkunft: string | null | undefined, rebsorte: string | null | undefined): { code: string | null; sortenspiegel: boolean } {
   const p = findePassendeHerkunftsstufe(gstHerkunft ?? null, rebsorte ?? null)
