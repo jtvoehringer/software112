@@ -43,7 +43,9 @@ describe('Verdrahtung in ErnteDetailClient', () => {
 
   test('nur erntebare Weingärten, Hinweis auf die ausgeblendeten', () => {
     assert.match(form, /weingaerten: alleWeingaerten/)
-    assert.match(form, /const weingaerten = alleWeingaerten\.filter\(w => w\.erntebar\)/)
+    // KAN-392: zusätzlich ohne Rieden, deren Grundstücke alle „Ernte abgeschlossen“ haben
+    assert.match(form, /const weingaerten = alleWeingaerten\.filter\(w => w\.erntebar && /)
+    assert.match(form, /const ausgeblendet = alleWeingaerten\.filter\(w => !w\.erntebar\)\.length/)
     assert.match(form, /ausgeblendet > 0 &&/)
   })
 

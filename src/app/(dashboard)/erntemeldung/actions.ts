@@ -27,7 +27,7 @@ import { amaDatumFehler, amaStatusFehler, type AmaZielStatus } from '@/lib/behoe
 import { abgabeErzeugen } from '@/lib/behoerden/abgabe'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import { abrunden, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } from '@/lib/wein/mostgewicht'
-import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
+import { istErntebar, leseZiele, ohneAbgeschlossene, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
 import { ladeFassungen, type FassungGebinde } from '@/lib/keller/fassungsvermoegen'
 import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseStufe, leseZeitraumFehler } from '@/lib/wein/lesen'
@@ -718,6 +718,15 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
     }
     wiJeWg[wgId] = wi.map(g => ({ id: g.id, flaeche_ha: g.flaeche_ha ?? null }))
   }
+  // KAN-392: eine ganz gewählte Ried umfasst nur ihre Grundstücke ohne abgeschlossene Ernte (wie das Formular) –
+  // außer das Formular zeigt die abgeschlossenen („anzeigen“, z. B. Nachlese); einzeln gewählte bleiben immer
+  if (formData.get('mit_abgeschlossenen') !== '1' && ganzOderOhneGst.length > 0) {
+    const offen = ohneAbgeschlossene(wiJeWg, await ladeAbgeschlosseneGst(supabase, tenantId, jahrgangId))
+    for (const wgId of offen.rieden) {
+      throw new AktionsFehler(`Die Ernte aller Grundstücke von „${wgMap.get(wgId)?.name ?? 'Ried'}“ ist abgeschlossen – zum Nachlesen über „anzeigen“ einblenden.`)
+    }
+    Object.assign(wiJeWg, offen.gst)
+  }
   for (const id of einzelIds) {
     const liste = wiJeWg[wgVonGst(id)] ?? []
     if (!liste.some(x => x.id === id)) wiJeWg[wgVonGst(id)] = [...liste, { id, flaeche_ha: gstStammdatenMap.get(id)!.flaeche_ha ?? null }]
@@ -810,7 +819,26 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('ernte_parzellen') as any).insert(rows)
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (ernte_parzellen)'))
+  // KAN-392: angehakte Zeilen „Ernte abgeschlossen“ – nur Grundstücke dieser Lese
+  const abschliessen = [...new Set(formData.getAll('abschliessen_gst') as string[])]
+    .filter(id => ziele.some(z => z.grundstueck_id === id))
+  if (abschliessen.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: abFehler } = await (supabase.from('ernte_gst_abgeschlossen') as any)
+      .upsert(abschliessen.map(id => ({ tenant_id: tenantId, jahrgang_id: jahrgangId, grundstueck_id: id })),
+        { onConflict: 'jahrgang_id,grundstueck_id', ignoreDuplicates: true })
+    if (abFehler) throw new AktionsFehler(dbFehlerText(abFehler, 'Die Lese ist gespeichert, „Ernte abgeschlossen“ konnte aber nicht gesetzt werden'))
+  }
   revalidatePath(`/erntemeldung/${jahrgangId}`)
+}
+
+/** KAN-392: Grundstücke mit abgeschlossener Ernte im Jahrgang */
+async function ladeAbgeschlosseneGst(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, tenantId: string, jahrgangId: string): Promise<Set<string>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await alle<AR>((supabase.from('ernte_gst_abgeschlossen') as any)
+    .select('id, grundstueck_id').eq('tenant_id', tenantId).eq('jahrgang_id', jahrgangId).order('id'))
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Abgeschlossene Ernte konnte nicht geladen werden'))
+  return new Set(((data ?? []) as AR[]).map(z => z.grundstueck_id as string))
 }
 
 // KAN-148 C1b (30.09.2026): Lesedaten stornieren statt löschen – der Eintrag bleibt mit Datum, Benutzer und Grund

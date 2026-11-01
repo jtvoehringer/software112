@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useTransition } from 'react'
 import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, createMultipleErnteParzellen } from '../actions'
+import { ernteGstAbschliessen } from '../ernteAbschluss'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { abgestuftVon, gemeinsameHerkunftOptionen, leseHerkunftObergrenze, leseHerkunftOptionen, leseObergrenze, leseStufeFehler, leseStufenOptionen } from '@/lib/wein/leseAbstufung'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
@@ -23,7 +24,7 @@ import { messwertText, type GespeichertesMostgewicht } from '@/lib/wein/mostgewi
 import { ZEILE_OHNE_MOSTGEWICHT, zeileMostgewichtAendern, type EingabeZustand, type ZeilenMostgewicht } from '@/lib/wein/mostgewichtEingabe'
 import { riedGruppen, istEinzelRied, weingartenZusatz } from '@/lib/wein/riedAuswahl'
 import {
-  alleKnopfText, bezugsflaeche, leseSuche, leseTreffer, leseZiele, trefferAusgewaehlt, trefferEntfernen, trefferHinzufuegen,
+  abgeschlossenHinweis, alleKnopfText, bezugsflaeche, leseSuche, ohneAbgeschlossene, leseTreffer, leseZiele, trefferAusgewaehlt, trefferEntfernen, trefferHinzufuegen,
   trefferTeilweise, verteileKg, verteilungsHinweis, type LeseAuswahl, type LeseTreffer, type LeseZiel,
 } from '@/lib/wein/leseErfassung'
 import { heuteWien } from '@/lib/datum/wien'
@@ -121,8 +122,10 @@ function NotizZelle({ text }: { text: string | null }) {
 // KAN-162: Suche nach Ried, Lage, AMA-Feldstücknummer und GST-Nummer; „Alle Treffer auswählen“ wirkt nur auf Treffer.
 // Pilot-Rückmeldung 29.09.2026: nicht erntebare Weingärten (nur Acker, Grünland, Brache …) gar nicht anbieten;
 // eine Ried mit genau einem Weingarten als EINE Zeile (statt Ried-Kopf und gleichnamigem Weingarten darunter).
+// KAN-392: Grundstücke mit abgeschlossener Ernte (Kästchen je Zeile bzw. Umschalter in den Lesedaten) sind ausgeblendet,
+// eine Ried mit nur abgeschlossenen Grundstücken ganz; „anzeigen“ blendet sie für eine Nachlese ein.
 function NeueParzellenForm({
-  jahrgangId, leseId, leseArt, weingaerten: alleWeingaerten, gstByWeingarten, onDone,
+  jahrgangId, leseId, leseArt, weingaerten: alleWeingaerten, gstByWeingarten: alleGstJeWg, abgeschlossen, onDone,
 }: {
   jahrgangId: string
   /** KAN-129 Soll 2: Art der gewählten Lese – bei Eiswein Stufe Eiswein */
@@ -130,9 +133,17 @@ function NeueParzellenForm({
   /** KAN-129: gewählte Lese (Reiter) – die neuen Einträge landen in ihr */
   leseId: string | null
   weingaerten: WeingartenOpt[]
-  gstByWeingarten: Record<string, GSTOpt[]>; onDone: () => void
+  gstByWeingarten: Record<string, GSTOpt[]>
+  /** KAN-392: Grundstücke mit abgeschlossener Ernte im Jahrgang */
+  abgeschlossen: ReadonlySet<string>
+  onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
+  const [abgeschlosseneZeigen, setAbgeschlosseneZeigen] = useState(false)
+  // Grundstücke, die mit dieser Lese „Ernte abgeschlossen“ bekommen
+  const [abschliessen, setAbschliessen] = useState<Set<string>>(new Set())
+  const offen = ohneAbgeschlossene(alleGstJeWg, abgeschlossen)
+  const gstByWeingarten = abgeschlosseneZeigen ? alleGstJeWg : offen.gst
   const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
@@ -157,8 +168,18 @@ function NeueParzellenForm({
     })
   }
 
-  const weingaerten = alleWeingaerten.filter(w => w.erntebar)
-  const ausgeblendet = alleWeingaerten.length - weingaerten.length
+  const weingaerten = alleWeingaerten.filter(w => w.erntebar && (abgeschlosseneZeigen || !offen.rieden.has(w.id)))
+  const ausgeblendet = alleWeingaerten.filter(w => !w.erntebar).length
+  const abgeschlossenText = abgeschlossenHinweis(offen.ausgeblendet, abgeschlosseneZeigen)
+  function abgeschlosseneUmschalten() {
+    // eine ganz gewählte Ried umfasst je nach Ansicht andere Grundstücke – Auswahl neu beginnen
+    setAbgeschlosseneZeigen(z => !z)
+    setSelectedWGs(new Set())
+    setSelectedGSTs(new Map())
+  }
+  function abschliessenUmschalten(gstId: string, an: boolean) {
+    setAbschliessen(prev => { const n = new Set(prev); if (an) n.add(gstId); else n.delete(gstId); return n })
+  }
   const gruppen = riedGruppen(weingaerten)
   const wgById = new Map(weingaerten.map(w => [w.id, w]))
   const sucheErg = leseSuche(suche, weingaerten, gstByWeingarten)
@@ -226,6 +247,9 @@ function NeueParzellenForm({
     setError(null)
     const fd = new FormData(e.currentTarget)
     if (leseId) fd.set('lese_id', leseId)
+    // KAN-392: ganze Rieden mit oder ohne abgeschlossene Grundstücke (wie angezeigt); angehakte „Ernte abgeschlossen“
+    if (abgeschlosseneZeigen) fd.set('mit_abgeschlossenen', '1')
+    for (const z of ziele) if (z.grundstueck_id && abschliessen.has(z.grundstueck_id)) fd.append('abschliessen_gst', z.grundstueck_id)
     if (einzeln) {
       // jede Zeile mit eigener Menge; ohne Eingabe gelten die gemeinsamen Felder
       fd.append('grundstueck_json', JSON.stringify(ziele.map(z => {
@@ -293,6 +317,14 @@ function NeueParzellenForm({
         {ausgeblendet > 0 && (
           <p className="text-[11px] text-s112-muted px-1">
             {ausgeblendet} {ausgeblendet === 1 ? 'Weingarten' : 'Weingärten'} ohne Weingarten-Grundstück (nur Acker, Grünland, Brache …) {ausgeblendet === 1 ? 'ist' : 'sind'} ausgeblendet.
+          </p>
+        )}
+        {abgeschlossenText && (
+          <p className="text-[11px] text-s112-muted px-1" data-ernte-abgeschlossen-hinweis>
+            {abgeschlossenText} –{' '}
+            <button type="button" onClick={abgeschlosseneUmschalten} className="text-s112-blue-700 hover:underline py-1">
+              {abgeschlosseneZeigen ? 'ausblenden' : 'anzeigen'}
+            </button>
           </p>
         )}
         {sichtbareGruppen.map(gruppe => {
@@ -374,6 +406,7 @@ function NeueParzellenForm({
                                   GST {g.gst_nr}
                                 </span>
                                 {g.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(g.rebsorte)}</span>}
+                                {abgeschlossen.has(g.id) && <span className="text-s112-muted italic">· Ernte abgeschlossen</span>}
                                 <span className="text-s112-muted ml-auto">{g.flaeche_ha ? `${fmtHa(g.flaeche_ha)} ha` : 'ohne Fläche'}</span>
                               </label>
                             )
@@ -472,6 +505,17 @@ function NeueParzellenForm({
                       <span className="ml-auto tabular-nums font-medium text-s112-text">
                         {vorschau[i] == null ? '–' : `${fmtNum(vorschau[i] as number, { max: 2 })} kg`}
                       </span>
+                    )}
+                    {/* KAN-392: mit dieser Lese ist das Grundstück fertig gelesen – künftig nicht mehr vorschlagen */}
+                    {z.grundstueck_id && (
+                      <label className={`flex items-center gap-1.5 text-s112-text-2 cursor-pointer py-2 sm:py-0 ${einzeln ? 'ml-auto' : ''}`}>
+                        <input type="checkbox" aria-label={`Ernte abgeschlossen ${name.ried} ${name.gst}`}
+                          checked={abgeschlossen.has(z.grundstueck_id) || abschliessen.has(z.grundstueck_id)}
+                          disabled={abgeschlossen.has(z.grundstueck_id)}
+                          onChange={e => abschliessenUmschalten(z.grundstueck_id as string, e.target.checked)}
+                          className="accent-s112-teal w-5 h-5 sm:w-auto sm:h-auto" />
+                        Ernte abgeschlossen
+                      </label>
                     )}
                   </div>
                   {einzeln && (
@@ -720,10 +764,40 @@ function ParzellForm({
 
 
 // ── Lesedaten am Handy (KAN-181): Karten statt der achtspaltigen Tabelle ───────────────────────────────
-function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setEditId, jahrgangId }: {
+// ── KAN-392: „Ernte abgeschlossen“ je Grundstück in den Lesedaten (setzen und zurücknehmen) ────────────────────
+function ErnteAbschlussUmschalter({ jahrgangId, gstId, abgeschlossen, writeOk }: {
+  jahrgangId: string; gstId: string; abgeschlossen: boolean; writeOk: boolean
+}) {
+  const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
+  if (!writeOk && !abgeschlossen) return null
+  function umschalten() {
+    setFehler(null)
+    startTransition(async () => {
+      try { await ernteGstAbschliessen(jahrgangId, gstId, !abgeschlossen) }
+      catch (e) { setFehler(fehlerText(e)) }
+    })
+  }
+  return (
+    <span className="block font-sans text-[11px] whitespace-nowrap" data-print="hide">
+      {abgeschlossen && <span className="text-s112-text-2">Ernte abgeschlossen</span>}
+      {writeOk && (
+        <button type="button" onClick={umschalten} disabled={pending}
+          title={abgeschlossen ? 'Grundstück wieder für die Lese vorschlagen' : 'Grundstück nicht mehr für die Lese vorschlagen'}
+          className={`text-s112-blue-700 hover:underline disabled:opacity-50 py-1 ${abgeschlossen ? 'ml-1' : ''}`}>
+          {abgeschlossen ? 'öffnen' : 'Ernte abschließen'}
+        </button>
+      )}
+      {fehler && <span role="alert" className="block whitespace-normal text-s112-err-fg">{fehler}</span>}
+    </span>
+  )
+}
+
+function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setEditId, jahrgangId, abgeschlossen }: {
   zeilen: ErnteParzelle[]; mehrereLesen: boolean; gesamtKg: number; writeOk: boolean
   editId: string | null; setEditId: (id: string | null) => void
   jahrgangId: string
+  abgeschlossen: ReadonlySet<string>
 }) {
   return (
     <div className="md:hidden print:hidden space-y-2">
@@ -742,6 +816,10 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
                 <p className="text-xs text-s112-muted">
                   {formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)} · {formatDate(p.ernte_datum)}
                 </p>
+                {p.grundstueck_id && !p.storno && (
+                  <ErnteAbschlussUmschalter jahrgangId={jahrgangId} gstId={p.grundstueck_id}
+                    abgeschlossen={abgeschlossen.has(p.grundstueck_id)} writeOk={writeOk} />
+                )}
               </div>
               <p className="text-sm font-semibold tabular-nums text-s112-text whitespace-nowrap">
                 {p.menge_kg == null ? '–' : `${fmtNum(p.menge_kg)} kg`}
@@ -789,7 +867,7 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
 }
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt, erfassenOffen }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, weingaerten, gstByWeingarten, abgeschlosseneGst, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt, erfassenOffen }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */
@@ -804,6 +882,8 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   /** KAN-129 Frage 7: Lesegut nach dem Stichtag 30.11. (nicht in der Erntemeldung) oder null */
   stichtagHinweis: string | null
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
+  /** KAN-392: Grundstücke mit abgeschlossener Ernte im Jahrgang */
+  abgeschlosseneGst: string[]
   hektarhoechstertrag: HektarhoechstertragStatus
   /** Pilot 30.09.2026: Pressungen stehen im Kellerbuch – hier nur Anzahl (gültige, gewählte Lese) und Verweis */
   pressungenAnzahl: number; pressungenHref: string
@@ -822,6 +902,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   }, [erfassenOffen, writeOk])
   const [editId, setEditId] = useState<string | null>(null)
   const editRef = useRef<HTMLDivElement>(null)
+  const abgeschlossen = new Set(abgeschlosseneGst)
   const bearbeitet = editId ? tabellenParzellen.find(p => p.id === editId) ?? null : null
   // nach dem Öffnen zum Formular springen (es steht über der Liste, der Bearbeiten-Knopf oft weit darunter)
   useEffect(() => {
@@ -892,7 +973,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
 
         {showForm && !editId && (
           <div ref={formRef} className="mb-4 scroll-mt-4" data-print="hide">
-            <NeueParzellenForm jahrgangId={jahrgang.id} leseId={leseId} leseArt={leseArt} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} onDone={() => setShowForm(false)} />
+            <NeueParzellenForm jahrgangId={jahrgang.id} leseId={leseId} leseArt={leseArt} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} abgeschlossen={abgeschlossen} onDone={() => setShowForm(false)} />
           </div>
         )}
 
@@ -914,7 +995,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         {tabellenParzellen.length > 0 && (
           <LesedatenKarten zeilen={tabellenZeilen} mehrereLesen={mehrereLesen} gesamtKg={gesamtKg}
             writeOk={writeOk} editId={editId} setEditId={id => { setEditId(id); setShowForm(false) }}
-            jahrgangId={jahrgang.id} />
+            jahrgangId={jahrgang.id} abgeschlossen={abgeschlossen} />
         )}
         {tabellenParzellen.length > 0 ? (
           <div className="hidden md:block print:block border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
@@ -959,7 +1040,13 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted font-mono">
+                        {p.grundstueck_nr ?? '–'}
+                        {p.grundstueck_id && !p.storno && (
+                          <ErnteAbschlussUmschalter jahrgangId={jahrgang.id} gstId={p.grundstueck_id}
+                            abgeschlossen={abgeschlossen.has(p.grundstueck_id)} writeOk={writeOk} />
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap" title={formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}>
                         {sortenKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte) ?? p.grundstueck_rebsorte ?? p.weingarten_rebsorte ?? '–'}
                       </td>
