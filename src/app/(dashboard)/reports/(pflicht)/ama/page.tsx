@@ -2,7 +2,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import { BrotkrumenLink } from '@/components/ui/Link'
 import Image from 'next/image'
 import PrintButton from '../../PrintButton'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -83,9 +83,9 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
       {/* Breadcrumb + Aktionen */}
       <div className="flex items-start justify-between gap-4 flex-wrap print:hidden">
         <nav className="flex items-center gap-2 text-sm text-s112-muted mt-1.5">
-          <Link href="/weingarten" className="hover:text-s112-blue-700">Rieden</Link>
+          <BrotkrumenLink href="/weingarten" className="hover:text-s112-blue-700">Rieden</BrotkrumenLink>
           <span>/</span>
-          <Link href="/erntemeldung" className="hover:text-s112-blue-700">Lese</Link>
+          <BrotkrumenLink href="/erntemeldung" className="hover:text-s112-blue-700">Lese</BrotkrumenLink>
           <span>/</span>
           <span className="font-medium text-s112-text">AMA-Erntemeldung</span>
         </nav>

@@ -5,7 +5,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import StornoKarte from '@/components/StornoKarte'
 import { stornoPNA, loeschePNA } from './actions'
 import { notFound } from 'next/navigation'
-import Link from '@/components/ui/Link'
+import { BrotkrumenLink } from '@/components/ui/Link'
 import type { Metadata } from 'next'
 import PNAFormular from './PNAFormular'
 import { ladePruefnummernantrag } from '@/lib/behoerden/pruefnummernantrag'
@@ -44,9 +44,9 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
     <div className="max-w-4xl space-y-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted no-print">
-        <Link href="/dac" className="hover:text-s112-blue-700 transition-colors">DAC & Prüfnummern</Link>
+        <BrotkrumenLink href="/dac" className="hover:text-s112-blue-700 transition-colors">DAC & Prüfnummern</BrotkrumenLink>
         <span>/</span>
-        <Link href={`/dac/${id}`} className="hover:text-s112-blue-700 transition-colors">{pna.dac.bezeichnung}</Link>
+        <BrotkrumenLink href={`/dac/${id}`} className="hover:text-s112-blue-700 transition-colors">{pna.dac.bezeichnung}</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text-1 font-medium">Prüfnummernantrag</span>
       </div>

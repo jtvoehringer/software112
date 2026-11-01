@@ -41,7 +41,7 @@ describe('Verdrahtung', () => {
     const l = quelle('src/app/(auth)/login/page.tsx')
     assert.match(l, /await supabase\.auth\.signInWithPasskey\(\)/)
     assert.match(l, /if \(passkey\.basisLogin\) \{ window\.location\.href = passkey\.basisLogin; return \}/)
-    assert.match(l, /basisLogin: sub \? subdomainUrl\(null, '\/login'\) : null/)
+    assert.match(l, /basisLogin: sub \? subdomainUrl\(null, PASSKEY_START_PFAD\) : null/)   // KAN-399: /login?passkey=1
     assert.match(l, /const angemeldet = \(\) => \{\n\s*sitzungsCookieSchreiben\(\)/)
     assert.equal((l.match(/angemeldet\(\)/g) ?? []).length, 2, 'Passwort und Passkey')
   })

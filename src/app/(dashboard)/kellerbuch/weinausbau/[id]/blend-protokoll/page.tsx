@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { AlertTriangle, GitMerge } from 'lucide-react'
@@ -58,9 +58,9 @@ export default async function BlendProtokollPage({ params, searchParams }: {
       {/* Breadcrumb + Aktionen (ausgeblendet beim Drucken) */}
       <div className="flex items-center justify-between print:hidden flex-wrap gap-2">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
+          <BrotkrumenLink href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</BrotkrumenLink>
           <span>/</span>
-          <Link href={`/kellerbuch/weinausbau/${id}/buch`} className="hover:text-s112-blue-700">{wa.name}</Link>
+          <BrotkrumenLink href={`/kellerbuch/weinausbau/${id}/buch`} className="hover:text-s112-blue-700">{wa.name}</BrotkrumenLink>
           <span>/</span>
           <span className="text-s112-text-1 font-medium">Blend-Protokoll</span>
         </nav>

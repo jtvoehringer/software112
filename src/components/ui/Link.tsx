@@ -14,6 +14,7 @@
 // Link ein drehendes Symbol (Nav-Tabs).
 import NextLink, { useLinkStatus } from 'next/link'
 import type { ComponentProps } from 'react'
+import { KREISEL_FARBE } from '@/components/ui/Kreisel'
 
 export const NAVIGATION_EVENT = 's112:navigation'
 
@@ -33,14 +34,24 @@ export default function Link({ onNavigate, ...props }: ComponentProps<typeof Nex
   )
 }
 
-/** Drehendes Symbol, solange die Navigation dieses Links läuft (nur innerhalb eines <Link>). */
+/** Drehendes Symbol, solange die Navigation dieses Links läuft (nur innerhalb eines <Link>); KAN-399: immer CD-Blau. */
 export function LinkSpinner({ className = '' }: { className?: string }) {
   const { pending } = useLinkStatus()
   if (!pending) return null
   return (
     <span
       aria-hidden
-      className={`inline-block w-3 h-3 rounded-full border-2 border-current border-r-transparent animate-spin align-[-1px] ${className}`}
+      className={`inline-block w-3 h-3 rounded-full border-2 border-current border-r-transparent animate-spin align-[-1px] ${KREISEL_FARBE} ${className}`}
     />
+  )
+}
+
+/** KAN-399: Link einer Breadcrumb-Leiste – mit demselben blauen Kreisel wie die Tabs, bis die Seite da ist */
+export function BrotkrumenLink({ children, ...props }: ComponentProps<typeof NextLink>) {
+  return (
+    <Link {...props}>
+      {children}
+      <LinkSpinner className="ml-1" />
+    </Link>
   )
 }

@@ -5,7 +5,7 @@ import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { fmtLiter } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { mitZurueck } from '@/lib/navigation/zurueck'
 import { notFound } from 'next/navigation'
 import WeinausbauForm from '@/components/kellerbuch/WeinausbauForm'
@@ -279,9 +279,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     <div className="max-w-4xl space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
+        <BrotkrumenLink href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</BrotkrumenLink>
         <span>/</span>
-        <Link href="/kellerbuch/weinausbau" className="hover:text-s112-blue-700 transition-colors">Weinausbau</Link>
+        <BrotkrumenLink href="/kellerbuch/weinausbau" className="hover:text-s112-blue-700 transition-colors">Weinausbau</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text-1 font-medium">{weinausbau.name}</span>
       </div>

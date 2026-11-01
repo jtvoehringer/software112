@@ -5,7 +5,7 @@ import LieferadressenKarte, { type LieferadresseZeile } from '@/components/crm/L
 import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteFirma, setzeFirmaAktiv } from '../../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
@@ -506,7 +506,7 @@ export default function FirmaDetailClient({
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/crm/firmen" className="hover:text-s112-blue-700">Firmen</Link>
+        <BrotkrumenLink href="/crm/firmen" className="hover:text-s112-blue-700">Firmen</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text font-medium">{firma.name}</span>
       </nav>

@@ -41,8 +41,10 @@ describe('KAN-78: weiter-Parameter', () => {
     assert.match(p, /return umleiten\('\/login'\)/)
     assert.match(p, /return umleiten\('\/zwei-faktor'\)/)
     assert.match(p, /const ziel = sichererWeiterPfad\(request\.nextUrl\.searchParams\.get\('weiter'\)\) \?\? '\/dashboard'/)
-    assert.match(quelle('src/app/(auth)/login/page.tsx'), /router\.push\(mitWeiter\('\/betrieb-waehlen', new URLSearchParams\(window\.location\.search\)\.get\('weiter'\)\)\)/)
-    assert.match(quelle('src/app/zwei-faktor/page.tsx'), /router\.push\(mitWeiter\('\/betrieb-waehlen', params\.get\('weiter'\)\)\)/)
+    // KAN-399: direkt über /auth/betrieb – das reicht weiter an die Betriebswahl weiter bzw. nutzt es selbst
+    assert.match(quelle('src/app/(auth)/login/page.tsx'), /window\.location\.assign\(mitWeiter\('\/auth\/betrieb', new URLSearchParams\(window\.location\.search\)\.get\('weiter'\)\)\)/)
+    assert.match(quelle('src/app/zwei-faktor/page.tsx'), /window\.location\.assign\(mitWeiter\('\/auth\/betrieb', params\.get\('weiter'\)\)\)/)
+    assert.match(quelle('src/app/auth/betrieb/route.ts'), /mitWeiter\('\/betrieb-waehlen', searchParams\.get\('weiter'\)\)/)
     const b = quelle('src/app/(auth)/betrieb-waehlen/page.tsx')
     assert.match(b, /const weiter = sichererWeiterPfad\(\(await searchParams\)\.weiter\)/)
     assert.match(b, /redirect\(wechselUrl\(String\(\(memberships\[0\] as R\)\.tenant_id\), weiter\)\)/)

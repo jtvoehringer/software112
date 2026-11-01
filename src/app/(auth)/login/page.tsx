@@ -2,30 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { APP_VERSION } from '@/lib/version'
-import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { mitWeiter } from '@/lib/tenant/waechter'
 import { abmeldeHinweis } from '@/lib/auth/sitzung'
 import { sitzungsCookieSchreiben } from '@/lib/auth/sitzungCookie'
-import { passkeyFehlerText, passkeyMoeglich } from '@/lib/auth/passkey'
+import { PASSKEY_START_PFAD, passkeyAutomatisch, passkeyFehlerText, passkeyMoeglich } from '@/lib/auth/passkey'
 import { subdomainAusHost, subdomainUrl } from '@/lib/tenant/subdomain'
 import { authFehlerText } from '@/lib/auth/authFehler'
+import Kreisel from '@/components/ui/Kreisel'
 
 // Hinweis: metadata muss in Server Components definiert werden.
 // Login-Page-Titel wird über das Root-Layout gesetzt.
 
-/** Ladekreisel in den Anmeldeknöpfen */
-function Kreisel() {
-  return (
-    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
-  )
-}
 
 export default function LoginPage() {
-  const router = useRouter()
   const supabase = createSupabaseBrowserClient()
 
   const [email, setEmail]       = useState('')
@@ -43,31 +33,47 @@ export default function LoginPage() {
   useEffect(() => {
     const sub = subdomainAusHost(window.location.host)
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Fähigkeit und Adresse erst nach dem Laden prüfen
-    setPasskey({ moeglich: passkeyMoeglich(), basisLogin: sub ? subdomainUrl(null, '/login') : null })
+    setPasskey({ moeglich: passkeyMoeglich(), basisLogin: sub ? subdomainUrl(null, PASSKEY_START_PFAD) : null })
   }, [])
 
-  /** Nach erfolgreicher Anmeldung (Passwort oder Passkey): Sitzungs-Cookie (KAN-286) und weiter (KAN-78) */
+  /**
+   * Nach erfolgreicher Anmeldung (Passwort oder Passkey): Sitzungs-Cookie (KAN-286) und weiter (KAN-78).
+   * KAN-399: eine Navigation statt router.push + router.refresh (zwei Server-Renderings) und direkt zu /auth/betrieb –
+   * der Handler wählt bei einem Betrieb selbst, sonst die Betriebsauswahl; ein zweiter Faktor folgt am Ziel (Proxy).
+   */
   const angemeldet = () => {
     sitzungsCookieSchreiben()
-    router.push(mitWeiter('/betrieb-waehlen', new URLSearchParams(window.location.search).get('weiter')))
-    router.refresh()
+    window.location.assign(mitWeiter('/auth/betrieb', new URLSearchParams(window.location.search).get('weiter')))
   }
 
   // UAT 23.10.2026: Während Fingerabdruck/Gesicht und der Weiterleitung danach zeigt der Passkey-Knopf einen Kreisel
   // („Anmeldung läuft…“); nach Erfolg bleibt er stehen, bis die nächste Seite da ist – sonst sah man nicht, dass etwas passiert.
   const [passkeyLaeuft, setPasskeyLaeuft] = useState(false)
-  const mitPasskey = async () => {
+  // automatisch = KAN-399: Start nach dem Sprung von der Subdomain; scheitert er (manche Browser verlangen einen Klick),
+  // bleibt die Seite ohne Fehlermeldung stehen und der Knopf funktioniert wie gewohnt
+  const mitPasskey = async (automatisch = false) => {
     if (passkey.basisLogin) { window.location.href = passkey.basisLogin; return }
     setLoading(true); setPasskeyLaeuft(true); setError(null)
     let erfolg = false
     try {
       const { error } = await supabase.auth.signInWithPasskey()
-      if (error) { setError(passkeyFehlerText(error)); return }
+      if (error) { if (!automatisch) setError(passkeyFehlerText(error)); return }
       erfolg = true
       angemeldet()
-    } catch (e) { setError(passkeyFehlerText(e)) }
+    } catch (e) { if (!automatisch) setError(passkeyFehlerText(e)) }
     finally { if (!erfolg) { setLoading(false); setPasskeyLaeuft(false) } }
   }
+
+  // KAN-399: von der Betriebs-Subdomain kommend (?passkey=1) den Passkey gleich starten – kein zweiter Klick
+  const [autoGestartet, setAutoGestartet] = useState(false)
+  useEffect(() => {
+    if (autoGestartet || !passkey.moeglich || passkey.basisLogin) return
+    if (!passkeyAutomatisch(window.location.search)) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- einmaliger Start nach dem Laden
+    setAutoGestartet(true)
+    void mitPasskey(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passkey, autoGestartet])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -147,7 +153,7 @@ export default function LoginPage() {
             disabled={loading}
             className="btn-primary w-full mt-2 flex items-center justify-center gap-2"
           >
-            {loading && !passkeyLaeuft && <Kreisel />}
+            {loading && !passkeyLaeuft && <Kreisel aufKnopf />}
             {loading && !passkeyLaeuft ? 'Anmelden…' : 'Anmelden'}
           </button>
           <div className="text-center mt-3">
@@ -159,7 +165,7 @@ export default function LoginPage() {
         {/* KAN-287: Anmeldung per Passkey (Fingerabdruck, Gesicht, Windows Hello) – eingerichtet im Profil */}
         {passkey.moeglich && (
           <div className="mt-4 pt-4 border-t border-s112-line">
-            <button type="button" onClick={mitPasskey} disabled={loading} aria-busy={passkeyLaeuft}
+            <button type="button" onClick={() => void mitPasskey()} disabled={loading} aria-busy={passkeyLaeuft}
               className={`w-full py-2 rounded-lg text-sm font-semibold border border-s112-line-str text-s112-text-1 hover:bg-s112-bg flex items-center justify-center gap-2 ${passkeyLaeuft ? '' : 'disabled:opacity-40'}`}>
               {passkeyLaeuft && <Kreisel />}
               {passkeyLaeuft ? 'Anmeldung läuft… (Fingerabdruck bzw. Gesicht bestätigen)' : 'Mit Passkey anmelden (Fingerabdruck, Gesicht, Windows Hello)'}

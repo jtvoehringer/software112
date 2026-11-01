@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import { BrotkrumenLink } from '@/components/ui/Link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -81,9 +81,9 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
       {/* Breadcrumb + Aktionen (ausgeblendet beim Drucken) */}
       <div className="flex items-center justify-between print:hidden">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/dac" className="hover:text-s112-blue-700">Prüfnummern</Link>
+          <BrotkrumenLink href="/dac" className="hover:text-s112-blue-700">Prüfnummern</BrotkrumenLink>
           <span>/</span>
-          <Link href={`/dac/${id}`} className="hover:text-s112-blue-700">{dac.bezeichnung}</Link>
+          <BrotkrumenLink href={`/dac/${id}`} className="hover:text-s112-blue-700">{dac.bezeichnung}</BrotkrumenLink>
           <span>/</span>
           <span className="text-s112-text-1 font-medium">Etikett</span>
         </nav>

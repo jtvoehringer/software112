@@ -5,7 +5,7 @@ import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { Boxes } from 'lucide-react'
 
@@ -124,9 +124,9 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
     <div className="max-w-4xl space-y-6">
       {/* Breadcrumb */}
       <div className="flex flex-wrap items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
+        <BrotkrumenLink href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</BrotkrumenLink>
         <span>/</span>
-        <Link href={`/kellerbuch/behaelter/${id}`} className="text-s112-text-1 font-medium hover:text-s112-blue-700 transition-colors">{bh.name}</Link>
+        <BrotkrumenLink href={`/kellerbuch/behaelter/${id}`} className="text-s112-text-1 font-medium hover:text-s112-blue-700 transition-colors">{bh.name}</BrotkrumenLink>
         <span>/</span>
         <span className="text-s112-text-2">Umzüge</span>
       </div>

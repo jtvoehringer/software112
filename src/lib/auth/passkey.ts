@@ -32,3 +32,11 @@ export function passkeyFehlerText(e: unknown): string {
   if (/no.*credential|not found|unknown credential/i.test(msg)) return 'Für dieses Konto ist auf diesem Gerät kein Passkey eingerichtet – bitte mit Passwort anmelden und den Passkey im Profil einrichten.'
   return msg || 'Passkey konnte nicht verwendet werden.'
 }
+
+/** KAN-399: Basis-Anmeldung, die den Passkey nach dem Sprung von einer Betriebs-Subdomain gleich startet */
+export const PASSKEY_START_PFAD = '/login?passkey=1'
+
+/** Soll die Login-Seite den Passkey gleich starten? (Parameter passkey=1 aus PASSKEY_START_PFAD) */
+export function passkeyAutomatisch(suche: string): boolean {
+  return new URLSearchParams(suche).get('passkey') === '1'
+}
