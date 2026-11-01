@@ -67,6 +67,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     tvRes,
     { betrieb, module },
     lesenRes,
+    abgeschlossenRes,
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).maybeSingle()),
@@ -130,6 +131,10 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('lesen') as any)
       .select('id, lfd_nr, art, bezeichnung, beginn, ende, notizen').eq('jahrgang_id', id).order('lfd_nr')),
+
+    // KAN-392: Grundstücke mit abgeschlossener Ernte im Jahrgang – das Lese-Formular schlägt sie nicht mehr vor
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    alle<AR>(tf((supabase.from('ernte_gst_abgeschlossen') as any).select('id, grundstueck_id').eq('jahrgang_id', id).order('id'))),
   ])
 
   // Sweep 86 (KAN-278): ein Lesefehler wirft (Fehlergrenze) statt still leerer Lesedaten, Pressungen, AMA-Versionen
@@ -143,6 +148,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const rawGstAlle = geladen(gstAlleRes, 'Grundstücke') as AR[]
   const rawTV = geladen(tvRes, 'Traubenverkäufe') as AR[] | null
   const rawLesen = geladen(lesenRes, 'Lesen') as AR[] | null
+  const abgeschlosseneGst = [...new Set((geladen(abgeschlossenRes, 'Abgeschlossene Ernte') as AR[]).map(z => z.grundstueck_id as string))]
 
   // ── KAN-129: gewählte Lese (?lese=<Nr.>, sonst die höchste) ─────────────────
   // Lesedaten, Pressungen, Traubenverkäufe aus eigener Ernte und die verfügbaren kg gelten für diese Lese;
@@ -502,7 +508,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     alleParzellen, parzellen, nachStichtag, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag,
     pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge,
     leseParzellen, leseEintraege,
-    verkauefe, tvQuelleOptions,
+    verkauefe, tvQuelleOptions, abgeschlosseneGst,
   }
 }
 

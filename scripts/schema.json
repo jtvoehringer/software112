@@ -634,6 +634,14 @@
 "erstellt_von",
 "erstellt_am"
 ],
+"ernte_gst_abgeschlossen": [
+"id",
+"tenant_id",
+"jahrgang_id",
+"grundstueck_id",
+"gesetzt_am",
+"gesetzt_von"
+],
 "ernte_parzellen": [
 "id",
 "jahrgang_id",

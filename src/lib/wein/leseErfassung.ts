@@ -16,6 +16,35 @@ export function istErntebar(anzahlGrundstuecke: number, anzahlWeingartenGst: num
   return anzahlWeingartenGst > 0 || anzahlGrundstuecke === 0
 }
 
+// ── Ernte abgeschlossen (KAN-392) ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Grundstücke je Weingarten ohne die, deren Ernte im Jahrgang abgeschlossen ist – das Lese-Formular schlägt sie
+ * nicht mehr vor, eine ganz gewählte Ried umfasst nur ihre offenen Grundstücke (Formular und Server Action).
+ * `rieden`: Weingärten, deren Grundstücke ALLE abgeschlossen sind (fallen aus der Auswahl; ohne Grundstücke nie).
+ */
+export function ohneAbgeschlossene<T extends { id: string }>(
+  gstJeWeingarten: Readonly<Record<string, readonly T[]>>,
+  abgeschlossen: ReadonlySet<string>,
+): { gst: Record<string, T[]>; ausgeblendet: number; rieden: Set<string> } {
+  const gst: Record<string, T[]> = {}
+  const rieden = new Set<string>()
+  let ausgeblendet = 0
+  for (const [wgId, liste] of Object.entries(gstJeWeingarten)) {
+    const offen = liste.filter(g => !abgeschlossen.has(g.id))
+    ausgeblendet += liste.length - offen.length
+    if (liste.length > 0 && offen.length === 0) rieden.add(wgId)
+    gst[wgId] = offen
+  }
+  return { gst, ausgeblendet, rieden }
+}
+
+/** Hinweis über der Auswahl, wenn es Grundstücke mit abgeschlossener Ernte gibt (aus- bzw. eingeblendet) – sonst null */
+export function abgeschlossenHinweis(anzahl: number, eingeblendet = false): string | null {
+  if (anzahl <= 0) return null
+  return `${anzahl} GST mit abgeschlossener Ernte ${eingeblendet ? 'eingeblendet' : 'ausgeblendet'}`
+}
+
 // ── Zielflächen der Auswahl ─────────────────────────────────────────────────────────────────────────────
 
 export type LeseGst = { id: string; flaeche_ha: number | null }
