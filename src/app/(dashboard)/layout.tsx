@@ -175,7 +175,7 @@ export default async function DashboardLayout({
       {/* Betriebswechsel in einem anderen Tab erkennen und diesen Tab sperren (KAN-30) */}
       {/* KAN-5: im Nur-Lesen-Modus hält derselbe Wächter API- und Supabase-Schreibzugriffe im Browser
           zurück und meldet vom Server abgelehnte Server Actions (Hinweis: NurLesenHinweis) */}
-      {membership?.tenantId && <BetriebsWaechter tenantId={membership.tenantId} name={seitenBetriebName} mandant={seitenMandant} schreibgesperrt={billingBlocked} />}
+      {membership?.tenantId && <BetriebsWaechter tenantId={membership.tenantId} name={seitenBetriebName} mandant={seitenMandant} schreibgesperrt={billingBlocked} userId={user.id} benutzer={user.email ?? ''} />}
       {/* Ladebalken bei Seitenwechsel (useSearchParams braucht Suspense) */}
       <Suspense fallback={null}><NavigationsBalken /></Suspense>
       <AppShell
