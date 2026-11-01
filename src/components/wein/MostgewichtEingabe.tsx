@@ -131,7 +131,7 @@ export default function MostgewichtEingabe({
                 aria-invalid={ungueltig || undefined}
                 aria-describedby={`${feldId}-status ${beschreibung}`}
                 className={`w-20 border rounded-lg px-2.5 py-2.5 sm:py-1.5 text-base sm:text-sm tabular-nums focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 disabled:opacity-60 disabled:cursor-not-allowed ${
-                  ungueltig ? 'border-s112-err' : umgerechnet ? 'border-dashed border-s112-border bg-s112-bg text-s112-text-2' : 'border-s112-border bg-white'
+                  ungueltig ? 'border-s112-err' : umgerechnet ? 'border-dashed border-s112-border bg-white text-s112-text-2' : 'border-s112-border bg-white'
                 }`}
               />
               <label htmlFor={feldId} className="text-sm text-s112-text-1 whitespace-nowrap">

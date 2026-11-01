@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useTransition } from 'react'
 import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, createMultipleErnteParzellen } from '../actions'
 import { ernteGstAbschliessen } from '../ernteAbschluss'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
-import { abgestuftVon, gemeinsameHerkunftOptionen, leseHerkunftObergrenze, leseHerkunftOptionen, leseObergrenze, leseStufeFehler, leseStufenOptionen } from '@/lib/wein/leseAbstufung'
+import { abgestuftVon, gemeinsameHerkunftOptionen, leseHerkunftObergrenze, leseHerkunftOptionen, leseObergrenze, leseStufeFehler, leseStufenOptionen, sammelAbstufenOptionen } from '@/lib/wein/leseAbstufung'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import { HOECHSTERTRAG_RECHTSFOLGE } from '@/lib/behoerden/hoechstertragText'
 import Link from '@/components/ui/Link'
@@ -152,6 +152,9 @@ function NeueParzellenForm({
   // Umschalter „Mengen je Grundstück einzeln erfassen“ (KAN-161) – sonst eine Gesamtmenge für die ganze Auswahl
   const [einzeln, setEinzeln] = useState(false)
   const [mengeGesamt, setMengeGesamt] = useState('')
+  // KAN-393: gemeinsames Mostgewicht (°KMW) und „Abstufen auf“ – die Auswahl richtet sich nach der Obergrenze
+  const [mgGemeinsam, setMgGemeinsam] = useState<number | null>(null)
+  const [abstufenAuf, setAbstufenAuf] = useState('')
   // Eingaben je Zeile (nur bei Einzelerfassung) – Schlüssel: Grundstück bzw. „wg:<id>“ für einen Weingarten ohne GST
   const [gstData, setGstData] = useState<Map<string, GstEingabe>>(new Map())
   function gstAendern(gstId: string, patch: Partial<GstEingabe>) {
@@ -202,7 +205,11 @@ function NeueParzellenForm({
   const mengeUngueltig = mengeGesamt.trim() !== '' && (mengeZahl == null || mengeZahl < 0)
   // KAN-81 (Entscheidung 04.10.2026): gemeinsame Felder „Abstufen auf“ – jede Zeile höchstens bis zu ihrer Obergrenze.
   // Stufen: Eiswein nur bei einer Eiswein-Lese; Herkunft: nur Stufen, die für jedes gewählte Grundstück zulässig sind.
-  const abstufenOptionen = LESE_QUALITAETEN.filter(o => leseArt === 'eiswein' || o.value !== 'eiswein').slice().sort((a, b) => b.rang - a.rang)
+  // KAN-393: nur Stufen unter der Obergrenze aus dem Mostgewicht (je Zeile das eigene, sonst das gemeinsame)
+  const abstufenOptionen = sammelAbstufenOptionen(LESE_QUALITAETEN, leseArt, einzeln
+    ? ziele.map(z => gstData.get(zielKey(z))?.mg.wert?.kmw ?? mgGemeinsam)
+    : [mgGemeinsam])
+  if (abstufenAuf && !abstufenOptionen.some(o => o.value === abstufenAuf)) setAbstufenAuf('')
   const herkunftGemeinsam = ziele.length > 0 && ziele.every(z => z.grundstueck_id)
     ? gemeinsameHerkunftOptionen(ziele.map(z => {
         const g = (gstByWeingarten[z.weingarten_id] ?? []).find(x => x.id === z.grundstueck_id)
@@ -450,12 +457,13 @@ function NeueParzellenForm({
           {/* Mostgewicht in °KMW oder °Oe (KAN-128) – die Qualitätsstufe folgt aus den °KMW
               (bei °Oe-Messung aus dem umgerechneten, gespeicherten °KMW; ohne Mostgewicht Qualitätswein).
               Bei Einzelerfassung gilt es für jede Zeile ohne eigenes Mostgewicht. */}
-          <MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau />
+          <MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau
+            onChange={wert => setMgGemeinsam(wert?.kmw ?? null)} />
           <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet (ohne Mostgewicht: Qualitätswein).</p>
         </div>
         <div>
           <label htmlFor="lese-abstufen-auf" className="block text-xs font-medium text-s112-text-2 mb-1">Abstufen auf <span className="text-s112-muted font-normal">(optional)</span></label>
-          <select id="lese-abstufen-auf" name="abstufen_auf" defaultValue="" className={inputCls}>
+          <select id="lese-abstufen-auf" name="abstufen_auf" value={abstufenAuf} onChange={e => setAbstufenAuf(e.target.value)} className={inputCls}>
             <option value="">– nicht abstufen –</option>
             {abstufenOptionen.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -569,7 +577,7 @@ function NeueParzellenForm({
       <div className="flex gap-2 pt-1 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:-mb-4 max-sm:px-4 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-border">
         <button type="submit" disabled={pending || ziele.length === 0}
           className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `${ziele.length > 0 ? `${ziele.length} × ` : ''}Speichern`}
+          {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
           className="px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium text-s112-text-2 hover:text-s112-text">

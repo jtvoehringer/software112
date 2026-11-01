@@ -72,6 +72,22 @@
   }
 }
 
+/* KAN-396: Eingabefelder ohne eigene Hintergrundfarbe sind weiß – durchsichtig wirkten sie auf grauen Formularen
+   wie gesperrt. Gesperrte und schreibgeschützte Felder bleiben grau. Eine bg-Utility am Feld hat Vorrang. */
+@layer base {
+  input:not(:where([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='submit'], [type='button'], [type='reset'], [type='image'], [type='hidden'])),
+  select,
+  textarea {
+    background-color: var(--color-s112-surface);
+  }
+
+  input:is(:disabled, :read-only):not(:where([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='submit'], [type='button'], [type='reset'], [type='image'], [type='hidden'])),
+  select:disabled,
+  textarea:is(:disabled, :read-only) {
+    background-color: var(--color-s112-bg);
+  }
+}
+
 @utility btn-primary {
   /* Primär-Button */
   @apply bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg font-medium
