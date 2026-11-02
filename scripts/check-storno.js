@@ -37,7 +37,8 @@ const ALTFAELLE = {}
 /**
  * Eingespielte Migrationen (Remote-Historie, Datei nicht mehr änderbar), deren DELETE in der Lösch-RPC
  * s112_storniert_loeschen steht: löscht nur stornierte Zeilen, nur mit dem Kennzeichen s112.storno_loeschen, mit Grund
- * im Protokoll – Datei → [Tabellen, Grund]. Nur für solche RPC-Migrationen verwenden.
+ * im Protokoll – Datei → [Tabellen, Grund]. Nur für solche RPC-Migrationen verwenden – bzw. für Demo-Reset-Funktionen
+ * (nur Demo-Mandant 33333333-…, Wartungskennzeichen des Resets), deren DELETE als Text in einem replace() steht.
  */
 const LOESCH_RPC_MIGRATIONEN = {
   'supabase/migrations/20260930153205_kan148c1d_loeschsperre_lese.sql': [['ernte_parzellen', 'weinausbau'],
@@ -52,6 +53,8 @@ const LOESCH_RPC_MIGRATIONEN = {
     'RPC s112_herkunft_setzen (KAN-150 F1d): entfernt nur abgewählte Rieden einer nicht stornierten Charge, Kennzeichen s112.storno_loeschen, alte und neue Rieden samt Grund im Protokoll'],
   'supabase/migrations/20261001150355_kan167a_betriebsmittel.sql': [['ernte_parzellen', 'weinausbau'],
     'Lösch-RPC s112_storniert_loeschen (KAN-167, um betriebsmittel_lager_bewegungen erweitert): nur stornierte Zeilen bzw. freigegebene Entwürfe, Kennzeichen s112.storno_loeschen, Grund im Protokoll'],
+  'supabase/migrations/20261102120750_kan394_musterhof_lese_2024.sql': [['ernte_parzellen'],
+    'Demo-Reset demo_musterhof_lesen() (KAN-394): räumt nur die Eiswein-Lesezeilen des Demo-Mandanten vor dem Neuanlegen weg, Text in replace()'],
 }
 
 function rel(datei) { return path.relative(WURZEL, datei).split(path.sep).join('/') }

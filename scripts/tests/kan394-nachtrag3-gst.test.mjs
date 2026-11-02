@@ -105,6 +105,23 @@ describe('KAN-394 Nachtrag 3: Demo-Musterhof legt Lese und Pressung je GST an (M
   })
 })
 
+describe('KAN-394 Nachtrag 3: Demo-Musterhof Lesedaten zu den Vorjahres-Pressungen (Migration)', () => {
+  const m = quelle('supabase/migrations/20261102120750_kan394_musterhof_lese_2024.sql')
+  test('je Traubenzeile der drei Vorjahres-Pressungen eine Lesezeile mit Ried, GST und kg, feste IDs, ohne Doppel', () => {
+    assert.match(m, /insert into ernte_parzellen \(id, jahrgang_id, lese_id, weingarten_id, grundstueck_id,/)
+    assert.match(m, /p\.lese_id, pw\.weingarten_id, pw\.grundstueck_id,/)
+    assert.match(m, /pw\.ernte_datum, pw\.trauben_kg,/)
+    assert.match(m, /p\.id in \(demo_musterhof_id\(9,40\), demo_musterhof_id\(9,41\), demo_musterhof_id\(9,42\)\)/)
+    assert.match(m, /on conflict \(id\) do nothing;/)
+    // vor dem Kellerbuch-Abschluss (Periodensperre) – Selbstprüfung in der Migration
+    assert.match(m, /position\('demo_musterhof_id\(38, 240 \+' in v_def\) > position\('perform demo_musterhof_kellerbuch\(\);' in v_def\)/)
+    assert.doesNotMatch(m, /COMMIT|pg_temp/i)
+  })
+  test('demo_musterhof_lesen räumt auch die GST-Anteile der Vorjahres-Lesen ab Nr. 2 weg (zweiter Aufruf von y2_kette)', () => {
+    assert.match(m, /or lese_id in \(select id from lesen where tenant_id = c_t and jahrgang_id = jg_y1 and lfd_nr > 1\)\);/)
+  })
+})
+
 describe('KAN-394 Nachtrag 3: Stift und Storno ohne waagrechtes Scrollen', () => {
   test('Tabelle erst ab lg, „Ernte abgeschlossen öffnen“ bricht um; Aktionen bleiben unfixiert (KAN-328/339)', () => {
     const e = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
