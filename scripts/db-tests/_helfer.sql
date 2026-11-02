@@ -1309,6 +1309,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'demo_musterhof_gebiete()'),          -- KAN-165 D: Rieden in weiteren Weinbaugebieten
     ('intern',        '--S', false, 'demo_musterhof_info()'),
     ('intern',        '--S', false, 'demo_musterhof_kellerbuch()'),       -- KAN-223: Journal, Kellerbuch-Vorgänge, PN, Zukauf, Traubenverkauf, Export
+    ('intern',        '--S', false, 'demo_musterhof_lese_je_gst()'),     -- KAN-394: Lese und Pressung je GST
     ('intern',        '--S', false, 'demo_musterhof_lesen()'),
     ('intern',        '--S', false, 'demo_musterhof_y2_kette()'),
     ('intern',        '--S', false, 'demo_musterhof_zuruecksetzen()'),
