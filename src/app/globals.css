@@ -312,4 +312,10 @@ textarea:focus-visible:not([class*="focus:ring"]) {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  /* KAN-399: Ladekreisel ausgenommen – ein stehender Kreisel zeigt kein Laden an (Statusanzeige = notwendige
+     Bewegung); er dreht nur langsamer. Die Klasse schlägt `*` über die Spezifität, beide mit !important. */
+  .animate-spin {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
