@@ -48,8 +48,9 @@ describe('Lese erfassen', () => {
     assert.match(c, /const inputCls = '[^']*text-base sm:text-sm/)
     assert.match(c, /const zeileCls = '[^']*text-base sm:text-xs/)
     assert.match(c, /grid grid-cols-1 sm:grid-cols-2 gap-3/)
-    assert.match(c, /<div className="md:hidden print:hidden space-y-2">/)
-    assert.match(c, /hidden md:block print:block border border-s112-border rounded-xl overflow-x-auto/)
+    // KAN-394 Nachtrag 3: Lesedaten-Tabelle erst ab lg, darunter Karten
+    assert.match(c, /<div className="lg:hidden print:hidden space-y-2">/)
+    assert.match(c, /hidden lg:block print:block border border-s112-border rounded-xl overflow-x-auto/)
     assert.match(quelle('src/components/wein/MostgewichtEingabe.tsx'), /text-base sm:text-sm tabular-nums/)
   })
 })

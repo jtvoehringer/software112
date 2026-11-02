@@ -31,8 +31,8 @@ import { istErntebar, leseZiele, ohneAbgeschlossene, verteileKg, type LeseGst, t
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
 import { ladeFassungen, type FassungGebinde } from '@/lib/keller/fassungsvermoegen'
 import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseStufe, leseZeitraumFehler } from '@/lib/wein/lesen'
-import { ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, traubenverkaufLese } from '@/lib/wein/leseBilanz'
-import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
+import { gstLeseMinderung, gstWaehlenText, ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, riedenMitGst, traubenverkaufLese } from '@/lib/wein/leseBilanz'
+import { gstAktivAm, gstImJahr } from '@/lib/wein/grundstueckAktiv'
 import { leseHerkunftFehler, leseHerkunftObergrenze, leseObergrenze, leseStufeFehler, leseStufeGedeckelt, pressungLeseGrenze, type LeseStufenEintrag } from '@/lib/wein/leseAbstufung'
 import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
@@ -429,6 +429,12 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     const pflicht = lesePflichtFehler({ ort: !!weingartenId, datum: (payload.ernte_datum as string | null) ?? null, mengeKg, kmw: kmwWirksam })
     if (pflicht) throw new AktionsFehler(pflicht)
   }
+  // KAN-394 (Jörgen 02.11.2026): Lesedaten gehören in die Historie des GST – eine Ried mit bewirtschafteten
+  // Weinbau-GST braucht das GST. Ein bestehender Eintrag ohne GST (Altdaten) bleibt an derselben Ried bearbeitbar.
+  if (weingartenId && !grundstueckId && !(alt && alt.weingarten_id === weingartenId && !alt.grundstueck_id)
+    && (await riedenMitGst(supabase, tenantId, [weingartenId], Number(jgRow.jahrgang))).has(weingartenId)) {
+    throw new AktionsFehler(GST_PFLICHT_MELDUNG)
+  }
   const existingId = existingIdFrueh
   if (existingId && alt) {
     // KAN-205: verpresst bzw. verkauft – Ort, Qualität und Herkunft fest (dieselbe Bedingung wie der Trigger a_freeze)
@@ -457,6 +463,9 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   }
   revalidatePath(`/erntemeldung/${jahrgangId}`)
 }
+
+const GST_PFLICHT_MELDUNG = 'Bitte das Grundstück (GST) wählen – die Ried hat Grundstücke, die Lese wird je GST erfasst. '
+  + 'Für die ganze Ried auf einmal „+ Ernte“ verwenden; die Menge wird dann nach Fläche auf die GST aufgeteilt.'
 
 // ── Lesemenge gegen Verpresstes/Verkauftes prüfen (KAN-35, 24.09.2026) ───────
 // Lese-Einträge (ernte_parzellen) sind die Grundlage der verfügbaren kg für
@@ -553,17 +562,22 @@ async function pruefeLesemengeGedeckt(
 
   // KAN-129: Bilanz je Lese – nur Einträge, Pressungen und Traubenverkäufe derselben Lese
   const leseId = alt.lese_id as string
-  const [parzRes, pressRes, tvRes] = await Promise.all([
+  const jahr = Number((await ladeJahrgang(supabase, tenantId, jahrgangId)).jahrgang)
+  const [parzRes, pressRes, tvRes, gstRes] = await Promise.all([
     (supabase.from('ernte_parzellen') as any)
-      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id)
+      .select('id, grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id)
       .is('storniert_am', null),
     (supabase.from('pressungen') as any)
       .select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId).is('storniert_am', null),
     (supabase.from('traubenverkauf') as any)
       .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id).eq('tenant_id', tenantId)
       .is('storniert_am', null),
+    // KAN-394: Weinbau-Grundstücke der Ried – eine Lesemenge ohne GST zählt anteilig an jedem GST
+    alle<AR>(supabase.from('grundstuecke')
+      .select('id, gst_nr, flaeche_ha, aktiv, deaktiviert_am').eq('tenant_id', tenantId).eq('weingarten_id', alt.weingarten_id)
+      .eq('nutzart', 'WI').order('gst_nr').order('id')),
   ])
-  for (const [tabelle, res] of [['ernte_parzellen', parzRes], ['pressungen', pressRes], ['traubenverkauf', tvRes]] as const) {
+  for (const [tabelle, res] of [['ernte_parzellen', parzRes], ['pressungen', pressRes], ['traubenverkauf', tvRes], ['grundstuecke', gstRes]] as const) {
     if (res.error) throw new AktionsFehler(dbFehlerText(res.error, `Lesemenge konnte nicht geprüft werden (${tabelle})`))
   }
   const pressIds = ((pressRes.data ?? []) as AR[]).map(p => p.id as string)
@@ -581,8 +595,7 @@ async function pruefeLesemengeGedeckt(
     zeilen.filter(z => gst === undefined || z.grundstueck_id === gst).reduce((s, z) => s + (Number(z[feld]) || 0), 0)
 
   const riedName = (alt.weingarten as AR | null)?.name ?? 'dieser Ried'
-  const pruefe = (stelle: string, geerntet: number, verbraucht: number) => {
-    const danach = geerntet - minderung
+  const pruefe = (stelle: string, danach: number, verbraucht: number) => {
     if (verbraucht > danach + 0.01) {
       throw new AktionsFehler(
         `${aktion} ist nicht möglich: Von ${stelle} sind bereits ${kgText(verbraucht)} verpresst bzw. als Trauben verkauft – `
@@ -590,15 +603,24 @@ async function pruefeLesemengeGedeckt(
       )
     }
   }
-  if (alt.grundstueck_id) {
+  // KAN-394: je GST mit dem Anteil an Lesemengen ohne GST – ein Ried-Eintrag mindert alle GST der Ried anteilig
+  const gstRied = ((gstRes.data ?? []) as AR[]).filter(g => gstImJahr(g, jahr))
+  const minderungJeGst = gstLeseMinderung(
+    parz.map(z => ({ id: z.id as string, grundstueck_id: (z.grundstueck_id as string | null) ?? null, kg: z.menge_kg == null ? null : Number(z.menge_kg) })),
+    alt.id as string, neuKg, gstRied.map(g => ({ id: g.id as string, flaeche_ha: g.flaeche_ha == null ? null : Number(g.flaeche_ha) })))
+  for (const g of gstRied) {
+    const m = minderungJeGst.get(g.id as string)
+    if (m) pruefe(`GST ${g.gst_nr ?? '–'} (${riedName})`, m.nachher, summe(pwZeilen, 'trauben_kg', g.id) + summe(tv, 'menge_kg', g.id))
+  }
+  if (alt.grundstueck_id && !gstRied.some(g => g.id === alt.grundstueck_id)) {
+    // GST nicht (mehr) bewirtschaftet bzw. keine Nutzart WI – nur die direkt erfassten Mengen
     const gst = alt.grundstueck_id as string
-    const gstNr = (alt.grundstueck as AR | null)?.gst_nr
-    pruefe(`GST ${gstNr ?? '–'} (${riedName})`,
-      summe(parz, 'menge_kg', gst),
+    pruefe(`GST ${(alt.grundstueck as AR | null)?.gst_nr ?? '–'} (${riedName})`,
+      summe(parz, 'menge_kg', gst) - minderung,
       summe(pwZeilen, 'trauben_kg', gst) + summe(tv, 'menge_kg', gst))
   }
   pruefe(`der Ried „${riedName}“`,
-    summe(parz, 'menge_kg'),
+    summe(parz, 'menge_kg') - minderung,
     summe(pwZeilen, 'trauben_kg') + summe(tv, 'menge_kg'))
 }
 
@@ -1546,6 +1568,17 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     [leseGrenze, ...weingaerten.map(w => w.zukauf_posten_id ? zukaufWare.get(w.zukauf_posten_id)?.qualitaetsstufe : null)])
   const ueberObergrenze = abstufungFehler(qualitaetsstufeInput, pressungGrenze)
   if (ueberObergrenze) throw new AktionsFehler(ueberObergrenze.replace('aus dem Mostgewicht', 'aus Mostgewicht und Lese'))
+  // KAN-394 (Nachtrag 3): an einer Ried mit Grundstücken wird je GST gepresst – neue bzw. umgehängte Zeilen ohne GST
+  // ablehnen; eine gespeicherte Zeile ohne GST (Altdaten) bleibt, solange ihr Ort gleich bleibt
+  {
+    const ohneGst = weingaerten.filter(w => w.weingarten_id && !w.grundstueck_id && !w.zukauf_posten_id
+      && !pwAlt.some(a => a.id === w.id && a.weingarten_id === w.weingarten_id && !a.grundstueck_id))
+    if (ohneGst.length > 0) {
+      const mitGst = await riedenMitGst(supabase, tenantId, ohneGst.map(w => w.weingarten_id as string), Number(jg.jahrgang))
+      const w = ohneGst.find(z => mitGst.has(z.weingarten_id as string))
+      if (w) throw new AktionsFehler(`Traubenzeile ${w.nr}: ${gstWaehlenText(null)}`)
+    }
+  }
   if (lesePressung) {
     const deckung = await leseDeckungFehler(supabase, tenantId, jahrgangId, lesePressung, Number(jg.jahrgang), { pressungId: existingId },
       pwAlt.filter(w => w.weingarten_id).map(w => ({ weingarten_id: w.weingarten_id as string, grundstueck_id: (w.grundstueck_id as string | null) ?? null, kg: Number(w.trauben_kg) || 0 })),

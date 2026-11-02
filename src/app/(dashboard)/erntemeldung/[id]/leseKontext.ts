@@ -309,10 +309,17 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   }
   // Verfügbare kg pro GST. KAN-394 (Entscheidung Jörgen 02.11.2026): Lesemengen ohne GST sind anteilig (Fläche) auf die
   // GST der Ried verteilt – dieselbe Verteilung wie die Sperre beim Speichern (riedLeseVerteilen, leseDeckungFehler)
+  // Seit Nachtrag 3 (Jörgen 02.11.2026: „die Pressungen gehen von den GST weg“) ersetzen die Anteile den Eintrag ohne GST
+  // auch in den Auswahllisten von Pressung und Traubenverkauf (parzellenJeGst) – „ganzer Weingarten“ nur ohne GST.
   const harvestedKgByGST: Record<string, number> = {}
-  const gelesenVerteilt = riedLeseVerteilen(
-    parzellen.map(p => ({ weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id ?? null, kg: p.menge_kg ?? null })),
-    z => gstByWeingarten[z.weingarten_id ?? ''] ?? [])
+  const parzellenJeGst: ErnteParzelle[] = riedLeseVerteilen(
+    parzellen.map(p => ({ ...p, grundstueck_id: p.grundstueck_id ?? null, kg: p.menge_kg ?? null })),
+    z => gstByWeingarten[z.weingarten_id] ?? [])
+    .map(({ kg, ...p }) => {
+      const g = p.grundstueck_nr ? null : (gstByWeingarten[p.weingarten_id] ?? []).find(x => x.id === p.grundstueck_id)
+      return g ? { ...p, menge_kg: kg, grundstueck_nr: g.gst_nr, grundstueck_rebsorte: g.rebsorte } : { ...p, menge_kg: kg }
+    })
+  const gelesenVerteilt = parzellenJeGst.map(p => ({ weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id, kg: p.menge_kg }))
   for (const p of gelesenVerteilt) {
     if (p.grundstueck_id && p.kg)
       harvestedKgByGST[p.grundstueck_id] = (harvestedKgByGST[p.grundstueck_id] ?? 0) + p.kg
@@ -442,7 +449,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     klosterneuburger: number | null; oechsle: number | null; mostgewicht_einheit: string | null
     qualitaetsstufe: string | null
   }>()
-  for (const p of parzellen) {
+  for (const p of parzellenJeGst) {
     if (p.grundstueck_id && !gstRowsMap.has(p.grundstueck_id)) {
       gstRowsMap.set(p.grundstueck_id, {
         weingarten_id: p.weingarten_id, weingarten_name: p.weingarten_name,
@@ -489,7 +496,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   // Lese-Orte für das Pressungs-Formular: eine Zeile je (Ried, Grundstück). Ein GST kann mehrere Lese-Einträge haben
   // (z. B. Kabinett + Spätlese) – dann der Eintrag, dessen Menge der verfügbaren Restmenge am nächsten liegt.
   const bestByKey = new Map<string, ErnteParzelle>()
-  for (const p of parzellen) {
+  for (const p of parzellenJeGst) {
     const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
     const verfuegbar = p.grundstueck_id ? (verfuegbareKgByGST[p.grundstueck_id] ?? 0) : (verfuegbareKg[p.weingarten_id] ?? 0)
     const existing = bestByKey.get(key)
@@ -506,7 +513,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     klosterneuburger: p.klosterneuburger,
   }))
   // KAN-126: alle Lese-Einträge – Lesetage und Mostgewicht je Ort für die Pressung
-  const leseEintraege: LeseEintrag[] = parzellen.map(p => ({
+  const leseEintraege: LeseEintrag[] = parzellenJeGst.map(p => ({
     weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id, ernte_datum: p.ernte_datum,
     kmw: p.klosterneuburger, oechsle: p.oechsle, mostgewicht_einheit: p.mostgewicht_einheit,
     qualitaetsstufe: p.qualitaetsstufe,   // KAN-81: Obergrenze der Pressung

@@ -112,6 +112,31 @@ export function riedLeseVerteilen<Z extends GelesenZeile>(
   return out
 }
 
+/**
+ * KAN-394: Gelesene kg je Grundstück einer Ried vor und nach dem Kürzen bzw. Stornieren eines Lese-Eintrags (`altId` auf
+ * `neuKg`, Storno = 0) – Lesemengen ohne Grundstück anteilig verteilt (riedLeseVerteilen). Nur Grundstücke, deren
+ * Menge sich dadurch mindert.
+ */
+export function gstLeseMinderung(
+  eintraege: readonly { id: string; grundstueck_id: string | null; kg: number | null }[],
+  altId: string, neuKg: number, gstDerRied: readonly GstAnteil[],
+): Map<string, { vorher: number; nachher: number }> {
+  const jeGst = (zeilen: readonly { grundstueck_id: string | null; kg: number | null }[]) => {
+    const m = new Map<string, number>()
+    const verteilt = riedLeseVerteilen(zeilen.map(z => ({ weingarten_id: 'ried', grundstueck_id: z.grundstueck_id, kg: z.kg })), () => gstDerRied)
+    for (const z of verteilt) if (z.grundstueck_id) m.set(z.grundstueck_id, (m.get(z.grundstueck_id) ?? 0) + (Number(z.kg) || 0))
+    return m
+  }
+  const vorher = jeGst(eintraege)
+  const nachher = jeGst(eintraege.map(z => (z.id === altId ? { ...z, kg: neuKg } : z)))
+  const out = new Map<string, { vorher: number; nachher: number }>()
+  for (const [gst, v] of vorher) {
+    const n = nachher.get(gst) ?? 0
+    if (n < v - KG_TOLERANZ) out.set(gst, { vorher: v, nachher: n })
+  }
+  return out
+}
+
 /** Grundstück für die Verteilung (Weinbau, mit Aktiv-Feldern für gstImJahr) */
 export type GstFuerVerteilung = GstAnteil & { weingarten_id: string; nutzart?: string | null; aktiv?: boolean | null; deaktiviert_am?: string | null }
 
@@ -265,6 +290,29 @@ export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahr
   }
 }
 
+/** KAN-394 (Jörgen 02.11.2026): Text, wenn an einer Ried mit Grundstücken ohne GST gepresst bzw. verkauft würde */
+export function gstWaehlenText(ried: string | null): string {
+  return `Bitte das Grundstück (GST) wählen – ${ried ? `„${ried}“` : 'die Ried'} hat Grundstücke, gepresst und verkauft wird `
+    + 'je GST (eine Lese der ganzen Ried ist anteilig nach Fläche auf die GST verteilt).'
+}
+
+/**
+ * KAN-394 (Nachtrag 3, Jörgen 02.11.2026: „die Pressungen gehen dann von den GST weg“): Rieden aus `riedIds`, die im
+ * Jahr `jahr` bewirtschaftete Weinbau-Grundstücke haben – dort braucht jede neue Lese-, Pressungs- und Verkaufszeile
+ * ein GST (bestehende Zeilen ohne GST bleiben, wie sie sind).
+ */
+export async function riedenMitGst(supabase: Client, tenantId: string, riedIds: readonly string[], jahr: number): Promise<Set<string>> {
+  const ids = [...new Set(riedIds.filter(Boolean))]
+  if (ids.length === 0) return new Set()
+  // inBloecken + alle(): Rieden eines Vorgangs, Grundstücke vollständig (sonst fehlte eine Ried in der Sperre)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await inBloecken<R>(ids, b => alle<R>((supabase.from('grundstuecke') as any)
+    .select('id, weingarten_id, aktiv, deaktiviert_am').eq('tenant_id', tenantId).eq('nutzart', 'WI')
+    .in('weingarten_id', b).order('id')))
+  if (error) throw new AktionsFehler(`Grundstücke konnten nicht geladen werden: ${error.message}`)
+  return new Set(((data ?? []) as R[]).filter(g => gstImJahr(g, jahr)).map(g => g.weingarten_id as string))
+}
+
 /**
  * Lese, der die Datenbank eine Zeile ohne lese_id zuordnen würde (Trigger a_lese_zuordnen): eine Lese → diese;
  * sonst die mit dem spätesten Beginn ≤ Datum (Beginn leer = 01.01. des Jahrgangs, bei Gleichstand die höhere Nr.);
@@ -340,6 +388,11 @@ export async function traubenverkaufLese(supabase: Client, tenantId: string, p: 
   } else lese = leseFuerDatum(lesen, jahrgang, p.datum)
   if (!lese) return { leseId: null, fehler: p.leseWaehlenText }
   if (!p.weingartenId) return { leseId: lese.id, fehler: null }
+  // KAN-394: an einer Ried mit Grundstücken nur je GST verkaufen – ein bestehender Verkauf ohne GST bleibt bearbeitbar
+  if (!p.grundstueckId && !(alt && alt.weingarten_id === p.weingartenId && !alt.grundstueck_id)
+    && (await riedenMitGst(supabase, tenantId, [p.weingartenId], jahrgang)).has(p.weingartenId)) {
+    return { leseId: lese.id, fehler: gstWaehlenText(null) }
+  }
   const vorher: Mengenzeile[] = alt && alt.lese_id === lese.id && alt.weingarten_id
     ? [{ weingarten_id: alt.weingarten_id, grundstueck_id: alt.grundstueck_id ?? null, kg: Number(alt.menge_kg) || 0 }]
     : []
