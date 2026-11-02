@@ -20,23 +20,23 @@ const GST = [{ id: 'g1', flaeche_ha: 0.8 }, { id: 'g2', flaeche_ha: 0.6 }]
 const wachtberg = () => riedLeseVerteilen([z('w1', null, 4000), z('w1', 'g1', 5000)], () => GST)
 
 describe('KAN-394: Lese ohne GST anteilig auf die GST der Ried', () => {
-  test('nach Fläche verteilt, Ried-Summe exakt (Rest an das letzte Grundstück)', () => {
+  test('nach Fläche verteilt, volle kg, Ried-Summe exakt (Rest an das letzte Grundstück)', () => {
     const v = wachtberg()
-    assert.deepEqual(v.map(r => [r.grundstueck_id, r.kg]), [['g1', 2285.71], ['g2', 1714.29], ['g1', 5000]])
+    assert.deepEqual(v.map(r => [r.grundstueck_id, r.kg]), [['g1', 2286], ['g2', 1714], ['g1', 5000]])
     assert.equal(v.filter(r => r.grundstueck_id !== null).length, 3)
     const drittel = riedLeseVerteilen([z('w1', null, 100)], () => [{ id: 'a', flaeche_ha: 1 }, { id: 'b', flaeche_ha: 1 }, { id: 'c', flaeche_ha: 1 }])
-    assert.deepEqual(drittel.map(r => r.kg), [33.33, 33.33, 33.34])
+    assert.deepEqual(drittel.map(r => r.kg), [33, 33, 34])
   })
   test('ohne vollständige Flächen zu gleichen Teilen; ohne Grundstücke oder ohne Menge unverändert', () => {
     assert.deepEqual(riedLeseVerteilen([z('w1', null, 1000)], () => [{ id: 'a', flaeche_ha: 0.5 }, { id: 'b', flaeche_ha: null }]).map(r => r.kg), [500, 500])
     const ohne = [z('w1', null, 1000), z('w2', null, null)]
     assert.deepEqual(riedLeseVerteilen(ohne, r => (r.weingarten_id === 'w1' ? [] : GST)), ohne)
   })
-  test('Regression Wachtberg: GST 977/1 hat 3.285,71 kg frei (vorher 1.000), die Ried 5.000', () => {
+  test('Regression Wachtberg: GST 977/1 hat 3.286 kg frei (vorher 1.000), die Ried 5.000', () => {
     const verf = verfuegbarJeLese(wachtberg(), [z('w1', 'g1', 4000)])
     assert.equal(verf.ried.get(leseOrtSchluessel('L1', 'w1')), 5000)
-    assert.equal(verf.gst.get(leseOrtSchluessel('L1', 'g1')), 3285.71)
-    assert.equal(verf.gst.get(leseOrtSchluessel('L1', 'g2')), 1714.29)
+    assert.equal(verf.gst.get(leseOrtSchluessel('L1', 'g1')), 3286)
+    assert.equal(verf.gst.get(leseOrtSchluessel('L1', 'g2')), 1714)
     // ohne Verteilung (alter Stand) wären es 1.000 kg und für 977/2 nichts
     const alt = verfuegbarJeLese([z('w1', null, 4000), z('w1', 'g1', 5000)], [z('w1', 'g1', 4000)])
     assert.equal(alt.gst.get(leseOrtSchluessel('L1', 'g1')), 1000)
@@ -46,11 +46,11 @@ describe('KAN-394: Lese ohne GST anteilig auf die GST der Ried', () => {
     assert.equal(verf.ried.get(leseOrtSchluessel('L1', 'w1')), 500)
     assert.equal(verf.gst.get(leseOrtSchluessel('L1', 'g1')), 500)
   })
-  test('Sperre: 3.285,71 kg aus GST 977/1 gehen, 3.286 kg nicht; 5.000 kg „ganzer Weingarten“ gehen', () => {
+  test('Sperre: 3.286 kg aus GST 977/1 gehen, 3.287 kg nicht; 5.000 kg „ganzer Weingarten“ gehen', () => {
     const gelesen = wachtberg()
     const andere = [z('w1', 'g1', 4000)]
-    assert.equal(neueUeberdeckungen({ gelesen, andere, vorher: [], nachher: [z('w1', 'g1', 3285.71)] }).length, 0)
-    const ue = neueUeberdeckungen({ gelesen, andere, vorher: [], nachher: [z('w1', 'g1', 3286)] })
+    assert.equal(neueUeberdeckungen({ gelesen, andere, vorher: [], nachher: [z('w1', 'g1', 3286)] }).length, 0)
+    const ue = neueUeberdeckungen({ gelesen, andere, vorher: [], nachher: [z('w1', 'g1', 3287)] })
     assert.deepEqual([ue[0].art, ue[0].grundstueck_id], ['gst', 'g1'])
     assert.equal(neueUeberdeckungen({ gelesen, andere, vorher: [], nachher: [z('w1', null, 5000)] }).length, 0)
     assert.equal(neueUeberdeckungen({ gelesen, andere, vorher: [], nachher: [z('w1', null, 5001)] })[0].art, 'ried')

@@ -85,7 +85,7 @@ export type GstAnteil = { id: string; flaeche_ha: number | null }
 
 /**
  * KAN-394 (Entscheidung Jörgen 02.11.2026): Eine Lesemenge ohne Grundstück („ganzer Weingarten“) ist anteilig auf die
- * Grundstücke der Ried zu verteilen – nach Fläche, ohne vollständige Flächenangaben zu gleichen Teilen. Die Zeile
+ * Grundstücke der Ried zu verteilen – nach Fläche, ohne vollständige Flächenangaben zu gleichen Teilen, in vollen kg. Die Zeile
  * wird durch je eine Zeile pro Grundstück ersetzt (die letzte nimmt den Rundungsrest, die Ried-Summe bleibt exakt).
  * Ohne Grundstücke der Ried und ohne Menge bleibt die Zeile, wie sie ist. Vor verfuegbarJeLese/neueUeberdeckungen
  * anwenden – dieselbe Verteilung für Anzeige und Sperre. `gstDerRied` liefert die bewirtschafteten Grundstücke
@@ -104,8 +104,8 @@ export function riedLeseVerteilen<Z extends GelesenZeile>(
     const summeGewicht = gst.reduce((s, g) => s + gewicht(g), 0)
     let rest = kg
     gst.forEach((g, i) => {
-      const anteil = i === gst.length - 1 ? rest : rund(kg * gewicht(g) / summeGewicht, 2)
-      rest = rund(rest - anteil, 2)
+      const anteil = i === gst.length - 1 ? rest : rund(kg * gewicht(g) / summeGewicht, 0)
+      rest = rund(rest - anteil, 2)   // Anteile in vollen kg (Jörgen 02.11.2026), Rest an das letzte
       out.push({ ...z, grundstueck_id: g.id, kg: anteil })
     })
   }
