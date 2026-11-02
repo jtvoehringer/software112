@@ -27,6 +27,7 @@ import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashb
 import { heuteWien } from '@/lib/datum/wien'
 import { preisFelder, type PreisQuelle } from '@/lib/zukauf/preis'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import { WEINART_AUSWAHL } from '@/lib/wein/weinart'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -431,7 +432,7 @@ export default function ZukaufNeuPage() {
           <div>
             <label className={labelCls}>Weinart *</label>
             <div className="flex gap-4 mt-1.5">
-              {([['weiss','Weißwein','bg-s112-tertiary'],['rot','Rotwein','bg-s112-text'],['rose','Rosé','bg-s112-grey']] as const).map(([val, lbl, dot]) => (
+              {WEINART_AUSWAHL.map(([val, lbl, dot]) => (
                 <label key={val} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="weinart" value={val} checked={weinart === val} required
                     onChange={() => setWeinart(val)} className="accent-s112-teal" />
