@@ -15,7 +15,8 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..
 const quelle = (p) => readFileSync(path.join(WURZEL, p), 'utf8').replace(/\r\n/g, '\n')
 
 const z = (wg, gst, kg, lese = 'L1') => ({ lese_id: lese, weingarten_id: wg, grundstueck_id: gst, kg })
-// Musterhof, Wachtberg Weißburgunder, Lese 2026/1: 977/1 0,8 ha, 977/2 0,6 ha
+// Beispiel-Ried mit zwei Grundstücken (0,8 ha und 0,6 ha) – im Musterhof hat Wachtberg Weißburgunder nur GST 977/1
+// (977/2 gehört zu Wachtberg Chardonnay), die Rechnung bleibt dieselbe
 const GST = [{ id: 'g1', flaeche_ha: 0.8 }, { id: 'g2', flaeche_ha: 0.6 }]
 const wachtberg = () => riedLeseVerteilen([z('w1', null, 4000), z('w1', 'g1', 5000)], () => GST)
 
@@ -75,7 +76,8 @@ describe('KAN-394: Verdrahtung', () => {
   })
   test('Pressungsformular: verteilte GST-Mengen, „ganzer Weingarten“ = Ried statt 0', () => {
     const k = quelle('src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts')
-    assert.match(k, /const gelesenVerteilt = riedLeseVerteilen\(/)
+    // Nachtrag 3: die verteilten Zeilen speisen auch die Auswahllisten (parzellenJeGst)
+    assert.match(k, /const parzellenJeGst: ErnteParzelle\[\] = riedLeseVerteilen\(/)
     assert.doesNotMatch(k, /for \(const p of parzellen\) \{\n\s+if \(p\.grundstueck_id && p\.menge_kg\)\n\s+harvestedKgByGST/)
     const p = quelle('src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx')
     assert.match(p, /return gstId \? \(verfuegbareKgByGST\[gstId\] \?\? 0\) : \(verfuegbareKgByRied\[riedId\] \?\? 0\)/)

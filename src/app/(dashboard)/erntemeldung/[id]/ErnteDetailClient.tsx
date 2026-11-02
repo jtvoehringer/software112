@@ -612,6 +612,7 @@ function ParzellForm({
   const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(parzelle?.qualitaetsstufe ?? null)
   const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
   const verfuegbareGSTs = selWgId ? (gstByWeingarten[selWgId] ?? []) : []
+  const ohneGstErlaubt = !!parzelle && !parzelle.grundstueck_id && parzelle.weingarten_id === selWgId
   // KAN-81: Herkunft bis zur Obergrenze des Grundstücks (Sortenspiegel) bzw. eine breitere Stufe; '' = Obergrenze
   const selGst = verfuegbareGSTs.find(g => g.id === selGstId) ?? null
   const herkunftGrenze = selGst ? leseHerkunftObergrenze(selGst.herkunft_code, selGst.rebsorte).code : null
@@ -672,9 +673,10 @@ function ParzellForm({
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Grundstück (GST)</label>
             <input type="hidden" name="grundstueck_id" value={selGstId} />
-            <select value={selGstId} onChange={e => setSelGstId(e.target.value)}
+            {/* KAN-394: Lese je GST – ohne GST nur ein bestehender Eintrag (Altdaten) an derselben Ried */}
+            <select aria-label="Grundstück (GST)" value={selGstId} onChange={e => setSelGstId(e.target.value)} required={!ohneGstErlaubt}
               className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
-              <option value="">– kein GST –</option>
+              <option value="">{ohneGstErlaubt ? '– kein GST (bisher) –' : '– GST wählen –'}</option>
               {verfuegbareGSTs.map(g => (
                 <option key={g.id} value={g.id}>
                   {g.gst_nr}{g.rebsorte ? ' · ' + formatRebsorteMitKuerzel(g.rebsorte) : ''}{g.flaeche_ha ? ' · ' + fmtHa(g.flaeche_ha) + ' ha' : ''}
@@ -788,7 +790,9 @@ function ErnteAbschlussUmschalter({ jahrgangId, gstId, abgeschlossen, writeOk }:
     })
   }
   return (
-    <span className="block font-sans text-[11px] whitespace-nowrap" data-print="hide">
+    // KAN-394 Nachtrag 3: bricht um – sonst machte „Ernte abgeschlossen öffnen“ die GST-Spalte so breit, dass Stift und
+    // Storno nur nach waagrechtem Scrollen sichtbar waren
+    <span className="block font-sans text-[11px] leading-tight" data-print="hide">
       {abgeschlossen && <span className="text-s112-text-2">Ernte abgeschlossen</span>}
       {writeOk && (
         <button type="button" onClick={umschalten} disabled={pending}
@@ -821,7 +825,7 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
   pressenLink: (p: ErnteParzelle) => string | null
 }) {
   return (
-    <div className="md:hidden print:hidden space-y-2">
+    <div className="lg:hidden print:hidden space-y-2">
       {zeilen.map((p, i) => (
         <React.Fragment key={p.id}>
           {mehrereLesen && (i === 0 || zeilen[i - 1].lese_nr !== p.lese_nr) && (
@@ -1024,8 +1028,10 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
             writeOk={writeOk} editId={editId} setEditId={id => { setEditId(id); setShowForm(false) }}
             jahrgangId={jahrgang.id} abgeschlossen={abgeschlossen} />
         )}
+        {/* KAN-394 Nachtrag 3: Tabelle erst ab lg (1024 px) – darunter die Karten, damit Stift und Storno ohne
+            waagrechtes Scrollen sichtbar sind (Aktionen bleiben rechts und unfixiert, KAN-328/339) */}
         {tabellenParzellen.length > 0 ? (
-          <div className="hidden md:block print:block border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
+          <div className="hidden lg:block print:block border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
             <table className="w-full text-sm min-w-[520px] print:min-w-0">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
