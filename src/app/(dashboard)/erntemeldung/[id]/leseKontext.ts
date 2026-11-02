@@ -21,6 +21,7 @@ import { gewaehlteLese, leseLoeschsperre, type Lese } from '@/lib/wein/lesen'
 import type { LeseMitSperre } from './LeseReiter'
 import { amaAbweichungen, neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
 import { geladen } from '@/lib/supabase/geladen'
+import { riedLeseVerteilen } from '@/lib/wein/leseBilanz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -306,11 +307,15 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   for (const wgId of Object.keys(harvestedKgByWG)) {
     verfuegbareKg[wgId] = Math.max(0, (harvestedKgByWG[wgId] ?? 0) - (pressedKgByWG[wgId] ?? 0) - (soldKgByWG[wgId] ?? 0))
   }
-  // Verfügbare kg pro GST: direkte Berechnung (kein proportionales Verteilen)
+  // Verfügbare kg pro GST. KAN-394 (Entscheidung Jörgen 02.11.2026): Lesemengen ohne GST sind anteilig (Fläche) auf die
+  // GST der Ried verteilt – dieselbe Verteilung wie die Sperre beim Speichern (riedLeseVerteilen, leseDeckungFehler)
   const harvestedKgByGST: Record<string, number> = {}
-  for (const p of parzellen) {
-    if (p.grundstueck_id && p.menge_kg)
-      harvestedKgByGST[p.grundstueck_id] = (harvestedKgByGST[p.grundstueck_id] ?? 0) + p.menge_kg
+  const gelesenVerteilt = riedLeseVerteilen(
+    parzellen.map(p => ({ weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id ?? null, kg: p.menge_kg ?? null })),
+    z => gstByWeingarten[z.weingarten_id ?? ''] ?? [])
+  for (const p of gelesenVerteilt) {
+    if (p.grundstueck_id && p.kg)
+      harvestedKgByGST[p.grundstueck_id] = (harvestedKgByGST[p.grundstueck_id] ?? 0) + p.kg
   }
   const pressedKgByGST: Record<string, number> = {}
   for (const p of gueltigePressungen) {
@@ -327,6 +332,11 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const verfuegbareKgByGST: Record<string, number> = {}
   for (const gstId of Object.keys(harvestedKgByGST)) {
     verfuegbareKgByGST[gstId] = Math.max(0, (harvestedKgByGST[gstId] ?? 0) - (pressedKgByGST[gstId] ?? 0) - (soldKgByGST[gstId] ?? 0))
+  }
+  // KAN-394: ein GST nie mehr als seine Ried – Verbrauch ohne GST („ganzer Weingarten“) mindert nur die Ried
+  for (const z of gelesenVerteilt) {
+    if (z.grundstueck_id && z.weingarten_id && verfuegbareKgByGST[z.grundstueck_id] !== undefined)
+      verfuegbareKgByGST[z.grundstueck_id] = Math.min(verfuegbareKgByGST[z.grundstueck_id], verfuegbareKg[z.weingarten_id] ?? 0)
   }
 
   // Verfügbare kg pro Trauben-Zukauf: zugekaufte Menge − bereits verpresst − bereits verkauft
@@ -481,7 +491,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const bestByKey = new Map<string, ErnteParzelle>()
   for (const p of parzellen) {
     const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
-    const verfuegbar = p.grundstueck_id ? (verfuegbareKgByGST[p.grundstueck_id] ?? 0) : 0
+    const verfuegbar = p.grundstueck_id ? (verfuegbareKgByGST[p.grundstueck_id] ?? 0) : (verfuegbareKg[p.weingarten_id] ?? 0)
     const existing = bestByKey.get(key)
     if (!existing || Math.abs((p.menge_kg ?? 0) - verfuegbar) < Math.abs((existing.menge_kg ?? 0) - verfuegbar)) bestByKey.set(key, p)
   }

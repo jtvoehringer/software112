@@ -3,7 +3,7 @@ import { alle } from '@/lib/supabase/alle'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
-import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
+import { gstDerRiedJeLese, leseOrtSchluessel, riedLeseVerteilen, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
 import { leseTitel } from '@/lib/wein/lesen'
 import { zahlWert } from '@/lib/format'
 import { dbFehlerText } from '@/lib/fehler'
@@ -72,9 +72,9 @@ export async function GET() {
       // Grundstücke für Traubenverkauf – alle(): sonst fehlen ab dem 1.001. Grundstück Einträge in der Auswahl
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       alle((supabase.from('grundstuecke') as any)
-        .select('id, gst_nr, weingarten_id, rebsorte')
+        // KAN-394: auch deaktivierte (Verteilung der Lese ohne GST im Jahr des Jahrgangs); Auswahl nur aktive (unten)
+        .select('id, gst_nr, weingarten_id, rebsorte, flaeche_ha, nutzart, aktiv, deaktiviert_am')
         .eq('tenant_id', tenantId)
-        .eq('aktiv', true)   // KAN-150 F1: nur bewirtschaftete Grundstücke zur Auswahl
         .order('gst_nr').order('id')),
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
       // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
@@ -118,7 +118,11 @@ export async function GET() {
     }).sort((a, b) => (b.jahrgang - a.jahrgang) || (b.lfd_nr - a.lfd_nr))
 
     const verfuegbar = verfuegbarJeLese(
-      parzellen.map(l => ({ lese_id: l.lese_id ?? null, weingarten_id: l.weingarten_id, grundstueck_id: l.grundstueck_id ?? null, kg: l.menge_kg == null ? null : Number(l.menge_kg) })),
+      // KAN-394: Lesemengen ohne GST anteilig auf die GST der Ried (wie die Sperre beim Speichern)
+      riedLeseVerteilen(
+        parzellen.map(l => ({ lese_id: l.lese_id ?? null, weingarten_id: l.weingarten_id, grundstueck_id: l.grundstueck_id ?? null, kg: l.menge_kg == null ? null : Number(l.menge_kg) })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        gstDerRiedJeLese((grundstuecke ?? []) as any[], id => lesen.find(l => l.id === id)?.jahrgang ?? null)),
       [
         ...pressungWG.map(p => ({ lese_id: p.pressung?.lese_id ?? null, weingarten_id: p.weingarten_id ?? null, grundstueck_id: p.grundstueck_id ?? null, kg: Number(p.trauben_kg) || 0 })),
         ...tvSold.map(v => ({ lese_id: v.lese_id ?? null, weingarten_id: v.weingarten_id ?? null, grundstueck_id: v.grundstueck_id ?? null, kg: parseFloat(v.menge_kg) || 0 })),
@@ -179,6 +183,7 @@ export async function GET() {
     // Grundstücke: nur gelesene (Lese-Eintrag mit Menge in einer Lese)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const grundstueckeMitKg = ((grundstuecke ?? []) as any[])
+      .filter((g: { aktiv?: boolean | null }) => g.aktiv !== false)   // KAN-150 F1: nur bewirtschaftete Grundstücke zur Auswahl
       .map((g: any) => {
         const { eintraege, standard } = jeLese(g.id, verfuegbar.gst)
         return {

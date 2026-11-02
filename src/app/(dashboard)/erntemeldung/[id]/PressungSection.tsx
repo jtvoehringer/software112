@@ -135,7 +135,7 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, vorauswahl, onDone, onWarnung }: {
+function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, verfuegbareKgByRied, zukaufTrauben, behaelterMitCharge, vorauswahl, onDone, onWarnung }: {
   /** KAN-359: Hinweis nach teilweisem Speichern – bleibt in der Pressungs-Karte stehen, wenn das Formular schließt */
   onWarnung: (text: string) => void
   /** KAN-394: Options-IDs der vorbelegten Traubenzeile (erster Treffer) – nur beim Anlegen */
@@ -143,6 +143,8 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
   jahrgangId: string; leseId: string | null; leseArt: string | null; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
+  /** KAN-394: verfügbare kg je Ried (Lesemenge ohne GST: „ganzer Weingarten“; Summe der Ried) */
+  verfuegbareKgByRied: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; onDone: () => void
 }) {
@@ -152,9 +154,9 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
 
   // Pre-fill aus Erntedaten: eine Zeile pro Parzelle (GST oder Ried)
-  // Verfügbare kg direkt per GST-ID (kein proportionales Verteilen mehr)
-  function gstVerfuegbar(gstId: string | null): number {
-    return gstId ? (verfuegbareKgByGST[gstId] ?? 0) : 0
+  // Verfügbare kg je GST (Lese ohne GST anteilig verteilt, KAN-394), ohne GST („ganzer Weingarten“) die der Ried
+  function gstVerfuegbar(gstId: string | null, riedId: string): number {
+    return gstId ? (verfuegbareKgByGST[gstId] ?? 0) : (verfuegbareKgByRied[riedId] ?? 0)
   }
 
   const defaultWGRows: WGRow[] = pressung
@@ -281,7 +283,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
       kurz: p.grundstueck_nr ? `GST ${p.grundstueck_nr}` : 'ganzer Weingarten',
       rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
       menge_kg: p.menge_kg ?? 0,
-      verfuegbar_kg: gstVerfuegbar(p.grundstueck_id),
+      verfuegbar_kg: gstVerfuegbar(p.grundstueck_id, p.weingarten_id),
     }
     if (tage.length <= 1) return [{ ...basis, compositeId: `${ort}|`, tag: vorbelegterLesetag(tage), mehrereTage: false }]
     return [
@@ -861,7 +863,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, leseId, leseArt, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, vorauswahl }: {
+export default function PressungSection({ jahrgangId, leseId, leseArt, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, verfuegbareKgByRied, zukaufTrauben, behaelterMitCharge, writeOk, vorauswahl }: {
   jahrgangId: string; pressungen: Pressung[]
   /** KAN-129: gewählte Lese (Reiter) – Pressungen und Lese-Einträge dieser Lese */
   leseId: string | null
@@ -870,6 +872,8 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   /** KAN-126: alle Lese-Einträge des Jahrgangs (Lesetage und Mostgewicht je Ort) */
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
+  /** KAN-394: verfügbare kg je Ried (Lesemenge ohne GST: „ganzer Weingarten“; Summe der Ried) */
+  verfuegbareKgByRied: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; writeOk: boolean; adminOk: boolean
   /** KAN-394: „Pressen“ aus den Lesedaten – Formular offen, Traubenzeile dieses Orts (Options-IDs, erster Treffer) */
@@ -889,7 +893,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
   const gesamtKg    = gueltige.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
   const gesamtLiter = gueltige.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
   const ausbeute    = gesamtKg > 0 && gesamtLiter > 0 ? (gesamtLiter / gesamtKg) * 100 : null
-  const gesamtVerfuegbarKg = Object.values(verfuegbareKgByGST).reduce((s, v) => s + v, 0)
+  const gesamtVerfuegbarKg = Object.values(verfuegbareKgByRied).reduce((s, v) => s + v, 0)
     + zukaufTrauben.reduce((s, z) => s + z.verfuegbar_kg, 0)
 
   // KAN-148 C1c: Hinweis im Storno-Dialog – die Chargen der Pressung werden mitstorniert
@@ -961,7 +965,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
       {/* Neues Formular */}
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions} behOptions={behOptions}
-          waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST}
+          waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST} verfuegbareKgByRied={verfuegbareKgByRied}
           zukaufTrauben={zukaufTrauben}
           behaelterMitCharge={behaelterMitCharge} vorauswahl={vorauswahl} onDone={() => setShowForm(false)} onWarnung={setWarnung} />
       )}
@@ -982,7 +986,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions}
                     behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege}
-                    verfuegbareKgByGST={verfuegbareKgByGST} zukaufTrauben={zukaufTrauben}
+                    verfuegbareKgByGST={verfuegbareKgByGST} verfuegbareKgByRied={verfuegbareKgByRied} zukaufTrauben={zukaufTrauben}
                     behaelterMitCharge={undefined}
                     onDone={() => setEditId(null)} onWarnung={setWarnung} />
                 ) : (

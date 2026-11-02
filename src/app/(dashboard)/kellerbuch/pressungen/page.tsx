@@ -100,6 +100,7 @@ export default async function PressungenPage({ searchParams }: Props) {
         behOptions={k.behOptions}
         waOptions={k.waOptions}
         verfuegbareKgByGST={k.verfuegbareKgByGST}
+        verfuegbareKgByRied={k.verfuegbareKg}
         zukaufTrauben={k.zukaufTrauben}
         behaelterMitCharge={k.behaelterMitCharge}
         leseParzellen={k.leseParzellen}
