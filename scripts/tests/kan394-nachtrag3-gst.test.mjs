@@ -79,6 +79,32 @@ describe('KAN-394 Nachtrag 3: Lese, Pressung und Traubenverkauf je GST', () => {
   })
 })
 
+describe('KAN-394 Nachtrag 3: Demo-Musterhof legt Lese und Pressung je GST an (Migration)', () => {
+  const m = quelle('supabase/migrations/20261102114052_kan394_musterhof_lese_je_gst.sql')
+  test('Funktion nur für den Demo-Mandanten, ohne Rechte für API-Rollen, Freeze nur im Lauf frei', () => {
+    assert.match(m, /c_t constant uuid := '33333333-3333-4333-8333-333333333333'/)
+    assert.match(m, /SECURITY DEFINER\nSET search_path = public/)
+    assert.match(m, /REVOKE EXECUTE ON FUNCTION public\.demo_musterhof_lese_je_gst\(\) FROM PUBLIC, anon, authenticated;/)
+    assert.match(m, /set_config\('s112\.freeze_frei', '\*', true\)[^]*set_config\('s112\.freeze_frei', '', true\)/)
+    // nichts wird gelöscht (Lesedaten und Pressungen sind berichtsrelevant)
+    assert.doesNotMatch(m, /\bDELETE\b/i)
+    // ohne Hilfstabellen (Probelauf auf Produktion ohne COMMIT)
+    assert.doesNotMatch(m, /COMMIT|pg_temp|TEMP TABLE/i)
+  })
+  test('Aufteilung wie riedLeseVerteilen: Fläche (sonst gleich), Rest an das letzte GST nach gst_nr, id; feste IDs', () => {
+    assert.match(m, /CASE WHEN bool_and\(x\.flaeche > 0\) OVER \(\) THEN x\.flaeche ELSE 1 END AS gewicht/)
+    assert.match(m, /row_number\(\) OVER \(ORDER BY g2\.gst_nr, g2\.id\)/)
+    assert.match(m, /CASE WHEN g\.nr = g\.n THEN v_rest ELSE round\(r\.menge_kg \* g\.gewicht \/ g\.summe, 0\) END/)
+    assert.match(m, /md5\(r\.id::text \|\| g\.id::text\)::uuid/)
+  })
+  test('Aufruf am Ende von Schritt 1 und nach demo_musterhof_kellerbuch() in Schritt 2, mit Selbstprüfung', () => {
+    assert.match(m, /pg_get_functiondef\('public\.demo_musterhof_zuruecksetzen\(\)'::regprocedure\)/)
+    assert.match(m, /c_alt constant text := '  perform demo_musterhof_kellerbuch\(\);'/)
+    assert.match(m, /RAISE EXCEPTION 'KAN-394: Aufruf fehlt in demo_musterhof_y2_kette'/)
+    assert.match(quelle('scripts/db-tests/_helfer.sql'), /\('intern', +'--S', false, 'demo_musterhof_lese_je_gst\(\)'\)/)
+  })
+})
+
 describe('KAN-394 Nachtrag 3: Stift und Storno ohne waagrechtes Scrollen', () => {
   test('Tabelle erst ab lg, „Ernte abgeschlossen öffnen“ bricht um; Aktionen bleiben unfixiert (KAN-328/339)', () => {
     const e = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
