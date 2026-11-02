@@ -18,6 +18,8 @@ import { rund } from '../zahl/runden.ts'
 import { zahlLokal } from '../format.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { AktionsFehler } from '../fehler.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { gstImJahr } from './grundstueckAktiv.ts'
 export const KG_TOLERANZ = 0.01
 
 export type Mengenzeile = { weingarten_id: string | null; grundstueck_id: string | null; kg: number }
@@ -79,9 +81,59 @@ export function leseOrtSchluessel(leseId: string, ortId: string): string {
   return `${leseId}|${ortId}`
 }
 
+export type GstAnteil = { id: string; flaeche_ha: number | null }
+
+/**
+ * KAN-394 (Entscheidung Jörgen 02.11.2026): Eine Lesemenge ohne Grundstück („ganzer Weingarten“) ist anteilig auf die
+ * Grundstücke der Ried zu verteilen – nach Fläche, ohne vollständige Flächenangaben zu gleichen Teilen. Die Zeile
+ * wird durch je eine Zeile pro Grundstück ersetzt (die letzte nimmt den Rundungsrest, die Ried-Summe bleibt exakt).
+ * Ohne Grundstücke der Ried und ohne Menge bleibt die Zeile, wie sie ist. Vor verfuegbarJeLese/neueUeberdeckungen
+ * anwenden – dieselbe Verteilung für Anzeige und Sperre. `gstDerRied` liefert die bewirtschafteten Grundstücke
+ * (Weinbau, im Jahr des Jahrgangs aktiv) der Ried der Zeile.
+ */
+export function riedLeseVerteilen<Z extends GelesenZeile>(
+  gelesen: readonly Z[], gstDerRied: (z: Z) => readonly GstAnteil[],
+): Z[] {
+  const out: Z[] = []
+  for (const z of gelesen) {
+    const gst = z.grundstueck_id || !z.weingarten_id || z.kg === null || z.kg === undefined ? [] : gstDerRied(z)
+    if (gst.length === 0) { out.push(z); continue }
+    const kg = Number(z.kg) || 0
+    const mitFlaeche = gst.every(g => (Number(g.flaeche_ha) || 0) > 0)
+    const gewicht = (g: GstAnteil) => (mitFlaeche ? Number(g.flaeche_ha) : 1)
+    const summeGewicht = gst.reduce((s, g) => s + gewicht(g), 0)
+    let rest = kg
+    gst.forEach((g, i) => {
+      const anteil = i === gst.length - 1 ? rest : rund(kg * gewicht(g) / summeGewicht, 2)
+      rest = rund(rest - anteil, 2)
+      out.push({ ...z, grundstueck_id: g.id, kg: anteil })
+    })
+  }
+  return out
+}
+
+/** Grundstück für die Verteilung (Weinbau, mit Aktiv-Feldern für gstImJahr) */
+export type GstFuerVerteilung = GstAnteil & { weingarten_id: string; nutzart?: string | null; aktiv?: boolean | null; deaktiviert_am?: string | null }
+
+/**
+ * KAN-394: `gstDerRied` für riedLeseVerteilen über mehrere Lesen/Jahrgänge – Weinbau-Grundstücke (nutzart WI) der
+ * Ried, die im Jahr des Jahrgangs der Lese bewirtschaftet wurden (wie ladeLeseVerbrauch). Ohne bekanntes Jahr: keine.
+ */
+export function gstDerRiedJeLese(gst: readonly GstFuerVerteilung[], jahrDerLese: (leseId: string) => number | null) {
+  const jeRied = new Map<string, GstFuerVerteilung[]>()
+  for (const g of gst) if (!g.nutzart || g.nutzart === 'WI') jeRied.set(g.weingarten_id, [...(jeRied.get(g.weingarten_id) ?? []), g])
+  return (z: GelesenZeile & { lese_id?: string | null }): GstAnteil[] => {
+    const jahr = z.lese_id ? jahrDerLese(z.lese_id) : null
+    if (jahr === null || !z.weingarten_id) return []
+    return (jeRied.get(z.weingarten_id) ?? []).filter(g => gstImJahr(g, jahr))
+      .map(g => ({ id: g.id, flaeche_ha: g.flaeche_ha == null ? null : Number(g.flaeche_ha) }))
+  }
+}
+
 /**
  * Verfügbare kg je Lese und Ort (Ticket Soll 3: eine Funktion für Jahrgangsseite, Weinhandel und
- * Verkauf-Stammdaten): gelesen − verpresst − verkauft, nie negativ. Nur Orte mit Lesemenge erscheinen.
+ * Verkauf-Stammdaten): gelesen − verpresst − verkauft, nie negativ. Nur Orte mit Lesemenge erscheinen. Ein Grundstück
+ * zeigt höchstens den Wert seiner Ried. Lesemengen ohne Grundstück vorher mit riedLeseVerteilen verteilen (KAN-394).
  * `ohneVerkaufId` nimmt einen Traubenverkauf heraus (Bearbeiten: seine Menge steht wieder zur Verfügung).
  */
 export function verfuegbarJeLese(
@@ -107,6 +159,13 @@ export function verfuegbarJeLese(
     }
   }
   for (const m of [ried, gst]) for (const [k, v] of m) m.set(k, Math.max(0, rund(v, 2)))
+  // KAN-394: ein Grundstück nie mehr als seine Ried – Verbrauch ohne Grundstück mindert nur die Ried
+  for (const z of gelesen) {
+    if (!z.lese_id || !z.weingarten_id || !z.grundstueck_id) continue
+    const kg = leseOrtSchluessel(z.lese_id, z.grundstueck_id)
+    const r = ried.get(leseOrtSchluessel(z.lese_id, z.weingarten_id))
+    if (gst.has(kg) && r !== undefined) gst.set(kg, Math.min(gst.get(kg) as number, r))
+  }
   return { ried, gst }
 }
 
@@ -140,8 +199,12 @@ export type LeseVerbrauch = {
   namen: Map<string, OrtName>
 }
 
-/** Gelesenes und Verbrauchtes einer Lese laden (Betrieb über tenant_id, ernte_parzellen über die Lese) */
-export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahrgangId: string, leseId: string): Promise<LeseVerbrauch> {
+/**
+ * Gelesenes und Verbrauchtes einer Lese laden (Betrieb über tenant_id, ernte_parzellen über die Lese).
+ * KAN-394: Mit `jahr` (Jahrgang) sind Lesemengen ohne Grundstück schon anteilig auf die Grundstücke der Ried verteilt
+ * (riedLeseVerteilen – Weinbau-Grundstücke, die im Jahr bewirtschaftet wurden).
+ */
+export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahrgangId: string, leseId: string, jahr: number | null = null): Promise<LeseVerbrauch> {
   const [ep, pr, tv] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
@@ -178,8 +241,23 @@ export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahr
       kg: z.menge_kg === null || z.menge_kg === undefined ? null : Number(z.menge_kg),
     }
   })
+  // KAN-394: Grundstücke der Rieden mit Lesemenge ohne Grundstück – für die anteilige Verteilung
+  const riedIds = [...new Set(gelesen.filter(z => !z.grundstueck_id && z.weingarten_id && z.kg !== null).map(z => z.weingarten_id as string))]
+  const gstJeRied = new Map<string, GstAnteil[]>()
+  if (jahr !== null && riedIds.length > 0) {
+    // inBloecken + alle(): Rieden einer Lese (aus ernte_parzellen), Grundstücke vollständig für die Verteilung
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await inBloecken<R>(riedIds, b => alle<R>((supabase.from('grundstuecke') as any)
+      .select('id, weingarten_id, gst_nr, flaeche_ha, aktiv, deaktiviert_am').eq('tenant_id', tenantId).eq('nutzart', 'WI')
+      .in('weingarten_id', b).order('gst_nr').order('id')))
+    if (error) throw new AktionsFehler(`Lesemenge konnte nicht geprüft werden (grundstuecke): ${error.message}`)
+    for (const g of ((data ?? []) as R[]).filter(g => gstImJahr(g, jahr))) {
+      gstJeRied.set(g.weingarten_id, [...(gstJeRied.get(g.weingarten_id) ?? []), { id: g.id, flaeche_ha: g.flaeche_ha == null ? null : Number(g.flaeche_ha) }])
+      if (!namen.has(g.id)) namen.set(g.id, { ried: namen.get(g.weingarten_id)?.ried ?? null, gstNr: g.gst_nr ?? null })
+    }
+  }
   return {
-    gelesen,
+    gelesen: riedLeseVerteilen(gelesen, z => gstJeRied.get(z.weingarten_id ?? '') ?? []),
     pressungszeilen: pw.map(z => ({ pressung_id: z.pressung_id, weingarten_id: z.weingarten_id, grundstueck_id: z.grundstueck_id ?? null, kg: Number(z.trauben_kg) || 0 })),
     verkaeufe: ((tv.data ?? []) as R[]).filter(v => v.weingarten_id)
       .map(v => ({ id: v.id, weingarten_id: v.weingarten_id, grundstueck_id: v.grundstueck_id ?? null, kg: Number(v.menge_kg) || 0 })),
@@ -225,7 +303,7 @@ export async function leseDeckungFehler(
   vorher: readonly Mengenzeile[], nachher: readonly Mengenzeile[],
 ): Promise<string | null> {
   if (!nachher.some(z => z.weingarten_id)) return null
-  const v = await ladeLeseVerbrauch(supabase, tenantId, jahrgangId, lese.id)
+  const v = await ladeLeseVerbrauch(supabase, tenantId, jahrgangId, lese.id, jahrgang)
   const andere: Mengenzeile[] = [
     ...v.pressungszeilen.filter(z => !ausnahme.pressungId || z.pressung_id !== ausnahme.pressungId),
     ...v.verkaeufe.filter(z => !ausnahme.verkaufId || z.id !== ausnahme.verkaufId),

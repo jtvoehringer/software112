@@ -18,7 +18,7 @@ import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type Traube
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
-import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
+import { gstDerRiedJeLese, leseOrtSchluessel, riedLeseVerteilen, verfuegbarJeLese, type GstFuerVerteilung } from '@/lib/wein/leseBilanz'
 import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
@@ -33,6 +33,8 @@ interface Props {
   lesen: { id: string; jahrgang_id: string; jahrgang: number; lfd_nr: number; titel: string }[]
   /** KAN-129: verpresste kg je Lese und Ort (eigene Ernte) */
   verpresst: { lese_id: string | null; weingarten_id: string; grundstueck_id: string | null; kg: number }[]
+  /** KAN-394: Weinbau-Grundstücke mit Fläche – Lesemengen ohne GST anteilig verteilen (wie die Sperre) */
+  gstFlaechen: GstFuerVerteilung[]
   zukaufOptions: R[]  // zugekaufte Trauben (zukauf_posten, art='trauben') mit verfuegbar_kg
   writeOk:      boolean
   /** BKI-Datenblatt (Pflichtmeldung) – gleiche Regel wie die CSV-Route */
@@ -59,7 +61,7 @@ function fmt(n: number | null | undefined, digits = 2) {
   return fmtNum(n, digits)
 }
 
-export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnteOptions, lesen, verpresst, zukaufOptions, writeOk, bkiErlaubt, crmSchreiben }: Props) {
+export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnteOptions, lesen, verpresst, gstFlaechen, zukaufOptions, writeOk, bkiErlaubt, crmSchreiben }: Props) {
   const [showForm, setShowForm]      = useState(false)
   const [editRow, setEditRow]        = useState<R | null>(null)
   const [error, setError]            = useState<string | null>(null)
@@ -80,7 +82,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
   // gelesen − verpresst − verkauft je Lese und Ort (dieselbe Funktion wie Verkauf-Stammdaten); beim
   // Bearbeiten ohne die eigene Menge
   const verfuegbar = verfuegbarJeLese(
-    alleErnteOptions.map(e => ({ lese_id: e.lese_id ?? null, weingarten_id: (e.weingarten as R | null)?.id ?? null, grundstueck_id: (e.grundstueck as R | null)?.id ?? null, kg: e.menge_kg == null ? null : Number(e.menge_kg) })),
+    // KAN-394: Lesemengen ohne GST anteilig auf die GST der Ried
+    riedLeseVerteilen(
+      alleErnteOptions.map(e => ({ lese_id: e.lese_id ?? null, weingarten_id: (e.weingarten as R | null)?.id ?? null, grundstueck_id: (e.grundstueck as R | null)?.id ?? null, kg: e.menge_kg == null ? null : Number(e.menge_kg) })),
+      gstDerRiedJeLese(gstFlaechen, id => lesen.find(l => l.id === id)?.jahrgang ?? null)),
     [
       ...verpresst,
       // KAN-148: stornierte Traubenverkäufe binden keine kg

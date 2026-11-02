@@ -98,6 +98,13 @@ export default async function TraubenverkaufPage() {
     kg: Number(p.trauben_kg) || 0,
   }))
 
+  // KAN-394: Grundstücke (Fläche) – Lesemengen ohne GST verteilt das Formular anteilig auf die GST der Ried
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gstFlaechen = geladen(await alle<R>((supabase.from('grundstuecke') as any)
+    .select('id, weingarten_id, flaeche_ha, nutzart, aktiv, deaktiviert_am')
+    .eq('tenant_id', membership.tenantId).eq('nutzart', 'WI')
+    .order('id')), 'Grundstücke') as R[]
+
   // BKI-Datenblatt (Pflichtmeldung): gleiche Zugriffsregel wie /meldungen/bki-traubenverkauf/csv
   const { module } = await betriebUndModuleLaden(supabase, membership.tenantId)
   const bkiErlaubt = zugriffsFehler(KATALOG_ERNTE['bki-traubenverkauf'], membership, module) === null
@@ -177,6 +184,7 @@ export default async function TraubenverkaufPage() {
         ernteOptions={ernteOptions}
         lesen={lesen}
         verpresst={verpresst}
+        gstFlaechen={gstFlaechen.map(g => ({ id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha == null ? null : Number(g.flaeche_ha), nutzart: g.nutzart ?? null, aktiv: g.aktiv ?? null, deaktiviert_am: g.deaktiviert_am ?? null }))}
         zukaufOptions={zukaufOptions}
         writeOk={writeOk}
         bkiErlaubt={bkiErlaubt}
