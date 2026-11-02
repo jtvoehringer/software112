@@ -76,6 +76,13 @@ describe('KAN-399: Ladekreisel in CD-Blau', () => {
       assert.match(s, /import Kreisel from '@\/components\/ui\/Kreisel'/, p)
     }
   })
+  test('dreht auch bei „weniger Bewegung“ (Windows-Animationseffekte aus), nur langsamer', () => {
+    const css = quelle('src/app/globals.css')
+    const block = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'))
+    assert.match(block, /\.animate-spin \{\s*animation-duration: 1\.5s !important;\s*animation-iteration-count: infinite !important;/)
+    // die allgemeine Regel bleibt
+    assert.match(block, /animation-iteration-count: 1 !important;/)
+  })
   test('LinkSpinner immer blau, Tabs ohne eigene Farbe (nicht die Betriebsfarbe s112-teal)', () => {
     assert.match(quelle('src/components/ui/Link.tsx'), /animate-spin align-\[-1px\] \$\{KREISEL_FARBE\} \$\{className\}/)
     const t = quelle('src/components/layout/TabNav.tsx')
