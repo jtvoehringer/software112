@@ -255,10 +255,20 @@ describe('Stripe-Webhook: Zuordnung von Ereignissen zum Betrieb (aboZuordnung)',
     assert.equal(z({ gespeicherteAboId: 'sub_alt', aboId: 'sub_neu' }), 'ignorieren', 'unbekannt → ignorieren')
   })
 
-  test('Testphase nur einmal je Stripe-Kunde', () => {
-    assert.equal(r.testphaseTage({ bisherigeAbos: 0, tage: 14 }), 14)
-    assert.equal(r.testphaseTage({ bisherigeAbos: 1, tage: 14 }), undefined, 'Wiederabschluss nach Kündigung: sofort zahlen')
-    assert.equal(r.testphaseTage({ bisherigeAbos: 0, tage: 0 }), undefined)
+  // KAN-402 (Vertrag v3, NV 4.1): keine Testphase mehr – auch nicht beim ersten Abo eines neuen Stripe-Kunden
+  test('Regression KAN-402: neues Abo ohne Testphase', () => {
+    const d = r.checkoutAboDaten('t-1')
+    assert.deepEqual(d, { metadata: { tenant_id: 't-1' } })
+    assert.ok(!('trial_period_days' in d) && !('trial_end' in d), 'kein Testzeitraum im Checkout')
+    assert.equal(r.testphaseTage, undefined, 'testphaseTage ist entfernt')
+  })
+
+  test('KAN-402: Hinweis „Noch kein Paket gebucht“ nur ohne Abo und nicht nach einer Kündigung', () => {
+    assert.equal(r.nochKeinPaketGebucht('incomplete', false), true)
+    assert.equal(r.nochKeinPaketGebucht(null, false), true)
+    assert.equal(r.nochKeinPaketGebucht('canceled', false), false)
+    assert.equal(r.nochKeinPaketGebucht('cancelled', false), false)
+    assert.equal(r.nochKeinPaketGebucht('unpaid', true), false)
   })
 })
 
@@ -405,8 +415,10 @@ describe('Stripe-Webhook: Abgleich mit Fake-Admin-Client (aboEreignisAbgleichen)
     assert.doesNotMatch(route, /stripe_status:\s*'past_due'/, 'kein blindes past_due mehr')
     assert.match(route, /status: 500/)
     const abo = readFileSync(path.join(ROOT, 'src', 'app', 'abo', 'actions.ts'), 'utf8')
-    assert.match(abo, /testphaseTage\(/)
-    assert.doesNotMatch(abo, /trial_period_days: TRIAL_TAGE/, 'keine bedingungslose Testphase mehr')
+    // KAN-402: Checkout ohne Testphase – Abo-Daten nur über checkoutAboDaten, nirgends ein Testzeitraum
+    assert.match(abo, /subscription_data: checkoutAboDaten\(membership\.tenantId\)/)
+    assert.doesNotMatch(abo, /trial_period_days|trial_end|TRIAL_TAGE|testphaseTage/, 'keine Testphase mehr (KAN-402)')
+    assert.doesNotMatch(readFileSync(path.join(ROOT, 'src', 'lib', 'stripe', 'client.ts'), 'utf8'), /TRIAL_TAGE/)
   })
 })
 

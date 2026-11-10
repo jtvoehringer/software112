@@ -49,8 +49,9 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
   markieren“ (unpaid) oder „Abonnement kündigen“ (canceled)** – NICHT „Abonnement überfällig
   lassen“. software:112 sperrt erst bei `unpaid`/`canceled` (Nur-Lesen-Modus); `past_due`
   zeigt nur eine Warnleiste. Mit „überfällig lassen“ würde ein säumiger Betrieb nie gesperrt.
-- Dieselbe Einstellung für fehlgeschlagene Zahlungen nach der Testphase prüfen
-  („Testphase endet ohne Zahlungsmethode“: kündigen bzw. pausieren – beide sperren).
+- Keine Testphase (KAN-402, Vertrag v3 NV 4.1): Produkte und Preise **ohne** Testzeitraum anlegen; der Checkout
+  setzt nie `trial_period_days`, die erste Zahlung ist sofort fällig. Nur Altfälle mit `trialing` (vor dem 10.11.2026)
+  wertet software:112 noch aus – für sie „Testphase endet ohne Zahlungsmethode“: kündigen bzw. pausieren (beide sperren).
 
 ### 2a. Hauptmandant und Submandanten (KAN-215, seit KAN-214 ohne Stripe-Produkt)
 - **Kein Stripe-Produkt nötig:** Ein Submandant kostet 0 € (Entscheidung Jörgen 08.10.2026, KAN-214). Das frühere
@@ -58,9 +59,9 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
   entfallen.
 - Ablauf: Der Hauptmandant hat Premium (mit Stripe-Abo oder – Pilotbetriebe – manuell gesetzt). Der Plattform-Admin
   ordnet unter Administration › Mandanten › Submandant › Stripe „Als Submandant zuordnen“ zu. Der Submandant bekommt
-  Premium und – falls vorhanden – Stripe-Kunde, -Abo, Status und Testphase des Hauptmandanten; CRM und Kellergebinde
+  Premium und – falls vorhanden – Stripe-Kunde, -Abo und Status des Hauptmandanten; CRM und Kellergebinde
   werden gemeinsam genutzt (Freigaben in beide Richtungen), Support-Anfragen laufen in JSM unter dem Hauptmandanten.
-- Austritt: mit geteiltem Stripe-Abo Nur-Lesen, bis ein eigenes Abo abgeschlossen ist (ohne neue Testphase); ohne
+- Austritt: mit geteiltem Stripe-Abo Nur-Lesen, bis ein eigenes Abo abgeschlossen ist; ohne
   Stripe-Abo bleibt der Status. Die Gemeinschaften bleiben bestehen (Administration › Gemeinschaften).
 
 ### 2b. Premium-Support als Zusatzposition (KAN-226)
@@ -93,8 +94,8 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
    „Nur-Lesen-Modus“ im Arbeitsbereich, `stripe_plan` leer, Module bleiben **unverändert**
    (Daten bleiben einsehbar und exportierbar), jedes Speichern und die KI-Abfrage werden
    abgelehnt, CSV-/BMD-Export und Drucken funktionieren.
-5. Danach auf `/abo` „Zahlungsdaten hinterlegen“ → Checkout **ohne** Testphase (der Kunde
-   hatte schon ein Abo) → nach Zahlung `active`, Hinweisleiste weg, Speichern wieder möglich.
+5. Danach auf `/abo` „Zahlungsdaten hinterlegen“ → Checkout mit sofortiger Zahlung (keine Testphase, KAN-402)
+   → nach Zahlung `active`, Hinweisleiste weg, Speichern wieder möglich.
 6. Zahlungsausfall simulieren (Testkarte `4000 0000 0000 0341`, Testuhr vorstellen):
    erst `past_due` (nur Warnleiste), nach dem letzten Versuch `unpaid` bzw. `canceled`
    (Nur-Lesen-Modus). Die Reihenfolge von `invoice.payment_failed` und
@@ -110,5 +111,5 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
 
 ## Noch offen / bewusst nicht gebaut
 - Paket-Spalte in der Mandanten-**Liste** (nur im Detail sichtbar).
-- Testphase beim Signup: 14 Tage für alle Pakete (`TRIAL_TAGE`), nicht paketabhängig –
-  und nur einmal je Stripe-Kunde (`testphaseTage()`, KAN-5).
+- Testphase: seit KAN-402 (10.11.2026) entfallen – `TRIAL_TAGE`/`testphaseTage()` sind entfernt, der Checkout baut
+  seine Abo-Daten über `checkoutAboDaten()` (`lib/abo/regeln.ts`) ohne `trial_period_days`.

@@ -18,8 +18,8 @@ import { clientIp, drossel } from '@/lib/sicherheit/drossel'
 //     der ersten Anmeldung führt das Dashboard-Layout auf /abo ('incomplete'
 //     OHNE Abo-ID = „Zahlung offen“, lib/abo/regeln.ts), dort legt „Jetzt
 //     Zahlungsdaten hinterlegen“ (starteZahlungAction) Stripe-Kunde und
-//     Checkout mit Testphase an. Erst das Webhook-Event
-//     customer.subscription.created setzt stripe_status auf 'trialing'.
+//     Checkout an (KAN-402: ohne Testphase, Zahlung sofort). Erst das Webhook-Event
+//     customer.subscription.created setzt stripe_status auf 'active'.
 //   – Dieselbe neutrale Antwort, egal ob die Adresse neu ist oder schon ein
 //     Konto hat (keine Enumeration). Bestehende bestätigte Konten bekommen
 //     stattdessen einen Hinweis per Mail (Brevo, falls eingerichtet).
@@ -47,7 +47,7 @@ function slugify(name: string): string {
 function neutraleAntwort(email: string): Ergebnis {
   return {
     ok: true,
-    hinweis: `Fast geschafft! Wir haben eine E-Mail an ${email} geschickt. Bitte öffnen Sie den Link darin, um Ihre Adresse zu bestätigen und Ihr Passwort festzulegen. Danach hinterlegen Sie die Zahlungsdaten für die 14-tägige Testphase. Keine E-Mail erhalten? Bitte den Spam-Ordner prüfen – falls Sie bereits ein Konto haben, melden Sie sich einfach an oder setzen Ihr Passwort zurück.`,
+    hinweis: `Fast geschafft! Wir haben eine E-Mail an ${email} geschickt. Bitte öffnen Sie den Link darin, um Ihre Adresse zu bestätigen und Ihr Passwort festzulegen. Danach wählen Sie Ihr Paket und hinterlegen die Zahlungsdaten – die Nutzung beginnt mit der Freischaltung. Keine E-Mail erhalten? Bitte den Spam-Ordner prüfen – falls Sie bereits ein Konto haben, melden Sie sich einfach an oder setzen Ihr Passwort zurück.`,
   }
 }
 

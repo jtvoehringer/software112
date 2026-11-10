@@ -48,5 +48,3 @@ export const STRIPE_STATUS_META: Record<string, { label: string; color: string }
 // mit Tests) - hier nur unter den bisherigen Namen weitergereicht.
 export { ABO_GESPERRTE_STATUS as STRIPE_BLOCKED_STATUSES, istTrialAbgelaufen } from '@/lib/abo/regeln'
 
-/** Länge der kostenlosen Testphase beim Self-Service-Signup (Rückmeldung 31.8.2026). */
-export const TRIAL_TAGE = 14

@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { STRIPE_PLAN_LABELS, STRIPE_STATUS_META } from '@/lib/stripe/client'
-import { aboStandBerechnen, istTrialAbgelaufen } from '@/lib/abo/regeln'
+import { aboStandBerechnen, nochKeinPaketGebucht } from '@/lib/abo/regeln'
 import { PAKET_REIHENFOLGE, paketAusPlan, paketPriceId } from '@/lib/pakete'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
@@ -57,7 +57,8 @@ export default async function AboPage() {
   // KAN-5: dieselbe Regel wie Layout und Schreibsperre (lib/abo/regeln.ts) – Sandbox und
   // Demo-Musterhof über feste IDs statt über den Namen
   const abo             = aboStandBerechnen({ tenantId: membership.tenantId, stripeStatus, trialEndsAt, role })
-  const trialAbgelaufen = abo.gesperrt && istTrialAbgelaufen(stripeStatus, trialEndsAt)
+  // KAN-402: neuer Betrieb ohne Abo – Hinweis zur Buchung statt „kein aktives Abo“ (keine Testphase mehr)
+  const ohnePaket       = abo.gesperrt && nochKeinPaketGebucht(stripeStatus, hatAbo)
   const hardBlocked      = abo.gesperrt
   const warned           = abo.warnung
 
@@ -149,7 +150,7 @@ export default async function AboPage() {
         verfuegbarePakete={verfuegbarePakete}
         benutzerAnzahl={limit.anzahl}
         hardBlocked={hardBlocked}
-        trialAbgelaufen={trialAbgelaufen}
+        ohnePaket={ohnePaket}
         warned={warned}
         darfVerwalten={canAdmin(role)}
         hasCustomer={hasCustomer}

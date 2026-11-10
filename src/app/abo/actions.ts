@@ -10,14 +10,14 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
-import { getStripe, TRIAL_TAGE } from '@/lib/stripe/client'
+import { getStripe } from '@/lib/stripe/client'
 import { istPaketKey, paketFromPriceId, paketPriceId, paketAusPlan, PAKETE, type PaketKey } from '@/lib/pakete'
 import { wendePaketAn } from '@/lib/pakete-server'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
-import { paketEntscheidung, paketwechselParameter, testphaseTage } from '@/lib/abo/regeln'
+import { paketEntscheidung, paketwechselParameter, checkoutAboDaten } from '@/lib/abo/regeln'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { aboPositionAus, paketPosition, paketwechselVerbundFehler } from '@/lib/abo/verbund'
 import { buchenFehler, premiumPositionFuer, PREMIUM_ART } from '@/lib/abo/premiumStripe'
@@ -70,12 +70,12 @@ export async function createOwnStripePortalSession() {
 // abgebrochen hat, landet gesperrt hier (stripe_status='incomplete', noch
 // KEINE stripe_subscription_id). Das Customer-Portal (oben) funktioniert dafür
 // nicht - es verwaltet nur ein BESTEHENDES Abo. Diese Funktion startet einen
-// neuen Checkout für genau diesen Mandanten, inkl. der vollen 14-tägigen
-// Testphase (die ja nie begonnen hat). Existiert bereits eine
+// neuen Checkout für genau diesen Mandanten. Existiert bereits eine
 // stripe_subscription_id, ist das NICHT der richtige Weg (dann: Portal oben).
 // KAN-5: Auch nach einer Kündigung (stripe_subscription_id wieder leer) ist das der Weg zurück
-// aus dem Nur-Lesen-Modus – dann aber OHNE neue Testphase (testphaseTage: nur, wenn der
-// Stripe-Kunde noch nie ein Abo hatte), sonst ließe sich die Sperre beliebig oft umgehen.
+// aus dem Nur-Lesen-Modus.
+// KAN-402 (Vertrag v3, NV 4.1): keine Testphase mehr – die entgeltliche Nutzung beginnt mit der Freischaltung,
+// jeder Checkout verlangt sofort die Zahlung (checkoutAboDaten, ohne Testzeitraum).
 // schreibsperre-ausnahme: Checkout für ein neues Abo – der Weg aus der Sperre (KAN-5)
 export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?: string) {
   const membership = await getCurrentMembership()
@@ -137,12 +137,6 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
   try {
-    // Testphase nur für Kunden ohne bisheriges Abo (auch gekündigte/abgelaufene zählen)
-    const bisherige = await getStripe().subscriptions.list({ customer: customerId, status: 'all', limit: 1 })
-    // KAN-215: auch ein gekündigter bzw. aus einem Verbund ausgetretener Betrieb (eigener neuer Stripe-Kunde) bekommt
-    // keine neue Testphase – Testphase gibt es nur einmal
-    const gekuendigt = ['cancelled', 'canceled'].includes(String(t.stripe_status ?? ''))
-    const trialTage = testphaseTage({ bisherigeAbos: bisherige.data.length + (gekuendigt ? 1 : 0), tage: TRIAL_TAGE })
     const session = await getStripe().checkout.sessions.create({
       customer:    customerId,
       mode:        'subscription',
@@ -150,10 +144,7 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
       success_url: `${baseUrl}/signup/willkommen`,
       cancel_url:  `${baseUrl}/abo`,
       metadata:    { tenant_id: membership.tenantId },
-      subscription_data: {
-        ...(trialTage ? { trial_period_days: trialTage } : {}),
-        metadata: { tenant_id: membership.tenantId },
-      },
+      subscription_data: checkoutAboDaten(membership.tenantId),
     })
     return { url: session.url }
   } catch (err) {

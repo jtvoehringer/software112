@@ -76,7 +76,7 @@ export default function SignupClient() {
           <h1 className="text-3xl font-semibold text-s112-blue-700 inline-flex items-baseline gap-0">
             software<span className="text-s112-yellow">:</span>112
           </h1>
-          <p className="text-s112-muted text-sm mt-1">14 Tage kostenlos testen – digitale Klarheit für den Weinbau</p>
+          <p className="text-s112-muted text-sm mt-1">Digitale Klarheit für den Weinbau</p>
         </div>
 
         <div className="card space-y-5">
@@ -129,7 +129,7 @@ export default function SignupClient() {
                   ))}
                 </div>
                 <p className="text-[11.5px] text-s112-muted mt-1.5">
-                  14 Tage kostenlos, danach automatische Abrechnung – jederzeit kündbar.
+                  Abrechnung monatlich ab der Freischaltung – monatlich kündbar.
                 </p>
               </div>
             )}
@@ -147,7 +147,7 @@ export default function SignupClient() {
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
-              {loading ? 'Wird gesendet …' : 'Jetzt kostenlos testen'}
+              {loading ? 'Wird gesendet …' : 'Jetzt registrieren'}
             </button>
           </form>
         </div>

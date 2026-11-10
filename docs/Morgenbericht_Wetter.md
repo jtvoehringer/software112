@@ -81,7 +81,7 @@ Regeln und Grenzen jetzt zentral in `src/lib/morgenbericht/zeitplan.ts` (ohne `@
 | Negative Bestände (Flaschen, Chargen) | hoch | fuellungen, weinausbau |
 | Pressung vor Ablauf einer Wartefrist | hoch | behandlungen, pressungen |
 | Kontakt-Dubletten (E-Mail oder Name) | info | kontakte |
-| Abo: Zahlung offen (`past_due`/`unpaid`), Testphase endet ≤ 7 Tage | hoch / mittel | tenants |
+| Abo: Zahlung offen (`past_due`/`unpaid`), Testphase endet ≤ 7 Tage (nur Altfälle vor KAN-402, neue Abos ohne Testphase) | hoch / mittel | tenants |
 | Nur Sandbox: Server-/Browser-Fehler aller Betriebe (24 h) | mittel / hoch (≥ 10) | system_ereignisse |
 | Nur Sandbox: Betriebe ohne Morgenbericht am Vortag (jede Zeile zählt, auch manuell; ohne Demo, inaktive, deaktivierte, gesperrte und erst am Vortag angelegte Betriebe) | mittel | morgenberichte, tenants |
 | Wetter-Empfehlungen (siehe unten) | hoch / mittel / info | Regelmaschine |
