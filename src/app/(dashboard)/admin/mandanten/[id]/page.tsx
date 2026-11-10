@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
+import { PAKETE, paketAusPlan } from '@/lib/pakete'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantDetailClient from './MandantDetailClient'
@@ -213,8 +214,9 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   const [hauptRawRes, nebenRawRes, kandRawRes] = await Promise.all([
     t.abrechnung_ueber ? (admin.from('tenants') as R).select('id, name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null, error: null }),
     (admin.from('tenants') as R).select('id, name').eq('abrechnung_ueber', id).order('name'),
-    (admin.from('tenants') as R).select('id, name').eq('stripe_plan', 'premium')
-      .is('abrechnung_ueber', null).neq('id', id).order('name').limit(200),   // alle-ausnahme: Auswahl möglicher Hauptmandanten, wenige Premium-Betriebe
+    // KAN-403: Hauptmandant ab Standard (Standard bis 2, Premium bis 5 Mandanten)
+    (admin.from('tenants') as R).select('id, name, stripe_plan').in('stripe_plan', ['standard', 'premium'])
+      .is('abrechnung_ueber', null).neq('id', id).order('name').limit(200),   // alle-ausnahme: Auswahl möglicher Hauptmandanten, wenige Betriebe mit Standard/Premium
   ])
   const hauptRaw = geladen(hauptRawRes, 'Betrieb')
   const nebenRaw = geladen(nebenRawRes, 'Betrieb')
@@ -223,7 +225,10 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     hauptId: (t.abrechnung_ueber as string | null) ?? null,
     hauptName: ((hauptRaw as R | null)?.name as string | undefined) ?? null,
     neben: ((nebenRaw ?? []) as R[]).map(n => ({ id: n.id as string, name: n.name as string })),
-    kandidaten: ((kandRaw ?? []) as R[]).map(k => ({ id: k.id as string, name: k.name as string })),
+    kandidaten: ((kandRaw ?? []) as R[]).map(k => {
+      const p = paketAusPlan(k.stripe_plan as string | null)
+      return { id: k.id as string, name: p ? `${k.name as string} (${PAKETE[p].label}, bis zu ${PAKETE[p].maxMandanten} Mandanten)` : k.name as string }
+    }),
   }
 
   const tenant: TenantDetail = {

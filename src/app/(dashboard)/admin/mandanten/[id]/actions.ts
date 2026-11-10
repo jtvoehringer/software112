@@ -12,7 +12,7 @@ import { subdomainFehler } from '@/lib/tenant/subdomain'
 import { SANDBOX_TENANT_ID, paketEntscheidung } from '@/lib/abo/regeln'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
-import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
+import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket, wendePaketAufSubmandantenAn } from '@/lib/pakete-server'
 import { istPaketKey, paketAusPlan, paketPriceId, PAKETE } from '@/lib/pakete'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
@@ -21,7 +21,7 @@ import { dezimal, zahlAus } from '@/lib/format'
 import { betriebsartAus, weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
-import { austrittsWerte, beitrittFehler, beitrittsWerte, gemeinschaftsFreigaben, type VerbundBetrieb } from '@/lib/abo/verbund'
+import { austrittsWerte, beitrittFehler, beitrittsWerte, gemeinschaftsFreigaben, paketwechselVerbundFehler, type VerbundBetrieb } from '@/lib/abo/verbund'
 import { premiumSupportEingabeFehler } from '@/lib/abo/premiumSupport'
 import { wienJetzt } from '@/lib/datum/wien'
 import { authFehlerText } from '@/lib/auth/authFehler'
@@ -750,12 +750,22 @@ export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: strin
   if (PAKETE[paket].module.modul_ea && buchhaltungsart !== 'ea' && buchhaltungsart !== 'doppik') {
     return { error: `Das Paket ${PAKETE[paket].label} enthält die E&A-Rechnung - bitte zuerst wählen, ob der Betrieb die E&A-Rechnung in software:112 führt oder die doppelte Buchhaltung beim Steuerberater (BMD).` }
   }
+  // KAN-403: Hauptmandant – das Paket muss die Submandanten umfassen; Submandanten folgen dem Paket
+  // alle-ausnahme: Submandanten eines Hauptmandanten – höchstens 4 je Paket (KAN-403)
+  const { count: subAnzahl, error: subErr } = await (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', tenantId)
+  if (subErr) return { error: dbFehlerText(subErr, 'Submandanten konnten nicht geprüft werden') }
   if (istPaketKey(paketWunsch)) {
+    const vf = paketwechselVerbundFehler(paket, subAnzahl ?? 0)
+    if (vf) return { error: vf }
     { const { error: e } = await (admin.from('tenants') as any).update({ stripe_plan: paket }).eq('id', tenantId)
       if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
   }
   const fehler = await wendePaketAn(admin, tenantId, paket)
   if (fehler) return { error: fehler }
+  if ((subAnzahl ?? 0) > 0) {
+    const fs = await wendePaketAufSubmandantenAn(admin, tenantId, paket)
+    if (fs) return { error: fs }
+  }
   if (buchhaltungsart === 'ea' || buchhaltungsart === 'doppik') {
     const { error } = await (admin.from('tenant_einstellungen') as any)
       .update({ buchhaltungsart }).eq('tenant_id', tenantId)
@@ -767,9 +777,9 @@ export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: strin
 }
 
 // ── Hauptmandant und Submandanten (KAN-215, KAN-214) ─────────────────────────────────────────────────────────────
-// KAN-214 (Jörgen 08.10.2026): Submandant kostet 0 € – keine Stripe-Position mehr, nur Premium beim Hauptmandanten ist
-// Pflicht. Der Submandant übernimmt Stripe-Kunde und -Abo des Hauptmandanten (falls vorhanden; Status, Paket und
-// Testphase hält ab dann der Webhook gleich) und bekommt Premium. CRM und Kellergebinde werden gemeinschaftlich genutzt:
+// KAN-214 (Jörgen 08.10.2026): Submandant kostet 0 € – keine Stripe-Position mehr. KAN-403 (Vertrag v3, NV 2.3): Mandanten
+// je Paket des Hauptmandanten (Basis 1, Standard 2, Premium 5). Der Submandant übernimmt Stripe-Kunde und -Abo des
+// Hauptmandanten (falls vorhanden; Status, Paket und Testphase hält ab dann der Webhook gleich) und dessen Paket. CRM und Kellergebinde werden gemeinschaftlich genutzt:
 // beim Beitritt Keller- und CRM-Freigaben in beide Richtungen (Verwaltung weiter unter Administration › Gemeinschaften;
 // beim Austritt bleiben sie stehen und werden dort bei Bedarf deaktiviert).
 
@@ -778,15 +788,17 @@ const VERBUND_SPALTEN = 'id, name, abrechnung_ueber, zusatz_preis_cent, stripe_c
 export async function verbundBeitreten(tenantId: string, hauptId: string): Promise<{ error?: string }> {
   await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
   const admin = createSupabaseAdminClient()
-  const [{ data: n, error: nErr }, { data: h, error: hErr }, { count, error: cErr }] = await Promise.all([
+  const [{ data: n, error: nErr }, { data: h, error: hErr }, { count, error: cErr }, { count: andere, error: aErr }] = await Promise.all([
     (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', tenantId).maybeSingle(),
     (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', hauptId).maybeSingle(),
     (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', tenantId),
+    // KAN-403: Submandanten des Hauptmandanten ohne diesen Betrieb (Obergrenze je Paket)
+    (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', hauptId).neq('id', tenantId),
   ])
-  const ladeFehler = nErr ?? hErr ?? cErr
+  const ladeFehler = nErr ?? hErr ?? cErr ?? aErr
   if (ladeFehler) return { error: dbFehlerText(ladeFehler, 'Betriebe konnten nicht geladen werden') }
   if (!n || !h) return { error: 'Betrieb nicht gefunden.' }
-  const fehler = beitrittFehler(n as VerbundBetrieb, h as VerbundBetrieb, (count ?? 0) > 0)
+  const fehler = beitrittFehler(n as VerbundBetrieb, h as VerbundBetrieb, (count ?? 0) > 0, andere ?? 0)
   if (fehler) return { error: fehler }
 
   const { error } = await (admin.from('tenants') as R).update(beitrittsWerte(h as R)).eq('id', tenantId)
@@ -797,11 +809,13 @@ export async function verbundBeitreten(tenantId: string, hauptId: string): Promi
     const { error: fe } = await (admin.from(tab) as R).upsert(gemeinschaftsFreigaben(hauptId, tenantId), { onConflict: 'eigentuemer_tenant_id,nutzer_tenant_id' })
     if (fe) return { error: `Submandant gespeichert, aber die Gemeinschaft (${tab === 'crm_freigaben' ? 'CRM' : 'Keller'}) nicht: ${(fe as R).message} – bitte unter Administration › Gemeinschaften anlegen.` }
   }
-  // Premium-Module: mit Stripe-Abo laut Status des Hauptmandanten (sonst übernimmt der Webhook), ohne Stripe sofort
+  // Module des Hauptmandanten-Pakets (KAN-403, bisher fest Premium): mit Stripe-Abo laut Status des Hauptmandanten
+  // (sonst übernimmt der Webhook), ohne Stripe sofort
+  const paketHaupt = paketAusPlan((h as R).stripe_plan)
   const mitAbo = !!(h as R).stripe_subscription_id
-  const e = paketEntscheidung({ ereignis: 'aktualisiert', status: (h as R).stripe_status as string | null, neuesPaket: 'premium', bisherigesPaket: paketAusPlan((n as R).stripe_plan) })
-  if (!mitAbo || e.moduleAnwenden) {
-    const f = await wendePaketAn(admin, tenantId, 'premium')
+  const e = paketEntscheidung({ ereignis: 'aktualisiert', status: (h as R).stripe_status as string | null, neuesPaket: paketHaupt, bisherigesPaket: paketAusPlan((n as R).stripe_plan) })
+  if (paketHaupt && (!mitAbo || e.moduleAnwenden)) {
+    const f = await wendePaketAn(admin, tenantId, paketHaupt)
     if (f) return { error: f }
   }
   tenantKopfInvalidieren(tenantId)

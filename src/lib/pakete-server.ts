@@ -68,6 +68,25 @@ export async function wendePaketAn(admin: AdminClient, tenantId: string, paket: 
   return null
 }
 
+/**
+ * KAN-403: Submandanten folgen dem Paket des Hauptmandanten (Vertrag v3, NV 2.3) – nach einem Paketwechsel des
+ * Hauptmandanten (/abo bzw. Administration) Paket und Vorgaben in alle Submandanten schreiben. Mit Stripe-Abo erledigt
+ * das zusätzlich der Webhook (alle Betriebe derselben Kunden-ID); ohne Stripe (Pilotbetriebe) nur dieser Weg.
+ * Benutzerlimit je Mandant (max_benutzer je Betrieb). Gibt den ersten Fehlertext zurück oder null.
+ */
+export async function wendePaketAufSubmandantenAn(admin: AdminClient, hauptId: string, paket: PaketKey | null): Promise<string | null> {
+  // alle-ausnahme: Submandanten eines Hauptmandanten – höchstens 4 je Paket (KAN-403)
+  const { data, error } = await (admin.from('tenants') as R).select('id').eq('abrechnung_ueber', hauptId)
+  if (error) return `Submandanten konnten nicht geladen werden: ${(error as R).message}`
+  for (const s of (data ?? []) as R[]) {
+    const { error: e } = await (admin.from('tenants') as R).update({ stripe_plan: paket }).eq('id', s.id)
+    if (e) return `Paket des Submandanten konnte nicht gesetzt werden: ${(e as R).message}`
+    const f = await wendePaketAn(admin, s.id as string, paket)
+    if (f) return f
+  }
+  return null
+}
+
 /** Paket eines Mandanten aus tenants.stripe_plan (inkl. Alt-Slugs). */
 export async function ladePaket(admin: AdminClient, tenantId: string): Promise<PaketKey | null> {
   const { data, error } = await (admin.from('tenants') as any).select('stripe_plan').eq('id', tenantId).maybeSingle()
