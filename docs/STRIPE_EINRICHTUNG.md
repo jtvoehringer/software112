@@ -57,9 +57,12 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
 - **Kein Stripe-Produkt nötig:** Ein Submandant kostet 0 € (Entscheidung Jörgen 08.10.2026, KAN-214). Das frühere
   Produkt „software:112 Zusatzmandant“ und die Variablen `STRIPE_PRICE_ZUSATZMANDANT`/`STRIPE_PRODUCT_ZUSATZMANDANT`
   entfallen.
-- Ablauf: Der Hauptmandant hat Premium (mit Stripe-Abo oder – Pilotbetriebe – manuell gesetzt). Der Plattform-Admin
-  ordnet unter Administration › Mandanten › Submandant › Stripe „Als Submandant zuordnen“ zu. Der Submandant bekommt
-  Premium und – falls vorhanden – Stripe-Kunde, -Abo und Status des Hauptmandanten; CRM und Kellergebinde
+- Mandanten je Paket (KAN-403, Vertrag v3 NV 2.3, Hauptmandant mitgezählt): Basis 1, Standard bis zu 2, Premium bis zu 5
+  (`PAKETE[…].maxMandanten`); Benutzerlimit je Mandant. Ein Paketwechsel des Hauptmandanten in ein Paket mit weniger
+  Mandanten wird abgelehnt, solange zu viele Submandanten bestehen.
+- Ablauf: Der Hauptmandant hat Standard oder Premium (mit Stripe-Abo oder – Pilotbetriebe – manuell gesetzt). Der
+  Plattform-Admin ordnet unter Administration › Mandanten › Submandant › Stripe „Als Submandant zuordnen“ zu. Der
+  Submandant bekommt das Paket des Hauptmandanten und – falls vorhanden – Stripe-Kunde, -Abo und Status des Hauptmandanten; CRM und Kellergebinde
   werden gemeinsam genutzt (Freigaben in beide Richtungen), Support-Anfragen laufen in JSM unter dem Hauptmandanten.
 - Austritt: mit geteiltem Stripe-Abo Nur-Lesen, bis ein eigenes Abo abgeschlossen ist; ohne
   Stripe-Abo bleibt der Status. Die Gemeinschaften bleiben bestehen (Administration › Gemeinschaften).

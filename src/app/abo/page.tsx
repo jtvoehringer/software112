@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { STRIPE_PLAN_LABELS, STRIPE_STATUS_META } from '@/lib/stripe/client'
 import { aboStandBerechnen, nochKeinPaketGebucht } from '@/lib/abo/regeln'
-import { PAKET_REIHENFOLGE, paketAusPlan, paketPriceId } from '@/lib/pakete'
+import { PAKET_REIHENFOLGE, PAKETE, paketAusPlan, paketPriceId } from '@/lib/pakete'
+import { mandantenText } from '@/lib/abo/verbund'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import AboClient from './AboClient'
@@ -120,7 +121,8 @@ export default async function AboPage() {
           <div className="card p-5 space-y-2 text-sm">
             <p>
               Ihr Betrieb ist Submandant von <strong>{hauptName ?? 'den Hauptmandanten'}</strong> (ohne Aufpreis,
-              Paket Premium{statusMeta ? `, ${statusMeta.label}` : ''}).
+              Paket {aktuellesPaket ? PAKETE[aktuellesPaket].label : 'des Hauptmandanten'}{statusMeta ? `, ${statusMeta.label}` : ''}).
+              {/* KAN-403: Paket und Module folgen dem Hauptmandanten, das Benutzerlimit gilt je Mandant */}
             </p>
             <p className="text-s112-text-2">Rechnung, Zahlungsdaten und Kündigung verwaltet der Hauptmandant. Für ein eigenes Abo wenden Sie sich bitte an uns.</p>
           </div>
@@ -136,7 +138,9 @@ export default async function AboPage() {
         <div className="max-w-3xl mx-auto px-6 pt-6">
           <div className="card p-4 text-sm">
             Submandant{nebenNamen.length > 1 ? 'en' : ''} Ihres Betriebs (ohne Aufpreis): {nebenNamen.join(', ')}.
-            Ein Paketwechsel unter Premium ist nur ohne Verbund möglich.
+            {/* KAN-403 (Vertrag v3, NV 2.3): Mandanten je Paket inkl. Hauptmandant */}
+            {aktuellesPaket && <> Ihr Paket {PAKETE[aktuellesPaket].label} umfasst {mandantenText(aktuellesPaket)}, genutzt {nebenNamen.length + 1}.</>}
+            {' '}Ein Wechsel in ein Paket mit weniger Mandanten ist erst möglich, wenn die Submandanten dazu passen.
           </div>
         </div>
       )}

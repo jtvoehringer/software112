@@ -12,7 +12,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { getStripe } from '@/lib/stripe/client'
 import { istPaketKey, paketFromPriceId, paketPriceId, paketAusPlan, PAKETE, type PaketKey } from '@/lib/pakete'
-import { wendePaketAn } from '@/lib/pakete-server'
+import { wendePaketAn, wendePaketAufSubmandantenAn } from '@/lib/pakete-server'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
@@ -184,12 +184,14 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   // KAN-251: sonst wäre ein Nebenmandant (Abrechnungsverbund) nicht erkannt worden
   if (tenantErr) return { error: dbFehlerText(tenantErr, 'Betrieb konnte nicht geladen werden') }
   const t = tenantRow as R | null
-  // KAN-215: Nebenmandanten wechseln nicht selbst, Hauptmandanten mit Verbund nur innerhalb Premium
+  // KAN-215: Nebenmandanten wechseln nicht selbst; KAN-403: Hauptmandanten nur in ein Paket, das ihre Submandanten umfasst
   if (t?.abrechnung_ueber) return { error: 'Ihr Betrieb wird über einen anderen Betrieb abgerechnet (Abrechnungsverbund) – das Paket ist dort festgelegt.' }
+  let subAnzahl = 0
   { const { count, error: verbundErr } = await (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', membership.tenantId)
     // Sweep 90 (KAN-282): Lesefehler hieß „keine Submandanten“ – Paketwechsel trotz Abrechnungsverbund
     if (verbundErr) return { error: dbFehlerText(verbundErr, 'Abrechnungsverbund konnte nicht geprüft werden') }
-    const vf = paketwechselVerbundFehler(paket, count ?? 0)
+    subAnzahl = count ?? 0
+    const vf = paketwechselVerbundFehler(paket, subAnzahl)
     if (vf) return { error: vf } }
   if (!t?.stripe_subscription_id) {
     return { error: 'Für Ihren Betrieb existiert noch kein Abo – bitte zuerst „Zahlungsdaten hinterlegen" verwenden.' }
@@ -253,6 +255,11 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
     if (e) return { error: `Paket konnte nicht gespeichert werden (tenants): ${dbFehlerText(e)}` } }
   const fehler = await wendePaketAn(admin, membership.tenantId, paket)
   if (fehler) return { error: fehler }
+  // KAN-403: Submandanten folgen dem Paket des Hauptmandanten
+  if (subAnzahl > 0) {
+    const fs = await wendePaketAufSubmandantenAn(admin, membership.tenantId, paket)
+    if (fs) return { error: fs }
+  }
 
   revalidatePath('/abo')
   revalidatePath('/', 'layout')

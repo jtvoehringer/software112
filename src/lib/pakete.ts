@@ -39,8 +39,10 @@ export type Paket = {
   key: PaketKey
   label: string
   preisMonat: number
-  /** null = unbegrenzt */
+  /** null = unbegrenzt – gilt je Mandant (NV 2.1, KAN-403) */
   maxBenutzer: number | null
+  /** Mandanten (Betriebe) im Paket inkl. Hauptmandant – Vertrag v3 NV 2.3 (KAN-403): Basis 1, Standard 2, Premium 5 */
+  maxMandanten: number
   /** Abfragen "Frag dein Weingut" pro Monat; null = unbegrenzt.
    *  Muss mit limit_map in check_und_increment_ki_abfrage (Migration 194) übereinstimmen. */
   kiLimit: number | null
@@ -53,28 +55,28 @@ export const PAKET_REIHENFOLGE: PaketKey[] = ['basis', 'standard', 'premium']
 
 export const PAKETE: Record<PaketKey, Paket> = {
   basis: {
-    key: 'basis', label: 'Basis', preisMonat: 199, maxBenutzer: 1, kiLimit: 50,
+    key: 'basis', label: 'Basis', preisMonat: 199, maxBenutzer: 1, maxMandanten: 1, kiLimit: 50,
     module: {
       modul_newsletter: false, modul_ea: false, modul_controlling: false, modul_export: false,
       assistent_aktiv: false, ki_abfragen_aktiv: true, ki_abfragen_paket: 'basic',
     },
-    leistungen: ['Weingarten & Rieden', 'Kellerbuch', 'CRM', 'Morgenbericht (täglicher Betriebs-Check)', '1 Benutzer', 'Frag dein Weingut: 50 Abfragen/Monat'],
+    leistungen: ['Weingarten & Rieden', 'Kellerbuch', 'CRM', 'Morgenbericht (täglicher Betriebs-Check)', '1 Mandant', '1 Benutzer', 'Frag dein Weingut: 50 Abfragen/Monat'],
   },
   standard: {
-    key: 'standard', label: 'Standard', preisMonat: 299, maxBenutzer: 5, kiLimit: 100,
+    key: 'standard', label: 'Standard', preisMonat: 299, maxBenutzer: 5, maxMandanten: 2, kiLimit: 100,
     module: {
       modul_newsletter: true, modul_ea: true, modul_controlling: true, modul_export: false,
       assistent_aktiv: false, ki_abfragen_aktiv: true, ki_abfragen_paket: 'standard',
     },
-    leistungen: ['Alles aus Basis', 'Newsletter', 'E&A-Rechnung mit BMD-Übergabe', 'Controlling', 'Wetter & Empfehlungen je Ried', '5 Benutzer', 'Frag dein Weingut: 100 Abfragen/Monat'],
+    leistungen: ['Alles aus Basis', 'Newsletter', 'E&A-Rechnung mit BMD-Übergabe', 'Controlling', 'Wetter & Empfehlungen je Ried', 'Bis zu 2 Mandanten', '5 Benutzer je Mandant', 'Frag dein Weingut: 100 Abfragen/Monat'],
   },
   premium: {
-    key: 'premium', label: 'Premium', preisMonat: 399, maxBenutzer: null, kiLimit: null,
+    key: 'premium', label: 'Premium', preisMonat: 399, maxBenutzer: null, maxMandanten: 5, kiLimit: null,
     module: {
       modul_newsletter: true, modul_ea: true, modul_controlling: true, modul_export: true,
       assistent_aktiv: true, ki_abfragen_aktiv: true, ki_abfragen_paket: 'unlimited',
     },
-    leistungen: ['Alles aus Standard', 'bot:112 mit Sprachsteuerung', 'Exportaufträge', 'Unbegrenzt Benutzer', 'Frag dein Weingut: unbegrenzt'],
+    leistungen: ['Alles aus Standard', 'bot:112 mit Sprachsteuerung', 'Exportaufträge', 'Bis zu 5 Mandanten', 'Unbegrenzt Benutzer', 'Frag dein Weingut: unbegrenzt'],
   },
 }
 

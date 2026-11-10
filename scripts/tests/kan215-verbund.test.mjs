@@ -32,29 +32,44 @@ describe('KAN-215 Paket-Position im Stripe-Abo', nurMitHooks, () => {
 describe('KAN-215 Regeln', nurMitHooks, () => {
   const haupt = { id: 'a', name: 'Weingut', abrechnung_ueber: null, stripe_customer_id: 'cus_a', stripe_subscription_id: 'sub_a', stripe_plan: 'premium' }
   const neben = { id: 'b', name: 'Spaetrot', abrechnung_ueber: null, stripe_customer_id: null, stripe_subscription_id: null, stripe_plan: null }
-  test('Beitritt nur zu einem Hauptmandanten mit Premium, ohne Ketten und ohne Doppelabrechnung', () => {
-    assert.equal(v.beitrittFehler(neben, haupt, false), null)
-    assert.match(v.beitrittFehler(neben, { ...haupt, stripe_plan: 'standard' }, false), /Premium-Paket/)
-    // KAN-214: Premium genügt, ein Stripe-Abo ist nicht nötig (Pilotbetriebe ohne Stripe)
-    assert.equal(v.beitrittFehler(neben, { ...haupt, stripe_customer_id: null, stripe_subscription_id: null }, false), null)
-    assert.match(v.beitrittFehler(neben, { ...haupt, abrechnung_ueber: 'x' }, false), /kein Hauptmandant/)
-    assert.match(v.beitrittFehler(neben, haupt, true), /ist Hauptmandant und kann nicht selbst Submandant werden/)
-    assert.match(v.beitrittFehler({ ...neben, stripe_subscription_id: 'sub_b' }, haupt, false), /eigenes Stripe-Abo/)
-    assert.match(v.beitrittFehler(haupt, haupt, false), /über sich selbst/)
+  test('Beitritt ohne Ketten und ohne Doppelabrechnung', () => {
+    assert.equal(v.beitrittFehler(neben, haupt, false, 0), null)
+    // KAN-214: ein Stripe-Abo ist nicht nötig (Pilotbetriebe ohne Stripe)
+    assert.equal(v.beitrittFehler(neben, { ...haupt, stripe_customer_id: null, stripe_subscription_id: null }, false, 0), null)
+    assert.match(v.beitrittFehler(neben, { ...haupt, abrechnung_ueber: 'x' }, false, 0), /kein Hauptmandant/)
+    assert.match(v.beitrittFehler(neben, haupt, true, 0), /ist Hauptmandant und kann nicht selbst Submandant werden/)
+    assert.match(v.beitrittFehler({ ...neben, stripe_subscription_id: 'sub_b' }, haupt, false, 0), /eigenes Stripe-Abo/)
+    assert.match(v.beitrittFehler(haupt, haupt, false, 0), /über sich selbst/)
   })
-  test('Beitritt übernimmt Kunde, Abo, Status und Testphase des Hauptmandanten (keine eigene Testphase), Austritt → Nur-Lesen', () => {
-    const w = v.beitrittsWerte({ id: 'a', stripe_customer_id: 'cus_a', stripe_subscription_id: 'sub_a', stripe_status: 'trialing', stripe_trial_ends_at: '2026-10-20T00:00:00Z', stripe_current_period_end: null })
+  // KAN-403 (Vertrag v3, NV 2.3): Mandanten je Paket inkl. Hauptmandant – Basis 1, Standard 2, Premium 5
+  test('KAN-403: Basis ohne Submandant, Standard genau 1, Premium bis 4, ohne Paket keiner', () => {
+    assert.deepEqual(['basis', 'standard', 'premium'].map(p => v.erlaubteSubmandanten(p)), [0, 1, 4])
+    assert.equal(v.erlaubteSubmandanten(null), 0)
+    assert.match(v.beitrittFehler(neben, { ...haupt, stripe_plan: 'basis' }, false, 0), /Basis .* umfasst 1 Mandant – für Submandanten ist Standard/)
+    assert.match(v.beitrittFehler(neben, { ...haupt, stripe_plan: null }, false, 0), /kein Paket/)
+    assert.equal(v.beitrittFehler(neben, { ...haupt, stripe_plan: 'standard' }, false, 0), null)
+    assert.match(v.beitrittFehler(neben, { ...haupt, stripe_plan: 'standard' }, false, 1), /Standard .* bis zu 2 Mandanten – ein Submandant ist bereits zugeordnet\. Für mehr Mandanten ist Premium nötig/)
+    assert.equal(v.beitrittFehler(neben, haupt, false, 3), null, 'Premium: vierter Submandant (5. Mandant) erlaubt')
+    assert.match(v.beitrittFehler(neben, haupt, false, 4), /Premium .* bis zu 5 Mandanten – 4 Submandanten sind bereits zugeordnet\.$/, 'fünfter Submandant abgelehnt')
+  })
+  test('Beitritt übernimmt Kunde, Abo, Status, Paket und Testphase des Hauptmandanten, Austritt → Nur-Lesen', () => {
+    const w = v.beitrittsWerte({ id: 'a', stripe_customer_id: 'cus_a', stripe_subscription_id: 'sub_a', stripe_status: 'trialing', stripe_plan: 'premium', stripe_trial_ends_at: '2026-10-20T00:00:00Z', stripe_current_period_end: null })
     assert.deepEqual([w.abrechnung_ueber, w.stripe_customer_id, w.stripe_subscription_id, w.stripe_status, w.stripe_plan, w.stripe_trial_ends_at, w.zusatz_preis_cent],
       ['a', 'cus_a', 'sub_a', 'trialing', 'premium', '2026-10-20T00:00:00Z', null])   // KAN-214: 0 €
+    // KAN-403: Paket des Hauptmandanten statt fest Premium
+    assert.equal(v.beitrittsWerte({ id: 'a', stripe_plan: 'standard' }).stripe_plan, 'standard')
     const a = v.austrittsWerte(true)
     assert.deepEqual([a.abrechnung_ueber, a.stripe_customer_id, a.stripe_subscription_id, a.stripe_status], [null, null, null, 'cancelled'])
     // KAN-214: ohne geteiltes Stripe-Abo bleibt der Status (kein Nur-Lesen für Pilotbetriebe)
     assert.equal('stripe_status' in v.austrittsWerte(false), false)
   })
-  test('Paketwechsel des Hauptmandanten unter Premium nur ohne Submandanten', () => {
-    assert.equal(v.paketwechselVerbundFehler('premium', 2), null)
-    assert.equal(v.paketwechselVerbundFehler('standard', 0), null)
-    assert.match(v.paketwechselVerbundFehler('standard', 1), /setzt Premium voraus/)
+  test('KAN-403: Paketwechsel des Hauptmandanten nur in ein Paket, das die Submandanten umfasst', () => {
+    assert.equal(v.paketwechselVerbundFehler('premium', 4), null)
+    assert.match(v.paketwechselVerbundFehler('premium', 5), /5 Submandanten, das Paket Premium umfasst bis zu 5 Mandanten\. Für einen Wechsel zuerst einen Submandanten lösen/)
+    assert.equal(v.paketwechselVerbundFehler('standard', 1), null)
+    assert.match(v.paketwechselVerbundFehler('standard', 2), /2 Submandanten, das Paket Standard umfasst bis zu 2 Mandanten\. Für einen Wechsel zuerst einen Submandanten lösen/)
+    assert.equal(v.paketwechselVerbundFehler('basis', 0), null)
+    assert.match(v.paketwechselVerbundFehler('basis', 1), /einen Submandanten, das Paket Basis umfasst 1 Mandant/)
   })
 })
 
@@ -65,7 +80,12 @@ describe('KAN-215 Verdrahtung', () => {
     assert.doesNotMatch(w, /s\.items\?\.data\?\.\[0\]/)
     const a = quelle('src/app/abo/actions.ts')
     assert.match(a, /paketPosition\(sub\.items\.data\.map/)
-    assert.match(a, /paketwechselVerbundFehler\(paket, count \?\? 0\)/)
+    assert.match(a, /paketwechselVerbundFehler\(paket, subAnzahl\)/)
+    // KAN-403: Submandanten folgen dem Paket des Hauptmandanten (sofortiger Wechsel auf /abo und in der Administration)
+    assert.match(a, /wendePaketAufSubmandantenAn\(admin, membership\.tenantId, paket\)/)
+    const m = quelle('src/app/(dashboard)/admin/mandanten/[id]/actions.ts')
+    assert.match(m, /const vf = paketwechselVerbundFehler\(paket, subAnzahl \?\? 0\)/)
+    assert.match(m, /wendePaketAufSubmandantenAn\(admin, tenantId, paket\)/)
   })
   test('Nebenmandanten: kein eigenes Portal, kein Checkout, keine Kündigung des Hauptabos; Checkout ohne Testphase', () => {
     const a = quelle('src/app/abo/actions.ts')

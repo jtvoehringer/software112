@@ -1,7 +1,7 @@
 'use client'
 
 // KAN-215/KAN-214: Hauptmandant und Submandanten im Reiter „Stripe“ der Mandantenverwaltung – Betrieb als Submandant
-// einem Hauptmandanten (Premium) zuordnen (0 €, CRM und Kellergebinde gemeinsam, Support unter dem Hauptmandanten),
+// einem Hauptmandanten (KAN-403: Standard bis 2, Premium bis 5 Mandanten) zuordnen (0 €, CRM und Kellergebinde gemeinsam, Support unter dem Hauptmandanten),
 // Austritt, Übersicht der Submandanten eines Hauptmandanten.
 
 import { useState, useTransition } from 'react'
@@ -41,14 +41,14 @@ export default function VerbundKarte({ tenantId, tenantName, verbund, hatEigenes
             {' '}· 0 €. Abo, Rechnung und Support laufen über den Hauptmandanten; CRM und Kellergebinde sind gemeinsam.
           </p>
           <button type="button" disabled={pending}
-            onClick={async () => { if (await rueckfrage({ titel: `${tenantName} vom Hauptmandanten lösen?`, text: 'Mit Stripe-Abo des Hauptmandanten ist der Betrieb danach im Nur-Lesen-Modus, bis er ein eigenes Abo abschließt (ohne neue Testphase). Die Gemeinschaften (CRM, Keller) bleiben bestehen – bei Bedarf unter Administration › Gemeinschaften deaktivieren.', bestaetigen: 'Lösen', gefaehrlich: true })) ausfuehren(() => verbundVerlassen(tenantId)) }}
+            onClick={async () => { if (await rueckfrage({ titel: `${tenantName} vom Hauptmandanten lösen?`, text: 'Mit Stripe-Abo des Hauptmandanten ist der Betrieb danach im Nur-Lesen-Modus, bis er ein eigenes Abo abschließt. Die Gemeinschaften (CRM, Keller) bleiben bestehen – bei Bedarf unter Administration › Gemeinschaften deaktivieren.', bestaetigen: 'Lösen', gefaehrlich: true })) ausfuehren(() => verbundVerlassen(tenantId)) }}
             className="border border-s112-line-str rounded-lg px-3 py-1.5 text-xs font-medium text-s112-err-fg hover:bg-s112-err-bg disabled:opacity-50">
             {pending ? 'Wird gelöst…' : 'Vom Hauptmandanten lösen'}
           </button>
         </div>
       ) : verbund.neben.length > 0 ? (
         <div className="text-sm space-y-1">
-          <p>Hauptmandant (Premium ist Pflicht) – Submandanten:</p>
+          <p>Hauptmandant (Standard: bis zu 2, Premium: bis zu 5 Mandanten) – Submandanten:</p>
           <ul className="list-disc ml-5 text-s112-text-2">
             {verbund.neben.map(n => (
               <li key={n.id}><Link href={`/admin/mandanten/${n.id}`} className="text-s112-blue-700 hover:underline">{n.name}</Link></li>
@@ -58,18 +58,18 @@ export default function VerbundKarte({ tenantId, tenantName, verbund, hatEigenes
       ) : (
         <div className="space-y-2">
           <p className="text-xs text-s112-text-2">
-            {tenantName} als Submandant einem Hauptmandanten mit Premium zuordnen (0 €). Der Betrieb bekommt Premium und – falls
-            vorhanden – Stripe-Abo, Status und Testphase des Hauptmandanten; CRM und Kellergebinde werden gemeinsam genutzt
+            {tenantName} als Submandant einem Hauptmandanten mit Standard (bis zu 2 Mandanten) oder Premium (bis zu 5) zuordnen
+            (0 €). Der Betrieb bekommt das Paket und – falls vorhanden – Stripe-Abo und Status des Hauptmandanten; CRM und Kellergebinde werden gemeinsam genutzt
             (Freigaben in beide Richtungen), Support-Anfragen laufen unter dem Hauptmandanten.
             {hatEigenesAbo && ' Das eigene Stripe-Abo dieses Betriebs muss vorher gekündigt sein.'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <select aria-label="Hauptmandant" value={haupt} onChange={e => setHaupt(e.target.value)} className="form-input text-sm sm:col-span-3">
-              <option value="">– Hauptmandant (Premium) –</option>
+              <option value="">– Hauptmandant (Standard/Premium) –</option>
               {verbund.kandidaten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
             </select>
           </div>
-          {verbund.kandidaten.length === 0 && <p className="text-xs text-s112-muted">Kein Betrieb mit Premium vorhanden.</p>}
+          {verbund.kandidaten.length === 0 && <p className="text-xs text-s112-muted">Kein Betrieb mit Standard oder Premium vorhanden.</p>}
           <button type="button" disabled={pending || !haupt}
             onClick={() => ausfuehren(() => verbundBeitreten(tenantId, haupt))}
             className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50">
