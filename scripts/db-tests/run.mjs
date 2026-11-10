@@ -467,10 +467,12 @@ export function bewertePruefung(zeile) {
 
 // ── CLI-Aufruf und Auswertung ──────────────────────────────────────────────────────────────────────────
 
-/** Argumente für npx (ohne 'npx'); bricht ab, wenn irgendwo die Produktions-Ref steht. */
+/** Argumente für npx (ohne 'npx'); bricht ab, wenn irgendwo die Produktions-Ref steht.
+ *  --yes: Supabase-CLI ab 3.1 fragt vor SQL auf einem gehosteten Projekt nach und bricht bei JSON-Ausgabe ohne
+ *  Bestätigung ab; SUPABASE_YES entfernt cliUmgebung() bewusst. Das Ziel ist hier fest Staging (pruefeKeineProduktion). */
 export function baueCliArgs(workdir, sqlDatei) {
   const args = ['supabase', 'db', 'query', '--workdir', workdir, '--linked', '--project-ref', STAGING_REF,
-    '-f', sqlDatei, '--agent', 'no', '--output-format', 'json']
+    '-f', sqlDatei, '--agent', 'no', '--output-format', 'json', '--yes']
   pruefeKeineProduktion(args)
   return args
 }

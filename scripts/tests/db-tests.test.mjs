@@ -149,6 +149,7 @@ describe('Produktionsschutz', () => {
     assert.equal(args[args.indexOf('--workdir') + 1], path.join(tmpdir(), 's112-db-tests-abc'))
     assert.equal(args[args.indexOf('--agent') + 1], 'no')
     assert.equal(args[args.indexOf('--output-format') + 1], 'json')
+    assert.ok(args.includes('--yes'), 'CLI ab 3.1 bricht ohne Bestätigung ab')
     assert.ok(!args.join(' ').includes(PROD_REF))
   })
 
