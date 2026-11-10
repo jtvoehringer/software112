@@ -1,7 +1,7 @@
 // Sweep 104 (10.10.2026): keine toten internen Links.
 // Alle festen Pfade in href=, router.push/replace, redirect() und location.href zeigen auf eine Route unter src/app.
-// Befund: /signup verlinkte auf /agb und /datenschutz, die es nicht gibt – Einrichtung offen (KAN-300, In Abklärung),
-// bis dahin begründete Ausnahme. Wächter: scripts/check-links.js (prebuild).
+// Befund: /signup verlinkte auf /agb und /datenschutz, die es damals nicht gab – seit KAN-300
+// (10.11.2026) eingerichtet, keine Ausnahme mehr. Wächter: scripts/check-links.js (prebuild).
 //
 // Aufruf:  npm run -s test:csv
 
@@ -45,12 +45,12 @@ describe('Erkennung', () => {
 })
 
 describe('Projekt', () => {
-  test('keine toten Links; die zwei offenen (KAN-300) sind begründet', () => {
+  test('keine toten Links und keine Ausnahme mehr (AGB und Datenschutz seit KAN-300 eingerichtet)', () => {
     const e = pruefeWurzel(ROOT)
     assert.ok(e.routen > 200 && e.pfade > 300, `zu wenig gefunden (${e.routen} Routen, ${e.pfade} Pfade)`)
     assert.deepEqual(e.funde, [])
-    assert.ok(e.ausnahmen <= 2, `neue link-ok-Ausnahme? (${e.ausnahmen})`)
-    assert.match(readFileSync(path.join(ROOT, 'src/app/signup/SignupClient.tsx'), 'utf8'), /link-ok: AGB und Datenschutzerklärung sind noch einzurichten \(KAN-300/)
+    assert.equal(e.ausnahmen, 0, `neue link-ok-Ausnahme? (${e.ausnahmen})`)
+    assert.doesNotMatch(readFileSync(path.join(ROOT, 'src/app/signup/SignupClient.tsx'), 'utf8'), /link-ok/)
     const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
     assert.match(pkg.scripts.prebuild, /check-links\.js/)
   })

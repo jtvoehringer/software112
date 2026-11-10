@@ -14,7 +14,9 @@ import { ABMELDE_GRUND, SITZUNG_COOKIE, pruefeSitzung, sitzungWert } from '@/lib
 // selbst (pruefeZweiFaktor, src/lib/api/zweiFaktor.ts).
 // KAN-217 (07.10.2026): '/w/' (Weinpass – war nie öffentlich, der QR-Code auf der Flasche leitete auf den Login um) und
 // '/e/' (E-Label) sind öffentliche Seiten für Konsumenten; sie lesen nur Freigegebenes per Service-Role.
-const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/signup', '/newsletter', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/w/', '/e/']
+// KAN-300 (10.11.2026): '/agb' (samt PDF unter public/agb/), '/datenschutz' und '/impressum' – die Registrierung verlinkt
+// sie, AGB 10.1 verweist auf /datenschutz.
+const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/agb', '/datenschutz', '/impressum', '/signup', '/newsletter', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/w/', '/e/']
 
 export async function proxy(request: NextRequest) {
   // KAN-217: Anfragen an die E-Label-Domain (NEXT_PUBLIC_ELABEL_HOST) zeigen die öffentliche Seite /e/<code> – ohne Anmeldung
