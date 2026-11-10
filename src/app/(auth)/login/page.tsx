@@ -10,6 +10,7 @@ import { PASSKEY_START_PFAD, passkeyAutomatisch, passkeyFehlerText, passkeyMoegl
 import { subdomainAusHost, subdomainUrl } from '@/lib/tenant/subdomain'
 import { authFehlerText } from '@/lib/auth/authFehler'
 import Kreisel from '@/components/ui/Kreisel'
+import RechtsLinks from '@/components/RechtsLinks'
 
 // Hinweis: metadata muss in Server Components definiert werden.
 // Login-Page-Titel wird über das Root-Layout gesetzt.
@@ -179,7 +180,7 @@ export default function LoginPage() {
         software:112 · IC&P Consultants e.U.
       </p>
       <p className="text-center text-[11px] text-s112-tertiary mt-1">
-        {APP_VERSION} · <a href="/barrierefreiheit" className="hover:underline">Barrierefreiheit</a>
+        {APP_VERSION} · <RechtsLinks />
       </p>
     </div>
   )

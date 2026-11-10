@@ -30,6 +30,7 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { sendEmail } from '@/lib/brevo/api'
 import { APP_URL, EINLADUNG_REDIRECT, findeKontoPerEmail } from '@/lib/auth/einladung'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { VERTRAG_KENNUNG, zustimmungGegeben } from '@/lib/vertrag/fassung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -88,6 +89,8 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   if (betrieb.toLowerCase() === 'sandbox') return { ok: false, fehler: 'Dieser Betriebsname ist reserviert. Bitte einen anderen Namen wählen.' }
   if (!name)     return { ok: false, fehler: 'Bitte Ihren Namen angeben.' }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, fehler: 'Bitte eine gültige E-Mail-Adresse angeben.' }
+  // KAN-300: bis dahin prüfte nur der Browser das Häkchen – ein Aufruf ohne Formular legte den Betrieb ohne Zustimmung an
+  if (!zustimmungGegeben(formData.get('zustimmung'))) return { ok: false, fehler: 'Bitte AGB und Datenschutzerklärung bestätigen.' }
   if (!istPaketKey(paket)) return { ok: false, fehler: 'Bitte ein Paket auswählen.' }
   if (!paketPriceId(paket)) return { ok: false, fehler: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt. Bitte den Support kontaktieren.` }
 
@@ -156,6 +159,18 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
     await betriebLoeschen()
     return { ok: false, fehler: dbFehlerText(memberError) }
   }
+
+  // KAN-300: Nachweis der Zustimmung – bestätigte Vertragsfassung, Zeitpunkt und Person beim neuen Betrieb (die
+  // Bestätigung bei der Buchung gilt laut AVV als Unterzeichnung). Ohne Nachweis keine Registrierung: Rückbau.
+  { const { error: e } = await (admin.from('tenants') as R)
+    .update({ vertrag_fassung: VERTRAG_KENNUNG, vertrag_bestaetigt_am: new Date().toISOString(), vertrag_bestaetigt_von: userId })
+    .eq('id', tenantId).select('id')
+    if (e) {
+      console.error('Signup: Nachweis der Zustimmung (KAN-300):', (e as R).message)
+      if (neuesKonto) await admin.auth.admin.deleteUser(userId)
+      await betriebLoeschen()
+      return { ok: false, fehler: 'Die Registrierung ist gerade nicht möglich. Bitte später erneut versuchen.' }
+    } }
 
   // KAN-246: Name im Profil – Fehler protokollieren (die Registrierung selbst ist durch)
   { const { error: e } = await (admin.from('profiles') as R)

@@ -1895,7 +1895,10 @@
 "zusatz_preis_cent",
 "subdomain",
 "premium_support_seit",
-"premium_support_bis"
+"premium_support_bis",
+"vertrag_fassung",
+"vertrag_bestaetigt_am",
+"vertrag_bestaetigt_von"
 ],
 "transaktionszaehler": [
 "id",

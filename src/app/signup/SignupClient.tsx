@@ -9,6 +9,7 @@
 
 import { useState } from 'react'
 import { registrierenAction } from './actions'
+import RechtsLinks from '@/components/RechtsLinks'
 import { PAKETE, PAKET_REIHENFOLGE, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
 
 // Paketmodell Basis / Standard / Premium (2.9.2026), Definition in lib/pakete.ts.
@@ -42,6 +43,8 @@ export default function SignupClient() {
       fd.set('name', name)
       fd.set('email', email)
       fd.set('paket', paket)
+      // KAN-300: der Server prüft die Zustimmung selbst und speichert die bestätigte Vertragsfassung
+      fd.set('zustimmung', zustimmung ? '1' : '')
 
       const res = await registrierenAction(fd)
       setLoading(false)
@@ -134,7 +137,6 @@ export default function SignupClient() {
             <label className="flex items-start gap-2 text-[12.5px] text-s112-muted">
               <input type="checkbox" className="mt-0.5" checked={zustimmung} onChange={e => setZustimmung(e.target.checked)} />
               <span>
-                {/* link-ok: AGB und Datenschutzerklärung sind noch einzurichten (KAN-300, In Abklärung) */}
                 Ich habe die <a href="/agb" target="_blank" className="text-s112-blue-700 hover:underline">AGB</a> und{' '}
                 <a href="/datenschutz" target="_blank" className="text-s112-blue-700 hover:underline">Datenschutzerklärung</a> gelesen und stimme zu.
               </span>
@@ -152,6 +154,9 @@ export default function SignupClient() {
 
         <p className="text-center text-xs text-s112-muted mt-6">
           Sie haben schon ein Konto? <a href="/login" className="text-s112-blue-700 hover:underline">Hier anmelden</a>
+        </p>
+        <p className="text-center text-[11px] text-s112-tertiary mt-2">
+          <RechtsLinks />
         </p>
       </div>
     </div>
