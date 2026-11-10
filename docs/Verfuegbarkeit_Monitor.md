@@ -1,11 +1,10 @@
 # Verfügbarkeitsmonitor und Ausfallprotokoll (KAN-401)
 
-Grundlage: Anlage 3 der Vertragsunterlagen (Leistungsbeschreibung und Service Levels), Punkt 3.
+Grundlage: Anlage 3 der Vertragsunterlagen, Endfassung Version 3 vom 10. November 2026 (`docs/Vertrag/AGB_AVV_Leistungsbeschreibung_software112_v3_Endfassung`), Punkt 3 „Betrieb und Verfügbarkeit“.
 
-- 3.1: 99,0 % je Kalendermonat
-- 3.3: Überwachung mindestens alle fünf Minuten, Protokoll der Ausfälle auf Anfrage des Kunden
-- 3.5: Gutschriften
-- 3.6: Sonderkündigung bei < 95 % in zwei aufeinanderfolgenden Monaten oder in drei Monaten innerhalb von zwölf
+- 3.1: Betrieb rund um die Uhr, **keine zugesagte Verfügbarkeit in Prozent**, keine Gutschriften, kein Sonderkündigungsrecht wegen der Verfügbarkeit (bis Version 2: 99,0 % je Kalendermonat mit Gutschriften und Sonderkündigung).
+- 3.2: Ein Ausfall (Anmeldung unmöglich oder Anwendung insgesamt nicht nutzbar, Anlage 3 Punkt 1) ist eine Störung der Klasse 1 nach 5.2: Reaktion 4 Stunden, Behebung 1 Werktag (Servicezeit). Wird die Frist überschritten, gilt die Entgeltminderung nach Nutzungsvertrag 8.1. Ausfälle der Rechenzentrums- und Hostingbetreiber, die der Anbieter weder verursacht hat noch abwenden kann, gelten als höhere Gewalt – Nachweis mit der Störungsmeldung des Betreibers.
+- 3.3: Überwachung mindestens alle fünf Minuten, Protokoll der Ausfälle 13 Monate aufbewahren und dem Kunden auf Anfrage geben.
 
 ## Prüf-Endpunkt
 
@@ -20,25 +19,24 @@ Grundlage: Anlage 3 der Vertragsunterlagen (Leistungsbeschreibung und Service Le
 - Prüft mit dem öffentlichen Anon-Schlüssel (eine Zeile aus `rebsorten`), ohne Service-Role, ohne Mandantendaten, ohne Fehlertexte.
 - Code: `src/lib/system/verfuegbarkeit.ts`, Route `src/app/api/health/route.ts`, Test `scripts/tests/kan401-health.test.mjs`.
 
-## Externer Dienst (Einrichtung durch Jörgen)
+## Externer Dienst (eingerichtet)
 
-Empfehlung: **Better Stack (Uptime)** oder **UptimeRobot**, Konto auf die Firmen-E-Mail des Anbieters, Zwei-Faktor-Anmeldung an.
+**Better Stack (Uptime)**, Gratisplan, eingerichtet von Jörgen (Stand 10.11.2026). **Vor dem ersten zahlenden Kunden (spätestens 01.01.2027) auf einen Bezahlplan wechseln** – der Gratisplan ist nur für private Projekte gedacht.
 
-1. Monitor „software:112 – health“: HTTP(S), URL siehe oben, Intervall **1 min** (mindestens 5 min), erwarteter Status 200, Zeitlimit 10 s, Bestätigung erst nach 2 Fehlschlägen (vermeidet Fehlalarme).
-2. Monitor „software:112 – Login“: `https://software112.icp-consultants.at/login`, Status 200, Schlüsselwort „Anmelden“.
-3. Alarm: E-Mail und Push-App an Jörgen und die Vertretung im Support.
-4. Prüfstandorte in Europa wählen.
-5. Optional eine Statusseite (z. B. `status.software112.at`) – erst nach dem Domainwechsel (KAN-221).
+1. Monitor „software:112 – health“: `/api/health`, Schlüsselwort `"ok":true`, Intervall 3 min (Grenze des Gratisplans; Vertrag: mindestens alle 5 min), Bestätigung nach 1 min, Prüfregionen Europa und Nordamerika.
+2. Monitor „software:112 – Login“: `https://software112.icp-consultants.at/login`, Schlüsselwort „Anmelden“, gleiche Einstellungen.
+3. Alarm: E-Mail an Jörgen und Slack-Kanal `#s112-ausfaelle`; die Vertretung im Support kommt dazu, sobald sie feststeht.
+4. Optional eine Statusseite (z. B. `status.software112.at`) – erst nach dem Domainwechsel (KAN-221).
 
 Probe der Alarmierung: einen dritten, vorübergehenden Monitor auf `https://software112.icp-consultants.at/api/health-gibt-es-nicht` anlegen. Er muss binnen 5 Minuten alarmieren; danach wieder löschen.
 
 ## Ausfallprotokoll
 
 - **Monatlich**, bis zum 5. des Folgemonats: Bericht des Vormonats (Verfügbarkeit in %, Liste der Ausfälle mit Beginn, Ende und Dauer) als CSV/PDF exportieren und ablegen unter `Verträge/software112/Verfügbarkeit/JJJJ-MM` (Ablage des Anbieters, nicht im Repository).
-- **Aufbewahrung mindestens 13 Monate**, wegen „drei Monate innerhalb von zwölf“ in 3.6.
-- **Wartungsfenster** (Anlage 3, Punkt 4) im Dienst als Wartung eintragen, damit sie nicht als Ausfall zählen; die Ankündigung (48 h, App und E-Mail) im selben Ordner ablegen.
+- **Aufbewahrung mindestens 13 Monate** (zugesagt in 3.3).
+- **Wartungsfenster** (Anlage 3, Punkt 4) im Dienst als Wartung eintragen, damit sie im Protokoll nicht als Ausfall erscheinen; die Ankündigung (48 h, App und E-Mail) im selben Ordner ablegen.
 - **Anfrage eines Kunden:** den Bericht der gewünschten Monate per E-Mail an den Betriebs-Manager-Zugang schicken.
-- **Gutschrift** (3.5): Der Kunde beantragt sie bis Ende des Folgemonats; der Monatsbericht ist der Nachweis.
+- **Ausfall im Vormonat:** festhalten, ob Reaktion (4 h) und Behebung (1 Werktag) innerhalb der Servicezeit eingehalten wurden – sonst kann der Kunde das Entgelt nach Nutzungsvertrag 8.1 mindern. Bei einem Ausfall eines Vorleisters (Supabase, Vercel) dessen Störungsmeldung von der Statusseite zum Bericht legen (höhere Gewalt nach 3.2).
 
 ## Grenzen
 
