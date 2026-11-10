@@ -14,7 +14,7 @@
 //  - paketEntscheidung(): ob der Stripe-Webhook bzw. der Paketwechsel auf /abo die
 //    Paket-Vorgaben (Module, Benutzerlimit) anwenden darf – keine Upgrades ohne Zahlung
 //  - aboZuordnung(): ob ein Stripe-Ereignis den Betrieb betrifft (Abo-ID, beendete Abos)
-//  - testphaseTage(): Testphase nur für Kunden, die noch nie ein Abo hatten
+//  - checkoutAboDaten(): Abo-Daten des Stripe-Checkouts – ohne Testphase (KAN-402)
 //
 // Bewusst ohne Server- und React-Importe (nur '@/lib/pakete', das ebenfalls frei davon ist):
 // genutzt von Server, Client und node:test (scripts/tests/abo-nurlesen.test.mjs).
@@ -294,11 +294,16 @@ export function aboZuordnung(p: {
   return { aktion: 'ignorieren', grund: 'Betrieb hat ein anderes, laufendes Abo – bitte in Stripe prüfen (Doppel-Abo?)' }
 }
 
-// ── Testphase nur einmal (KAN-5 Nachschliff) ─────────────────────────────────
-// Nach einer Kündigung ist stripe_subscription_id leer, „Zahlungsdaten hinterlegen“ auf /abo also
-// wieder möglich. Mit erneuten 14 Tagen Testphase ließe sich der Nur-Lesen-Modus beliebig oft
-// ohne Zahlung umgehen (Kündigen vor Ablauf, neu abschließen). Testphase deshalb nur, wenn der
-// Stripe-Kunde noch nie ein Abo hatte (Stripe: subscriptions.list({ status: 'all' })).
-export function testphaseTage(p: { bisherigeAbos: number; tage: number }): number | undefined {
-  return p.bisherigeAbos > 0 || p.tage <= 0 ? undefined : p.tage
+// ── Checkout ohne Testphase (KAN-402, 10.11.2026) ─────────────────────────────
+// Vertrag v3 (NV 2.3/4.1, AGB 2.3): keine kostenlose Testphase, die entgeltliche Nutzung beginnt mit der
+// Freischaltung. Jeder Checkout (erstes Abo, Zahlung nachholen, Wiederabschluss nach Kündigung) verlangt
+// sofort die Zahlung – nie trial_period_days. Bis 10.11.2026 gab es 14 Tage einmal je Stripe-Kunde
+// (testphaseTage, KAN-5); laufende Altfälle mit 'trialing' wertet aboStandBerechnen() weiter aus.
+export function checkoutAboDaten(tenantId: string): { metadata: { tenant_id: string } } {
+  return { metadata: { tenant_id: tenantId } }
+}
+
+/** /abo: Betrieb hat noch nie ein Paket gebucht (kein Abo, nicht gekündigt) – Hinweis zur Buchung statt Sperrtext. */
+export function nochKeinPaketGebucht(stripeStatus: string | null | undefined, hatAbo: boolean): boolean {
+  return !hatAbo && !['canceled', 'cancelled'].includes(String(stripeStatus ?? ''))
 }

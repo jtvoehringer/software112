@@ -19,7 +19,7 @@ export default function AboClient({
   verfuegbarePakete,
   benutzerAnzahl,
   hardBlocked,
-  trialAbgelaufen,
+  ohnePaket,
   warned,
   darfVerwalten,
   hasCustomer,
@@ -37,7 +37,7 @@ export default function AboClient({
   verfuegbarePakete: PaketKey[]
   benutzerAnzahl:    number
   hardBlocked:     boolean
-  trialAbgelaufen: boolean
+  ohnePaket:       boolean
   warned:          boolean
   darfVerwalten:   boolean
   hasCustomer:     boolean
@@ -219,13 +219,14 @@ export default function AboClient({
         </div>
 
         <div className="card space-y-4">
-          {hardBlocked && trialAbgelaufen ? (
-            <div role="alert" className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
-              <p className="font-semibold mb-1">Testphase abgelaufen</p>
+          {hardBlocked && ohnePaket ? (
+            // KAN-402 (Vertrag v3, NV 4.1): keine kostenlose Testphase – die Nutzung beginnt mit der Freischaltung
+            <div role="alert" className="px-4 py-3 rounded-lg bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-sm">
+              <p className="font-semibold mb-1">Noch kein Paket gebucht</p>
               <p>
-                Ihre kostenlose 14-tägige Testphase ist beendet. Bitte hinterlegen Sie Ihre Zahlungsdaten,
-                um software:112 weiter zu nutzen. Bis dahin arbeitet Ihr Betrieb im Nur-Lesen-Modus:
-                Daten ansehen, drucken und exportieren bleibt möglich, Änderungen sind gesperrt.
+                Bitte wählen Sie ein Paket und hinterlegen Sie Ihre Zahlungsdaten. Die Nutzung von software:112 beginnt
+                mit der Freischaltung nach der Zahlung, abgerechnet wird monatlich ab diesem Tag. Bis dahin arbeitet Ihr
+                Betrieb im Nur-Lesen-Modus.
               </p>
             </div>
           ) : hardBlocked ? (
@@ -263,8 +264,8 @@ export default function AboClient({
             ) : hasCustomer ? (
               // Self-Service-Signup ohne abgeschlossenen Checkout: noch kein
               // Abo vorhanden - das Customer-Portal (oben) hätte hier nichts
-              // zu verwalten. Startet stattdessen einen neuen Checkout inkl.
-              // der vollen 14-tägigen Testphase.
+              // zu verwalten. Startet stattdessen einen neuen Checkout (KAN-402: ohne Testphase,
+              // Zahlung sofort).
               <button
                 onClick={() => handleZahlungNachholen()}
                 disabled={loading}

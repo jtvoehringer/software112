@@ -46,11 +46,11 @@ describe('KAN-281: keine Altfälle mehr', () => {
     assert.deepEqual(pruefeText(richtig, { route: true }).funde, [])
   })
 
-  test('verbleibende Ausnahmen sind begründet: Seitentitel, Layout, Karten-Design, Testphasen-Hinweis', () => {
+  test('verbleibende Ausnahmen sind begründet: Seitentitel, Layout, Karten-Design, Weiterleitung der Willkommensseite', () => {
     for (const f of ['crm/firmen/[id]/page.tsx', 'crm/kontakte/[id]/page.tsx', 'kellerbuch/kellerplan/[id]/page.tsx']) {
       assert.match(quelle(`src/app/(dashboard)/${f}`), /abfrage-ohne-fehler: nur Seitentitel \(generateMetadata\)/, f)
     }
     assert.match(quelle('src/app/(dashboard)/layout.tsx'), /abfrage-ohne-fehler: Layout – ein Wurf hier sperrte die ganze App/)
-    assert.match(quelle('src/app/signup/willkommen/page.tsx'), /abfrage-ohne-fehler: nur der Hinweis zur Testphase/)
+    assert.match(quelle('src/app/signup/willkommen/page.tsx'), /abfrage-ohne-fehler: nur der Abo-Status für die Weiterleitung der Willkommensseite/)
   })
 })

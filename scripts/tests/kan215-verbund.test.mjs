@@ -67,11 +67,12 @@ describe('KAN-215 Verdrahtung', () => {
     assert.match(a, /paketPosition\(sub\.items\.data\.map/)
     assert.match(a, /paketwechselVerbundFehler\(paket, count \?\? 0\)/)
   })
-  test('Nebenmandanten: kein eigenes Portal, kein Checkout, keine Kündigung des Hauptabos; keine zweite Testphase', () => {
+  test('Nebenmandanten: kein eigenes Portal, kein Checkout, keine Kündigung des Hauptabos; Checkout ohne Testphase', () => {
     const a = quelle('src/app/abo/actions.ts')
     // Portal (createOwnStripePortalSession), Checkout (starteZahlungAction) und Paketwechsel
     assert.equal(a.split('abrechnung_ueber) return { error').length - 1 + a.split("abrechnung_ueber) {\n    return { error").length - 1, 3)
-    assert.match(a, /bisherigeAbos: bisherige\.data\.length \+ \(gekuendigt \? 1 : 0\)/)
+    // KAN-402: auch nach Austritt aus dem Verbund kein Testzeitraum – es gibt keine Testphase mehr
+    assert.doesNotMatch(a, /trial_period_days/)
     assert.match(quelle('src/app/(dashboard)/admin/mandanten/[id]/actions.ts'), /if \(\(data as R\)\.abrechnung_ueber\) throw new AktionsFehler/)
   })
   test('Migration: Spalten, Ketten-Trigger, Preis-CHECK', () => {

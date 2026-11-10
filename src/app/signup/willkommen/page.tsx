@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Willkommen' }
 
 // ── Zwischenseite nach erfolgreichem Stripe-Checkout ─────────────────────────
 // Rückmeldung 31.8.2026: der Webhook (customer.subscription.created), der
-// stripe_status auf 'trialing' setzt, trifft manchmal erst 1-2 Sekunden NACH
+// stripe_status setzt (KAN-402: 'active', früher 'trialing'), trifft manchmal erst 1-2 Sekunden NACH
 // dem Redirect zurück aus Stripe ein - ohne diese Zwischenseite würde die
 // Person kurz auf /abo als "gesperrt" landen, obwohl der Checkout gerade
 // erfolgreich war. Pollt per Meta-Refresh, bis die Sperre weg ist.
@@ -28,7 +28,7 @@ export default async function WillkommenPage() {
   const membership = await getCurrentMembership()
   if (!membership) redirect('/dashboard')
 
-  // abfrage-ohne-fehler: nur der Hinweis zur Testphase auf der Willkommensseite – ohne ihn bleibt der Einstieg nutzbar
+  // abfrage-ohne-fehler: nur der Abo-Status für die Weiterleitung der Willkommensseite – ohne ihn bleibt der Einstieg nutzbar
   const { data: tenantRow } = await (supabase.from('tenants') as R)
     .select('stripe_status, stripe_trial_ends_at')
     .eq('id', membership.tenantId)
