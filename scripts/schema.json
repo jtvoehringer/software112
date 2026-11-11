@@ -2049,6 +2049,17 @@
 "email_conversation_id",
 "email_betreff"
 ],
+"verkauf_ki_begriffe": [
+"id",
+"tenant_id",
+"kontakt_id",
+"firma_id",
+"begriff",
+"fuellung_id",
+"anzahl",
+"zuletzt_am",
+"erstellt_von"
+],
 "verschneidung_quellen": [
 "id",
 "verschneidung_id",

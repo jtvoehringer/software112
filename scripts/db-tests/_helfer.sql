@@ -1047,6 +1047,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('elabel_umleitungen',            '-',                                      '-',                                      '-'),   -- KAN-219: Protokoll, nur s112_elabel_umleiten schreibt
     ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('ernte_gst_abgeschlossen',       'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}'),   -- KAN-392: löschen = wieder öffnen
+    ('verkauf_ki_begriffe',           'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),   -- KAN-411: gelernte Begriffe aus Bestell-Mails
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
     ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('exportauftraege',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
