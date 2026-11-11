@@ -44,6 +44,7 @@ export function dateienAus(formData: FormData, feld: string): File[] {
 
 /** Buchung des Betriebs, an die angehängt werden darf: vorhanden und nicht storniert; null = in Ordnung */
 export async function buchungFuerAnhangFehler(supabase: any, tenantId: string, transaktionId: string): Promise<string | null> {
+  // storno-sichtbar: die Buchung wird samt Storno-Kennzeichen geladen, um das Anhängen an eine stornierte Buchung abzulehnen
   const { data, error } = await (supabase.from('ea_transaktionen') as any)
     .select('id, storniert_am, storno_von_id').eq('id', transaktionId).eq('tenant_id', tenantId).maybeSingle()
   if (error) return dbFehlerText(error, 'Buchung konnte nicht geladen werden')
