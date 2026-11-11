@@ -71,10 +71,11 @@ function zeile(b: PsmBehandlung, i: number) {
       <td className="px-2 py-1.5 border border-s112-line text-s112-text-2">{b.psm?.wirkstoff ?? '–'}</td>
       <td className="px-2 py-1.5 border border-s112-line">{b.schaderreger ?? '–'}</td>
       <td className="px-2 py-1.5 border border-s112-line text-center">{b.bbch ?? '–'}</td>
-      <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
-        {b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${aufwandEinheitText(b.aufwandEinheit)}` : '–'}
-        {mengen && <span className="block text-[10px] text-s112-tertiary">{mengen}</span>}
-        {b.wasserLHa !== null && <span className="block text-[10px] text-s112-tertiary">Wasser {fmtNum(b.wasserLHa, { max: 1 })} l/ha</span>}
+      <td className="px-2 py-1.5 border border-s112-line tabular-nums">
+        <span className="whitespace-nowrap">{b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${aufwandEinheitText(b.aufwandEinheit)}` : '–'}</span>
+        {/* je Angabe eine Zeile („Mittel …“, „Brühe …“) – in einer Zeile machte das die Spalte am breitesten */}
+        {mengen && mengen.split(' · ').map(t => <span key={t} className="block text-[10px] text-s112-tertiary whitespace-nowrap">{t}</span>)}
+        {b.wasserLHa !== null && <span className="block text-[10px] text-s112-tertiary whitespace-nowrap">Wasser {fmtNum(b.wasserLHa, { max: 1 })} l/ha</span>}
       </td>
       <td className="px-2 py-1.5 border border-s112-line text-center whitespace-nowrap">
         {b.psm?.wartezeitTage ? `${b.psm.wartezeitTage} T` : '–'}
@@ -122,7 +123,9 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
   const zurueck = { href: '/behandlungen', label: 'Maßnahmen' }
 
   return (
-    <div className="max-w-6xl space-y-4">
+    // Nebenbefund 11.11.2026 (12"-Notebook): volle Inhaltsbreite statt max-w-6xl, Kopfzellen und Mengenzeilen brechen um –
+    // sonst lagen „Witterung“ und „Notiz“ außerhalb der Karte und waren nur durch waagrechtes Scrollen erreichbar
+    <div className="space-y-4">
       {/* 13 Spalten – im Querformat drucken, sonst verkleinert der Browser stark bzw. schneidet ab */}
       <style>{`@media print { @page { size: A4 landscape; margin: 10mm 10mm 12mm; } }`}</style>
       <div className="flex items-start justify-between gap-3 flex-wrap print:hidden">
@@ -184,7 +187,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
           <thead>
             <tr className="bg-[#F2F3F5]">
               {['Datum', 'Art', 'Ried (Lage)', 'Fläche (ha)', 'Mittel (Zulassungsnr.)', 'Wirkstoff', 'Schaderreger', 'BBCH', 'Aufwand', 'Wartezeit', 'Öko', 'Witterung', 'Notiz'].map(h => (
-                <th key={h} className="text-left px-2 py-2 border border-s112-line-str font-semibold whitespace-nowrap">{h}</th>
+                <th key={h} className="text-left align-bottom px-2 py-2 border border-s112-line-str font-semibold">{h}</th>
               ))}
             </tr>
           </thead>

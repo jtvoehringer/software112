@@ -5,6 +5,8 @@
 // per Mandant überschreibbar). Zeile 2: Seiten des aktiven Bereichs als Chips.
 // Beide Zeilen scrollen auf schmalen Bildschirmen horizontal. KAN-181 (01.10.2026): unter 768 px
 // ersetzt das Mobilmenü (MobileNav, Knopf in der Kopfleiste) die Zeile 1; Zeile 2 bleibt als Kontext.
+// Nebenbefund 11.11.2026 (12"-Notebook, Kellerbuch): ab 768 px bricht Zeile 2 um statt unsichtbar zu scrollen –
+// „Bestandsmeldung“ war abgeschnitten, ohne Hinweis, dass rechts noch etwas kommt.
 
 import Link, { LinkSpinner } from '@/components/ui/Link'
 import { usePathname } from 'next/navigation'
@@ -41,7 +43,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
       {/* Zeile 2: Seiten des aktiven Bereichs */}
       {aktiv && (
         <div className="md:border-t border-s112-line bg-s112-bg/70">
-          <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-3 lg:px-4 py-1.5 flex gap-1 overflow-x-auto scrollbar-none">
+          <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-3 lg:px-4 py-1.5 flex gap-1 overflow-x-auto scrollbar-none md:flex-wrap md:overflow-x-visible">
             {aktiv.items.map(item => {
               const active = isActivePath(item.href, pathname)
                 // Bei mehreren passenden Items (z.B. /kellerbuch vs. /kellerbuch/kellerplan)
