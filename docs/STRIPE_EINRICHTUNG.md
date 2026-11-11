@@ -1,12 +1,16 @@
-# Stripe-Einrichtung – offene Checkliste (Stand 2.9.2026)
+# Stripe-Einrichtung – offene Checkliste (Stand 11.11.2026)
 
-**Status: bewusst zurückgestellt.** Der Code für das Paketmodell Basis / Standard /
-Premium ist fertig und deployt (Commit `80e24a2`, Definition in `src/lib/pakete.ts`),
-aber in Stripe ist noch nichts angelegt. Die Einrichtung erfolgt, sobald das
-Stripe-Konto steht – **spätestens vor dem ersten zahlenden Kunden.** Bis dahin:
+**Status: Produktion läuft gegen die Stripe-Sandbox, Live-Konto noch offen.** Der Code für das Paketmodell
+Basis / Standard / Premium ist fertig und deployt (Definition in `src/lib/pakete.ts`). In der Sandbox
+„IC&P Consultants eU Sandbox“ gibt es die drei Produkte (199/299/399 EUR monatlich, ohne Testzeitraum); ihre
+Preis-IDs stehen seit 11.11.2026 als `NEXT_PUBLIC_STRIPE_PRICE_BASIS/_STANDARD/_PREMIUM` in Vercel (Production),
+`/signup` zeigt alle drei Pakete. Die Umstellung auf das Live-Konto (Abschnitt 7) erfolgt
+**spätestens vor dem ersten zahlenden Kunden.** Bis dahin:
 
-- Signup und `/abo` zeigen keine Paketkarten (kein Fehler – Pakete ohne Preis-ID
-  werden einfach nicht angeboten). Ein Signup ist damit nicht abschließbar.
+- Wer sich registriert, bekommt ein Test-Abo ohne echte Zahlung und wird trotzdem freigeschaltet.
+- Pakete ohne Preis-ID werden nicht angeboten (kein Fehler) – fehlt eine der drei Variablen, fehlt die Paketkarte.
+- `STRIPE_PRICE_PREMIUM_SUPPORT` (Schritt 2b) ist in Vercel noch nicht angelegt – der Knopf „Premium-Support buchen“
+  bleibt ausgeblendet.
 - Bestehende Mandanten (Sandbox, Gebeshuber, …) laufen ohne Stripe weiter:
   `max_benutzer` = NULL (unbegrenzt), Module bleiben wie manuell geschaltet.
 - Der Webhook empfängt noch die alten Preis-IDs (`…_PROFESSIONAL` usw.) und bildet
@@ -88,7 +92,7 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
 ### 5. Testlauf (Stripe-Testmodus)
 1. Signup (seit KAN-139 ohne Passwort, mit E-Mail-Bestätigung): Link aus der Mail öffnen,
    Passwort festlegen → Weiterleitung auf `/abo` → „Zahlungsdaten hinterlegen“ mit Paket →
-   Testkarte `4242 4242 4242 4242` → Mandant muss `trialing` sein,
+   Testkarte `4242 4242 4242 4242` → Mandant muss `active` sein (keine Testphase, KAN-402),
    Module laut Paket geschaltet, `max_benutzer` gesetzt.
 2. Auf `/abo` einmal Upgrade und einmal Downgrade → Administration → Mandanten →
    Module: Schalter müssen mitgehen; Downgrade-Hinweis auf wegfallende Module prüfen.
@@ -111,6 +115,41 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
   (Stripe → Abonnements filtern).
 - Legacy-Slugs in `STRIPE_PLAN_LABELS` (`lib/stripe/client.ts`) und
   `paketAusPlan()` (`lib/pakete.ts`) können dann weg.
+
+### 7. Umstellung von der Sandbox auf das Live-Konto (vor dem ersten zahlenden Kunden)
+Sandbox und Live-Konto sind getrennte Datenbestände – **nichts wird automatisch mitgenommen.** Am Code ändert sich
+nichts, er liest nur die Variablen. Eine Mischung aus Sandbox- und Live-Werten lässt den Checkout scheitern
+(„No such price“), deshalb alles in einem Zug umstellen.
+
+**Vorher klären**
+- Live-Konto freischalten: Unternehmensdaten, Bankverbindung, Identitätsprüfung – kann ein paar Tage dauern.
+- Kontoinhaber: Das Live-Konto gehört dem Unternehmen, das den Kunden laut Nutzungsvertrag die Rechnung stellt
+  (die Sandbox läuft auf „IC&P Consultants eU“).
+
+**Im Live-Konto neu anlegen bzw. einstellen**
+1. Produkte und Preise wie in Schritt 2 und 2b (ohne Testzeitraum) – es entstehen **neue Preis-IDs**.
+2. Webhook wie in Schritt 3 (gleiche Adresse, gleiche fünf Ereignisse) – es entsteht ein **neues Signing Secret**.
+3. Mahnwesen wie in Schritt 3a (unpaid bzw. canceled, nicht „überfällig lassen“).
+4. Kontoeinstellungen prüfen: Kundenportal (Kündigen, Zahlungsart ändern), Rechnungsvorlage und Branding,
+   Steuereinstellungen, Zahlungsarten.
+
+**In Vercel (Production) gemeinsam ersetzen, danach Redeploy**
+- `STRIPE_SECRET_KEY` (`sk_live_…`)
+- `STRIPE_WEBHOOK_SECRET`
+- `NEXT_PUBLIC_STRIPE_PRICE_BASIS`, `NEXT_PUBLIC_STRIPE_PRICE_STANDARD`, `NEXT_PUBLIC_STRIPE_PRICE_PREMIUM`
+- `STRIPE_PRICE_PREMIUM_SUPPORT` (neu anlegen)
+- Kommentar „Stripe-Sandbox“ an den Preis-Variablen entfernen. Die Sandbox-Werte können für *Preview* bleiben.
+
+**In der Datenbank aufräumen**
+- Betriebe, die sich bis dahin über die Sandbox registriert haben, tragen Sandbox-Kunden- und Abo-Nummern
+  (`tenants.stripe_customer_id`, `stripe_subscription_id` …). Mit dem Live-Schlüssel findet Stripe sie nicht mehr.
+  Test-Registrierungen vorher über `s112_mandant_loeschen` (Runbook `docs/Mandant_loeschen.md`) entfernen oder ihre
+  Stripe-Felder per Service-Role leeren. Prüfabfrage: `SELECT id, name FROM tenants WHERE stripe_customer_id IS NOT NULL`.
+- Pilotbetriebe ohne Stripe sind nicht betroffen.
+
+**Danach**
+- Ein echter Kauf mit kleinem Betrag bzw. eigener Karte und sofortige Kündigung/Erstattung als Rauchtest:
+  Status `active`, Module laut Paket, Webhook-Zustellung im Stripe-Dashboard ohne Fehler.
 
 ## Noch offen / bewusst nicht gebaut
 - Paket-Spalte in der Mandanten-**Liste** (nur im Detail sichtbar).
