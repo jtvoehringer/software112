@@ -132,6 +132,7 @@ nichts, er liest nur die Variablen. Eine Mischung aus Sandbox- und Live-Werten l
 3. Mahnwesen wie in Schritt 3a (unpaid bzw. canceled, nicht „überfällig lassen“).
 4. Kontoeinstellungen prüfen: Kundenportal (Kündigen, Zahlungsart ändern), Rechnungsvorlage und Branding,
    Steuereinstellungen, Zahlungsarten.
+5. Gutschein „Early Mover“ wie in Abschnitt 8 (in der Sandbox seit 11.11.2026 vorhanden, im Live-Konto neu anlegen).
 
 **In Vercel (Production) gemeinsam ersetzen, danach Redeploy**
 - `STRIPE_SECRET_KEY` (`sk_live_…`)
@@ -150,6 +151,23 @@ nichts, er liest nur die Variablen. Eine Mischung aus Sandbox- und Live-Werten l
 **Danach**
 - Ein echter Kauf mit kleinem Betrag bzw. eigener Karte und sofortige Kündigung/Erstattung als Rauchtest:
   Status `active`, Module laut Paket, Webhook-Zustellung im Stripe-Dashboard ohne Fehler.
+
+### 8. Early-Mover-Kondition: Premium zum Preis von Standard (Entscheidung Jörgen 11.11.2026)
+Die Kondition für die ersten Kunden gilt **dauerhaft** (welche Betriebe sie bekommen, steht in KAN-11). Umgesetzt als Stripe-Gutschein
+am Premium-Abo – der Betrieb läuft in software:112 als Premium (alle Module, bis zu 5 Mandanten), die Rechnung weist
+den Nachlass aus. Ein eigener Preis über 299 € würde dagegen als Standard erkannt.
+
+- Gutschein: ID `early-mover`, Name „Early Mover“, 100,00 EUR Nachlass je Monat, Dauer „für immer“, beschränkt auf das
+  Produkt „software:112 Premium“.
+- Der Checkout kennt keine Gutscheine (kein Gutscheinfeld, bewusst). Ablauf **von Hand im Stripe-Dashboard**:
+  1. Der Betrieb registriert sich und bucht Premium (Checkout über 399 €).
+  2. Stripe → Abonnements → Abo des Betriebs → „Abonnement aktualisieren“ → Gutschein „Early Mover“ hinzufügen.
+     Ab der nächsten Rechnung 299 €.
+  3. Die erste Rechnung ist schon mit 399 € bezahlt: 100 € über „Gutschrift erstellen“ an der Rechnung erstatten
+     (oder als Guthaben auf die nächste Rechnung anrechnen).
+- In software:112 ist nichts zu tun: Paket und Module hängen am Preis (Premium), nicht am Betrag.
+- Kommen weitere Early Mover dazu, lohnt ein Gutscheinfeld im Checkout (`allow_promotion_codes` + Aktionscode) –
+  eigenes Ticket.
 
 ## Noch offen / bewusst nicht gebaut
 - Paket-Spalte in der Mandanten-**Liste** (nur im Detail sichtbar).
