@@ -6,7 +6,7 @@
 // Beide Zeilen scrollen auf schmalen Bildschirmen horizontal. KAN-181 (01.10.2026): unter 768 px
 // ersetzt das Mobilmenü (MobileNav, Knopf in der Kopfleiste) die Zeile 1; Zeile 2 bleibt als Kontext.
 // Nebenbefund 11.11.2026 (12"-Notebook, Kellerbuch): ab 768 px bricht Zeile 2 um statt unsichtbar zu scrollen –
-// „Bestandsmeldung“ war abgeschnitten, ohne Hinweis, dass rechts noch etwas kommt.
+// „Bestandsmeldung“ war abgeschnitten, ohne Hinweis, dass rechts noch etwas kommt. Zeile 1 (Bereiche) ebenso.
 
 import Link, { LinkSpinner } from '@/components/ui/Link'
 import { usePathname } from 'next/navigation'
@@ -19,7 +19,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
   return (
     <nav className="bg-s112-surface border-b border-s112-line shrink-0 z-30" aria-label="Hauptnavigation">
       {/* Zeile 1: Bereiche */}
-      <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 lg:px-3 hidden md:flex gap-0.5 overflow-x-auto scrollbar-none">
+      <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 lg:px-3 hidden md:flex gap-0.5 overflow-x-auto scrollbar-none md:flex-wrap md:overflow-x-visible">
         {groups.map(g => {
           const active = g.key === aktiv?.key
           return (
