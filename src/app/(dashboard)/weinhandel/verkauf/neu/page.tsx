@@ -600,13 +600,6 @@ export default function NeuerVerkaufPage() {
                 <LieferadresseWahl adressen={lieferAdressen} wert={liefer} onChange={setLiefer} disabled={loading} />
               </div>
             )}
-            <div className="sm:col-span-2">
-              <label className={labelCls}>Notizen</label>
-              <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
-                placeholder="Interne Notizen zum Vorgang"
-                className={inputCls + ' w-full'} />
-            </div>
-
             {/* Skonto */}
             <div className="sm:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer select-none">

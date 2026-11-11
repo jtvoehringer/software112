@@ -105,6 +105,8 @@ describe('KAN-411: Wege und Absicherung', () => {
     assert.match(p, /if \(t\) kundeWaehlen\(b\.kunde, t\)/)
     assert.match(p, /<pre [^>]*>\{mail\.text\}<\/pre>/)
     assert.doesNotMatch(p, /dangerouslySetInnerHTML/)
+    assert.doesNotMatch(p, /aria-label="Notizen"/)   // nur noch „Interne Notiz“ – das zweite Feld für dieselbe Notiz ist entfernt
+    assert.equal(p.split('setNotizen(e.target.value)').length, 2)
     assert.match(p, /if \(mailBezug && mail\?\.conversationId\) \{[^}]*formData\.set\('email_conversation_id', mail\.conversationId\)/)
     const s = p.slice(p.indexOf('const r = await createVerkauf(formData)'), p.indexOf("router.push(zielNachVorgang('/weinhandel/verkauf', 'verkauf'))"))
     assert.match(s, /if \('error' in r\) \{\n\s+setError\(r\.error\)\n\s+return\n\s+\}\n\s+if \(mailBezug\) \{/)   // Entwurf nur nach Erfolg
