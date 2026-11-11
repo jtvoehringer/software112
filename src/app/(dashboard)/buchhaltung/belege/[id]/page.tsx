@@ -4,6 +4,7 @@ import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { belegDateiPfad } from '@/lib/buchhaltung/belegAnhang'
 import { verwerfeBeleg } from '../../actions'
 import BelegBuchenForm from './BelegBuchenForm'
 import type { FirmaRow } from '@/lib/crm/types'
@@ -33,7 +34,8 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
     .eq('id', id).eq('tenant_id', tenantId).maybeSingle(), 'Belege')
   if (!belegRaw) notFound()
   const beleg = belegRaw as R
-  if (beleg.status === 'verbucht') redirect('/buchhaltung/belege')
+  // KAN-415: ein verbuchter Beleg lässt sich nicht mehr buchen – die Datei öffnen statt zur Liste zurückzuleiten
+  if (beleg.status === 'verbucht') redirect(belegDateiPfad(id))
 
   const signed = geladen(await supabase.storage
     .from('ea-belege')

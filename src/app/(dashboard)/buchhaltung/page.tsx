@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import BelegAnhang from '@/components/buchhaltung/BelegAnhang'
 import { stornoEaTransaktion } from './actions'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import DruckFormatKnopf from '@/components/DruckFormatKnopf'
@@ -42,7 +43,7 @@ function stornoTitel(b: { stornoGrund: string | null; storniertAm: string | null
 export default async function BuchhaltungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ jahr?: string; typ?: string; q?: string }>
+  searchParams: Promise<{ jahr?: string; typ?: string; q?: string; beleg_fehler?: string }>
 }) {
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
@@ -66,6 +67,15 @@ export default async function BuchhaltungPage({
   // Anlagenverzeichnis (Migration 200): welche Anschaffungsbuchungen sind schon eine Anlage?
   const anlagenRaw = geladen(await (supabase.from('ea_anlagen') as any).select('id, transaktion_id').eq('tenant_id', tenantId).not('transaktion_id', 'is', null), 'Anlagen')
   const anlageZuBuchung = new Map<string, string>(((anlagenRaw ?? []) as R[]).map(a => [a.transaktion_id as string, a.id as string]))
+
+  // KAN-415: per Belegscan erfasste, noch nicht verbuchte Belege – lassen sich einer bestehenden Buchung zuordnen
+  const darfAnhaengen = canWrite(membership, 'ea')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const offeneBelegeRaw = darfAnhaengen ? geladen(await (supabase.from('ea_belege') as any)
+    .select('id, dateiname').eq('tenant_id', tenantId).in('status', ['erkannt', 'fehler'])
+    .order('hochgeladen_am', { ascending: false }).order('id').limit(100), 'Belege') : []
+  const offeneBelege = ((offeneBelegeRaw ?? []) as R[]).map(b => ({ id: String(b.id), dateiname: String(b.dateiname ?? 'Beleg') }))
+  const belegFehler = (sp.beleg_fehler ?? '').trim().slice(0, 400)
 
   // Summen aus den (gerundeten) Zeilenwerten – wie in der CSV
   const einnahmen = summe(buchungen.filter(b => b.typ === 'einnahme').map(b => b.brutto))
@@ -171,6 +181,9 @@ export default async function BuchhaltungPage({
       </div>
 
       {/* Tabelle */}
+      {belegFehler && (
+        <div role="alert" className="mb-4 bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-xl px-4 py-3">{belegFehler}</div>
+      )}
       <div className="bg-white rounded-xl border border-s112-border">
         <table className="w-full text-sm">
           <thead>
@@ -241,7 +254,10 @@ export default async function BuchhaltungPage({
                 <td className={`px-4 py-3 text-right font-mono font-semibold whitespace-nowrap ${b.typ === 'einnahme' ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
                   € {fmt(b.brutto)}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right whitespace-nowrap">
+                  {/* KAN-415: Belege der Buchung – öffnen und anhängen (nicht an stornierten Buchungen und Gegenbuchungen) */}
+                  <BelegAnhang transaktionId={b.id} bezeichnung={b.bezeichnung} belege={b.belege}
+                    offeneBelege={offeneBelege} darfAnhaengen={darfAnhaengen && !b.stornoStatus} />
                   {b.verkaufspostenId ? (
                     <Link
                       href={`/weinhandel/verkauf/${b.verkaufspostenId}`}

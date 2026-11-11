@@ -61,6 +61,8 @@ const nextConfig: NextConfig = {
   // Änderungen ohne „Seite neu laden“ sichtbar werden.
   experimental: {
     staleTimes: { dynamic: 0, static: 30 },
+    // KAN-415: Belege (zusammen bis 4 MB, src/lib/buchhaltung/belegAnhang.ts) im Formular „Neue Buchung“ – Standard wäre 1 MB
+    serverActions: { bodySizeLimit: '5mb' },
   },
   images: {
     // Sicherheit S7 (23.9.2026): vorher hostname '**' – die Bildoptimierung konnte als offener

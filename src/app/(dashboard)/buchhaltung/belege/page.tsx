@@ -3,6 +3,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { belegDateiPfad } from '@/lib/buchhaltung/belegAnhang'
 import { verwerfeBeleg } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import BelegUpload from './BelegUpload'
@@ -78,7 +79,8 @@ export default async function BelegePage() {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {b.status === 'verbucht' ? (
-            <span className="text-xs font-medium bg-s112-ok-bg text-s112-ok-fg px-2.5 py-1 rounded-full">Verbucht</span>
+            <a href={belegDateiPfad(b.id)} target="_blank" rel="noopener noreferrer" title="Beleg öffnen"
+              className="text-xs font-medium bg-s112-ok-bg text-s112-ok-fg px-2.5 py-1 rounded-full hover:underline">Verbucht · öffnen</a>
           ) : (
             <Link
               href={`/buchhaltung/belege/${b.id}`}
