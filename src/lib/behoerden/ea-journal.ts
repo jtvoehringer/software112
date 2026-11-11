@@ -44,6 +44,8 @@ export type EaJournalZeile = {
   geschaeftspartner: string | null
   debitorNr: string | null
   belegdatei: string | null
+  /** KAN-415: Belege der Buchung (für die Buchungsliste: öffnen, zählen) */
+  belege: { id: string; dateiname: string }[]
   /** ea_belege.hochgeladen_am (timestamptz) des ersten Belegs */
   belegErfasstAm: string | null
   quelle: string
@@ -114,6 +116,7 @@ export function eaJournalZeile(r: R): EaJournalZeile {
     // DebitorNr. (BMD-Konto) der Firma, ersatzweise die interne Accountnummer (wie bisher)
     debitorNr: text(vp?.firma?.debitor_nr) ?? text(vp?.firma?.accountnummer) ?? text(vp?.kontakt?.accountnummer),
     belegdatei: text(belege.map(b => b.dateiname).filter(Boolean).join(', ')),
+    belege: belege.filter(b => b.id).map(b => ({ id: String(b.id), dateiname: String(b.dateiname ?? 'Beleg') })),
     belegErfasstAm: text(belege[0]?.hochgeladen_am),
     quelle: eaQuelle(r),
     gesperrt: !!r.is_locked,
@@ -180,7 +183,7 @@ export async function ladeEaJournal(supabase: any, tenantId: string, p: EaJourna
       konto:konten!konto_id(name, typ),
       firma:firmen!firma_id(name),
       verkaufsposten(rechnungsnummer, partner_daten, kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer), firma:firmen!firma_id(name, debitor_nr, accountnummer)),
-      ea_belege(dateiname, hochgeladen_am)`)
+      ea_belege(id, dateiname, hochgeladen_am)`)
     .eq('tenant_id', tenantId)
     .gte('datum', `${p.jahr}-01-01`)
     .lte('datum', `${p.jahr}-12-31`)

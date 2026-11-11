@@ -2,6 +2,8 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { belegDateienFehler } from '@/lib/buchhaltung/belegAnhang'
+import { dateienAus, haengeDateienAn } from '@/lib/buchhaltung/belegSpeichern'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -64,6 +66,10 @@ export async function createEaTransaktion(formData: FormData) {
   const ust_satz     = ustSatzAus(formData.get('ust_satz'))   // KAN-240: 0 % bleibt 0 %
   const notizen      = (formData.get('notizen') as string) || null
   const konto_id     = (formData.get('konto_id') as string) || null
+  // KAN-415: Belege direkt beim Erfassen – geprüft vor dem Anlegen der Buchung
+  const belege = dateienAus(formData, 'belege')
+  const belegFehler = belegDateienFehler(belege)
+  if (belegFehler) return { error: belegFehler }
 
   if (!typ || !datum || !beschreibung || isNaN(betrag_netto)) {
     return { error: 'Pflichtfelder fehlen' }
@@ -85,14 +91,20 @@ export async function createEaTransaktion(formData: FormData) {
 
   const abzugsfaehig_pct = await getKategorieAbzugsfaehigPct(supabase, tenantId, kategorie_id)
 
-  const { error } = await (supabase.from('ea_transaktionen') as any).insert({
+  const { data: neu, error } = await (supabase.from('ea_transaktionen') as any).insert({
     tenant_id: tenantId, typ, datum, beschreibung,
     kategorie_id, betrag_netto, ust_satz,
     notizen, konto_id, abzugsfaehig_pct,
-  })
+  }).select('id').single()
 
   if (error) return { error: dbFehlerText(error) }
   revalidatePath('/buchhaltung')
+  if (belege.length > 0) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const erg = await haengeDateienAn(supabase, tenantId, user?.id ?? null, (neu as R).id as string, belege)
+    // Die Buchung steht – nicht erneut speichern; fehlende Belege lassen sich an der Buchung nachtragen
+    if (erg.error) return { ok: true, belegFehler: `Die Buchung ist gespeichert, aber nicht alle Belege wurden angehängt: ${erg.error} Bitte an der Buchung nachtragen.` }
+  }
   return { ok: true }
 }
 

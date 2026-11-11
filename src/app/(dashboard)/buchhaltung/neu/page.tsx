@@ -10,6 +10,7 @@ import { heuteWien } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import type { Metadata } from 'next'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import BelegDateiFeld from '@/components/buchhaltung/BelegDateiFeld'
 
 export const metadata: Metadata = { title: 'Neue Buchung' }
 
@@ -53,6 +54,8 @@ export default async function BuchhaltungNeuPage() {
   async function handleSubmit(formData: FormData) {
     'use server'
     const result = await createEaTransaktion(formData)
+    // KAN-415: Buchung gespeichert, aber ein Beleg ließ sich nicht anhängen – zur Liste mit Hinweis statt stillem Erfolg
+    if (result && 'belegFehler' in result && result.belegFehler) redirect(`/buchhaltung?beleg_fehler=${encodeURIComponent(result.belegFehler.slice(0, 400))}`)
     if (!result?.error) redirect(zielNachAbschluss(formData.get('zurueck'), '/buchhaltung', 'gespeichert'))   // KAN-224
   }
 
@@ -154,6 +157,9 @@ export default async function BuchhaltungNeuPage() {
           <textarea aria-label="Notizen / Belegnummer" name="notizen" rows={2} placeholder="z.B. Rechnung 2026-042 liegt in Ablage"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
+
+        {/* KAN-415: Belege direkt an die Buchung hängen */}
+        <BelegDateiFeld />
 
         <div className="flex gap-3 pt-2">
           <SendenKnopf
