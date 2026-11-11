@@ -80,7 +80,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const [postenRawRes, settings, zahlungenRawRes, traubenverkaufRes, tbRawRes, stornierteRechnungenRes] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, datum, rechnungsnummer, lieferscheinnummer, notizen, rechnungstext, rechnung_id, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
+        id, datum, rechnungsnummer, lieferscheinnummer, notizen, rechnungstext, rechnung_id, email_betreff, email_conversation_id, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an, partner_daten, lieferadresse,
         rechnung:rechnungen!rechnung_id(id, rechnungsnummer, datum, spiegel, storniert, bmd_export_id, lieferscheine:verkaufsposten!rechnung_id(id)),
@@ -527,6 +527,10 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             {info.telefon && <span className="text-s112-muted ml-3 inline-flex items-center gap-1"><Phone size={13} /> {info.telefon}</span>}
             {liefer?.strasse && <div className="mt-1"><span className="text-s112-muted">Lieferadresse:</span> {lieferadresseKurz(liefer)}{liefer.empfaenger ? ` (z. H. ${liefer.empfaenger})` : ''}</div>}
           </div>
+        )}
+        {/* KAN-411: aus einer Bestell-Mail angelegt */}
+        {posten.email_conversation_id && (
+          <p className="text-xs text-s112-muted mt-2 print:hidden">Aus einer E-Mail angelegt{posten.email_betreff ? ` („${posten.email_betreff}“)` : ''}.</p>
         )}
         {/* KAN-416: Text auf Rechnung (gedruckt) und interne Notiz (nie gedruckt) – am Lieferschein nachträglich änderbar */}
         <LieferscheinTexte notiz={posten.notizen ?? null} rechnungstext={posten.rechnungstext ?? null}

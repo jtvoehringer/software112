@@ -150,6 +150,22 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      // KAN-411: Verkäufe, die aus dieser Unterhaltung angelegt wurden (Schutz vor doppelter Erfassung). Ein Lesefehler
+      // darf das Lesen der Mail nicht verhindern – dann fehlt nur der Hinweis (verkaeufe = null), gemeldet wird er.
+      let verkaeufe: { id: string; nummer: string | null; datum: string }[] | null = []
+      if (msg.conversationId) {
+        const { data: vk, error: vkErr } = await (supabase.from('verkaufsposten') as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+          .select('id, lieferscheinnummer, rechnungsnummer, datum')
+          .eq('tenant_id', tenantId).eq('email_conversation_id', String(msg.conversationId)).eq('storniert', false)
+          .order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(10)
+        if (vkErr) {
+          verkaeufe = null
+          void ereignisMelden({ art: 'db', quelle: 'message/verkaufsposten', meldung: vkErr.message })
+        } else {
+          verkaeufe = ((vk ?? []) as R[]).map(v => ({ id: String(v.id), nummer: (v.rechnungsnummer ?? v.lieferscheinnummer ?? null) as string | null, datum: String(v.datum) }))
+        }
+      }
+
       return NextResponse.json({
         id: msg.id,
         betreff: msg.subject ?? '(kein Betreff)',
@@ -168,6 +184,7 @@ export async function GET(req: NextRequest) {
         // Lead-Vorschlag nur für unbekannte Absender (eigene Postfächer → 'eigen')
         leadVorschlag: absender === 'unbekannt' && !nurLesen,
         namensTreffer,
+        verkaeufe,
       })
     }
     return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })

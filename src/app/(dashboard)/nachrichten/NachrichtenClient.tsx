@@ -4,12 +4,13 @@ import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from '@/components/ui/Link'
-import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip } from 'lucide-react'
+import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip, ShoppingCart } from 'lucide-react'
 import LeadDialog from './LeadDialog'
 import { ignoriereAbsender, emailHinzufuegen } from '../crm/actions'
 import EmailEingabe from '@/components/crm/EmailEingabe'
 import EmailHtmlAnzeige from '@/components/EmailHtmlAnzeige'
 import { tastaturBedienbar } from '@/lib/ui/tastatur'
+import { verkaufAusMailPfad, entwurfAus, ENTWURF_SCHLUESSEL } from '@/lib/verkauf/ausMail'
 
 // absender: Status aus der Absender-Erkennung (lib/crm/absender.ts) - 'lead'
 // und 'unbekannt' werden in der Liste markiert, 'unbekannt' löst beim Öffnen
@@ -31,6 +32,8 @@ type MsgDetail = Msg & {
   // Echte Anhänge (17.9.2026) - eingebettete Bilder stecken bereits im bodyHtml
   anhaenge?: { id: string; name: string; groesse: number; typ: string }[]
   mailbox?: 'own' | 'shared'
+  // KAN-411: Verkäufe, die aus dieser Unterhaltung angelegt wurden (null = konnte nicht geprüft werden)
+  verkaeufe?: { id: string; nummer: string | null; datum: string }[] | null
 }
 
 function fmtGroesse(b: number) {
@@ -312,6 +315,33 @@ export default function NachrichtenClient() {
     }
 
     useEffect(() => { ladeMessages() }, [ladeMessages])
+
+    // KAN-411: Nach „Verkauf anlegen“ aus einer Mail liegt ein Antwort-Entwurf im Zwischenspeicher des Browsers –
+    // die Mail öffnen und das Verfassen-Fenster mit dem Entwurf füllen. Gesendet wird erst durch den Benutzer.
+    useEffect(() => {
+      let roh: string | null = null
+      try { roh = sessionStorage.getItem(ENTWURF_SCHLUESSEL); sessionStorage.removeItem(ENTWURF_SCHLUESSEL) } catch { return }
+      const entwurf = entwurfAus(roh)
+      if (!entwurf) return
+      composeRef.current = true   // die Liste öffnet sonst die oberste Nachricht
+      void (async () => {
+        try {
+          const res = await fetch('/api/nachrichten/message?id=' + encodeURIComponent(entwurf.mailId) + '&mailbox=' + entwurf.postfach)
+          const d = await res.json()
+          if (!res.ok || d.fehler) { composeRef.current = false; setFehler('Die Antwort konnte nicht vorbereitet werden: ' + (d.fehler ?? 'E-Mail nicht gefunden')); return }
+          const m = d as MsgDetail
+          setSelected(m)
+          setForwardMode(false); setCompose(true)
+          setAn(m.von.toLowerCase()); setCc('')
+          setBetreff(/^(re|aw|wg):/i.test(m.betreff.trim()) ? m.betreff : 'Re: ' + m.betreff)
+          setText(entwurf.text)
+          setAntwortAuf({ id: m.id, modus: 'reply', mailbox: entwurf.postfach, zitat: zitatVon({ von: m.von, vonName: m.vonName, datum: m.datum, bodyText: m.bodyText ?? '' }), von: m.vonName || m.von, datum: m.datum })
+        } catch (e) {
+          composeRef.current = false
+          setFehler(fehlerText(e))
+        }
+      })()
+    }, [])
 
     // Mailbox gewechselt (Eigene ↔ geteilte Mailbox): Ordnerliste neu laden und
     // Auswahl zurücksetzen, da Ordner-IDs zwischen Mailboxen nicht kompatibel sind.
@@ -752,6 +782,14 @@ export default function NachrichtenClient() {
                   }} className="text-xs text-s112-text-2 px-2 py-1.5 rounded-lg hover:bg-white hover:text-s112-text disabled:opacity-50" title="Für diesen Absender nicht mehr fragen (z. B. Newsletter, Lieferant)">Nein, nicht mehr fragen</button>
                 </div>
               )}
+              {(selected.verkaeufe?.length ?? 0) > 0 && (
+                <p role="status" className="mt-3 rounded-lg border border-s112-border bg-s112-bg px-3.5 py-2 text-xs text-s112-text">
+                  Zu dieser Unterhaltung gibt es bereits {selected.verkaeufe!.length === 1 ? 'einen Verkauf' : 'Verkäufe'}:{' '}
+                  {selected.verkaeufe!.map((v, i) => (
+                    <span key={v.id}>{i > 0 ? ', ' : ''}<Link href={'/weinhandel/verkauf/' + v.id} className="text-s112-blue-700 underline">{v.nummer ?? 'Verkauf'} vom {v.datum.split('-').reverse().join('.')}</Link></span>
+                  ))}
+                </p>
+              )}
               <div className="flex flex-wrap gap-2 mt-3">
                   {selected.kontaktInfo && (
                     <Link href={`/crm/${selected.kontaktInfo.typ === 'firma' ? 'firmen' : 'kontakte'}/${selected.kontaktInfo.id}`}
@@ -763,6 +801,13 @@ export default function NachrichtenClient() {
                   )}
                   {selected.leadVorschlag && !selected.kontaktInfo && leadSpaeter.has(selected.von.toLowerCase()) && (
                     <button onClick={() => setLeadDialog(true)} className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1"><UserPlus className="w-3.5 h-3.5" /> Lead anlegen</button>
+                  )}
+                  {/* KAN-411: Bestellung per Mail → Verkauf mit vorbelegtem Kunden, Mailtext daneben (nur Microsoft 365) */}
+                  {selected.kontaktInfo && (   /* kontaktInfo liefert nur das Microsoft-365-Postfach */
+                    <Link href={verkaufAusMailPfad(selected.kontaktInfo, selected.id, selected.mailbox ?? activeMailbox)}
+                      className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1">
+                      <ShoppingCart className="w-3.5 h-3.5" /> Verkauf anlegen
+                    </Link>
                   )}
                   <button onClick={() => antworten(selected, 'reply')}
                     className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90">
