@@ -21,7 +21,7 @@ export async function GET() {
     const supabase = await createSupabaseServerClient()
 
     const { data: einstellungen, error: einstErr } = await (supabase.from('tenant_einstellungen') as any)
-      .select('ust_satz_standard').eq('tenant_id', tenantId).maybeSingle()
+      .select('ust_satz_standard, ki_abfragen_aktiv').eq('tenant_id', tenantId).maybeSingle()
     // KAN-252: sonst stünde im Verkauf still 13 % statt des Standard-Satzes des Betriebs (Weinhändler 20 %)
     if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${dbFehlerText(einstErr)}` }, { status: 500 })
     const ustStandard: number = (zahlWert((einstellungen as any)?.ust_satz_standard) ?? 13)
@@ -213,6 +213,8 @@ export async function GET() {
       lesen,
       // KAN-353: Kunde direkt aus der Partner-Suche anlegen – nur mit Schreibrecht CRM (canWrite nie im Client)
       crm_schreiben: !!membership && canWrite(membership, 'crm'),
+      // KAN-411: „Bestellung erkennen“ nur mit aktivem KI-Modul anbieten
+      ki_aktiv: (einstellungen as any)?.ki_abfragen_aktiv === true, // eslint-disable-line @typescript-eslint/no-explicit-any
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })

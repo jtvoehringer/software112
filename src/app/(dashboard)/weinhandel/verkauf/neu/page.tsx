@@ -8,7 +8,8 @@ import Link from '@/components/ui/Link'
 import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData, lieferadressenDesKunden } from '../actions'
 import LieferadresseWahl, { LIEFER_LEER, lieferFormFelder, type LieferWahl } from './LieferadresseWahl'
 import type { Lieferadresse } from '@/lib/crm/lieferadressen'
-import { Check } from 'lucide-react'
+import { Check, Sparkles } from 'lucide-react'
+import type { KiVorschlag } from '@/lib/verkauf/bestellungKi'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { fmtEur, fmtNum, zahlWert } from '@/lib/format'
@@ -121,6 +122,8 @@ interface Position {
   trauben_gesundheit:      'G' | 'K'
   /** KAN-115: gewähltes Sonstiges Produkt (mit Lagerstand mindert der Verkauf den Bestand) */
   sonstige_artikel_id?:    string
+  /** KAN-411: Wortlaut des Kunden aus „Bestellung erkennen“ – beim Speichern wird dazu die gewählte Füllung gelernt */
+  ki_begriff?:             string
 }
 
 const FLASCHEN_LABEL: Record<number, string> = {
@@ -259,6 +262,11 @@ export default function NeuerVerkaufPage() {
   const [mailBezug,       setMailBezug]       = useState<MailBezug | null>(null)
   const [mail,            setMail]            = useState<{ betreff: string; von: string; vonName: string; datum: string; text: string; conversationId: string | null } | null>(null)
   const [mailFehler,      setMailFehler]      = useState<string | null>(null)
+  // KAN-411 Teil 2: „Bestellung erkennen“ – Vorschlag der KI für die Positionen
+  const [kiAktiv,         setKiAktiv]         = useState(false)
+  const [kiLaeuft,        setKiLaeuft]        = useState(false)
+  const [kiFehler,        setKiFehler]        = useState<string | null>(null)
+  const [kiVorschlag,     setKiVorschlag]     = useState<KiVorschlag | null>(null)
   // Konditionen des gewählten Kunden – auch für später hinzugefügte Positionen (KAN-156)
   const [kundenRabatt,    setKundenRabatt]    = useState<KundenKonditionen>(OHNE_KUNDENRABATT)
   const [skontoAktiv,     setSkontoAktiv]     = useState(false)
@@ -309,6 +317,7 @@ export default function NeuerVerkaufPage() {
         setLesen(json.lesen ?? [])
         setGrundstuecke(json.grundstuecke ?? [])
         setCrmSchreiben(json.crm_schreiben === true)
+        setKiAktiv(json.ki_aktiv === true)
         const ust = json.ust_satz_standard ?? 13
         setUstStandard(ust)
         setPositionen([{ ...newEmptyPosition(), ust_satz: String(ust), rabatt_aktiv: false }])
@@ -380,6 +389,42 @@ export default function NeuerVerkaufPage() {
 
       return next
     })
+  }
+
+  // KAN-411 Teil 2: Die KI schlägt Positionen aus der Bestell-Mail vor. Sie füllt nur das Formular – geprüft und
+  // gespeichert wird durch den Benutzer. Schon eingetragene Positionen (mit Namen) bleiben stehen.
+  async function bestellungErkennen() {
+    if (!mail) return
+    setKiLaeuft(true); setKiFehler(null)
+    try {
+      const res = await fetch('/api/weinhandel/verkauf/bestellung-erkennen', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ betreff: mail.betreff, text: mail.text, kunde: kontaktId ? 'kontakt:' + kontaktId : firmaId ? 'firma:' + firmaId : '' }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.fehler) { setKiFehler(d.fehler ?? 'Die Bestellung konnte nicht erkannt werden.'); return }
+      const v: KiVorschlag = { positionen: Array.isArray(d.positionen) ? d.positionen : [], hinweis: d.hinweis ?? null }
+      setKiVorschlag(v)
+      if (!v.positionen.length) return
+      const neu: Position[] = v.positionen.map(p => {
+        const f = fuellungen.find(x => x.id === p.fuellung_id)
+        return {
+          ...newEmptyPosition(),
+          ust_satz: String(ustStandard),
+          ...rabattFuerNeuePosition(kundenRabatt),
+          fuellung_id:  f?.id ?? '',
+          name:         f ? [f.name, f.jahrgang, f.flaschengroesse_ml ? FLASCHEN_LABEL[f.flaschengroesse_ml] : null].filter(Boolean).join(' · ') : '',
+          preis_brutto: f?.vk_preis_brutto != null ? String(f.vk_preis_brutto) : '',
+          menge:        String(p.menge),
+          ki_begriff:   p.begriff,
+        }
+      })
+      setPositionen(prev => [...prev.filter(p => p.name.trim() !== ''), ...neu])
+    } catch (e) {
+      setKiFehler(fehlerText(e, 'Die Bestellung konnte nicht erkannt werden'))
+    } finally {
+      setKiLaeuft(false)
+    }
   }
 
   function addPosition() {
@@ -454,6 +499,10 @@ export default function NeuerVerkaufPage() {
     formData.set('zh_kontakt_id',    zhKontaktId)
     formData.set('notizen',          notizen)
     formData.set('rechnungstext',    rechnungstext)
+    {   // KAN-411 Teil 2: Begriffe des Kunden mit der gewählten Füllung – der Server lernt daraus
+      const gelernt = positionen.filter(p => p.typ === 'flasche' && p.fuellung_id && p.ki_begriff).map(p => ({ begriff: p.ki_begriff, fuellung_id: p.fuellung_id }))
+      if (gelernt.length) formData.set('ki_begriffe_json', JSON.stringify(gelernt))
+    }
     if (mailBezug && mail?.conversationId) {   // KAN-411
       formData.set('email_conversation_id', mail.conversationId)
       formData.set('email_betreff',         mail.betreff)
@@ -1040,6 +1089,35 @@ export default function NeuerVerkaufPage() {
               Von {mail.vonName ? mail.vonName + ' ' : ''}&lt;{mail.von}&gt;{mail.datum ? ' · ' + new Date(mail.datum).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}
             </p>
             {!mailBezug.kunde && <p className="text-xs text-s112-warn-fg">Der Absender ist im CRM noch nicht zugeordnet – bitte den Kunden im Formular wählen.</p>}
+            {/* KAN-411 Teil 2: Vorschlag der KI – füllt nur die Positionen, gespeichert wird durch den Benutzer */}
+            {kiAktiv && (
+              <div className="space-y-1.5">
+                <button type="button" onClick={bestellungErkennen} disabled={kiLaeuft || loading}
+                  className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-s112-teal/90 disabled:opacity-50 inline-flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> {kiLaeuft ? 'Bestellung wird erkannt…' : kiVorschlag ? 'Erneut erkennen' : 'Bestellung erkennen'}
+                </button>
+                <p className="text-[11px] text-s112-muted">Die KI schlägt Positionen vor (zählt als eine KI-Abfrage). Bitte prüfen – gespeichert wird erst mit „{rechnungSofort ? 'Verkauf anlegen' : 'Lieferschein anlegen'}“.</p>
+                {kiFehler && <p role="alert" className="text-xs text-s112-err-fg">{kiFehler}</p>}
+                {kiVorschlag && (
+                  <div role="status" className="rounded-lg border border-s112-border bg-s112-bg px-3 py-2 text-xs text-s112-text space-y-1">
+                    {kiVorschlag.positionen.length === 0
+                      ? <p>Keine Bestellung erkannt.</p>
+                      : <ul className="space-y-0.5">
+                          {kiVorschlag.positionen.map((p, i) => {
+                            const f = fuellungen.find(x => x.id === p.fuellung_id)
+                            return (
+                              <li key={i}>
+                                {p.menge} × „{p.begriff || '?'}“ → {f ? <b>{[f.name, f.jahrgang].filter(Boolean).join(' ')}</b> : <span className="text-s112-warn-fg">nicht zugeordnet – bitte die Füllung in der Position wählen</span>}
+                                {p.hinweis ? <span className="text-s112-muted"> ({p.hinweis})</span> : null}
+                              </li>
+                            )
+                          })}
+                        </ul>}
+                    {kiVorschlag.hinweis && <p className="text-s112-muted">{kiVorschlag.hinweis}</p>}
+                  </div>
+                )}
+              </div>
+            )}
             <pre className="text-sm text-s112-text whitespace-pre-wrap font-sans border-t border-s112-border pt-2">{mail.text}</pre>
           </>
         )}

@@ -36,6 +36,8 @@ import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
 import { notizFehler, rechnungstextAenderbar, rechnungstextFehler, textOderNull } from '@/lib/verkauf/rechnungstext'
 import { emailBezugWerte } from '@/lib/verkauf/ausMail'
+import { lernZeilen } from '@/lib/verkauf/bestellungKi'
+import { lerneBegriffe } from '@/lib/verkauf/bestellungLernen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -609,6 +611,11 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
       .eq('is_lead', true)
       if (e) console.error('createVerkauf – Lead-Status (firmen):', dbFehlerText(e)) }
   }
+
+  // KAN-411 Teil 2: Begriffe des Kunden aus „Bestellung erkennen“ merken – nur Füllungen dieses Verkaufs; Fehler
+  // meldet lerneBegriffe selbst, der Verkauf ist gespeichert
+  await lerneBegriffe(supabase, tenantId, kontaktId || null, firmaId || null,
+    lernZeilen(formData.get('ki_begriffe_json'), new Set(positionen.filter(p => p.typ === 'flasche' && p.fuellung_id).map(p => String(p.fuellung_id)))))
 
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel')

@@ -59,6 +59,7 @@ const GROSSE_TABELLEN = [
   'reifemessungen',              // KAN-203: Reife-Messungen je Ried
   'lieferadressen',              // KAN-176: Lieferadressen je Kontakt/Firma
   'ernte_gst_abgeschlossen',     // KAN-392: abgeschlossene Ernte je Grundstück und Jahrgang
+  'verkauf_ki_begriffe',         // KAN-411: gelernte Begriffe aus Bestell-Mails je Kunde
   'sonstige_artikel_bewegungen', // KAN-115: Lager Sonstiger Produkte
   'fuellung_etikettierungen',   // KAN-41 Paket 3d
 ]
