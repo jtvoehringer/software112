@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
   paymentH: { fontSize: 8.5, fontWeight: 700, color: '#444', textTransform: 'uppercase', marginBottom: 4 },
   paymentP: { fontSize: 9, color: '#555', marginTop: 2 },
   notes: { fontSize: 9, color: '#666', fontStyle: 'italic', marginTop: 16 },
+  rechnungstext: { fontSize: 9.5, color: '#222', marginTop: 12, lineHeight: 1.4 },
   footer: {
     position: 'absolute', bottom: 30, left: 40, right: 40, fontSize: 7.5, color: '#aaa',
     textAlign: 'center', borderTopWidth: 1, borderTopColor: '#EDEEF1', paddingTop: 8,
@@ -104,6 +105,8 @@ export type VerkaufRechnungPdfProps = {
   skonto: { pct: number; datumIso: string; betrag: number } | null
   bank: { iban: string | null; bic: string | null; zahlungszielTage: number; faelligkeitIso: string }
   fusstext: string | null
+  /** KAN-416: Texte auf Rechnung der Lieferscheine (rechnungstexteFuerBeleg) – unter den Positionen, vor dem Fußtext */
+  rechnungstexte?: string[]
   /** KAN-379: Stornobeleg – Bezug auf die Rechnung und Grund; Beträge kommen negativ (stornobelegPdfInhalt) */
   storno?: { zuNummer: string; zuDatumIso: string; grund: string | null } | null
 }
@@ -244,6 +247,8 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
           {rechnung.nummer && <Text style={styles.paymentP}>Verwendungszweck: {rechnung.nummer}</Text>}
         </View>
         )}
+
+        {(props.rechnungstexte ?? []).map((t, i) => <Text key={i} style={styles.rechnungstext}>{t}</Text>)}
 
         {fusstext && <Text style={styles.notes}>{fusstext}</Text>}
 

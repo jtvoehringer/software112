@@ -16,6 +16,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { belegPerMailSenden } from '@/lib/email/belegVersand'
 import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
+import { rechnungstexteFuerBeleg } from '@/lib/verkauf/rechnungstext'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { wienTag } from '@/lib/datum/wien'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // alle-ausnahme: Lieferscheine einer einzelnen Rechnung (Elternzeile), fachlich wenige
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: lsRaw, error: lsRawErr } = await (supabase.from('verkaufsposten') as any)
-    .select(`id, lieferscheinnummer, datum, positionen:verkauf_positionen(
+    .select(`id, lieferscheinnummer, datum, rechnungstext, positionen:verkauf_positionen(
       typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
       fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum))`)
     .eq('tenant_id', tenantId).eq('rechnung_id', rechnung.id).order('datum').order('id')
@@ -226,6 +227,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         faelligkeitIso: faelligkeitsDatum.toISOString(),
       },
       fusstext: einst.rechnung_fusstext ?? null,
+      rechnungstexte: rechnungstexteFuerBeleg(lieferscheine),   // KAN-416: Text auf Rechnung je Lieferschein
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unbekannter Fehler bei der PDF-Erzeugung'
