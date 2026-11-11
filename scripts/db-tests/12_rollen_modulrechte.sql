@@ -159,6 +159,11 @@ BEGIN
     RETURN coalesce(v_z, pg_temp.s112_beispiel(p_tab, p_m));
   ELSIF p_tab = 'ea_transaktionen' THEN
     RETURN pg_temp.s112_beispiel(p_tab, p_m, NULL, '{"is_locked": false}'::jsonb);
+  ELSIF p_tab = 'verkauf_positionen' THEN
+    -- KAN-355: eigener Verkaufsposten von heute – der erste vorhandene hängt im Musterhof an einer Rechnung aus einem
+    -- abgeschlossenen Monat (Demo-Reset legt ea_monatsabschluss an), dort lehnt a_rechnung_periodensperre jede Position ab
+    v_e := pg_temp.s112_beispiel('verkaufsposten', p_m);
+    RETURN pg_temp.s112_beispiel(p_tab, p_m, NULL, jsonb_build_object('verkaufsposten_id', v_e ->> 'id'));
   ELSIF p_klasse = 'K' AND p_eltern_tabelle IS NOT NULL THEN
     -- frische Elternzeile über s112_beispiel (ama_meldepositionen hängt so an einer eigenen Entwurfs-Meldung)
     v_e := pg_temp.s112_beispiel(p_eltern_tabelle, p_m);
