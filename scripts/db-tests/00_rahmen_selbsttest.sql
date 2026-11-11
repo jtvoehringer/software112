@@ -286,6 +286,12 @@ BEGIN
         IF v_tab.tabelle = 'module_flags' AND v_t = c_m THEN
           DELETE FROM public.module_flags WHERE tenant_id = c_m AND module = 'reports';
           v_z := pg_temp.s112_beispiel(v_tab.tabelle, v_t, v_mw, '{"module": "reports"}');
+        ELSIF v_tab.tabelle = 'verkauf_positionen' THEN
+          -- KAN-355: eigener Verkaufsposten von heute – der erste vorhandene hängt im Musterhof an einer Rechnung aus einem
+          -- abgeschlossenen Monat (Demo-Reset legt ea_monatsabschluss an), dort lehnt a_rechnung_periodensperre jede Position ab
+          v_z := pg_temp.s112_beispiel('verkaufsposten', v_t, CASE WHEN v_t = c_m THEN v_mw ELSE v_bw END);
+          v_z := pg_temp.s112_beispiel(v_tab.tabelle, v_t, CASE WHEN v_t = c_m THEN v_mw ELSE v_bw END,
+                                       jsonb_build_object('verkaufsposten_id', v_z ->> 'id'));
         ELSE
           v_z := pg_temp.s112_beispiel(v_tab.tabelle, v_t, CASE WHEN v_t = c_m THEN v_mw ELSE v_bw END);
         END IF;
