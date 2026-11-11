@@ -703,7 +703,8 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"verpackung_kg"
 ],
 "exportauftrag_positionen": [
 "id",
@@ -856,7 +857,8 @@
 "sekt_stufe",
 "degorgiert_am",
 "sekt_lagenrein",
-"lohnversektung_id"
+"lohnversektung_id",
+"leergewicht_g"
 ],
 "grundstuecke": [
 "id",

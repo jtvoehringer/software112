@@ -49,6 +49,8 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
         auftrag={a}
         zeilen={ergebnis.zeilen}
         gesamtEur={ergebnis.gesamtEur}
+        gewicht={ergebnis.gewicht}
+        darfSchreiben={!!membership && canWrite(membership, 'warenwirtschaft') && !a.storniert_am}
         dokumente={ergebnis.dokumente}
         csvHref={csvPfad('exportauftrag', { id, referenz: a.referenz })}
       />
