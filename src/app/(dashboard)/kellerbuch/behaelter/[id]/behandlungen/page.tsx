@@ -115,7 +115,7 @@ export default function KellerbehandlungenPage() {
     let weinausbauQuery = (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true)
     // weinausbau_id mitladen: ohne sie setzte „Bearbeiten“ die Chargen-Zuordnung auf NULL (KAN-35)
     let behandlungenQuery = (supabase.from('keller_behandlungen') as any)
-      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, zugang_liter, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name), storniert_am, storno_grund, storniert_von_name')
+      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, zugang_liter, notizen, weinausbau_id, sammel_id, typ:typ_id(name), weinausbau:weinausbau_id(name), storniert_am, storno_grund, storniert_von_name')
       // storno-sichtbar: Liste zeigt stornierte Behandlungen gekennzeichnet, ohne Aktionen (KAN-145 B3)
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
@@ -609,6 +609,7 @@ export default function KellerbehandlungenPage() {
                       <p className="font-medium text-s112-text">{typName}</p>
                       {(b.weinausbau as R | null)?.name && <p className="text-xs text-s112-text-2">Charge: {(b.weinausbau as R).name}</p>}
                       {b.zugang_liter != null && <p className="text-xs text-s112-ok-fg">Volumenzugang: +{fmtNum(parseFloat(b.zugang_liter))} L</p>}
+                      {b.sammel_id && <p className="text-xs text-s112-muted"><Link href="/kellerbuch/sammelbehandlung" className="hover:underline">Teil einer Sammelmaßnahme</Link></p>}
                       {b.notizen && <p className="text-xs text-s112-muted">{b.notizen}</p>}
                       {b.storniert_am && (
                         <p className="text-[11px] text-s112-warn-fg">
