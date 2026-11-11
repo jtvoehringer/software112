@@ -15,6 +15,11 @@ describe('Nebenbefund 12"-Notebook: nichts läuft unsichtbar aus dem Bild', () =
     assert.match(t, /flex gap-1 overflow-x-auto scrollbar-none md:flex-wrap md:overflow-x-visible">\s*\{aktiv\.items\.map/)
   })
 
+  test('TabNav: Zeile 1 (Bereiche) bricht ab md ebenfalls um', () => {
+    const t = quelle('src/components/layout/TabNav.tsx')
+    assert.match(t, /hidden md:flex gap-0\.5 overflow-x-auto scrollbar-none md:flex-wrap md:overflow-x-visible">\s*\{groups\.map/)
+  })
+
   test('Behandlungsprotokoll: volle Inhaltsbreite, Kopfzellen und Mengen brechen um, Scrollen bleibt als Rückfall', () => {
     const s = quelle('src/app/(dashboard)/reports/(pflicht)/behandlungsprotokoll/page.tsx')
     assert.doesNotMatch(s, /className="[^"]*max-w-6xl/)
