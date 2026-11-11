@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { rundText } from '../../src/lib/zahl/runden.ts'
-import { positionsWert, gesamtWert, eurText, bruttogewichtText } from '../../src/lib/export/exportWerte.ts'
+import { positionsWert, gesamtWert, eurText } from '../../src/lib/export/exportWerte.ts'
 
 const HIER = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(HIER, '..', '..')
@@ -51,17 +51,14 @@ describe('Weinexport: Zeilenwerte und Gesamtwert', () => {
     assert.equal(gesamtWert(pos), 2.14)
     assert.equal(eurText(gesamtWert([])), '0.00')
   })
-  test('EMCS-Bruttogewicht 1,25 kg je Liter', () => {
-    assert.equal(bruttogewichtText('600'), '750.00')
-    assert.equal(bruttogewichtText('0.75'), '0.94')   // 0,9375 → 0,94
-  })
   test('Dokument- und EMCS-Route rechnen nur noch über exportWerte', () => {
     const d = quelle('src/app/api/weinexport/[id]/dokument/[art]/route.ts')
     assert.doesNotMatch(d, /toFixed\(/)
     assert.match(d, /const gesamtEUR = gesamtWert\(pos\)/)
     assert.equal((d.match(/eurText\(positionsWert\(p\)\)/g) ?? []).length, 4)
     const m = quelle('src/app/api/weinexport/[id]/emcs/route.ts')
-    assert.match(m, /<GrossWeight>\$\{bruttogewichtText\(p\.menge\)\}<\/GrossWeight>/)
+    // KAN-414: Gewicht aus Füllung und Einheit (src/lib/export/gewicht.ts) statt Menge × 1,25 – Tests in kan414-leergewicht
+    assert.match(m, /<GrossWeight>.{2}kgText\(positionsGewicht\(/)
   })
 })
 

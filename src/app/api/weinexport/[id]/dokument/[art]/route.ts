@@ -9,6 +9,7 @@ import { druckCsp, druckleiste, DRUCKLEISTE_CSS } from '@/lib/utils/druckknopf'
 import { landAnzeige } from '@/lib/katalog/laender'   // KAN-187: ISO-Code → Ländername (Altdaten mit Namen unverändert)
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { modulKonflikt } from '@/lib/auth/modul'
+import { kgText, sendungsGewicht } from '@/lib/export/gewicht'   // KAN-414: Netto-/Bruttogewicht aus Füllung und Verpackung
 import { eurText, gesamtWert, positionsWert } from '@/lib/export/exportWerte'   // Sweep 77: kaufmännisch, Gesamt = Σ Zeilen
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
@@ -73,7 +74,7 @@ export async function GET(
       .select('*, kontakte(titel,vorname,nachname,titel_nachgestellt,email), firmen(name,email)')
       .eq('id', auftragId).eq('tenant_id', tenantId).single(),
     (supabase.from('exportauftrag_positionen') as any)
-      .select('*, fuellungen(bezeichnung,flaschengroesse_ml)').eq('exportauftrag_id', auftragId).order('sort_order'),
+      .select('*, fuellungen(bezeichnung,flaschengroesse_ml,leergewicht_g)').eq('exportauftrag_id', auftragId).order('sort_order'),
     (admin.from('tenant_einstellungen') as any)
       .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_uid,rechnung_iban,rechnung_bic')   // Sweep 20.9.2026: betrieb_land/rechnung_bank_iban gab es nicht – Abfrage brach
       .eq('tenant_id', tenantId).maybeSingle(),
@@ -90,6 +91,13 @@ export async function GET(
   momentaufnahmeAnwenden(a, { kontakte: 'kontakt', firmen: 'firma' })   // KAN-150 F1c: Empfänger wie beim Anlegen des Auftrags
   const importeur = a.firmen?.name ?? (a.kontakte ? kontaktAnzeigename(a.kontakte) : '') ?? '–'
   const gesamtEUR = gesamtWert(pos)
+  // KAN-414: Gewichte je Position und Sendung; fehlt eine Angabe, bleibt das Feld leer (kein Schätzwert)
+  const gew = sendungsGewicht(pos.map(p => ({ menge: p.menge, einheit: p.einheit, fuellung: p.fuellungen ?? null })), a.verpackung_kg)
+  const kg = (n: number | null | undefined) => kgText(n) || '–'
+  const kgMit = (n: number | null | undefined) => (n == null ? '–' : kgText(n) + ' kg')   // mit Einheit
+  const mitVerpackung = gew.verpackungKg > 0 ? ' (inkl. Verpackung)' : ''
+  const verpackungText = gew.verpackungKg > 0 ? ' (inkl. Verpackung ' + kgText(gew.verpackungKg) + ' kg)' : ''
+  const verpackungTextEn = gew.verpackungKg > 0 ? ' (Brutto inkl. Verpackung / gross incl. packaging ' + kgText(gew.verpackungKg) + ' kg)' : ''
 
   // KAN-138: jede Interpolation aus DB-/Benutzerdaten läuft über e() (escHtml) bzw.
   // escHtmlMehrzeilig – nur css() und header(b) liefern bewusst fertiges HTML.
@@ -178,14 +186,15 @@ export async function GET(
           <div class="value">${e(a.transport_art ?? '–')} · ${e(a.incoterms ?? '')} · Lieferdatum: ${e(fmt(a.lieferdatum))}</div>
         </div>
         <h2>7. Warenbeschreibung / 8. Rohmasse (kg) / 9. Wert</h2>
-        <table><thead><tr><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>TARIC</th><th>Wert EUR</th></tr></thead>
-        <tbody>${pos.map(p => `<tr>
+        <table><thead><tr><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>TARIC</th><th>Rohmasse kg</th><th>Wert EUR</th></tr></thead>
+        <tbody>${pos.map((p, i) => `<tr>
           <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}</td>
           <td style="text-align:right">${e(p.menge)}</td><td>${e(p.einheit)}</td>
           <td style="font-family:monospace">${e(p.taric_code)}</td>
+          <td style="text-align:right">${e(kg(gew.positionen[i]?.bruttoKg))}</td>
           <td style="text-align:right">${e(eurText(positionsWert(p)))}</td>
         </tr>`).join('')}
-        <tr class="total"><td colspan="4" style="text-align:right">Gesamtwert EUR</td><td style="text-align:right">${e(eurText(gesamtEUR))}</td></tr>
+        <tr class="total"><td colspan="4" style="text-align:right">Rohmasse gesamt kg${e(mitVerpackung)} / Gesamtwert EUR</td><td style="text-align:right">${e(kg(gew.bruttoKg))}</td><td style="text-align:right">${e(eurText(gesamtEUR))}</td></tr>
         </tbody></table>
         <div class="grid2" style="margin-top:6mm">
           <div class="stamp"><div style="font-weight:bold;margin-bottom:2mm">10. Sichtvermerk der Zollbehörde</div>Bescheinigung erteilt<br/><br/>Ort:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Datum:<br/>Stempel:</div>
@@ -232,13 +241,14 @@ export async function GET(
         </div>
         <h2>6. Warenbeschreibung</h2>
         <table><thead><tr><th>Bezeichnung der Güter</th><th>Anzahl Pakete</th><th>Menge</th><th>Einheit</th><th>Bruttomasse</th></tr></thead>
-        <tbody>${pos.map(p => `<tr>
+        <tbody>${pos.map((p, i) => `<tr>
           <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}</td>
           <td style="text-align:right">–</td>
           <td style="text-align:right">${e(p.menge)}</td>
           <td>${e(p.einheit)}</td>
-          <td style="text-align:right">–</td>
+          <td style="text-align:right">${e(kgMit(gew.positionen[i]?.bruttoKg))}</td>
         </tr>`).join('')}
+        <tr class="total"><td colspan="4" style="text-align:right">Bruttomasse gesamt${e(verpackungText)}</td><td style="text-align:right">${e(kgMit(gew.bruttoKg))}</td></tr>
         </tbody></table>
         <div class="grid3" style="margin-top:4mm">
           <div class="box"><div class="label">7. Frachtzahlung</div><div class="value">${e(a.incoterms ?? '–')}</div></div>
@@ -334,15 +344,18 @@ export async function GET(
           <div class="box"><div class="label">Transport / Carrier</div><div class="value">${e(a.transport_art ?? '–')}</div></div>
         </div>
         <table style="margin-top:4mm"><thead>
-          <tr><th>Pos.</th><th>Bezeichnung / Description</th><th>Menge / Qty</th><th>Einheit / Unit</th><th>Artikel-Nr.</th></tr>
+          <tr><th>Pos.</th><th>Bezeichnung / Description</th><th>Menge / Qty</th><th>Einheit / Unit</th><th>Netto / Net kg</th><th>Brutto / Gross kg</th><th>Artikel-Nr.</th></tr>
         </thead><tbody>
         ${pos.map((p,i) => `<tr>
           <td style="text-align:center">${i+1}</td>
           <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${p.fuellungen?.flaschengroesse_ml ? ` (${e(p.fuellungen.flaschengroesse_ml)}ml)` : ''}</td>
           <td style="text-align:right;font-weight:bold">${e(p.menge)}</td>
           <td>${e(p.einheit)}</td>
+          <td style="text-align:right">${e(kg(gew.positionen[i]?.nettoKg))}</td>
+          <td style="text-align:right">${e(kg(gew.positionen[i]?.bruttoKg))}</td>
           <td style="font-family:monospace;font-size:9pt">${e(p.fullung_id ? p.fullung_id.slice(0,8).toUpperCase() : '–')}</td>
         </tr>`).join('')}
+        <tr class="total"><td colspan="4" style="text-align:right">Gesamt / Total${e(verpackungTextEn)}</td><td style="text-align:right">${e(kg(gew.nettoKg))}</td><td style="text-align:right">${e(kg(gew.bruttoKg))}</td><td></td></tr>
         </tbody></table>
         ${auftrag.notizen ? `<div class="box" style="margin-top:4mm"><div class="label">Bemerkungen / Remarks</div><div style="font-size:10pt">${escHtmlMehrzeilig(a.notizen)}</div></div>` : ''}
         <div class="sign" style="margin-top:12mm">
@@ -403,7 +416,9 @@ export async function GET(
         </tbody></table>
         <div class="box" style="margin-top:4mm;font-size:9pt">
           <strong>Zahlungsbedingungen / Payment Terms:</strong> ${e(a.incoterms ?? '–')} · 
-          Währung / Currency: EUR · 
+          Währung / Currency: EUR ·
+          Nettogewicht / Net weight: ${e(kgMit(gew.nettoKg))} · 
+          Bruttogewicht / Gross weight: ${e(kgMit(gew.bruttoKg))} · 
           Versicherungswert / Insurance Value: EUR ${e(a.versicherungswert ? eurText(parseFloat(a.versicherungswert)) : eurText(gesamtEUR))}
         </div>
         ${b.rechnung_iban ? `<div class="box" style="font-size:9pt"><strong>Bankverbindung / Bank Details:</strong> IBAN: ${e(b.rechnung_iban)}${b.rechnung_bic ? ` · BIC: ${e(b.rechnung_bic)}` : ''}</div>` : ''}

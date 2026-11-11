@@ -6,7 +6,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { modulKonflikt } from '@/lib/auth/modul'
-import { bruttogewichtText } from '@/lib/export/exportWerte'
+import { kgText, positionsGewicht } from '@/lib/export/gewicht'   // KAN-414: Gewicht aus Füllung statt Menge × 1,25
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -45,7 +45,7 @@ export async function GET(
       .is('storniert_am', null)   // KAN-150 F2: kein e-AD für einen stornierten Auftrag
       .single(),
     (supabase.from('exportauftrag_positionen') as any)
-      .select('*, fuellungen(bezeichnung)').eq('exportauftrag_id', id).order('sort_order'),
+      .select('*, fuellungen(bezeichnung,flaschengroesse_ml,leergewicht_g)').eq('exportauftrag_id', id).order('sort_order'),
     (admin.from('tenant_einstellungen') as any)
       .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_uid')
       .eq('tenant_id', tenantId).maybeSingle(),
@@ -105,7 +105,7 @@ ${positionen.map((p: R, i: number) => `        <BodyRecordUniqueReference>${i + 
         <ExciseProductCode>W200</ExciseProductCode>
         <CnCode>${x(p.taric_code?.replace('.','') ?? '22042100')}</CnCode>
         <Quantity>${x(p.menge ?? 0)}</Quantity>
-        <GrossWeight>${bruttogewichtText(p.menge)}</GrossWeight>
+        <GrossWeight>${kgText(positionsGewicht({ menge: p.menge, einheit: p.einheit, fuellung: p.fuellungen ?? null }).bruttoKg)}</GrossWeight>
         <Description>${x(p.beschreibung ?? p.fuellungen?.bezeichnung)}</Description>`).join('\n')}
       </BodyEAD>
     </EAD>

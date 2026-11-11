@@ -1,10 +1,13 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { zeigeErfolg } from '@/lib/ui/erfolg'
+import type { SendungsGewicht } from '@/lib/export/gewicht'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import EmcsPanel from './EmcsPanel'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, zahlAus } from '@/lib/format'
 import { landAnzeige } from '@/lib/katalog/laender'
 import {
   EXPORT_STATUS_LABEL as STATUS_LABEL, EXPORT_DOK_LABEL as DOK_LABEL, EXPORT_DOK_STATUS_LABEL as DOK_STATUS_LABEL,
@@ -26,9 +29,34 @@ interface Props {
   dokumente: R[]
   /** CSV der Positionsliste: csvPfad('exportauftrag', …) */
   csvHref: string
+  /** KAN-414: Gewichte der Sendung aus derselben Ladefunktion */
+  gewicht: SendungsGewicht
+  darfSchreiben: boolean
 }
 
-export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref }: Props) {
+export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref, gewicht, darfSchreiben }: Props) {
+  const router = useRouter()
+  const [verpackung, setVerpackung] = useState(auftrag.verpackung_kg == null ? '' : String(auftrag.verpackung_kg))
+
+  // KAN-414: Verpackungsgewicht nachtragen – die Gewichte rechnet der Server neu (router.refresh)
+  async function speichereVerpackung() {
+    setSaving(true)
+    try {
+      setFehler(null)
+      const kg = verpackung.trim() === '' ? null : zahlAus(verpackung)
+      if (verpackung.trim() !== '' && kg === null) { setFehler('Die Verpackung (kg) ist keine gültige Zahl.'); return }
+      const res = await fetch(`/api/weinexport/${auftrag.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verpackung_kg: kg }),
+      })
+      if (!res.ok) { setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`); return }
+      zeigeErfolg('Verpackung gespeichert.')
+      router.refresh()
+    } finally {
+      setSaving(false)
+    }
+  }
   const [status, setStatus]       = useState(auftrag.status)
   const [dokumente, setDokumente] = useState(initDok)
   const [dokFehler, setDokFehler] = useState<string | null>(null)
@@ -109,8 +137,26 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
               <div><dt className="text-xs text-s112-muted">Transportart</dt><dd>{auftrag.transport_art ?? '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Destination</dt><dd>{[auftrag.destination_stadt, landAnzeige(auftrag.destination_land)].filter(Boolean).join(', ') || '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">EORI Importeur</dt><dd className="font-mono text-xs">{auftrag.eori_kunde ?? '–'}</dd></div>
+              <div><dt className="text-xs text-s112-muted">Nettogewicht</dt><dd>{gewicht.nettoKg === null ? '–' : `${fmtNum(gewicht.nettoKg, 2)} kg`}</dd></div>
+              <div><dt className="text-xs text-s112-muted">Bruttogewicht{gewicht.verpackungKg > 0 ? ' (inkl. Verpackung)' : ''}</dt><dd>{gewicht.bruttoKg === null ? '–' : `${fmtNum(gewicht.bruttoKg, 2)} kg`}</dd></div>
+              <div>
+                <dt className="text-xs text-s112-muted"><label htmlFor="verpackung-kg">Verpackung gesamt (kg)</label></dt>
+                <dd className="flex items-center gap-2">
+                  {darfSchreiben ? (
+                    <>
+                      <input id="verpackung-kg" type="text" inputMode="decimal" value={verpackung} onChange={e => setVerpackung(e.target.value)} placeholder="Kartons, Palette"
+                        className="w-28 border border-s112-border rounded-lg px-2 py-1 text-sm" />
+                      <button type="button" onClick={speichereVerpackung} disabled={saving}
+                        className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal hover:text-s112-yellow disabled:opacity-50">Speichern</button>
+                    </>
+                  ) : (gewicht.verpackungKg > 0 ? `${fmtNum(gewicht.verpackungKg, 2)} kg` : '–')}
+                </dd>
+              </div>
               <div><dt className="text-xs text-s112-muted">Versicherungswert</dt><dd>{auftrag.versicherungswert ? `EUR ${fmtNum(parseFloat(auftrag.versicherungswert), 2)}` : '–'}</dd></div>
             </dl>
+            {gewicht.hinweis && (
+              <div role="alert" className="mt-4 bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-lg px-3 py-2">{gewicht.hinweis}</div>
+            )}
             {auftrag.notizen && (
               <div className="mt-4 p-3 bg-s112-bg rounded-lg text-sm text-s112-text-1">
                 <span className="text-xs font-medium text-s112-muted block mb-1">Notizen</span>

@@ -22,6 +22,7 @@ import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { fmtNum } from '@/lib/format'
+import { flaschenGewicht } from '@/lib/export/gewicht'
 import { folgebuchungenDerFuellung, heuteOrtsdatum, datumDe } from '../../folgebuchungen'
 import { bewegungsartLabel } from '../../bewegungsarten'
 import FuellungEditFormular from './FuellungEditFormular'
@@ -550,6 +551,19 @@ export default async function EditFuellungPage({
               ))}
             </select>
           </div>
+          <div>
+            <label className={labelCls}>
+              Leergewicht der Flasche (g){' '}
+              <span className="text-s112-muted font-normal">– inkl. Verschluss, Kapsel und Etikett; für das Bruttogewicht in den Exportdokumenten</span>
+            </label>
+            <input aria-label="Leergewicht der Flasche (g)" type="text" inputMode="decimal" name="leergewicht_g" defaultValue={f.leergewicht_g ?? ''} placeholder="z. B. 500" className={inputCls} />
+          </div>
+          {(() => {
+            const g = flaschenGewicht(f.flaschengroesse_ml, f.leergewicht_g)
+            return g.bruttoKg === null ? null : (
+              <p className="text-xs text-s112-muted">Gewicht je Flasche: netto {fmtNum(g.nettoKg ?? 0, 3)} kg, brutto {fmtNum(g.bruttoKg, 3)} kg (Wein mit 0,99 kg je Liter gerechnet).</p>
+            )
+          })()}
         </div>
 
         {/* ── Notizen ── */}

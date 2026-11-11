@@ -5,13 +5,15 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { modulKonflikt } from '@/lib/auth/modul'
+import { verpackungFehler, verpackungWert } from '@/lib/export/auftragEingabe'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // Whitelist gegen Mass Assignment: nur diese Felder dürfen per PATCH geändert werden –
 // status (Detailseite) und die EMCS-Daten (EmcsPanel). tenant_id, id, referenz, created_at,
 // aktiv usw. werden nie aus dem Request-Body übernommen.
-const AENDERBAR = ['status', 'emcs_arc_nummer', 'emcs_status'] as const
+// KAN-414: dazu das Verpackungsgewicht (Kartons, Palette) – steht oft erst beim Kommissionieren fest
+const AENDERBAR = ['status', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg'] as const
 const STATUS      = ['entwurf', 'bestaetigt', 'versendet', 'abgeschlossen']
 const EMCS_STATUS = ['draft', 'submitted', 'accepted', 'cancelled']
 // ARC (Administrative Reference Code) besteht nur aus Buchstaben und Ziffern (21 Zeichen);
@@ -70,6 +72,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (arc === undefined || (arc !== null && !ARC_MUSTER.test(arc)))
       return fehler('ARC-Nummer darf nur Buchstaben und Ziffern enthalten (max. 30 Zeichen)', 400)
     update.emcs_arc_nummer = arc
+  }
+  if ('verpackung_kg' in b) {
+    const vf = verpackungFehler(b.verpackung_kg)
+    if (vf) return fehler(vf, 400)
+    update.verpackung_kg = verpackungWert(b.verpackung_kg)
   }
   if (Object.keys(update).length === 0) return fehler('Keine Änderungen übergeben', 400)
 

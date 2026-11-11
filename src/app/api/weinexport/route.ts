@@ -8,7 +8,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { modulKonflikt } from '@/lib/auth/modul'
-import { exportauftragFehler } from '@/lib/export/auftragEingabe'
+import { exportauftragFehler, verpackungWert } from '@/lib/export/auftragEingabe'
 import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
       destination_stadt: (typeof body.destination_stadt === 'string' ? body.destination_stadt.trim() : '') || null,
       eori_kunde:        (typeof body.eori_kunde === 'string' ? body.eori_kunde.trim() : '') || null,
       versicherungswert: body.versicherungswert,
+      verpackung_kg:     verpackungWert(body.verpackung_kg),   // KAN-414: Kartons/Palette für die Bruttomasse
       notizen:           body.notizen,
       status:            'entwurf',
     }).select().single()

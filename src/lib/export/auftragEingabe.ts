@@ -17,6 +17,22 @@ type Body = Record<string, unknown>
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 
 /** null = in Ordnung, sonst die Meldung für den Benutzer */
+/** KAN-414: Verpackung der Sendung in kg – leer oder eine Zahl von 0 bis 100.000 (JSON-Zahl bzw. Text mit Dezimalpunkt;
+ *  Eingaben mit Komma wandelt das Formular mit zahlAus um); null = in Ordnung */
+export function verpackungFehler(wert: unknown): string | null {
+  if (wert === null || wert === undefined || wert === '') return null
+  const n = typeof wert === 'number' ? wert : Number(String(wert))
+  if (!Number.isFinite(n) || n < 0 || n > 100000) return 'Die Verpackung (kg) muss eine Zahl von 0 bis 100.000 sein (oder leer bleiben).'
+  return null
+}
+
+/** Verpackung als Zahl für die Datenbank (null = leer); vorher mit verpackungFehler prüfen */
+export function verpackungWert(wert: unknown): number | null {
+  if (wert === null || wert === undefined || wert === '') return null
+  const n = typeof wert === 'number' ? wert : Number(String(wert))
+  return Number.isFinite(n) ? n : null
+}
+
 export function exportauftragFehler(body: Body): string | null {
   const incoterms = text(body.incoterms)
   if (incoterms && !(INCOTERMS as readonly string[]).includes(incoterms)) return `Unbekannte Incoterms „${incoterms}“ – bitte aus der Liste wählen.`
@@ -24,6 +40,8 @@ export function exportauftragFehler(body: Body): string | null {
   if (transport && !(TRANSPORTARTEN as readonly string[]).includes(transport)) return `Unbekannte Transportart „${transport}“ – bitte aus der Liste wählen.`
   if (text(body.eori_kunde).length > EXPORT_MAX.eori) return `Die EORI-Nummer darf höchstens ${EXPORT_MAX.eori} Zeichen haben.`
   if (text(body.destination_stadt).length > EXPORT_MAX.stadt) return `Die Destination Stadt darf höchstens ${EXPORT_MAX.stadt} Zeichen haben.`
+  const vf = verpackungFehler(body.verpackung_kg)
+  if (vf) return vf
   const positionen = Array.isArray(body.positionen) ? (body.positionen as Body[]) : []
   for (const [i, p] of positionen.entries()) {
     const einheit = text(p?.einheit)
