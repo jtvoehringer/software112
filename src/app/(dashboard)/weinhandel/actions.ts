@@ -22,6 +22,7 @@ import { folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { ladePruefnummerDaten, pruefnummerBeiChargenzuordnung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
 import { ersatzPruefnummer, fuellungDatumText, fuellungDatumVerletzung, pnTag, pruefnummerAusAntrag } from '@/lib/kellerbuch/pruefnummer'
+import { leergewichtFehler } from '@/lib/handel/leergewicht'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { merkmaleAusCharge } from '@/lib/wein/fuellungMerkmale'
 import { wienHeute } from '@/lib/csv'
@@ -181,6 +182,9 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   // KAN-41 Paket 3d: unetikettiert abgefüllte Flaschen (leer = alle etikettiert)
   const unetikettiertText = String(formData.get('anzahl_unetikettiert') ?? '').trim()
   const unetikettiert = unetikettiertText ? Number(dezimal(unetikettiertText)) : null
+  // KAN-414: Leergewicht der Flasche in g (optional) – für das Bruttogewicht im Export
+  const leergewicht = zahlAus(formData.get('leergewicht_g'))
+  { const lf = leergewichtFehler(formData.get('leergewicht_g'), leergewicht); if (lf) throw new AktionsFehler(lf) }
   const flGroesseML     = parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750   // null-vorgabe-ok: Flaschengröße 0 ml ist ungültig – 0,75 l
   const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null   // null-vorgabe-ok: 0 Liter heißt „nicht angegeben“ – Menge aus den Flaschen
   // Falls kein Literfeld ausgefüllt: aus Flaschenzahl berechnen. Auf 2 Stellen gerundet wie
@@ -348,6 +352,7 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
     datum,
     flaschengroesse_ml:   flGroesseML,
+    leergewicht_g:        leergewicht,   // KAN-414: Leergewicht der Flasche (g), optional
     anzahl_flaschen:      anzahl,
     bestand_flaschen:     anzahl,
     // KAN-41 Paket 3d: davon unetikettiert abgefüllt (bestand_unetikettiert setzt der Trigger a_etikett_bestand)
@@ -485,14 +490,20 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
 
   // Nur die Spalten der Positivliste (Freeze-Trigger) – Merkmale, Datum, Mengen und Los bleiben unangetastet;
   // die Änderungszeit setzt der Trigger fuellungen_updated_at
+  // KAN-414: Leergewicht nur, wenn das Formular das Feld schickt (andere Aufrufer lassen es unverändert)
+  const mitLeergewicht = formData.has('leergewicht_g')
+  const leergewichtNeu = mitLeergewicht ? zahlAus(formData.get('leergewicht_g')) : null
+  if (mitLeergewicht) { const lf = leergewichtFehler(formData.get('leergewicht_g'), leergewichtNeu); if (lf) throw new AktionsFehler(lf) }
   const payload: AR = {
     name:            ((formData.get('name') as string | null) ?? '').trim(),
     vk_preis_brutto: zahlAus(formData.get('vk_preis_brutto')),
     einstandspreis:  zahlAus(formData.get('einstandspreis')),
     zolltarifnummer: (formData.get('zolltarifnummer') as string) || null,
     notizen:         (formData.get('notizen') as string) || null,
+    ...(mitLeergewicht ? { leergewicht_g: leergewichtNeu } : {}),
   }
   if (!payload.name) throw new AktionsFehler('Bitte einen Produktnamen angeben.')
+
 
   // KAN-378: nur über die RPC mit Grund – sie prüft Rechte, Abo, Positivliste und Storno; ändert sich nichts,
   // liefert sie false ohne UPDATE (kein Protokolleintrag)
@@ -510,7 +521,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
 
 const FUELLUNG_FELD_LABEL: Record<string, string> = {
   name: 'Produktname', vk_preis_brutto: 'VK-Preis', einstandspreis: 'Einstandspreis', mwst_pct: 'MwSt.',
-  zolltarifnummer: 'KN-Code', notizen: 'Notizen', aktiv: 'aktiv', aktualisiert_am: 'Änderungszeit',
+  zolltarifnummer: 'KN-Code', leergewicht_g: 'Leergewicht der Flasche', notizen: 'Notizen', aktiv: 'aktiv', aktualisiert_am: 'Änderungszeit',
   storniert_am: 'Storno', storniert_von: 'Storno', storniert_von_name: 'Storno', storno_grund: 'Storno-Grund',
 }
 

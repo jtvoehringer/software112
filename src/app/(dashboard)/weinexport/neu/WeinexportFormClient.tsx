@@ -33,6 +33,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   const [destStadt, setDestStadt]   = useState('')
   const [eori, setEori]             = useState('')
   const [versicherung, setVersicherung] = useState('')
+  const [verpackung, setVerpackung] = useState('')   // KAN-414: Kartons/Palette in kg
   const [notizen, setNotizen]       = useState('')
 
   // Positionen
@@ -64,6 +65,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           destination_land: destLand, destination_stadt: destStadt,
           eori_kunde: eori || null,
           versicherungswert: versicherung ? parseFloat(versicherung) : null,
+          verpackung_kg: verpackung ? parseFloat(verpackung) : null,
           notizen: notizen || null,
           positionen,
         }),
@@ -124,6 +126,12 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Versicherungswert (EUR)</label>
               <input aria-label="Versicherungswert (EUR)" type="number" step="0.01" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0,00"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Verpackung gesamt (kg)</label>
+              <input aria-label="Verpackung gesamt (kg)" type="number" step="0.01" min="0" value={verpackung} onChange={e => setVerpackung(e.target.value)} placeholder="Kartons, Palette"
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+              <p className="text-xs text-s112-muted mt-1">Geht in die Bruttomasse der Dokumente ein; lässt sich am Auftrag nachtragen.</p>
             </div>
           </div>
         </div>

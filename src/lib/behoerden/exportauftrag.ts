@@ -20,6 +20,7 @@ import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { UUID_RE, feld, inBloecken, textOderNull, type R } from './verkehr-hilfen'
 import { AktionsFehler } from '@/lib/fehler'
+import { positionsGewicht, sendungsGewicht, type SendungsGewicht } from '../export/gewicht'
 
 export const EXPORT_STATUS_LABEL: Record<string, string> = {
   entwurf: 'Entwurf', bestaetigt: 'Bestätigt', versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
@@ -65,6 +66,9 @@ export type ExportPositionZeile = {
   liter: number | null
   preisEur: number | null
   wertEur: number | null
+  /** KAN-414: Gewicht der Position in kg (null, wenn Flaschengröße bzw. Leergewicht fehlen) */
+  nettoKg: number | null
+  bruttoKg: number | null
 }
 
 export const SPALTEN_EXPORTAUFTRAG: CsvSpalte<ExportPositionZeile>[] = [
@@ -86,6 +90,8 @@ export const SPALTEN_EXPORTAUFTRAG: CsvSpalte<ExportPositionZeile>[] = [
   { kopf: 'Einheit', typ: 'code', wert: z => z.einheit },
   { kopf: 'Flaschengröße (ml)', typ: 'ganzzahl', wert: z => z.flaschengroesseMl },
   { kopf: 'Volumen (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.liter },
+  { kopf: 'Nettogewicht (kg)', typ: 'dezimal', stellen: 2, wert: z => z.nettoKg },
+  { kopf: 'Bruttogewicht (kg)', typ: 'dezimal', stellen: 2, wert: z => z.bruttoKg },
   { kopf: 'Preis je Einheit (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.preisEur },
   { kopf: 'Wert (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.wertEur },
 ]
@@ -155,6 +161,7 @@ export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, w
     const ml = zahlOderNull(p.fuellungen?.flaschengroesse_ml)
     const einheit = textOderNull(p.einheit)
     const l = literAus(menge, einheit, ml)
+    const g = positionsGewicht({ menge: p.menge, einheit: p.einheit, fuellung: p.fuellungen ?? null })   // KAN-414
     if (l.grund) ohneLiter.push(`Pos. ${i + 1}: ${l.grund}`)
     return {
       ...kopf,
@@ -168,6 +175,8 @@ export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, w
       liter: l.liter,
       preisEur: preis === null ? null : runden(preis, STELLEN.betrag),
       wertEur: positionsWert(menge, preis),
+      nettoKg: g.nettoKg,
+      bruttoKg: g.bruttoKg,
     }
   })
   if (ohneLiter.length > 0) {
@@ -187,6 +196,8 @@ export type ExportauftragErgebnis = {
   zeilen: ExportPositionZeile[]
   /** Summe der gerundeten Positionswerte */
   gesamtEur: number
+  /** KAN-414: Netto-/Bruttogewicht der Sendung (Brutto inkl. Verpackung des Auftrags) */
+  gewicht: SendungsGewicht
   warnungen: string[]
 }
 
@@ -207,7 +218,7 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
     // exportauftrag_positionen/export_dokumente haben keine tenant_id – sie hängen am
     // mandantengefilterten Auftrag (RLS über den Auftrag); ohne Auftrag wird unten nichts ausgegeben
     alle<R>((supabase.from('exportauftrag_positionen') as any)
-      .select('id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order, fuellungen(bezeichnung,flaschengroesse_ml)')
+      .select('id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order, fuellungen(bezeichnung,flaschengroesse_ml,leergewicht_g)')
       .eq('exportauftrag_id', p.id)
       .order('sort_order')
       .order('id')),
@@ -232,7 +243,9 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
   const zeilen = exportZeilen(auftrag, posRes.data, (cfgRes.data ?? {}) as R, warnungen)
   if (auftrag.aktiv === false) warnungen.push('Der Exportauftrag ist deaktiviert.')
   if (auftrag.storniert_am) warnungen.push(`Der Exportauftrag ist storniert${auftrag.storno_grund ? ` (${auftrag.storno_grund})` : ''}.`)   // KAN-150 F2
-  return { auftrag, dokumente: dokRes.data, zeilen, gesamtEur: summeGerundet(zeilen.map(z => z.wertEur)), warnungen }
+  const gewicht = sendungsGewicht(posRes.data.map(x => ({ menge: x.menge, einheit: x.einheit, fuellung: x.fuellungen ?? null })), auftrag.verpackung_kg)
+  if (gewicht.hinweis) warnungen.push(gewicht.hinweis)
+  return { auftrag, dokumente: dokRes.data, zeilen, gesamtEur: summeGerundet(zeilen.map(z => z.wertEur)), gewicht, warnungen }
 }
 
 // ── Laden: Auftragsliste ─────────────────────────────────────────────────────

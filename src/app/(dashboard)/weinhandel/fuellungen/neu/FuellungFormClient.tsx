@@ -648,6 +648,13 @@ export default function FuellungFormClient({
             ))}
           </select>
         </div>
+        <div>
+          <label className={labelCls}>
+            Leergewicht der Flasche (g){' '}
+            <span className="text-s112-muted font-normal">– inkl. Verschluss, Kapsel und Etikett; für das Bruttogewicht in den Exportdokumenten</span>
+          </label>
+          <input aria-label="Leergewicht der Flasche (g)" type="text" inputMode="decimal" name="leergewicht_g" defaultValue="" placeholder="z. B. 500" className={inputCls} />
+        </div>
       </div>
 
       {/* Notizen */}

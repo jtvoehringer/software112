@@ -1,5 +1,5 @@
 // Sweep 77 (09.10.2026): Warenwerte der Weinexport-Dokumente (Handelsrechnung, EUR.1, Ursprungszeugnis, Lieferschein)
-// und Bruttogewicht der EMCS-Vorlage. Vorher: Zeilenwert (menge · preis).toFixed(2) und Gesamtwert als Summe der
+// (Gewichte seit KAN-414 in gewicht.ts). Vorher: Zeilenwert (menge · preis).toFixed(2) und Gesamtwert als Summe der
 // UNgerundeten Produkte – toFixed rundet binär (0,565 → 0,56) und die Summe der gedruckten Zeilen wich vom gedruckten
 // Gesamtwert um einen Cent ab. Jetzt: Zeilenwert kaufmännisch auf Cent, Gesamtwert = Summe der Zeilenwerte.
 // Ohne @/-Importe (node:test).
@@ -25,7 +25,3 @@ export function eurText(n: number): string {
   return rundText(n, 2)
 }
 
-/** Bruttogewicht der EMCS-Vorlage: 1,25 kg je Liter, auf 2 Stellen */
-export function bruttogewichtText(menge: unknown): string {
-  return rundText(zahl(menge) * 1.25, 2)
-}
