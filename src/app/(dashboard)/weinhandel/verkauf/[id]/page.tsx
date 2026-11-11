@@ -2,11 +2,13 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import LieferscheinTexte from '@/components/handel/LieferscheinTexte'
+import { rechnungstextAenderbar } from '@/lib/verkauf/rechnungstext'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { losText } from '@/lib/handel/losnummer'
 import Link, { BrotkrumenLink } from '@/components/ui/Link'
-import { stornoVerkauf, stornoZahlung, rechnungErstellen, rechnungStornieren, verkaufSamtRechnungStornieren } from '../actions'
+import { stornoVerkauf, stornoZahlung, rechnungErstellen, rechnungStornieren, verkaufSamtRechnungStornieren, speichereVerkaufTexte } from '../actions'
 import StornoButton from '@/components/StornoButton'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import StornoKnopf from './StornoKnopf'
@@ -78,7 +80,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const [postenRawRes, settings, zahlungenRawRes, traubenverkaufRes, tbRawRes, stornierteRechnungenRes] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, datum, rechnungsnummer, lieferscheinnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
+        id, datum, rechnungsnummer, lieferscheinnummer, notizen, rechnungstext, rechnung_id, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an, partner_daten, lieferadresse,
         rechnung:rechnungen!rechnung_id(id, rechnungsnummer, datum, spiegel, storniert, bmd_export_id, lieferscheine:verkaufsposten!rechnung_id(id)),
@@ -526,9 +528,12 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             {liefer?.strasse && <div className="mt-1"><span className="text-s112-muted">Lieferadresse:</span> {lieferadresseKurz(liefer)}{liefer.empfaenger ? ` (z. H. ${liefer.empfaenger})` : ''}</div>}
           </div>
         )}
-        {posten.notizen && (
-          <p className="text-sm text-s112-muted mt-2 italic">{posten.notizen}</p>
-        )}
+        {/* KAN-416: Text auf Rechnung (gedruckt) und interne Notiz (nie gedruckt) – am Lieferschein nachträglich änderbar */}
+        <LieferscheinTexte notiz={posten.notizen ?? null} rechnungstext={posten.rechnungstext ?? null}
+          darfSchreiben={writeOk && !posten.storniert}
+          textAenderbar={rechnungstextAenderbar({ rechnung_id: posten.rechnung_id ?? null, storniert: posten.storniert })}
+          speichern={speichereVerkaufTexte.bind(null, posten.id)} />
+        {posten.rechnungstext && <p className="hidden print:block text-sm mt-2 whitespace-pre-line">{posten.rechnungstext}</p>}
       </div>
 
       {/* Positionen-Tabelle – Lieferschein vs Rechnung */}

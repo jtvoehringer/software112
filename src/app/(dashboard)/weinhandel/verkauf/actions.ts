@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
-import { AktionsFehler, dbFehlerText, erwarteteDbAblehnung, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, erwarteteDbAblehnung, fehlerText, LESE_WAEHLEN_MELDUNG, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { istStornoDatumAblehnung, stornoDatumFehler } from '@/lib/storno/datum'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
@@ -34,6 +34,7 @@ import {
 } from '@/lib/verkauf/bestand'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
+import { notizFehler, rechnungstextAenderbar, rechnungstextFehler, textOderNull } from '@/lib/verkauf/rechnungstext'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -369,6 +370,9 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
   const firmaId        = (formData.get('firma_id') as string) || null
   const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
   const notizen        = (formData.get('notizen') as string) || null
+  // KAN-416: Text, der auf der Rechnung gedruckt wird (bei „Rechnung sofort“ danach unveränderlich)
+  const rechnungstext  = textOderNull(formData.get('rechnungstext'))
+  { const rf = rechnungstextFehler(rechnungstext); if (rf) return { error: rf } }
   const skontoPct      = parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0
   const skontoTage     = parseInt(dezimal(formData.get('skonto_tage') as string)) || 0
   const skontoAktiv    = formData.get('skonto_aktiv') === 'true'
@@ -463,6 +467,7 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     firma_id:        firmaId    || null,
     zh_kontakt_id:   zhKontaktId || null,
     notizen,
+    rechnungstext,
     skonto_pct:      skontoAktiv ? skontoPct : 0,
     skonto_tage:     skontoAktiv ? skontoTage : 0,
     skonto_aktiv:    skontoAktiv,
@@ -616,6 +621,49 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
 // KAN-35 nur noch storniert (stornoVerkauf: Bestand zurück, Beleg bleibt als storniert
 // sichtbar). Die Action bleibt als harte Ablehnung bestehen, damit ältere, noch
 // geöffnete Seiten eine verständliche Meldung statt „Server Action not found“ bekommen.
+
+// KAN-416 Punkt 1: „Interne Notiz“ und „Text auf Rechnung“ eines Lieferscheins nachträglich ändern. Die interne Notiz
+// jederzeit (nicht bei storniertem Verkauf), den Text auf Rechnung nur, solange keine Rechnung dazu erstellt ist –
+// dieselbe Regel sperrt die Datenbank (Trigger a_rechnungstext_schutz, 42501 mit HINT rechnungstext).
+export async function speichereVerkaufTexte(id: string, formData: FormData): Promise<{ error?: string }> {
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getMembership()
+  const tenantId   = membership.tenantId
+  if (!canWrite(membership, 'warenwirtschaft')) return { error: 'Keine Berechtigung – dafür ist die Freigabe Warenwirtschaft nötig.' }
+  if (!id) return { error: 'Kein Verkauf angegeben.' }
+
+  const nf = notizFehler(formData.get('notizen'))
+  if (nf) return { error: nf }
+  const mitText = formData.has('rechnungstext')
+  if (mitText) { const rf = rechnungstextFehler(formData.get('rechnungstext')); if (rf) return { error: rf } }
+
+  // storno-sichtbar: der Verkauf wird samt Storno-Kennzeichen geladen, um die Änderung an einem stornierten Verkauf abzulehnen
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: altRaw, error: altErr } = await (supabase.from('verkaufsposten') as any)
+    .select('id, storniert, rechnung_id, rechnungstext').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (altErr) return { error: dbFehlerText(altErr, 'Verkauf konnte nicht geladen werden') }
+  const alt = altRaw as AR | null
+  if (!alt) return { error: 'Verkauf nicht gefunden.' }
+  if (alt.storniert) return { error: 'Der Verkauf ist storniert und kann nicht mehr geändert werden.' }
+
+  const werte: AR = { notizen: textOderNull(formData.get('notizen')) }
+  if (mitText) {
+    const neu = textOderNull(formData.get('rechnungstext'))
+    if (neu !== ((alt.rechnungstext as string | null) ?? null)) {
+      if (!rechnungstextAenderbar({ rechnung_id: alt.rechnung_id as string | null })) {
+        return { error: 'Der Text auf der Rechnung lässt sich nicht mehr ändern: Die Rechnung ist bereits erstellt. Berichtigung über einen Storno der Rechnung.' }
+      }
+      werte.rechnungstext = neu
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('verkaufsposten') as any)
+    .update(werte).eq('id', id).eq('tenant_id', tenantId).select('id')
+  if (error) return { error: dbFehlerText(error, 'Die Texte wurden nicht gespeichert') }
+  if (!((data ?? []) as unknown[]).length) return { error: NICHT_GESPEICHERT }
+  revalidatePath(`/weinhandel/verkauf/${id}`)
+  return {}
+}
 
 // schreibsperre-ausnahme: lehnt immer ab (Verkäufe werden storniert, nicht gelöscht) – schreibt nichts
 export async function deactivateVerkauf(id: string): Promise<never> {

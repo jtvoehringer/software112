@@ -252,6 +252,7 @@ export default function NeuerVerkaufPage() {
   const [lieferAdressen, setLieferAdressen] = useState<(Lieferadresse & { id: string })[]>([])
   const [zhKontaktId,     setZhKontaktId]     = useState('')
   const [notizen,         setNotizen]         = useState('')
+  const [rechnungstext,   setRechnungstext]   = useState('')   // KAN-416: wird auf der Rechnung gedruckt
   // Konditionen des gewählten Kunden – auch für später hinzugefügte Positionen (KAN-156)
   const [kundenRabatt,    setKundenRabatt]    = useState<KundenKonditionen>(OHNE_KUNDENRABATT)
   const [skontoAktiv,     setSkontoAktiv]     = useState(false)
@@ -413,6 +414,7 @@ export default function NeuerVerkaufPage() {
     formData.set('firma_id',         firmaId)
     formData.set('zh_kontakt_id',    zhKontaktId)
     formData.set('notizen',          notizen)
+    formData.set('rechnungstext',    rechnungstext)
     formData.set('skonto_pct',       String(skontoAktiv ? skontoPct : 0))
     formData.set('skonto_tage',      String(skontoAktiv ? skontoTage : 0))
     formData.set('skonto_aktiv',     skontoAktiv ? 'true' : 'false')
@@ -929,12 +931,21 @@ export default function NeuerVerkaufPage() {
           </button>
         </div>
 
-        {/* ── Notizen ── */}
-        <div className="card p-5">
-          <label className={labelCls}>Notizen</label>
-          <textarea aria-label="Notizen" value={notizen} onChange={e => setNotizen(e.target.value)}
-            rows={3} placeholder="Anmerkungen zur Bestellung…"
-            className={inputCls + ' w-full resize-none'} />
+        {/* ── Texte: KAN-416 – „Text auf Rechnung“ (gedruckt) und „Interne Notiz“ (nie gedruckt) ── */}
+        <div className="card p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Text auf Rechnung</label>
+            <textarea aria-label="Text auf Rechnung" value={rechnungstext} onChange={e => setRechnungstext(e.target.value)}
+              rows={3} maxLength={1000} placeholder="z. B. Bestellung Nr. 4711 vom 3.11."
+              className={inputCls + ' w-full resize-none'} />
+            <p className="text-xs text-s112-muted mt-1">Wird auf der Rechnung unter den Positionen gedruckt. Bei „Rechnung später“ lässt er sich am Lieferschein ergänzen, bis die Rechnung erstellt ist.</p>
+          </div>
+          <div>
+            <label className={labelCls}>Interne Notiz</label>
+            <textarea aria-label="Interne Notiz" value={notizen} onChange={e => setNotizen(e.target.value)}
+              rows={3} placeholder="Nur für den Betrieb – wird nie gedruckt"
+              className={inputCls + ' w-full resize-none'} />
+          </div>
         </div>
 
         {/* ── KAN-103: Rechnung sofort oder später ── */}

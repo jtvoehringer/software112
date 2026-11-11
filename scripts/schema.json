@@ -2044,7 +2044,8 @@
 "lieferadresse_id",
 "lieferscheinnummer",
 "rechnung_id",
-"rechnung_spaeter"
+"rechnung_spaeter",
+"rechnungstext"
 ],
 "verschneidung_quellen": [
 "id",
