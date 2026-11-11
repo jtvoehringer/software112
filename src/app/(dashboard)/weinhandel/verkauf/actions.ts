@@ -35,6 +35,7 @@ import {
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
 import { notizFehler, rechnungstextAenderbar, rechnungstextFehler, textOderNull } from '@/lib/verkauf/rechnungstext'
+import { emailBezugWerte } from '@/lib/verkauf/ausMail'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -373,6 +374,8 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
   // KAN-416: Text, der auf der Rechnung gedruckt wird (bei „Rechnung sofort“ danach unveränderlich)
   const rechnungstext  = textOderNull(formData.get('rechnungstext'))
   { const rf = rechnungstextFehler(rechnungstext); if (rf) return { error: rf } }
+  // KAN-411: Verkauf aus einer E-Mail – Unterhaltung und Betreff der Bestell-Mail (ohne Unterhaltung kein Bezug)
+  const emailBezug     = emailBezugWerte(formData.get('email_conversation_id'), formData.get('email_betreff'))
   const skontoPct      = parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0
   const skontoTage     = parseInt(dezimal(formData.get('skonto_tage') as string)) || 0
   const skontoAktiv    = formData.get('skonto_aktiv') === 'true'
@@ -468,6 +471,7 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     zh_kontakt_id:   zhKontaktId || null,
     notizen,
     rechnungstext,
+    ...emailBezug,
     skonto_pct:      skontoAktiv ? skontoPct : 0,
     skonto_tage:     skontoAktiv ? skontoTage : 0,
     skonto_aktiv:    skontoAktiv,

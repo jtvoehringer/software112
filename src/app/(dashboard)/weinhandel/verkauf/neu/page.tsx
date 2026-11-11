@@ -12,7 +12,9 @@ import { Check } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { fmtEur, fmtNum, zahlWert } from '@/lib/format'
-import PartnerSuche from '@/components/crm/PartnerSuche'
+import PartnerSuche, { type PartnerTreffer } from '@/components/crm/PartnerSuche'
+import { mailBezugAusSuche, notizAusMail, antwortEntwurf, mailTextOhneHtml, ENTWURF_SCHLUESSEL, type MailBezug } from '@/lib/verkauf/ausMail'
+import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
@@ -253,6 +255,10 @@ export default function NeuerVerkaufPage() {
   const [zhKontaktId,     setZhKontaktId]     = useState('')
   const [notizen,         setNotizen]         = useState('')
   const [rechnungstext,   setRechnungstext]   = useState('')   // KAN-416: wird auf der Rechnung gedruckt
+  // KAN-411: Verkauf aus einer E-Mail – Bezug aus der Adresszeile, Mail zum Danebenlegen
+  const [mailBezug,       setMailBezug]       = useState<MailBezug | null>(null)
+  const [mail,            setMail]            = useState<{ betreff: string; von: string; vonName: string; datum: string; text: string; conversationId: string | null } | null>(null)
+  const [mailFehler,      setMailFehler]      = useState<string | null>(null)
   // Konditionen des gewählten Kunden – auch für später hinzugefügte Positionen (KAN-156)
   const [kundenRabatt,    setKundenRabatt]    = useState<KundenKonditionen>(OHNE_KUNDENRABATT)
   const [skontoAktiv,     setSkontoAktiv]     = useState(false)
@@ -314,6 +320,39 @@ export default function NeuerVerkaufPage() {
     }
     load()
   }, [])
+
+  // KAN-411: nach dem Laden der Stammdaten (sonst überschreibt deren erste Position den Kundenrabatt) Kunde und Mail holen
+  useEffect(() => {
+    if (loading) return
+    const bezug = mailBezugAusSuche(window.location.search)
+    if (!bezug) return
+    let aktiv = true
+    async function holen(b: MailBezug) {
+      setMailBezug(b)
+      try {
+        const res = await fetch('/api/nachrichten/message?id=' + encodeURIComponent(b.mailId) + '&mailbox=' + b.postfach)
+        const d = await res.json()
+        if (!aktiv) return
+        if (!res.ok || d.fehler) { setMailFehler('Die E-Mail konnte nicht geladen werden' + (d.fehler ? ': ' + d.fehler : '.')); return }
+        setMail({ betreff: d.betreff ?? '', von: d.von ?? '', vonName: d.vonName ?? '', datum: d.datum ?? '', text: mailTextOhneHtml(d.bodyText ?? '', d.bodyHtml ?? null), conversationId: d.conversationId ?? null })
+        setNotizen(alt => alt || notizAusMail(d.betreff, d.datum))
+      } catch (e) {
+        if (aktiv) setMailFehler(fehlerText(e, 'Die E-Mail konnte nicht geladen werden'))
+      }
+      if (!b.kunde) return
+      try {
+        const res = await fetch('/api/crm/suche?' + new URLSearchParams({ art: 'kunde', ids: b.kunde }))
+        const d = await res.json()
+        if (!aktiv || !res.ok) return
+        const t = ((d.treffer ?? []) as PartnerTreffer[]).find(x => x.id === b.kunde)
+        if (t) kundeWaehlen(b.kunde, t)
+      } catch {
+        // Kunde bleibt leer – der Benutzer wählt ihn im Formular
+      }
+    }
+    void holen(bezug)
+    return () => { aktiv = false }
+  }, [loading])
 
   function updatePos(idx: number, patch: Partial<Position>) {
     setPositionen(prev => {
@@ -415,6 +454,10 @@ export default function NeuerVerkaufPage() {
     formData.set('zh_kontakt_id',    zhKontaktId)
     formData.set('notizen',          notizen)
     formData.set('rechnungstext',    rechnungstext)
+    if (mailBezug && mail?.conversationId) {   // KAN-411
+      formData.set('email_conversation_id', mail.conversationId)
+      formData.set('email_betreff',         mail.betreff)
+    }
     formData.set('skonto_pct',       String(skontoAktiv ? skontoPct : 0))
     formData.set('skonto_tage',      String(skontoAktiv ? skontoTage : 0))
     formData.set('skonto_aktiv',     skontoAktiv ? 'true' : 'false')
@@ -430,6 +473,17 @@ export default function NeuerVerkaufPage() {
           setError(r.error)
           return
         }
+        if (mailBezug) {
+          // KAN-411: Antwort an den Kunden vorbereiten – der Text liegt im Zwischenspeicher des Browsers (nicht in der URL),
+          // die Nachrichten-Seite öffnet damit das Verfassen-Fenster; gesendet wird erst durch den Benutzer
+          try {
+            sessionStorage.setItem(ENTWURF_SCHLUESSEL, JSON.stringify({ mailId: mailBezug.mailId, postfach: mailBezug.postfach, text: antwortEntwurf(posForServer) }))
+          } catch { /* ohne Zwischenspeicher: kein Entwurf, der Verkauf ist gespeichert */ }
+          zeigeErfolg('Verkauf gespeichert – die Antwort an den Kunden ist vorbereitet.')
+          router.push('/nachrichten')
+          router.refresh()
+          return
+        }
         router.push(zielNachVorgang('/weinhandel/verkauf', 'verkauf'))   // KAN-224: zurück, woher man kam
         router.refresh()
       } catch (err) {
@@ -438,7 +492,44 @@ export default function NeuerVerkaufPage() {
     })
   }
 
+  // Kundenwahl – aus der Partnersuche und aus der Vorbelegung (KAN-411: Verkauf aus einer E-Mail)
+  function kundeWaehlen(val: string, treffer: PartnerTreffer | null) {
+    setZhKontaktId('')
+    setLiefer(LIEFER_LEER)
+    setLieferAdressen([])
+    if (!val) {
+      setKontaktId('')
+      setFirmaId('')
+      setKundenRabatt(OHNE_KUNDENRABATT)
+      setSkontoAktiv(false)
+      setSkontoPct(0)
+      setSkontoTage(10)
+      return
+    }
+    const trennerIdx = val.indexOf(':')
+    const typ = val.slice(0, trennerIdx)
+    const id  = val.slice(trennerIdx + 1)
+    if (typ === 'kontakt') { setKontaktId(id); setFirmaId('') }
+    else                   { setFirmaId(id);   setKontaktId('') }
+    // KAN-176: gespeicherte Lieferadressen des Kunden laden
+    lieferadressenDesKunden(typ === 'kontakt' ? id : null, typ === 'firma' ? id : null)
+      .then(l => setLieferAdressen(l)).catch(() => setLieferAdressen([]))
+    const d = treffer?.daten
+    const konditionen: KundenKonditionen = {
+      rabatt_pct:       d?.rabatt_pct ?? 0,
+      sonderrabatt_pct: d?.sonderrabatt_pct ?? 0,
+    }
+    const skPct = d?.skonto_pct ?? 0, skTage = d?.skonto_tage ?? 10
+    setKundenRabatt(konditionen)
+    setSkontoAktiv(skPct > 0)
+    setSkontoPct(skPct)
+    setSkontoTage(skTage)
+    const rabattFelder = rabattFuerNeuePosition(konditionen)
+    setPositionen(prev => prev.map(p => ({ ...p, ...rabattFelder })))
+  }
+
   return (
+    <div className={mailBezug ? 'flex flex-col-reverse gap-6 xl:grid xl:grid-cols-[minmax(0,48rem)_minmax(0,26rem)] xl:items-start' : undefined}>
     <div className="space-y-6 max-w-3xl">
       <nav className="flex items-center gap-2 text-sm text-s112-muted">
         <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700">Verkauf</Link>
@@ -479,40 +570,7 @@ export default function NeuerVerkaufPage() {
               <PartnerSuche
                 art="kunde"
                 value={kontaktId ? `kontakt:${kontaktId}` : firmaId ? `firma:${firmaId}` : ''}
-                onChange={(val, treffer) => {
-                  setZhKontaktId('')
-                  setLiefer(LIEFER_LEER)
-                  setLieferAdressen([])
-                  if (!val) {
-                    setKontaktId('')
-                    setFirmaId('')
-                    setKundenRabatt(OHNE_KUNDENRABATT)
-                    setSkontoAktiv(false)
-                    setSkontoPct(0)
-                    setSkontoTage(10)
-                    return
-                  }
-                  const trennerIdx = val.indexOf(':')
-                  const typ = val.slice(0, trennerIdx)
-                  const id  = val.slice(trennerIdx + 1)
-                  if (typ === 'kontakt') { setKontaktId(id); setFirmaId('') }
-                  else                   { setFirmaId(id);   setKontaktId('') }
-                  // KAN-176: gespeicherte Lieferadressen des Kunden laden
-                  lieferadressenDesKunden(typ === 'kontakt' ? id : null, typ === 'firma' ? id : null)
-                    .then(l => setLieferAdressen(l)).catch(() => setLieferAdressen([]))
-                  const d = treffer?.daten
-                  const konditionen: KundenKonditionen = {
-                    rabatt_pct:       d?.rabatt_pct ?? 0,
-                    sonderrabatt_pct: d?.sonderrabatt_pct ?? 0,
-                  }
-                  const skPct = d?.skonto_pct ?? 0, skTage = d?.skonto_tage ?? 10
-                  setKundenRabatt(konditionen)
-                  setSkontoAktiv(skPct > 0)
-                  setSkontoPct(skPct)
-                  setSkontoTage(skTage)
-                  const rabattFelder = rabattFuerNeuePosition(konditionen)
-                  setPositionen(prev => prev.map(p => ({ ...p, ...rabattFelder })))
-                }}
+                onChange={kundeWaehlen}
                 placeholder="Name oder Firma suchen…"
                 disabled={loading}
                 anlegen={crmSchreiben}
@@ -975,6 +1033,25 @@ export default function NeuerVerkaufPage() {
         </div>
 
       </form>
+    </div>
+    {/* KAN-411: die Bestell-Mail neben dem Formular (am Handy darüber) – immer als Text, nie als HTML */}
+    {mailBezug && (
+      <aside aria-label="Bestell-Mail" className="card p-4 space-y-2 xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
+        <h2 className="font-semibold text-s112-text-1 text-sm">Bestellung per E-Mail</h2>
+        {mailFehler && <p role="alert" className="text-sm text-s112-err-fg">{mailFehler}</p>}
+        {!mail && !mailFehler && <p className="text-sm text-s112-muted">E-Mail wird geladen…</p>}
+        {mail && (
+          <>
+            <p className="text-sm font-medium text-s112-text">{mail.betreff}</p>
+            <p className="text-xs text-s112-muted">
+              Von {mail.vonName ? mail.vonName + ' ' : ''}&lt;{mail.von}&gt;{mail.datum ? ' · ' + new Date(mail.datum).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+            </p>
+            {!mailBezug.kunde && <p className="text-xs text-s112-warn-fg">Der Absender ist im CRM noch nicht zugeordnet – bitte den Kunden im Formular wählen.</p>}
+            <pre className="text-sm text-s112-text whitespace-pre-wrap font-sans border-t border-s112-border pt-2">{mail.text}</pre>
+          </>
+        )}
+      </aside>
+    )}
     </div>
   )
 }

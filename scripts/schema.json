@@ -2045,7 +2045,9 @@
 "lieferscheinnummer",
 "rechnung_id",
 "rechnung_spaeter",
-"rechnungstext"
+"rechnungstext",
+"email_conversation_id",
+"email_betreff"
 ],
 "verschneidung_quellen": [
 "id",
