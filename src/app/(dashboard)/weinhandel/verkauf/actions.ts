@@ -622,7 +622,6 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
 // sichtbar). Die Action bleibt als harte Ablehnung bestehen, damit ältere, noch
 // geöffnete Seiten eine verständliche Meldung statt „Server Action not found“ bekommen.
 
-// schreibsperre-ausnahme: lehnt immer ab (Verkäufe werden storniert, nicht gelöscht) – schreibt nichts
 // KAN-416 Punkt 1: „Interne Notiz“ und „Text auf Rechnung“ eines Lieferscheins nachträglich ändern. Die interne Notiz
 // jederzeit (nicht bei storniertem Verkauf), den Text auf Rechnung nur, solange keine Rechnung dazu erstellt ist –
 // dieselbe Regel sperrt die Datenbank (Trigger a_rechnungstext_schutz, 42501 mit HINT rechnungstext).
@@ -666,6 +665,7 @@ export async function speichereVerkaufTexte(id: string, formData: FormData): Pro
   return {}
 }
 
+// schreibsperre-ausnahme: lehnt immer ab (Verkäufe werden storniert, nicht gelöscht) – schreibt nichts
 export async function deactivateVerkauf(id: string): Promise<never> {
   void id
   throw new AktionsFehler(
