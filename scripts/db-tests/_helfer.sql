@@ -846,6 +846,7 @@ END $f$;
 --   * sonstige_artikel_bewegungen: Zugang über 1 (Vorzeichen-CHECK; KAN-115),
 --   * produktion_eingaenge: Wein-Eingang über 1 L (CHECKs Wein ↔ Quell-Charge; KAN-118),
 --   * lieferadressen: genau ein Partner – ein neuer Kontakt, keine Firma (CHECK lieferadressen_ein_partner; KAN-176),
+--   * auftraege: ein neuer Kontakt als Kunde, eigene Nummer, offen; auftrag_positionen: Menge 1 (KAN-418),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -902,6 +903,15 @@ BEGIN
   ELSIF p_tab = 'produktion_eingaenge' THEN   -- KAN-118: CHECK produktion_eingaenge_wein / _wein_liter
     v_w := v_w || jsonb_build_object('art', 'wein', 'menge', 1, 'einheit', 'l', 'volumen_liter', 1,
       'weinausbau_id', pg_temp.s112_zeile('weinausbau', p_tenant) ->> 'id', 'kellermittel_id', pg_temp.s112_zeile('kellermittel', p_tenant) ->> 'id');
+  ELSIF p_tab = 'auftraege' THEN   -- KAN-418: CHECK auftraege_ein_kunde, Nummer je Betrieb eindeutig
+    v_w := v_w || jsonb_build_object('kontakt_id', pg_temp.s112_zeile('kontakte', p_tenant) ->> 'id', 'firma_id', NULL,
+      'nummer', 'S112TEST-' || left(gen_random_uuid()::text, 8), 'art', 'auftrag', 'status', 'offen', 'storniert_am', NULL);
+  ELSIF p_tab = 'auftrag_positionen' THEN   -- KAN-418: CHECK Menge und geliefert
+    -- der Auftrag dazu über s112_beispiel (der allgemeine Elternweg kennt den CHECK auftraege_ein_kunde nicht)
+    v_w := v_w || '{"name": "S112TEST Position", "menge": 1, "geliefert": 0}'::jsonb;
+    IF NOT coalesce(p_werte, '{}'::jsonb) ? 'auftrag_id' THEN
+      v_w := v_w || jsonb_build_object('auftrag_id', pg_temp.s112_beispiel('auftraege', p_tenant, p_persona) ->> 'id');
+    END IF;
   ELSIF p_tab = 'lieferadressen' THEN   -- KAN-176: CHECK lieferadressen_ein_partner
     v_w := v_w || jsonb_build_object('kontakt_id', pg_temp.s112_zeile('kontakte', p_tenant) ->> 'id', 'firma_id', NULL,
       'strasse', 'S112TEST-Gasse 1', 'plz', '1010', 'ort', 'Wien', 'land', 'AT');
@@ -1047,6 +1057,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('elabel_umleitungen',            '-',                                      '-',                                      '-'),   -- KAN-219: Protokoll, nur s112_elabel_umleiten schreibt
     ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('ernte_gst_abgeschlossen',       'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}'),   -- KAN-392: löschen = wieder öffnen
+    ('auftraege',                     '-',                                      'SA,TA,W*{warenwirtschaft}',              '-'),   -- KAN-418: Aufträge – anlegen/stornieren nur über die RPCs, direkt nur Frist und Notiz
+    ('auftrag_positionen',            '-',                                      '-',                                      '-'),   -- KAN-418: Positionen – nur über s112_auftrag_anlegen
     ('verkauf_ki_begriffe',           'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),   -- KAN-411: gelernte Begriffe aus Bestell-Mails
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
     ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
@@ -1272,6 +1284,11 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_journal_trg_produktion()'),   -- KAN-118: Journal AB_VERAR/ZU_PROD
     ('trigger',       '--S', false, 's112_elabel_umleitung_schutz()'),   -- KAN-219: Umleitung nur über s112_elabel_umleiten
     ('trigger',       '--S', false, 's112_elabel_pruefen()'),   -- KAN-216: Zutatenliste aus dem Katalog, Kennung unveränderlich, Freigabe stempeln   -- KAN-96: generischer Freeze-Trigger
+    ('trigger',       '--S', false, 's112_auftrag_schutz()'),   -- KAN-418: am Auftrag direkt nur Frist und Notiz
+    ('intern',        '--S', false, 's112_auftragsnummer_ziehen(p_tenant_id uuid)'),   -- KAN-418: Nummernkreis AB
+    ('intern',        '--S', false, 's112_fuellung_reserviert(p_fuellung_id uuid)'),   -- KAN-418: reservierte Flaschen einer Füllung
+    ('mandant',       '-US', true , 's112_auftrag_anlegen(p_tenant_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-418
+    ('mandant',       '-US', true , 's112_auftrag_stornieren(p_tenant_id uuid, p_auftrag_id uuid, p_grund text)'),   -- KAN-418
     ('trigger',       '--S', false, 's112_kontakt_anonymisiert_schutz()'),   -- KAN-425: anonymisierter Kontakt unveränderlich
     ('mandant',       '-US', true , 's112_kontakt_personendaten_loeschen(p_tenant_id uuid, p_kontakt_id uuid, p_grund text)'),   -- KAN-425: Personendaten löschen (DSGVO)
     ('trigger',       '--S', false, 's112_kosten_buchung_schutz()'),   -- KAN-421: Kosteneinträge aus einer E&A-Buchung nur über die RPC

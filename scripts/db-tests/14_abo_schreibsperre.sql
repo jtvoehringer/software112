@@ -91,7 +91,7 @@ DECLARE
   -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste; s112_zukauf_buchen seit KAN-193; s112_verschnitt_buchen/s112_verschnitte_buchen seit KAN-112; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145 (s112_buchung_loeschen von KAN-166 entfällt seit KAN-88), s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B, journal_eroeffnen/journal_abgleichen seit KAN-40, s112_pruefnummernantrag_status_setzen seit KAN-97, s112_fuellung_nachtragen seit KAN-101, s112_charge_abstufen seit KAN-82, s112_fuellung_aendern seit KAN-378).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',   -- KAN-21: rechnungsnummer nur noch Service-Role (Prüfung bleibt)
-                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_artikel_bewegung_stornieren', 's112_artikel_buchen', 's112_artikel_verkauf_buchen', 's112_artikel_verkauf_stornieren', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_ea_kosten_zuordnen', 's112_ea_stornieren', 's112_elabel_umleiten', 's112_etikettierung_stornieren', 's112_freeze_korrektur', 's112_fuellung_aendern', 's112_fuellung_etikettieren', 's112_fuellung_nachtragen', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen', 's112_lager_einkauf', 's112_lager_einkauf_stornieren', 's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_produktion_buchen', 's112_produktion_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_psm_uebermittlung_protokollieren', 's112_rechnung_erstellen', 's112_rechnung_stornieren', 's112_sekt_stufe_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen', 's112_verarbeitung_stornieren', 's112_verkauf_samt_rechnung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zugangskorrektur_buchen', 's112_zugangskorrektur_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_artikel_bewegung_stornieren', 's112_artikel_buchen', 's112_artikel_verkauf_buchen', 's112_artikel_verkauf_stornieren', 's112_auftrag_anlegen', 's112_auftrag_stornieren', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_ea_kosten_zuordnen', 's112_ea_stornieren', 's112_elabel_umleiten', 's112_etikettierung_stornieren', 's112_freeze_korrektur', 's112_fuellung_aendern', 's112_fuellung_etikettieren', 's112_fuellung_nachtragen', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen', 's112_lager_einkauf', 's112_lager_einkauf_stornieren', 's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_produktion_buchen', 's112_produktion_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_psm_uebermittlung_protokollieren', 's112_rechnung_erstellen', 's112_rechnung_stornieren', 's112_sekt_stufe_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen', 's112_verarbeitung_stornieren', 's112_verkauf_samt_rechnung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zugangskorrektur_buchen', 's112_zugangskorrektur_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -177,6 +177,9 @@ DECLARE
   v_ea_k      uuid;   -- KAN-421: Ausgabe in B für die Kostenrechnung
   v_ks_b      uuid;   -- KAN-421: Kostenstelle in B
   v_kt_d      uuid;   -- KAN-425: Kontakt in B für „Personendaten löschen“
+  v_kt_a      uuid;   -- KAN-418: Kunde, Füllung mit Bestand und offener Auftrag in B
+  v_fz_a      uuid;
+  v_auf_b     uuid;
   v_za_b      uuid;
   v_ub_b      uuid;
   v_k1        uuid;
@@ -303,6 +306,9 @@ BEGIN
   v_ea_k := (pg_temp.s112_beispiel('ea_transaktionen', v_b, v_bw, jsonb_build_object('datum', v_heute, 'typ', 'ausgabe', 'betrag_netto', 50, 'ust_satz', 20)) ->> 'id')::uuid;   -- KAN-421
   v_ks_b := (pg_temp.s112_beispiel('kostenstellen', v_b, v_bw, jsonb_build_object('aktiv', true)) ->> 'id')::uuid;   -- KAN-421
   v_kt_d := (pg_temp.s112_beispiel('kontakte', v_b, v_bw) ->> 'id')::uuid;   -- KAN-425
+  v_kt_a := (pg_temp.s112_beispiel('kontakte', v_b, v_bw) ->> 'id')::uuid;   -- KAN-418
+  v_fz_a := (pg_temp.s112_beispiel('fuellungen', v_b, v_bw, jsonb_build_object('anzahl_flaschen', 10, 'bestand_flaschen', 10, 'aktiv', true)) ->> 'id')::uuid;
+  v_auf_b := (pg_temp.s112_beispiel('auftraege', v_b, v_bw) ->> 'id')::uuid;
   v_za_b := (pg_temp.s112_beispiel('zahlungen', v_b, v_bw) ->> 'id')::uuid;
   -- KAN-103 (nach der Beispiel-Zahlung – die hängt sonst evtl. an diesem Lieferschein): zwei Lieferscheine „Rechnung später“; einer wird im Aufbau berechnet (für das Storno)
   v_rls := (pg_temp.s112_beispiel('verkaufsposten', v_b, NULL, jsonb_build_object('datum', v_heute, 'storniert', false, 'rechnung_spaeter', true)) ->> 'id')::uuid;
@@ -597,7 +603,10 @@ BEGIN
   v_rpc := v_rpc || jsonb_build_object(
     's112_ea_kosten_zuordnen', format('SELECT public.s112_ea_kosten_zuordnen(%L, %L, %L::jsonb)', v_b, v_ea_k,
       jsonb_build_array(jsonb_build_object('kostenstelle_id', v_ks_b, 'betrag', 10))),
-    's112_kontakt_personendaten_loeschen', format('SELECT public.s112_kontakt_personendaten_loeschen(%L, %L, %L)', v_b, v_kt_d, 'S112TEST Löschersuchen'));   -- KAN-425
+    's112_kontakt_personendaten_loeschen', format('SELECT public.s112_kontakt_personendaten_loeschen(%L, %L, %L)', v_b, v_kt_d, 'S112TEST Löschersuchen'),   -- KAN-425
+    's112_auftrag_anlegen', format('SELECT public.s112_auftrag_anlegen(%L, %L::jsonb, %L::jsonb)', v_b, jsonb_build_object('kontakt_id', v_kt_a),
+      jsonb_build_array(jsonb_build_object('fuellung_id', v_fz_a, 'menge', 1))),   -- KAN-418
+    's112_auftrag_stornieren', format('SELECT public.s112_auftrag_stornieren(%L, %L, %L)', v_b, v_auf_b, 'S112TEST Storno Auftrag'));   -- KAN-418
   -- KAN-115: eigener Block (jsonb_build_object nimmt höchstens 100 Argumente)
   -- KAN-326: eigener Block – jsonb_build_object nimmt höchstens 100 Argumente (50 Paare, 54023)
   v_rpc := v_rpc || jsonb_build_object(

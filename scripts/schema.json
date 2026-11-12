@@ -38,6 +38,34 @@
 "verantwortlich_id",
 "fuer_alle"
 ],
+"auftraege": [
+"id",
+"tenant_id",
+"art",
+"nummer",
+"datum",
+"kontakt_id",
+"firma_id",
+"status",
+"reserviert_bis",
+"notizen",
+"erstellt_am",
+"erstellt_von",
+"aktualisiert_am",
+"storniert_am",
+"storniert_von",
+"storno_grund"
+],
+"auftrag_positionen": [
+"id",
+"tenant_id",
+"auftrag_id",
+"fuellung_id",
+"name",
+"menge",
+"geliefert",
+"erstellt_am"
+],
 "ama_erntemeldungen": [
 "id",
 "tenant_id",
@@ -1873,7 +1901,10 @@
 "betriebsart",
 "storno_prefix",
 "storno_stellen",
-"storno_zaehler"
+"storno_zaehler",
+"auftrag_prefix",
+"auftrag_stellen",
+"auftrag_zaehler"
 ],
 "tenant_memberships": [
 "id",
