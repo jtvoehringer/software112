@@ -29,6 +29,8 @@ async function getCtx() {
 }
 
 function neuLaden() {
+  revalidatePath('/weinhandel/angebote')   // KAN-418 Teil 4: ein übernommenes Angebot wird „angenommen“
+  revalidatePath('/weinhandel/angebote/[id]', 'page')
   revalidatePath('/weinhandel/auftraege')
   revalidatePath('/weinhandel/auftraege/[id]', 'page')
   revalidatePath('/weinhandel')
@@ -55,6 +57,8 @@ export async function createAuftrag(formData: FormData): Promise<{ error?: strin
       p_kopf: {
         kontakt_id: kundeTyp === 'kontakt' ? kundeId : null, firma_id: kundeTyp === 'firma' ? kundeId : null,
         datum: kopf.datum, reserviert_bis: kopf.reserviert_bis, notizen: kopf.notizen,
+        // KAN-418 Teil 4: Übernahme aus einem Angebot (die Datenbank prüft offen, gleicher Kunde, genau einmal)
+        ...(auftragIdAus(formData.get('angebot_id')) ? { angebot_id: auftragIdAus(formData.get('angebot_id')) } : {}),
       },
       p_positionen: positionen,
     })
@@ -90,13 +94,13 @@ export async function ladeAuftragFuerLieferung(id: string): Promise<{ error: str
     if (!auftragId) return { error: 'Auftrag nicht gefunden.' }
     const { supabase, tenantId } = await getCtx()
     const { data: aRaw, error: aErr } = await (supabase.from('auftraege') as R)
-      .select('id, nummer, status, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).maybeSingle()
+      .select('id, nummer, status, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).eq('art', 'auftrag').maybeSingle()
     if (aErr) return { error: dbFehlerText(aErr, 'Der Auftrag konnte nicht geladen werden') }
     const a = aRaw as R | null
     if (!a) return { error: 'Auftrag nicht gefunden.' }
     if (!LIEFERBAR_STATUS.includes(String(a.status))) return { error: `Der Auftrag ${a.nummer} lässt sich nicht mehr liefern.` }
     const { data: zeilen, error: zErr } = await alle<R>((supabase.from('auftrag_positionen') as R)
-      .select('id, fuellung_id, name, menge, geliefert').eq('tenant_id', tenantId).eq('auftrag_id', auftragId).order('erstellt_am').order('id'))
+      .select('id, fuellung_id, name, menge, geliefert, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz').eq('tenant_id', tenantId).eq('auftrag_id', auftragId).order('erstellt_am').order('id'))
     if (zErr) return { error: dbFehlerText(zErr, 'Die Positionen des Auftrags konnten nicht geladen werden') }
     return {
       id: String(a.id), nummer: String(a.nummer),

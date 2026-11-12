@@ -29,9 +29,13 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const a = geladen(await (supabase.from('auftraege') as any)
-    .select('id, nummer, datum, status, reserviert_bis, notizen, kontakt_id, firma_id, storniert_am, storno_grund, abgeschlossen_am, ab_versendet_am, ab_versendet_an, erstellt_am')
-    .eq('id', id).eq('tenant_id', tenantId).maybeSingle(), 'Auftrag') as R | null
+    .select('id, nummer, datum, status, reserviert_bis, notizen, kontakt_id, firma_id, storniert_am, storno_grund, abgeschlossen_am, ab_versendet_am, ab_versendet_an, erstellt_am, angebot_id')
+    .eq('id', id).eq('tenant_id', tenantId).eq('art', 'auftrag').maybeSingle(), 'Auftrag') as R | null   // KAN-418 Teil 4: Angebote haben ihre eigene Seite
   if (!a) notFound()
+  // KAN-418 Teil 4: Auftrag aus einem Angebot – dessen Preise sind der Vorschlag für die Lieferung
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const angebot = a.angebot_id ? geladen(await (supabase.from('auftraege') as any)
+    .select('id, nummer').eq('id', a.angebot_id).eq('tenant_id', tenantId).eq('art', 'angebot').maybeSingle(), 'Angebot') as R | null : null
 
   const [posRes, kRes, fRes, lRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,7 +85,10 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold text-s112-text">Auftrag {a.nummer}</h1>
-          <p className="text-sm text-s112-muted mt-1">{tag(a.datum)} · {AUFTRAG_STATUS_LABEL[a.status as AuftragStatus] ?? a.status}</p>
+          <p className="text-sm text-s112-muted mt-1">
+            {tag(a.datum)} · {AUFTRAG_STATUS_LABEL[a.status as AuftragStatus] ?? a.status}
+            {angebot && <> · aus Angebot <Link href={`/weinhandel/angebote/${angebot.id}`} className="text-s112-blue-700 hover:underline">{angebot.nummer}</Link></>}
+          </p>
         </div>
         {darfSchreiben && reserviert && (
           <div className="flex flex-col items-end gap-2">
@@ -159,7 +166,10 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-s112-muted">Preise und Rabatte entstehen bei der Lieferung. Positionen lassen sich nicht ändern – bei Bedarf den Auftrag stornieren und neu erfassen.</p>
+        <p className="text-xs text-s112-muted">
+          {angebot ? `Bei der Lieferung werden die Preise aus dem Angebot ${angebot.nummer} vorgeschlagen (änderbar).` : 'Preise und Rabatte entstehen bei der Lieferung.'}
+          {' '}Positionen lassen sich nicht ändern – bei Bedarf den Auftrag stornieren und neu erfassen.
+        </p>
       </div>
 
       {lieferungen.length > 0 && (

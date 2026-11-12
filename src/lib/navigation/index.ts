@@ -143,6 +143,8 @@ const NAV: NavGroup[] = [
       { href: '/weinhandel/uebersicht',       label: 'Übersicht',          keywords: 'umsatz aufträge offene rechnungen überfällig top-kunden flaschenbestand dashboard' },
       { href: '/weinhandel',                  label: 'Warenlager',         phase: 1, keywords: 'flaschen füllungen bestand' },
       { href: '/weinhandel/verkauf',          label: 'Verkauf',            phase: 1, keywords: 'rechnung auftrag lieferschein' },
+      // KAN-418 Teil 4: Angebote mit Preisen, ohne Reservierung
+      { href: '/weinhandel/angebote',         label: 'Angebote',           phase: 1, keywords: 'angebot offerte preis kostenvoranschlag' },
       // KAN-418: Aufträge reservieren Flaschen (verfügbar = Bestand − reserviert)
       { href: '/weinhandel/auftraege',        label: 'Aufträge',           phase: 1, keywords: 'auftrag reservierung reserviert bestellung auftragsbestätigung' },
       { href: '/weinhandel/sammelrechnung',   label: 'Sammelrechnung',     phase: 1, keywords: 'lieferscheine rechnung zusammenfassen nicht berechnet' },   // KAN-104

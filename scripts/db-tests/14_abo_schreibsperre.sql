@@ -91,7 +91,7 @@ DECLARE
   -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste; s112_zukauf_buchen seit KAN-193; s112_verschnitt_buchen/s112_verschnitte_buchen seit KAN-112; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145 (s112_buchung_loeschen von KAN-166 entfällt seit KAN-88), s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B, journal_eroeffnen/journal_abgleichen seit KAN-40, s112_pruefnummernantrag_status_setzen seit KAN-97, s112_fuellung_nachtragen seit KAN-101, s112_charge_abstufen seit KAN-82, s112_fuellung_aendern seit KAN-378).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',   -- KAN-21: rechnungsnummer nur noch Service-Role (Prüfung bleibt)
-                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_artikel_bewegung_stornieren', 's112_artikel_buchen', 's112_artikel_verkauf_buchen', 's112_artikel_verkauf_stornieren', 's112_auftrag_ab_vermerken', 's112_auftrag_abschliessen', 's112_auftrag_anlegen', 's112_auftrag_liefern', 's112_auftrag_lieferung_zuruecknehmen', 's112_auftrag_stornieren', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_ea_beleg_loesen', 's112_ea_kosten_zuordnen', 's112_ea_stornieren', 's112_elabel_umleiten', 's112_etikettierung_stornieren', 's112_exportauftrag_aendern', 's112_freeze_korrektur', 's112_fuellung_aendern', 's112_fuellung_etikettieren', 's112_fuellung_nachtragen', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen', 's112_lager_einkauf', 's112_lager_einkauf_stornieren', 's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_produktion_buchen', 's112_produktion_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_psm_uebermittlung_protokollieren', 's112_rechnung_erstellen', 's112_rechnung_stornieren', 's112_sekt_stufe_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen', 's112_verarbeitung_stornieren', 's112_verkauf_samt_rechnung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zugangskorrektur_buchen', 's112_zugangskorrektur_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_angebot_aendern', 's112_angebot_anlegen', 's112_angebot_status_setzen', 's112_artikel_bewegung_stornieren', 's112_artikel_buchen', 's112_artikel_verkauf_buchen', 's112_artikel_verkauf_stornieren', 's112_auftrag_ab_vermerken', 's112_auftrag_abschliessen', 's112_auftrag_anlegen', 's112_auftrag_liefern', 's112_auftrag_lieferung_zuruecknehmen', 's112_auftrag_stornieren', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_ea_beleg_loesen', 's112_ea_kosten_zuordnen', 's112_ea_stornieren', 's112_elabel_umleiten', 's112_etikettierung_stornieren', 's112_exportauftrag_aendern', 's112_freeze_korrektur', 's112_fuellung_aendern', 's112_fuellung_etikettieren', 's112_fuellung_nachtragen', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen', 's112_lager_einkauf', 's112_lager_einkauf_stornieren', 's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_produktion_buchen', 's112_produktion_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_psm_uebermittlung_protokollieren', 's112_rechnung_erstellen', 's112_rechnung_stornieren', 's112_sekt_stufe_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen', 's112_verarbeitung_stornieren', 's112_verkauf_samt_rechnung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zugangskorrektur_buchen', 's112_zugangskorrektur_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -183,6 +183,9 @@ DECLARE
   v_auf_l     uuid;   -- KAN-418 Teil 2: Auftrag mit Position für die Lieferung, teilgelieferter Auftrag zum Abschließen
   v_pos_l     uuid;
   v_auf_t     uuid;
+  v_ang_a     uuid;    -- KAN-418 Teil 4: offenes Angebot (ändern)
+  v_ang_s     uuid;    -- KAN-418 Teil 4: offenes Angebot (ablehnen)
+  v_ang_pos   jsonb;
   v_bel_l     uuid;   -- KAN-415: verbuchter Beleg in B an einer Buchung im offenen Zeitraum
   v_exp_b     uuid;   -- KAN-429: Exportauftrag (Entwurf) in B
   v_za_b      uuid;
@@ -317,6 +320,11 @@ BEGIN
   v_auf_l := (pg_temp.s112_beispiel('auftraege', v_b, v_bw) ->> 'id')::uuid;   -- KAN-418 Teil 2
   v_pos_l := (pg_temp.s112_beispiel('auftrag_positionen', v_b, v_bw, jsonb_build_object('auftrag_id', v_auf_l, 'menge', 5)) ->> 'id')::uuid;
   v_auf_t := (pg_temp.s112_beispiel('auftraege', v_b, v_bw, jsonb_build_object('status', 'teilgeliefert')) ->> 'id')::uuid;
+  -- KAN-418 Teil 4: zwei offene Angebote (über die interne Funktion – Preise und Nummernkreis wie im Betrieb)
+  v_ang_pos := jsonb_build_array(jsonb_build_object('fuellung_id', pg_temp.s112_zeile('fuellungen', v_b, jsonb_build_object('name', 'S112TEST Angebot', 'aktiv', true)) ->> 'id',
+    'menge', '1', 'preis_brutto', '9.90', 'ust_satz', '13'));
+  v_ang_a := (public.s112_angebot_schreiben_intern(v_b, NULL, jsonb_build_object('kontakt_id', pg_temp.s112_zeile('kontakte', v_b, jsonb_build_object('nachname', 'S112TEST Angebot')) ->> 'id'), v_ang_pos) ->> 'id')::uuid;
+  v_ang_s := (public.s112_angebot_schreiben_intern(v_b, NULL, jsonb_build_object('kontakt_id', (SELECT kontakt_id FROM public.auftraege WHERE id = v_ang_a)), v_ang_pos) ->> 'id')::uuid;
   INSERT INTO public.ea_belege (tenant_id, ea_transaktion_id, dateiname, dateityp, storage_pfad, status, verbucht_am)   -- KAN-415
   VALUES (v_b, (pg_temp.s112_beispiel('ea_transaktionen', v_b, NULL, '{"is_locked": false}') ->> 'id')::uuid, 'S112TEST-abo.pdf', 'application/pdf',
           v_b::text || '/S112TEST-abo.pdf', 'verbucht', now()) RETURNING id INTO v_bel_l;
@@ -629,6 +637,12 @@ BEGIN
     's112_ea_beleg_loesen', format('SELECT public.s112_ea_beleg_loesen(%L, %L, %L)', v_b, v_bel_l, 'S112TEST Beleg lösen'),   -- KAN-415
     's112_exportauftrag_aendern', format('SELECT public.s112_exportauftrag_aendern(%L, %L, %L::jsonb, %L::jsonb)', v_b, v_exp_b,
       jsonb_build_object('datum', pg_temp.s112_heute()), jsonb_build_array(jsonb_build_object('beschreibung', 'S112TEST', 'menge', 1))));   -- KAN-429
+  v_rpc := v_rpc || jsonb_build_object(   -- KAN-418 Teil 4: Angebot
+    's112_angebot_anlegen', format('SELECT public.s112_angebot_anlegen(%L, %L::jsonb, %L::jsonb)', v_b,
+      jsonb_build_object('kontakt_id', (SELECT kontakt_id FROM public.auftraege WHERE id = v_ang_a)), v_ang_pos),
+    's112_angebot_aendern', format('SELECT public.s112_angebot_aendern(%L, %L, %L::jsonb, %L::jsonb)', v_b, v_ang_a,
+      jsonb_build_object('kontakt_id', (SELECT kontakt_id FROM public.auftraege WHERE id = v_ang_a)), v_ang_pos),
+    's112_angebot_status_setzen', format('SELECT public.s112_angebot_status_setzen(%L, %L, %L, %L)', v_b, v_ang_s, 'abgelehnt', ''));
   -- KAN-115: eigener Block (jsonb_build_object nimmt höchstens 100 Argumente)
   -- KAN-326: eigener Block – jsonb_build_object nimmt höchstens 100 Argumente (50 Paare, 54023)
   v_rpc := v_rpc || jsonb_build_object(
