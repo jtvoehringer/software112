@@ -759,7 +759,8 @@
 "verpackung_kg",
 "versanddatum",
 "zahlungsbedingungen",
-"kunde_uid"
+"kunde_uid",
+"mustersendung"
 ],
 "exportauftrag_positionen": [
 "id",

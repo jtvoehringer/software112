@@ -31,7 +31,7 @@ export default async function ExportauftragBearbeitenPage({ params }: { params: 
   // storno-sichtbar: ein stornierter Auftrag wird geladen, um auf die Detailseite zurückzuleiten (nicht bearbeitbar)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const auftrag = geladen(await (supabase.from('exportauftraege') as any)
-    .select('id, referenz, status, storniert_am, kontakt_id, firma_id, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, versicherungswert, verpackung_kg, notizen, versanddatum, zahlungsbedingungen, kunde_uid')
+    .select('id, referenz, status, storniert_am, kontakt_id, firma_id, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, versicherungswert, verpackung_kg, notizen, versanddatum, zahlungsbedingungen, kunde_uid, mustersendung')
     .eq('id', id).eq('tenant_id', tenantId).maybeSingle(), 'Exportauftrag') as R | null
   if (!auftrag) redirect('/weinexport')
   if (!exportBearbeitbar(auftrag as { status: string | null; storniert_am: string | null })) redirect(`/weinexport/${id}`)

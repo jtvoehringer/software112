@@ -55,12 +55,14 @@ describe('KAN-141 Druckleiste', () => {
 })
 
 describe('KAN-141 Weinexport-Route', () => {
-  test('alle sechs Dokumente haben die Druckleiste direkt nach <body>', () => {
+  // KAN-433: sieben Dokumente (+ Packliste); außer V1/V2 steht die Druckleiste in `leiste` (Druckleiste + Hinweisleiste)
+  test('alle sieben Dokumente haben die Druckleiste direkt nach <body>', () => {
     const bodies = ROUTE.match(/<body>/g) ?? []
-    const mitLeiste = ROUTE.match(/<body>\$\{druckleiste\(\)\}/g) ?? []
-    assert.equal(bodies.length, 6)
-    assert.equal(mitLeiste.length, 6)
-    for (const art of ['v1v2', 'eur1', 'cmr', 'certificate_of_origin', 'lieferschein', 'rechnung'])
+    const mitLeiste = ROUTE.match(/<body>\$\{(druckleiste\(\)|leiste)\}/g) ?? []
+    assert.equal(bodies.length, 7)
+    assert.equal(mitLeiste.length, 7)
+    assert.match(ROUTE, /const leiste = druckleiste\(\) \+ hinweisLeiste/)
+    for (const art of ['v1v2', 'eur1', 'cmr', 'certificate_of_origin', 'lieferschein', 'rechnung', 'packliste'])
       assert.match(ROUTE, new RegExp(`case '${art}':`))
   })
   test('CSS der Leiste im Style-Block, Antwort mit Druck-CSP', () => {

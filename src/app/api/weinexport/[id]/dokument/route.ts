@@ -7,10 +7,12 @@ import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { modulKonflikt } from '@/lib/auth/modul'
 import { heuteWien } from '@/lib/datum/wien'
 import { dbFehlerText } from '@/lib/fehler'
+import { EXPORT_WAEHLBARE_DOKUMENTE } from '@/lib/export/dokumente'
 export const dynamic = 'force-dynamic'
 
 // Erlaubte Werte laut Schema (Migration 043) – alles andere wird mit 400 abgelehnt
-const DOKUMENT_ARTEN  = ['v1v2', 'eur1', 'cmr', 'certificate_of_origin', 'phytosanitaer', 'lieferschein', 'rechnung']
+// KAN-433: eine Liste in src/lib/export/dokumente.ts; „Phytosanitär“ lässt sich nicht mehr neu anlegen (bestehende bleiben)
+const DOKUMENT_ARTEN: readonly string[] = EXPORT_WAEHLBARE_DOKUMENTE
 const DOKUMENT_STATUS = ['ausstehend', 'beantragt', 'ausgestellt', 'nicht_erforderlich']
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

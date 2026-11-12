@@ -255,7 +255,7 @@ describe('KAN-432: Verdrahtung', () => {
     assert.match(post, /flaschen_je_karton: posNeu\[i\]\?\.flaschen_je_karton \?\? null/)
     assert.ok(post.indexOf('exportauftragFehler(body)') < post.indexOf('const kopfNeu = exportKopf(body, destinationLand)'))
     const b = quelle('src/app/(dashboard)/weinexport/[id]/bearbeiten/page.tsx')
-    assert.match(b, /notizen, versanddatum, zahlungsbedingungen, kunde_uid'\)/)
+    assert.match(b, /notizen, versanddatum, zahlungsbedingungen, kunde_uid, mustersendung'\)/)   // KAN-433: + mustersendung
     assert.match(b, /sort_order, flaschen_je_karton'\)/)
   })
   test('Formular: Felder mit Längengrenze, Vorschlag aus Kunde und Betrieb, Flaschen je Karton je Position', () => {

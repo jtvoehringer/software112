@@ -10,10 +10,12 @@ import { normalisiereLand } from '@/lib/katalog/laender'
 import { modulKonflikt } from '@/lib/auth/modul'
 import { exportauftragFehler, exportKopf, exportPositionen, verpackungWert } from '@/lib/export/auftragEingabe'
 import { dbFehlerText } from '@/lib/fehler'
+import { EXPORT_STANDARD_DOKUMENTE } from '@/lib/export/dokumente'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const STANDARD_DOKUMENTE = ['v1v2','eur1','lieferschein','rechnung']
+// KAN-433: + Packliste (Entscheidung 1A) – Liste in src/lib/export/dokumente.ts
+const STANDARD_DOKUMENTE = EXPORT_STANDARD_DOKUMENTE
 
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
@@ -79,6 +81,7 @@ export async function POST(req: NextRequest) {
       versanddatum:        kopfNeu.versanddatum,
       zahlungsbedingungen: kopfNeu.zahlungsbedingungen,
       kunde_uid:           kopfNeu.kunde_uid,
+      mustersendung:       kopfNeu.mustersendung,   // KAN-433
       status:            'entwurf',
     }).select().single()
 
