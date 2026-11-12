@@ -13,8 +13,9 @@ import { fmtNum, zahlAus } from '@/lib/format'
 import { landAnzeige } from '@/lib/katalog/laender'
 import {
   EXPORT_STATUS_LABEL as STATUS_LABEL, EXPORT_DOK_LABEL as DOK_LABEL, EXPORT_DOK_STATUS_LABEL as DOK_STATUS_LABEL,
-  importeurName, type ExportPositionZeile,
+  importeurName, type ExportPositionZeile, type ExportauftragErgebnis,
 } from '@/lib/behoerden/exportauftrag'
+import { farbeLabel } from '@/lib/export/grunddaten'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const STATUS_COLOR: Record<string,string> = {
@@ -33,10 +34,14 @@ interface Props {
   csvHref: string
   /** KAN-414: Gewichte der Sendung aus derselben Ladefunktion */
   gewicht: SendungsGewicht
+  /** KAN-432: Lieferfall, abgeleitete Angaben je Position (Reihenfolge wie `zeilen`), Summen, Hinweisliste */
+  grunddaten: ExportauftragErgebnis['grunddaten']
   darfSchreiben: boolean
 }
 
-export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref, gewicht, darfSchreiben }: Props) {
+const tag = (d: unknown) => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(0, 10).split('-').reverse().join('.') : '–')
+
+export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref, gewicht, grunddaten, darfSchreiben }: Props) {
   const router = useRouter()
   const [verpackung, setVerpackung] = useState(auftrag.verpackung_kg == null ? '' : String(auftrag.verpackung_kg))
 
@@ -133,6 +138,18 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
         <GesperrtHinweis grund="Exportauftrag versendet – zum Bearbeiten von Kopfdaten und Positionen den Status auf „Bestätigt“ zurückstellen" erlaubt={['Status', 'EMCS-Angaben', 'Verpackung', 'Dokumente']} />
       )}
 
+      {/* KAN-432: was den Dokumenten noch fehlt – nie geschätzt, immer mit dem Weg zur Stelle, an der der Wert gepflegt wird */}
+      {!auftrag.storniert_am && grunddaten.hinweise.length > 0 && (
+        <div role="status" className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 mb-5 text-sm text-s112-warn-fg">
+          <p className="font-semibold">Für die Dokumente fehlt noch:</p>
+          <ul className="list-disc pl-5 mt-1 space-y-0.5">
+            {grunddaten.hinweise.map((h, i) => (
+              <li key={i}>{h.text}{h.href && <> <Link href={h.href} className="underline">Eintragen</Link></>}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-6">
         {/* Linke Spalte: Auftragsdaten + Positionen */}
         <div className="col-span-2 space-y-5">
@@ -141,6 +158,10 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
             <h2 className="font-semibold text-s112-text mb-4">Auftragsdaten</h2>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <div><dt className="text-xs text-s112-muted">Importeur</dt><dd className="font-medium">{importeur}</dd></div>
+              <div><dt className="text-xs text-s112-muted">Lieferfall</dt><dd><span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-blue-100 text-s112-blue-700">{grunddaten.lieferfall.label}</span></dd></div>
+              <div><dt className="text-xs text-s112-muted">UID Importeur</dt><dd className="font-mono text-xs">{auftrag.kunde_uid ?? '–'}</dd></div>
+              <div><dt className="text-xs text-s112-muted">Versanddatum</dt><dd>{tag(auftrag.versanddatum)}</dd></div>
+              <div className="col-span-2"><dt className="text-xs text-s112-muted">Zahlungsbedingungen</dt><dd>{auftrag.zahlungsbedingungen ?? '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Incoterms</dt><dd>{auftrag.incoterms ?? '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Datum</dt><dd>{auftrag.datum ? new Date(auftrag.datum).toLocaleDateString('de-AT') : '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Lieferdatum</dt><dd>{auftrag.lieferdatum ? new Date(auftrag.lieferdatum).toLocaleDateString('de-AT') : '–'}</dd></div>
@@ -203,30 +224,55 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                   <tr>
                     <th className="pb-2 text-left">Bezeichnung</th>
                     <th className="pb-2 text-right">Menge</th>
+                    <th className="pb-2 text-right">Kartons</th>
+                    <th className="pb-2 text-right">Liter</th>
+                    <th className="pb-2 text-right">% vol</th>
                     <th className="pb-2 text-right">€/Einheit</th>
                     <th className="pb-2 text-right">Gesamt</th>
                     <th className="pb-2 text-left pl-3">TARIC</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-s112-border/30">
-                  {zeilen.map(z => (
+                  {zeilen.map((z, i) => {
+                    const g = grunddaten.positionen[i]
+                    const unter = [z.rebsorte, z.jahrgang, farbeLabel(g?.farbe ?? null), z.pruefnummer ? `Prüfnr. ${z.pruefnummer}` : null].filter(Boolean).join(' · ')
+                    return (
                     <tr key={z.positionId}>
-                      <td className="py-2">{z.bezeichnung ?? '–'}</td>
+                      <td className="py-2">{z.bezeichnung ?? '–'}{unter && <span className="block text-xs text-s112-muted">{unter}</span>}</td>
                       <td className="py-2 text-right">{z.menge === null ? '–' : fmtNum(z.menge, { max: 2 })} {z.einheit}</td>
+                      <td className="py-2 text-right tabular-nums" title={z.flaschenJeKarton ? `${z.flaschenJeKarton} Flaschen je Karton${g?.anbruch ? `, letzter Karton mit ${fmtNum(g.anbruch, { max: 2 })}` : ''}` : undefined}>
+                        {z.kartons === null ? '–' : fmtNum(z.kartons, 0)}{g?.anbruch ? '*' : ''}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">{z.liter === null ? '–' : fmtNum(z.liter, { max: 2 })}</td>
+                      <td className="py-2 text-right tabular-nums" title={g?.alkoholQuelle === 'analyse' ? 'aus der jüngsten Analyse der Charge' : g?.alkoholQuelle ? 'aus dem Prüfnummernantrag' : undefined}>
+                        {z.alkohol === null ? '–' : fmtNum(z.alkohol, 1)}
+                      </td>
                       <td className="py-2 text-right">{z.preisEur === null ? '–' : fmtNum(z.preisEur, 2)}</td>
                       <td className="py-2 text-right font-medium">
                         {z.wertEur === null ? '–' : fmtNum(z.wertEur, 2)}
                       </td>
                       <td className="py-2 text-left pl-3 font-mono text-xs text-s112-muted">{z.taric}</td>
                     </tr>
-                  ))}
+                    )
+                  })}
                   <tr className="border-t-2 border-s112-border font-semibold">
-                    <td colSpan={3} className="pt-2 text-right text-xs uppercase tracking-wide text-s112-muted">Gesamtwert EUR</td>
+                    <td colSpan={6} className="pt-2 text-right text-xs uppercase tracking-wide text-s112-muted">Gesamtwert EUR</td>
                     <td className="pt-2 text-right">{fmtNum(gesamtEur, 2)}</td>
                     <td />
                   </tr>
                 </tbody>
               </table>
+            )}
+            {/* KAN-432: Summen wie in Handelsrechnung und Packliste (Rosé zählt zu rot) */}
+            {zeilen.length > 0 && (
+              <p className="text-xs text-s112-muted mt-3 tabular-nums">
+                {fmtNum(grunddaten.summen.flaschen, { max: 2 })} Flaschen
+                {' · '}{grunddaten.summen.kartons === null ? 'Kartons unvollständig' : `${fmtNum(grunddaten.summen.kartons, 0)} Kartons`}
+                {' · '}{grunddaten.summen.liter === null ? 'Liter unvollständig' : `${fmtNum(grunddaten.summen.liter, { max: 2 })} l gesamt`}
+                {' · '}{fmtNum(grunddaten.summen.literWeiss, { max: 2 })} l weiß · {fmtNum(grunddaten.summen.literRot, { max: 2 })} l rot
+                {grunddaten.summen.literOhneFarbe > 0 ? ` · ${fmtNum(grunddaten.summen.literOhneFarbe, { max: 2 })} l ohne Farbe` : ''}
+                {grunddaten.positionen.some(g => g.anbruch) ? ' · * letzter Karton nicht voll' : ''}
+              </p>
             )}
           </div>
         </div>

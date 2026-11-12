@@ -22,6 +22,8 @@ export const GEWICHT_STELLEN = 2
 export type GewichtPosition = {
   menge?: unknown
   einheit?: unknown
+  /** KAN-432: Flaschen je Karton – bei der Einheit „Kiste“ die Flaschen je Kiste (ganze Zahl 1–60) */
+  flaschen_je_karton?: unknown
   /** Füllung der Position (null/undefined: freie Position ohne Füllung) */
   fuellung?: { flaschengroesse_ml?: unknown; leergewicht_g?: unknown; /** für den Hinweis am Auftrag (UAT 12.11.2026) */ id?: unknown; name?: unknown; jahrgang?: unknown } | null
 }
@@ -66,8 +68,10 @@ export function positionsGewicht(p: GewichtPosition): PositionsGewicht {
     const kg = rund(liter * WEIN_KG_JE_LITER, GEWICHT_STELLEN)
     return { liter: rund(liter, 3), flaschen: null, nettoKg: kg, bruttoKg: kg, fehlt: null }
   }
-  if (einheit === 'Kiste') return { ...leerErg, fehlt: 'kiste' }
-  const flaschen = menge
+  // KAN-432: eine Kiste hat so viele Flaschen wie „Flaschen je Karton“ der Position; ohne diese Angabe kein Gewicht
+  const jeKiste = einheit === 'Kiste' ? zahl(p.flaschen_je_karton) : null
+  if (einheit === 'Kiste' && (jeKiste === null || !Number.isInteger(jeKiste) || jeKiste < 1 || jeKiste > 60)) return { ...leerErg, fehlt: 'kiste' }
+  const flaschen = einheit === 'Kiste' ? menge * (jeKiste as number) : menge
   if (!p.fuellung) return { ...leerErg, flaschen, fehlt: 'fuellung' }
   const ml = zahl(p.fuellung.flaschengroesse_ml)
   if (ml === null || !(ml > 0)) return { ...leerErg, flaschen, fehlt: 'flaschengroesse' }
@@ -119,7 +123,7 @@ export function sendungsGewicht(positionen: readonly GewichtPosition[], verpacku
   }
   if (gruende.has('fuellung')) teile.push('mindestens eine Position hat keine Füllung')
   if (gruende.has('flaschengroesse')) teile.push('bei mindestens einer Füllung fehlt die Flaschengröße')
-  if (gruende.has('kiste')) teile.push('bei der Einheit „Kiste“ ist die Flaschenzahl unbekannt – bitte in Flaschen erfassen')
+  if (gruende.has('kiste')) teile.push('bei der Einheit „Kiste“ fehlen die Flaschen je Karton')
   if (gruende.has('menge')) teile.push('mindestens eine Position hat keine Menge')
   return {
     positionen: pos,

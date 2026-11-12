@@ -8,6 +8,7 @@ import { fmtNum } from '@/lib/format'
 import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog
 import { heuteWien } from '@/lib/datum/wien'
 import { INCOTERMS, TRANSPORTARTEN as TRANSPORT, EXPORT_EINHEITEN, EXPORT_MAX, exportauftragFehler } from '@/lib/export/auftragEingabe'
+import { KARTON_MAX, KARTON_MIN, KARTON_STANDARD, KUNDE_UID_MAX, ZAHLUNGSBEDINGUNGEN_MAX, lieferfall, zahlungsbedingungenVorschlag } from '@/lib/export/grunddaten'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { fehlerText } from '@/lib/fehler'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -15,12 +16,15 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 /** KAN-429: vorhandener Auftrag (Entwurf oder Bestätigt) – das Formular speichert dann per PUT statt neu anzulegen */
 export type ExportBearbeiten = { id: string; referenz: string | null; auftrag: R; positionen: R[] }
-interface Props { kontakte: R[]; firmen: R[]; fuellungen: R[]; tenantId: string; bearbeiten?: ExportBearbeiten }
+/** KAN-432: Vorgaben des Betriebs – Standard „Flaschen je Karton“ und Zahlungsziel (Tage) für den Vorschlag der Zahlungsbedingungen */
+export type ExportVorgaben = { flaschenJeKarton: number; zahlungszielTage: number | null }
+interface Props { kontakte: R[]; firmen: R[]; fuellungen: R[]; tenantId: string; bearbeiten?: ExportBearbeiten; vorgaben?: ExportVorgaben }
 
 const alsText = (v: unknown) => (v === null || v === undefined ? '' : String(v))
 
-export default function WeinexportFormClient({ kontakte, firmen, fuellungen, tenantId, bearbeiten }: Props) {
+export default function WeinexportFormClient({ kontakte, firmen, fuellungen, tenantId, bearbeiten, vorgaben }: Props) {
   const alt = bearbeiten?.auftrag ?? null
+  const kartonStandard = String(vorgaben?.flaschenJeKarton ?? KARTON_STANDARD)
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [fehler, setFehler] = useState<string|null>(null)
@@ -41,15 +45,31 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   const [versicherung, setVersicherung] = useState(alsText(alt?.versicherungswert))
   const [verpackung, setVerpackung] = useState(alsText(alt?.verpackung_kg))   // KAN-414: Kartons/Palette in kg
   const [notizen, setNotizen]       = useState(alsText(alt?.notizen))
+  // KAN-432: Grunddaten für die Dokumente
+  const [versanddatum, setVersanddatum] = useState(alsText(alt?.versanddatum).slice(0, 10))
+  const [kundeUid, setKundeUid]     = useState(alsText(alt?.kunde_uid))
+  const [zahlung, setZahlung]       = useState(alt ? alsText(alt?.zahlungsbedingungen) : zahlungsbedingungenVorschlag(vorgaben?.zahlungszielTage ?? null))
+
+  /** Kunde gewählt: UID (Firma) und Zahlungsbedingungen vorschlagen – eine eigene Eingabe bleibt stehen */
+  function kundeGewaehlt(typ: 'firma' | 'kontakt', id: string) {
+    const k = (typ === 'firma' ? firmen : kontakte).find(x => x.id === id)
+    const uidAlt = alsText(firmen.find(x => x.id === firmaId)?.uid_nummer)
+    if (!kundeUid.trim() || kundeUid.trim() === uidAlt) setKundeUid(typ === 'firma' ? alsText(k?.uid_nummer) : '')
+    const vorschlaege = new Set([...firmen, ...kontakte].map(x => zahlungsbedingungenVorschlag(x.zahlungsziel_tage)).concat(zahlungsbedingungenVorschlag(vorgaben?.zahlungszielTage ?? null)))
+    if (!zahlung.trim() || vorschlaege.has(zahlung.trim())) {
+      setZahlung(zahlungsbedingungenVorschlag(k?.zahlungsziel_tage ?? null) || zahlungsbedingungenVorschlag(vorgaben?.zahlungszielTage ?? null))
+    }
+  }
 
   // Positionen
   const [positionen, setPositionen] = useState<R[]>(() => (bearbeiten?.positionen ?? []).map(p => ({
     fullung_id: alsText(p.fullung_id), beschreibung: alsText(p.beschreibung), menge: alsText(p.menge), einheit: alsText(p.einheit) || 'Fl',
     preis_eur: alsText(p.preis_eur), taric_code: alsText(p.taric_code) || '2204.21',
+    flaschen_je_karton: alsText(p.flaschen_je_karton),
   })))
 
   function addPosition() {
-    setPositionen(p => [...p, { fullung_id: '', beschreibung: '', menge: '', einheit: 'Fl', preis_eur: '', taric_code: '2204.21' }])
+    setPositionen(p => [...p, { fullung_id: '', beschreibung: '', menge: '', einheit: 'Fl', preis_eur: '', taric_code: '2204.21', flaschen_je_karton: kartonStandard }])
   }
   function updatePos(i: number, field: string, val: string) {
     setPositionen(p => p.map((pos, idx) => idx === i ? { ...pos, [field]: val } : pos))
@@ -72,6 +92,9 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
       versicherungswert: versicherung ? parseFloat(versicherung) : null,
       verpackung_kg: verpackung ? parseFloat(verpackung) : null,
       notizen: notizen || null,
+      versanddatum: versanddatum || null,
+      zahlungsbedingungen: zahlung.trim() || null,
+      kunde_uid: kundeUid.trim() || null,
       positionen,
     }
     // KAN-429: dieselbe Prüfung wie Route und Datenbank – u. a. jede Position mit Menge über 0
@@ -132,19 +155,30 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             </button>
           </div>
           {empfaengerTyp === 'firma' ? (
-            <select value={firmaId} onChange={e => setFirmaId(e.target.value)}
+            <select aria-label="Firma" value={firmaId} onChange={e => { setFirmaId(e.target.value); kundeGewaehlt('firma', e.target.value) }}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Firma wählen –</option>
               {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           ) : (
-            <select value={kontaktId} onChange={e => setKontaktId(e.target.value)}
+            <select aria-label="Kontakt" value={kontaktId} onChange={e => { setKontaktId(e.target.value); kundeGewaehlt('kontakt', e.target.value) }}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kontakt wählen –</option>
               {kontakte.map(k => <option key={k.id} value={k.id}>{k.vorname} {k.nachname}</option>)}
             </select>
           )}
           <div className="grid grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer Importeur</label>
+              <input aria-label="UID-Nummer Importeur" maxLength={KUNDE_UID_MAX} value={kundeUid} onChange={e => setKundeUid(e.target.value)} placeholder="z.B. DE123456789"
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+              <p className="text-xs text-s112-muted mt-1">Mit UID gilt die Lieferung als B2B. Derzeit: <span className="font-medium text-s112-text-2">{lieferfall({ destination_land: destLand, kunde_uid: kundeUid }).label}</span></p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Zahlungsbedingungen</label>
+              <input aria-label="Zahlungsbedingungen" maxLength={ZAHLUNGSBEDINGUNGEN_MAX} value={zahlung} onChange={e => setZahlung(e.target.value)} placeholder="z.B. Zahlbar innerhalb von 30 Tagen netto"
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">EORI-Nummer Importeur</label>
               <input aria-label="EORI-Nummer Importeur" maxLength={EXPORT_MAX.eori} value={eori} onChange={e => setEori(e.target.value)} placeholder="z.B. AT1234567890"
@@ -177,6 +211,12 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Lieferdatum (geplant)</label>
               <input aria-label="Lieferdatum (geplant)" type="date" value={lieferdatum} onChange={e => setLieferdatum(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Versanddatum</label>
+              <input aria-label="Versanddatum" type="date" value={versanddatum} onChange={e => setVersanddatum(e.target.value)}
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+              <p className="text-xs text-s112-muted mt-1">Tag, an dem die Ware das Lager verlässt – lässt sich bis „Versendet“ nachtragen.</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Incoterms</label>
@@ -235,7 +275,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
                   {fuellungen.map(f => <option key={f.id} value={f.id}>{f.name}{f.bezeichnung ? ' – ' + f.bezeichnung : ''}{f.jahrgang ? ' ' + f.jahrgang : ''} ({f.bestand_flaschen} Fl.)</option>)}
                 </select>
               </div>
-              <div className="col-span-3">
+              <div className="col-span-2">
                 <input value={pos.beschreibung} onChange={e => updatePos(i, 'beschreibung', e.target.value)}
                   placeholder="Bezeichnung" className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden" />
               </div>
@@ -248,6 +288,13 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
                   className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden">
                   {EXPORT_EINHEITEN.map(e => <option key={e}>{e}</option>)}
                 </select>
+              </div>
+              {/* KAN-432: Flaschen je Karton (bei „Kiste“ = Flaschen je Kiste); lose Ware hat keine */}
+              <div className="col-span-1">
+                <input aria-label={`Flaschen je Karton ${i + 1}`} title="Flaschen je Karton" type="number" step="1" min={KARTON_MIN} max={KARTON_MAX}
+                  value={pos.einheit === 'HL' ? '' : pos.flaschen_je_karton} disabled={pos.einheit === 'HL'}
+                  onChange={e => updatePos(i, 'flaschen_je_karton', e.target.value)}
+                  placeholder="Fl./Kt." className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden disabled:bg-s112-bg" />
               </div>
               <div className="col-span-2">
                 <input type="number" step="0.01" value={pos.preis_eur} onChange={e => updatePos(i, 'preis_eur', e.target.value)}

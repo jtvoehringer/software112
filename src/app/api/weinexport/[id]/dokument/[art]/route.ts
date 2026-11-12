@@ -92,7 +92,7 @@ export async function GET(
   const importeur = a.firmen?.name ?? (a.kontakte ? kontaktAnzeigename(a.kontakte) : '') ?? '–'
   const gesamtEUR = gesamtWert(pos)
   // KAN-414: Gewichte je Position und Sendung; fehlt eine Angabe, bleibt das Feld leer (kein Schätzwert)
-  const gew = sendungsGewicht(pos.map(p => ({ menge: p.menge, einheit: p.einheit, fuellung: p.fuellungen ?? null })), a.verpackung_kg)
+  const gew = sendungsGewicht(pos.map(p => ({ menge: p.menge, einheit: p.einheit, flaschen_je_karton: p.flaschen_je_karton, fuellung: p.fuellungen ?? null })), a.verpackung_kg)
   const kg = (n: number | null | undefined) => kgText(n) || '–'
   const kgMit = (n: number | null | undefined) => (n == null ? '–' : kgText(n) + ' kg')   // mit Einheit
   const mitVerpackung = gew.verpackungKg > 0 ? ' (inkl. Verpackung)' : ''
@@ -415,7 +415,8 @@ export async function GET(
         </tr>
         </tbody></table>
         <div class="box" style="margin-top:4mm;font-size:9pt">
-          <strong>Zahlungsbedingungen / Payment Terms:</strong> ${e(a.incoterms ?? '–')} · 
+          <strong>Lieferbedingungen / Delivery Terms:</strong> ${e(a.incoterms ?? '–')} ·
+          <strong>Zahlungsbedingungen / Payment Terms:</strong> ${e(a.zahlungsbedingungen ?? '–')} · 
           Währung / Currency: EUR ·
           Nettogewicht / Net weight: ${e(kgMit(gew.nettoKg))} · 
           Bruttogewicht / Gross weight: ${e(kgMit(gew.bruttoKg))} · 

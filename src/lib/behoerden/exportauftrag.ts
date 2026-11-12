@@ -17,10 +17,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase-Abfragen nach Projektkonvention mit „as any“ (CLAUDE.md) */
 import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken as ladeInBloecken } from '@/lib/supabase/alle'
 import { UUID_RE, feld, inBloecken, textOderNull, type R } from './verkehr-hilfen'
 import { AktionsFehler } from '@/lib/fehler'
 import { positionsGewicht, sendungsGewicht, type SendungsGewicht } from '../export/gewicht'
+import {
+  farbeLabel, grunddatenHinweise, grunddatenPosition, grunddatenSummen, juengsteAnalyse, lieferfall,
+  type GrunddatenEingabe, type GrunddatenHinweis, type GrunddatenPosition, type GrunddatenSummen, type Lieferfall,
+} from '../export/grunddaten'
+import { exportBearbeitbar } from '../export/auftragEingabe'
 
 export const EXPORT_STATUS_LABEL: Record<string, string> = {
   entwurf: 'Entwurf', bestaetigt: 'Bestätigt', versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
@@ -49,7 +54,12 @@ export type ExportPositionZeile = {
   referenz: string | null
   datum: string | null
   lieferdatum: string | null
+  /** KAN-432 */
+  versanddatum: string | null
   importeur: string | null
+  /** KAN-432: UID des Kunden und Lieferfall („EU · B2B“ …) */
+  kundeUid: string | null
+  lieferfall: string | null
   eori: string | null
   bestimmungsland: string | null
   bestimmungsort: string | null
@@ -69,13 +79,25 @@ export type ExportPositionZeile = {
   /** KAN-414: Gewicht der Position in kg (null, wenn Flaschengröße bzw. Leergewicht fehlen) */
   nettoKg: number | null
   bruttoKg: number | null
+  /** KAN-432: aus Füllung, Prüfnummernantrag und Analyse abgeleitet (null = unbekannt, nie geschätzt) */
+  flaschen: number | null
+  flaschenJeKarton: number | null
+  kartons: number | null
+  alkohol: number | null
+  pruefnummer: string | null
+  farbe: string | null
+  rebsorte: string | null
+  jahrgang: string | null
 }
 
 export const SPALTEN_EXPORTAUFTRAG: CsvSpalte<ExportPositionZeile>[] = [
   { kopf: 'Referenz', typ: 'code', wert: z => z.referenz },
   { kopf: 'Datum', typ: 'datum', wert: z => z.datum },
   { kopf: 'Lieferdatum', typ: 'datum', wert: z => z.lieferdatum },
+  { kopf: 'Versanddatum', typ: 'datum', wert: z => z.versanddatum },
   { kopf: 'Importeur', typ: 'text', wert: z => z.importeur },
+  { kopf: 'UID Importeur', typ: 'code', wert: z => z.kundeUid },
+  { kopf: 'Lieferfall', typ: 'text', wert: z => z.lieferfall },
   { kopf: 'EORI Importeur', typ: 'code', wert: z => z.eori },
   { kopf: 'Bestimmungsland', typ: 'text', wert: z => z.bestimmungsland },
   { kopf: 'Bestimmungsort', typ: 'text', wert: z => z.bestimmungsort },
@@ -94,6 +116,15 @@ export const SPALTEN_EXPORTAUFTRAG: CsvSpalte<ExportPositionZeile>[] = [
   { kopf: 'Bruttogewicht (kg)', typ: 'dezimal', stellen: 2, wert: z => z.bruttoKg },
   { kopf: 'Preis je Einheit (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.preisEur },
   { kopf: 'Wert (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.wertEur },
+  // KAN-432: Angaben für Packliste und Begleitdokumente
+  { kopf: 'Flaschen', typ: 'dezimal', stellen: 2, wert: z => z.flaschen },
+  { kopf: 'Flaschen je Karton', typ: 'ganzzahl', wert: z => z.flaschenJeKarton },
+  { kopf: 'Kartons', typ: 'ganzzahl', wert: z => z.kartons },
+  { kopf: 'Alkohol (% vol)', typ: 'dezimal', stellen: 1, wert: z => z.alkohol },
+  { kopf: 'Prüfnummer', typ: 'code', wert: z => z.pruefnummer },
+  { kopf: 'Farbe', typ: 'text', wert: z => z.farbe },
+  { kopf: 'Rebsorte', typ: 'text', wert: z => z.rebsorte },
+  { kopf: 'Jahrgang', typ: 'code', wert: z => z.jahrgang },
 ]
 
 function zahlOderNull(v: unknown): number | null {
@@ -115,7 +146,7 @@ export function importeurName(a: R): string | null {
  * Volumen in Litern aus Menge und Einheit (Exportformular: Fl, Kiste, HL; zusätzlich l/Liter).
  * Nicht bestimmbar → null und ein Grund für die Warnung.
  */
-export function literAus(menge: number | null, einheit: string | null, flaschengroesseMl: number | null): { liter: number | null; grund?: string } {
+export function literAus(menge: number | null, einheit: string | null, flaschengroesseMl: number | null, flaschenJeKiste: number | null = null): { liter: number | null; grund?: string } {
   if (menge === null) return { liter: null }
   const e = (einheit ?? '').trim().toLowerCase()
   if (e === 'hl') return { liter: runden(menge * 100, STELLEN.liter) }
@@ -124,7 +155,11 @@ export function literAus(menge: number | null, einheit: string | null, flascheng
     if (flaschengroesseMl && flaschengroesseMl > 0) return { liter: runden((menge * flaschengroesseMl) / 1000, STELLEN.liter) }
     return { liter: null, grund: 'Flaschengröße unbekannt (keine Füllung verknüpft)' }
   }
-  if (e === 'kiste') return { liter: null, grund: 'Einheit „Kiste“: Flaschen je Kiste unbekannt' }
+  if (e === 'kiste') {   // KAN-432: Flaschen je Karton der Position = Flaschen je Kiste
+    if (!flaschenJeKiste || flaschenJeKiste < 1) return { liter: null, grund: 'Einheit „Kiste“: Flaschen je Kiste unbekannt' }
+    if (flaschengroesseMl && flaschengroesseMl > 0) return { liter: runden((menge * flaschenJeKiste * flaschengroesseMl) / 1000, STELLEN.liter) }
+    return { liter: null, grund: 'Flaschengröße unbekannt (keine Füllung verknüpft)' }
+  }
   return { liter: null, grund: `Einheit „${einheit ?? ''}“ nicht in Liter umrechenbar` }
 }
 
@@ -140,12 +175,15 @@ export function summeGerundet(werte: readonly (number | null)[]): number {
 }
 
 /** Positionen eines Auftrags → CSV-Zeilen; `warnungen` erhält nicht umrechenbare Liter */
-export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, warnungen: string[]): ExportPositionZeile[] {
+export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, warnungen: string[], grunddaten?: readonly GrunddatenPosition[]): ExportPositionZeile[] {
   const kopf = {
     referenz: textOderNull(auftrag.referenz),
     datum: textOderNull(auftrag.datum),
     lieferdatum: textOderNull(auftrag.lieferdatum),
+    versanddatum: textOderNull(auftrag.versanddatum),
     importeur: importeurName(auftrag),
+    kundeUid: textOderNull(auftrag.kunde_uid),
+    lieferfall: lieferfall(auftrag).label,
     eori: textOderNull(auftrag.eori_kunde),
     bestimmungsland: textOderNull(auftrag.destination_land),
     bestimmungsort: textOderNull(auftrag.destination_stadt),
@@ -160,8 +198,10 @@ export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, w
     const preis = zahlOderNull(p.preis_eur)
     const ml = zahlOderNull(p.fuellungen?.flaschengroesse_ml)
     const einheit = textOderNull(p.einheit)
-    const l = literAus(menge, einheit, ml)
-    const g = positionsGewicht({ menge: p.menge, einheit: p.einheit, fuellung: p.fuellungen ?? null })   // KAN-414
+    const jeKarton = zahlOderNull(p.flaschen_je_karton)
+    const l = literAus(menge, einheit, ml, jeKarton)
+    const g = positionsGewicht({ menge: p.menge, einheit: p.einheit, flaschen_je_karton: p.flaschen_je_karton, fuellung: p.fuellungen ?? null })   // KAN-414
+    const gd = grunddaten?.[i] ?? grunddatenPosition(grunddatenEingabe(p, null, null))   // KAN-432
     if (l.grund) ohneLiter.push(`Pos. ${i + 1}: ${l.grund}`)
     return {
       ...kopf,
@@ -177,6 +217,14 @@ export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, w
       wertEur: positionsWert(menge, preis),
       nettoKg: g.nettoKg,
       bruttoKg: g.bruttoKg,
+      flaschen: gd.flaschen,
+      flaschenJeKarton: gd.flaschenJeKarton,
+      kartons: gd.kartons,
+      alkohol: gd.alkohol,
+      pruefnummer: gd.pruefnummer,
+      farbe: farbeLabel(gd.farbe) || null,
+      rebsorte: gd.rebsorte,
+      jahrgang: gd.jahrgang,
     }
   })
   if (ohneLiter.length > 0) {
@@ -184,6 +232,14 @@ export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, w
     warnungen.push(`${ref}Volumen (l) leer gelassen – ${ohneLiter.slice(0, 5).join('; ')}${ohneLiter.length > 5 ? ' …' : ''}`)
   }
   return zeilen
+}
+
+/** KAN-432: Eingabe für die abgeleiteten Angaben einer Position (Füllung eingebettet, Antrag und Analyse dazugeladen) */
+export function grunddatenEingabe(p: R, antrag: R | null, analyseAlkohol: unknown): GrunddatenEingabe {
+  return {
+    menge: p.menge, einheit: p.einheit, flaschen_je_karton: p.flaschen_je_karton, taric_code: p.taric_code, beschreibung: p.beschreibung,
+    fuellung: p.fuellungen ?? null, antrag, analyseAlkohol,
+  }
 }
 
 // ── Laden: einzelner Auftrag ─────────────────────────────────────────────────
@@ -198,6 +254,8 @@ export type ExportauftragErgebnis = {
   gesamtEur: number
   /** KAN-414: Netto-/Bruttogewicht der Sendung (Brutto inkl. Verpackung des Auftrags) */
   gewicht: SendungsGewicht
+  /** KAN-432: Lieferfall, abgeleitete Angaben je Position (in der Reihenfolge von `zeilen`), Summen und Hinweisliste */
+  grunddaten: { lieferfall: Lieferfall; positionen: GrunddatenPosition[]; summen: GrunddatenSummen; hinweise: GrunddatenHinweis[] }
   warnungen: string[]
 }
 
@@ -218,7 +276,7 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
     // exportauftrag_positionen/export_dokumente haben keine tenant_id – sie hängen am
     // mandantengefilterten Auftrag (RLS über den Auftrag); ohne Auftrag wird unten nichts ausgegeben
     alle<R>((supabase.from('exportauftrag_positionen') as any)
-      .select('id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order, fuellungen(id,name,jahrgang,bezeichnung,flaschengroesse_ml,leergewicht_g)')
+      .select('id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order, flaschen_je_karton, fuellungen(id,name,jahrgang,bezeichnung,flaschengroesse_ml,leergewicht_g,rebsorte,weinart,pruefnummer,weinausbau_id,dac_antrag_id)')
       .eq('exportauftrag_id', p.id)
       .order('sort_order')
       .order('id')),
@@ -228,7 +286,7 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
       .order('dokument_art')
       .order('id')),
     (supabase.from('tenant_einstellungen') as any)
-      .select('betrieb_uid')
+      .select('betrieb_uid, betrieb_eori')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
@@ -239,13 +297,44 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
   const auftrag = auftragRes.data as R | null
   if (!auftrag) return null
 
+  // KAN-432: Alkohol und Prüfnummer – Prüfnummernantrag der Füllung, sonst die jüngste nicht stornierte Analyse der Charge.
+  // Listen aus den Positionen EINES Auftrags (höchstens 200) – trotzdem in Blöcken.
+  const antragIds = [...new Set(posRes.data.map(x => x.fuellungen?.dac_antrag_id).filter(Boolean))] as string[]
+  const chargeIds = [...new Set(posRes.data.map(x => x.fuellungen?.weinausbau_id).filter(Boolean))] as string[]
+  const [antragRes, analyseRes] = await Promise.all([
+    ladeInBloecken<R>(antragIds, b => alle<R>((supabase.from('dac_antrag') as any)
+      .select('id, alkohol_prozent, pruefnummer').eq('tenant_id', tenantId).in('id', b).is('storniert_am', null).order('id'))),
+    ladeInBloecken<R>(chargeIds, b => alle<R>((supabase.from('weinanalysen') as any)
+      .select('id, weinausbau_id, analyse_datum, created_at, alkohol_vol').eq('tenant_id', tenantId).in('weinausbau_id', b).is('storniert_am', null)
+      .order('analyse_datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }))),
+  ])
+  if (antragRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (dac_antrag): ${antragRes.error.message}`)
+  if (analyseRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (weinanalysen): ${analyseRes.error.message}`)
+  const antraege = new Map((antragRes.data ?? []).map(x => [x.id as string, x]))
+  const analysenJeCharge = new Map<string, R[]>()
+  for (const x of analyseRes.data ?? []) analysenJeCharge.set(x.weinausbau_id, [...(analysenJeCharge.get(x.weinausbau_id) ?? []), x])
+  const eingaben = posRes.data.map(x => grunddatenEingabe(x,
+    x.fuellungen?.dac_antrag_id ? antraege.get(x.fuellungen.dac_antrag_id) ?? null : null,
+    x.fuellungen?.weinausbau_id ? juengsteAnalyse(analysenJeCharge.get(x.fuellungen.weinausbau_id) ?? [])?.alkohol_vol ?? null : null))
+  const gdPositionen = eingaben.map(grunddatenPosition)
+
   const warnungen: string[] = []
-  const zeilen = exportZeilen(auftrag, posRes.data, (cfgRes.data ?? {}) as R, warnungen)
+  const zeilen = exportZeilen(auftrag, posRes.data, (cfgRes.data ?? {}) as R, warnungen, gdPositionen)
   if (auftrag.aktiv === false) warnungen.push('Der Exportauftrag ist deaktiviert.')
   if (auftrag.storniert_am) warnungen.push(`Der Exportauftrag ist storniert${auftrag.storno_grund ? ` (${auftrag.storno_grund})` : ''}.`)   // KAN-150 F2
-  const gewicht = sendungsGewicht(posRes.data.map(x => ({ menge: x.menge, einheit: x.einheit, fuellung: x.fuellungen ?? null })), auftrag.verpackung_kg)
+  const gewicht = sendungsGewicht(posRes.data.map(x => ({ menge: x.menge, einheit: x.einheit, flaschen_je_karton: x.flaschen_je_karton, fuellung: x.fuellungen ?? null })), auftrag.verpackung_kg)
   if (gewicht.hinweis) warnungen.push(gewicht.hinweis)
-  return { auftrag, dokumente: dokRes.data, zeilen, gesamtEur: summeGerundet(zeilen.map(z => z.wertEur)), gewicht, warnungen }
+  const grunddaten = {
+    lieferfall: lieferfall(auftrag),
+    positionen: gdPositionen,
+    summen: grunddatenSummen(gdPositionen),
+    hinweise: grunddatenHinweise({
+      auftragId: String(auftrag.id), auftrag, betrieb: (cfgRes.data ?? {}) as R,
+      positionen: eingaben.map((eingabe, i) => ({ eingabe, daten: gdPositionen[i] })),
+      bearbeitbar: exportBearbeitbar(auftrag as { status?: string | null; storniert_am?: string | null }),
+    }),
+  }
+  return { auftrag, dokumente: dokRes.data, zeilen, gesamtEur: summeGerundet(zeilen.map(z => z.wertEur)), gewicht, grunddaten, warnungen }
 }
 
 // ── Laden: Auftragsliste ─────────────────────────────────────────────────────

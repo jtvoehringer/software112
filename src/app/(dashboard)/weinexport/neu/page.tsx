@@ -4,6 +4,7 @@ import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import WeinexportFormClient from './WeinexportFormClient'
+import { KARTON_STANDARD, flaschenJeKarton } from '@/lib/export/grunddaten'
 export const metadata: Metadata = { title: 'Neuer Exportauftrag' }
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -25,15 +26,15 @@ export default async function NeuPage() {
   // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
   // Admin > Mandant > Module ein-/ausschaltbar.
   const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_export').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
+    .select('modul_export, export_flaschen_je_karton, rechnung_zahlungsziel').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_export) {
     const { redirect } = await import('next/navigation')
     redirect('/dashboard')
   }
 
   const [kontakteRes, firmenRes, fuellungenRes] = await Promise.all([
-    alle((supabase.from('kontakte') as any).select('id,vorname,nachname').eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id')),
-    alle((supabase.from('firmen') as any).select('id,name').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
+    alle((supabase.from('kontakte') as any).select('id,vorname,nachname,zahlungsziel_tage').eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id')),
+    alle((supabase.from('firmen') as any).select('id,name,uid_nummer,zahlungsziel_tage').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
     alle((supabase.from('fuellungen') as any).select('id,name,bezeichnung,jahrgang,flaschengroesse_ml,bestand_flaschen,zolltarifnummer').eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0).order('name').order('id')),
   ])
   const kontakte = geladen(kontakteRes, 'Kontakte')
@@ -45,5 +46,6 @@ export default async function NeuPage() {
     firmen={(firmen ?? []) as R[]}
     fuellungen={(fuellungen ?? []) as R[]}
     tenantId={tenantId}
+    vorgaben={{ flaschenJeKarton: flaschenJeKarton(einst?.export_flaschen_je_karton) ?? KARTON_STANDARD, zahlungszielTage: einst?.rechnung_zahlungsziel ?? null }}
   />
 }

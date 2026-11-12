@@ -756,7 +756,10 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund",
-"verpackung_kg"
+"verpackung_kg",
+"versanddatum",
+"zahlungsbedingungen",
+"kunde_uid"
 ],
 "exportauftrag_positionen": [
 "id",
@@ -767,7 +770,8 @@
 "einheit",
 "preis_eur",
 "taric_code",
-"sort_order"
+"sort_order",
+"flaschen_je_karton"
 ],
 "firmen": [
 "id",
@@ -1932,7 +1936,10 @@
 "auftrag_reservierung_tage",
 "angebot_prefix",
 "angebot_stellen",
-"angebot_zaehler"
+"angebot_zaehler",
+"betrieb_eori",
+"kleiner_weinerzeuger",
+"export_flaschen_je_karton"
 ],
 "tenant_memberships": [
 "id",

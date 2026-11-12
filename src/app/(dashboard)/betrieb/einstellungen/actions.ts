@@ -27,6 +27,7 @@ import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { rechtsformAus } from '@/lib/betrieb/rechtsform'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { dbFehlerText } from '@/lib/fehler'
+import { ganzzahlAus } from '@/lib/format'
 
 async function requireOwnTenant(): Promise<{ tenantId: string } | { error: string }> {
   const membership = await getCurrentMembership()
@@ -148,6 +149,10 @@ export async function saveBetriebOwn(formData: FormData) {
       betrieb_email:             (formData.get('betrieb_email')   as string) || null,
       betrieb_website:           (formData.get('betrieb_website') as string) || null,
       betrieb_uid:               (formData.get('betrieb_uid')           as string) || null,
+      // KAN-432: Weinexport – EORI, kleiner Weinerzeuger, Standard „Flaschen je Karton“ (Grenzen wie der CHECK in der DB)
+      betrieb_eori:              ((formData.get('betrieb_eori') as string | null) ?? '').replace(/\s+/g, '').toUpperCase().slice(0, 30) || null,
+      kleiner_weinerzeuger:      formData.get('kleiner_weinerzeuger') === 'on',
+      export_flaschen_je_karton: Math.min(60, Math.max(1, ganzzahlAus(formData.get('export_flaschen_je_karton')) ?? 6)),
       betrieb_betriebsnummer:    betriebsnummer.wert,
       betrieb_rechtsform:        rechtsform.wert,
       betrieb_vorname:           ((formData.get('betrieb_vorname') as string | null) ?? '').trim() || null,

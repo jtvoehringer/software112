@@ -5,6 +5,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { exportBearbeitbar } from '@/lib/export/auftragEingabe'
+import { KARTON_STANDARD, flaschenJeKarton } from '@/lib/export/grunddaten'
 import WeinexportFormClient from '../../neu/WeinexportFormClient'
 
 export const metadata: Metadata = { title: 'Exportauftrag bearbeiten' }
@@ -24,13 +25,13 @@ export default async function ExportauftragBearbeitenPage({ params }: { params: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_export').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen') as R | null
+    .select('modul_export, export_flaschen_je_karton, rechnung_zahlungsziel').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen') as R | null
   if (!einst?.modul_export) redirect('/dashboard')
 
   // storno-sichtbar: ein stornierter Auftrag wird geladen, um auf die Detailseite zurückzuleiten (nicht bearbeitbar)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const auftrag = geladen(await (supabase.from('exportauftraege') as any)
-    .select('id, referenz, status, storniert_am, kontakt_id, firma_id, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, versicherungswert, verpackung_kg, notizen')
+    .select('id, referenz, status, storniert_am, kontakt_id, firma_id, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, versicherungswert, verpackung_kg, notizen, versanddatum, zahlungsbedingungen, kunde_uid')
     .eq('id', id).eq('tenant_id', tenantId).maybeSingle(), 'Exportauftrag') as R | null
   if (!auftrag) redirect('/weinexport')
   if (!exportBearbeitbar(auftrag as { status: string | null; storniert_am: string | null })) redirect(`/weinexport/${id}`)
@@ -39,11 +40,11 @@ export default async function ExportauftragBearbeitenPage({ params }: { params: 
     // Positionen hängen am mandantengefilterten Auftrag (keine eigene tenant_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('exportauftrag_positionen') as any)
-      .select('id, fullung_id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order').eq('exportauftrag_id', id).order('sort_order').order('id')),
+      .select('id, fullung_id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order, flaschen_je_karton').eq('exportauftrag_id', id).order('sort_order').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    alle<R>((supabase.from('kontakte') as any).select('id,vorname,nachname').eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id')),
+    alle<R>((supabase.from('kontakte') as any).select('id,vorname,nachname,zahlungsziel_tage').eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    alle<R>((supabase.from('firmen') as any).select('id,name').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
+    alle<R>((supabase.from('firmen') as any).select('id,name,uid_nummer,zahlungsziel_tage').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('fuellungen') as any).select('id,name,bezeichnung,jahrgang,flaschengroesse_ml,bestand_flaschen,zolltarifnummer,aktiv')
       .eq('tenant_id', tenantId).is('storniert_am', null).order('name').order('id')),
@@ -56,5 +57,6 @@ export default async function ExportauftragBearbeitenPage({ params }: { params: 
   const fuellungen = ((geladen(fuellungenRes, 'Füllungen') ?? []) as R[]).filter(f => f.aktiv || verwendet.has(f.id))
 
   return <WeinexportFormClient kontakte={kontakte} firmen={firmen} fuellungen={fuellungen} tenantId={tenantId}
-    bearbeiten={{ id, referenz: (auftrag.referenz as string | null) ?? null, auftrag, positionen }} />
+    bearbeiten={{ id, referenz: (auftrag.referenz as string | null) ?? null, auftrag, positionen }}
+    vorgaben={{ flaschenJeKarton: flaschenJeKarton(einst?.export_flaschen_je_karton) ?? KARTON_STANDARD, zahlungszielTage: (einst?.rechnung_zahlungsziel as number | null) ?? null }} />
 }

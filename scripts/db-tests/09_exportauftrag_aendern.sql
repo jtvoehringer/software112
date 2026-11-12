@@ -47,8 +47,9 @@ BEGIN
   INSERT INTO public.exportauftrag_positionen (exportauftrag_id, beschreibung, menge, einheit, preis_eur, sort_order)
   VALUES (v_auf, 'S112TEST alt', 0, 'Fl', 0, 0);
   INSERT INTO public.export_dokumente (exportauftrag_id, dokument_art, status, ausgestellt_am) VALUES (v_auf, 'eur1', 'ausgestellt', pg_temp.s112_heute()), (v_auf, 'rechnung', 'ausstehend', NULL);
-  v_kopf := jsonb_build_object('datum', pg_temp.s112_heute(), 'incoterms', 'DAP', 'transport_art', 'LKW', 'destination_land', 'DE', 'destination_stadt', ' München ', 'verpackung_kg', 40);
-  v_ok := jsonb_build_array(jsonb_build_object('fullung_id', v_f, 'beschreibung', 'S112TEST A', 'menge', 60, 'einheit', 'Fl', 'preis_eur', 9.5),
+  v_kopf := jsonb_build_object('datum', pg_temp.s112_heute(), 'incoterms', 'DAP', 'transport_art', 'LKW', 'destination_land', 'DE', 'destination_stadt', ' München ', 'verpackung_kg', 40,
+    'versanddatum', pg_temp.s112_heute(), 'zahlungsbedingungen', ' S112TEST 30 Tage netto ', 'kunde_uid', ' de 123456789 ');   -- KAN-432
+  v_ok := jsonb_build_array(jsonb_build_object('fullung_id', v_f, 'beschreibung', 'S112TEST A', 'menge', 60, 'einheit', 'Fl', 'preis_eur', 9.5, 'flaschen_je_karton', '6'),
                             jsonb_build_object('beschreibung', 'S112TEST B', 'menge', '2', 'einheit', 'HL', 'preis_eur', ''));
 
   SELECT pg_get_functiondef('public.s112_exportauftrag_aendern(uuid, uuid, jsonb, jsonb)'::regprocedure) INTO v_def;
@@ -98,6 +99,20 @@ BEGIN
     'S112TEST A=60 Fl#0, S112TEST B=2 HL#1');
   v_erg := v_erg || pg_temp.s112_erwarte('kopf_geaendert',
     (SELECT incoterms || '/' || destination_stadt || '/' || verpackung_kg::numeric(10,0) FROM public.exportauftraege WHERE id = v_auf), 'DAP/München/40');
+  -- KAN-432: Grunddaten – UID bereinigt (ohne Leerzeichen, groß), Text getrimmt, Flaschen je Karton je Position (lose Ware ohne)
+  v_erg := v_erg || pg_temp.s112_erwarte('grunddaten_kopf',
+    (SELECT concat_ws('/', (versanddatum = pg_temp.s112_heute())::text, zahlungsbedingungen, kunde_uid) FROM public.exportauftraege WHERE id = v_auf),
+    'true/S112TEST 30 Tage netto/DE123456789');
+  v_erg := v_erg || pg_temp.s112_erwarte('grunddaten_karton',
+    (SELECT string_agg(coalesce(flaschen_je_karton::text, '-'), ',' ORDER BY sort_order) FROM public.exportauftrag_positionen WHERE exportauftrag_id = v_auf), '6,-');
+  PERFORM pg_temp.s112_als(v_bw);
+  v_erg := v_erg || pg_temp.s112_erwarte('karton_ungueltig',
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, v_kopf, jsonb_build_array(jsonb_build_object('beschreibung', 'S112TEST', 'menge', 1, 'flaschen_je_karton', '61')))), ':', 1), '23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('betrieb_vorgabe_lesbar',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenant_einstellungen WHERE tenant_id = %L AND export_flaschen_je_karton = 6 AND NOT kleiner_weinerzeuger', v_b)), '1');
+  v_erg := v_erg || pg_temp.s112_erwarte('betrieb_vorgabe_nicht_direkt',
+    left(pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET export_flaschen_je_karton = 12, betrieb_eori = %L WHERE tenant_id = %L', 'ATEOS1', v_b)), 1) <> 'k', true);
+  PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('dokumente_zurueck',
     (SELECT string_agg(dokument_art || '=' || status || coalesce('!' || ausgestellt_am, ''), ', ' ORDER BY dokument_art) FROM public.export_dokumente WHERE exportauftrag_id = v_auf),
     'eur1=ausstehend, rechnung=ausstehend');
@@ -116,6 +131,9 @@ BEGIN
     pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, v_kopf, v_ok)) LIKE '42501:%versendet%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_kopf_gesperrt',
     pg_temp.s112_versuch(format('UPDATE public.exportauftraege SET lieferdatum = pg_temp.s112_heute() WHERE id = %L', v_auf)), 'T');
+  -- KAN-432: die neuen Spalten stehen nicht in der Positivliste – ab „Versendet“ gesperrt
+  v_erg := v_erg || pg_temp.s112_erwarte('direkt_grunddaten_gesperrt',
+    pg_temp.s112_versuch(format('UPDATE public.exportauftraege SET versanddatum = pg_temp.s112_heute() - 1, kunde_uid = %L WHERE id = %L', 'DE999', v_auf)), 'T');
   PERFORM pg_temp.s112_als_postgres();
   SELECT id INTO v_pos FROM public.exportauftrag_positionen WHERE exportauftrag_id = v_auf ORDER BY sort_order LIMIT 1;
   PERFORM pg_temp.s112_als(v_bw);
@@ -144,5 +162,5 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rechte',
     has_function_privilege('anon', 'public.s112_exportauftrag_aendern(uuid, uuid, jsonb, jsonb)', 'EXECUTE'), false);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 28);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 34);
 END $test$;
