@@ -1,6 +1,6 @@
 // /api/support/anfragen – Support-Anfragen an Jira Service Management (KAN-230 Phase 2, 08.10.2026)
 //
-// GET:  Anfragearten des Betriebs (Premium-Support nur mit aktivem Paket) und die eigenen Anfragen.
+// GET:  Anfragearten des Betriebs (Premium-Support nur mit aktivem Paket) und die Anfragen aller Betriebe des Benutzers (KAN-438).
 // POST: neue Anfrage im Namen des Benutzers (multipart: art, betreff, beschreibung, dringlichkeit, seite,
 //       optional screenshot + screenshot_zustimmung). Regeln: src/lib/support/anfrage.ts, HTTP: jsm.ts.
 // Jedes Mitglied darf melden (auch Leser); Support muss auch im Nur-Lesen-Modus erreichbar sein.
@@ -8,12 +8,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
-import { KEIN_CACHE, supportKontext } from '@/lib/support/kontext'
+import { KEIN_CACHE, supportKontext, supportZugriff } from '@/lib/support/kontext'
+import { heuteWien } from '@/lib/datum/wien'
 import {
   ANFRAGE_ARTEN, DRINGLICHKEITEN, anfrageEingabeFehler, beschreibungMitKontext, erlaubteArten, rateLimitFehler, seiteBereinigen,
   type AnfrageArt, type Dringlichkeit,
 } from '@/lib/support/anfrage'
-import { JsmFehler, anfrageAnlegen, anfragenImFenster, anfragetypId, jsmKonfiguriert, kundeSicherstellen, meineAnfragen, organisationZuordnen } from '@/lib/support/jsm'
+import { JsmFehler, anfrageAnlegen, anfragenImFenster, anfragetypId, jsmKonfiguriert, kundeSicherstellen, betriebsAnfragen, organisationZuordnen } from '@/lib/support/jsm'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,10 +31,11 @@ export async function GET() {
   const dringlichkeiten = (Object.keys(DRINGLICHKEITEN) as Dringlichkeit[]).map(d => ({ wert: d, label: DRINGLICHKEITEN[d].label }))
   if (!jsmKonfiguriert()) return NextResponse.json({ aktiv: false, arten, dringlichkeiten, anfragen: [] }, { headers: keinCache })
   try {
-    const anfragen = await meineAnfragen(k.user.email!)
-    return NextResponse.json({ aktiv: true, arten, dringlichkeiten, anfragen }, { headers: keinCache })
+    // KAN-438: alle Anfragen der Betriebe des Benutzers (nicht mehr nur die eigenen)
+    const anfragen = await betriebsAnfragen(await supportZugriff(k.user.id, k.user.email!))
+    return NextResponse.json({ aktiv: true, arten, dringlichkeiten, anfragen, heute: heuteWien() }, { headers: keinCache })
   } catch (e) {
-    const fehler = e instanceof JsmFehler ? e.message : 'Ihre Anfragen konnten nicht geladen werden.'
+    const fehler = e instanceof JsmFehler ? e.message : 'Die Support-Anfragen konnten nicht geladen werden.'
     return NextResponse.json({ aktiv: true, arten, dringlichkeiten, anfragen: [], fehler }, { headers: keinCache })
   }
 }

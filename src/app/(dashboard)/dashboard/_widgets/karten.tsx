@@ -4,6 +4,7 @@ import { canWrite } from '@/lib/auth/roles'
 import { Card, Badge, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from '../_shared/ui'
 import type { AufgabeTermin } from '../_shared/data'
 import MorgenberichtKarte from '../morgenbericht/MorgenberichtKarte'
+import SupportAnfragenKarte from '@/components/support/SupportAnfragenKarte'
 import { fristenDringend, type WidgetProps } from './typen'
 
 // KAN-387: Karten der Übersicht als eigene Widgets (Inhalt unverändert aus dashboard/page.tsx)
@@ -162,4 +163,9 @@ function AufgabenSpalte({ titel, hinweis, eintraege, heute, leer, meine = false 
       )}
     </div>
   )
+}
+
+// KAN-438: offene Support-Anfragen der Betriebe des Benutzers – die Karte lädt selbst nach (Jira bremst die Übersicht nicht)
+export function SupportAnfragenWidget() {
+  return <SupportAnfragenKarte />
 }

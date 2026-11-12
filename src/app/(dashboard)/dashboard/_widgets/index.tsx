@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import type { WidgetId } from '@/lib/dashboard/widgets'
 import type { WidgetProps } from './typen'
 import { KellerbestandWidget, FlaschenlagerWidget, OffenePostenWidget, OffeneAufgabenWidget } from './kacheln'
-import { FinanzenWidget, NaechsteSchritteWidget, MorgenberichtWidget, AufgabenTermineWidget } from './karten'
+import { FinanzenWidget, NaechsteSchritteWidget, MorgenberichtWidget, AufgabenTermineWidget, SupportAnfragenWidget } from './karten'
 import { SchnellaktionenWidget, SchnellzugriffWidget } from './schnell'
 import {
   UmsatzTrendWidget, TopKundenWidget, UeberfaelligeRechnungenWidget, GebindeBelegtWidget, AktiveGaerungenWidget,
@@ -20,6 +20,7 @@ export const WIDGET_KOMPONENTEN: Record<WidgetId, ComponentType<WidgetProps>> = 
   'naechste-schritte': NaechsteSchritteWidget,
   'morgenbericht': MorgenberichtWidget,
   'aufgaben-termine': AufgabenTermineWidget,
+  'support-anfragen': SupportAnfragenWidget,
   'schnellzugriff': SchnellzugriffWidget,
   'umsatz-trend': UmsatzTrendWidget,
   'top-kunden': TopKundenWidget,
