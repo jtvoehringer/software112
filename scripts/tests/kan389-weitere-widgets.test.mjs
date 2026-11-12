@@ -110,7 +110,7 @@ describe('Verdrahtung', () => {
     }
   })
   test('die Sichten verwenden dieselben Bausteine', () => {
-    const v = quelle(`${D}/verkauf/page.tsx`)
+    const v = quelle(`${D}/_shared/VerkaufCrmSicht.tsx`)
     assert.match(v, /<UmsatzTrendKarte reihe=\{absatzSeries\}/)
     assert.match(v, /<UeberfaelligeRechnungenKarte belege=\{belege\}/)
     assert.match(v, /<TopKundenKarte kunden=\{topKunden\} \/>/)
@@ -121,7 +121,7 @@ describe('Verdrahtung', () => {
     assert.match(quelle(`${D}/fristen/FristenClient.tsx`), /import \{ FRIST_STATUS as STATUS/)
   })
   test('Widget und Sicht laden die Rechnungen über dasselbe Fenster', () => {
-    assert.match(quelle(`${D}/verkauf/page.tsx`), /= umsatzFenster\(heute\)/)
+    assert.match(quelle(`${D}/_shared/VerkaufCrmSicht.tsx`), /= umsatzFenster\(heute\)/)
     const w = quelle(`${D}/_shared/widgetDaten.ts`)
     assert.match(w, /wenn\('umsatz',[\s\S]{0,200}umsatzFenster\(ctx\.heute\)[\s\S]{0,200}geladen\(await ladeUmsatzRechnungen\(ctx\.supabase, ctx\.tenantId, von, bis\), 'Umsatzreihe'\)/)
   })

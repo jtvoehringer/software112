@@ -207,15 +207,6 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
         </Link>
       </div>
 
-      {/* KAN-413: dieselbe Kellerbehandlung für mehrere Gebinde */}
-      {writeOk && (
-        <div className="mb-4 print:hidden">
-          <Link href="/kellerbuch/sammelbehandlung" className="inline-flex items-center text-sm text-s112-blue-700 border border-s112-teal/30 px-3 py-2 rounded-lg hover:bg-s112-teal hover:text-s112-yellow transition-colors">
-            Sammelmaßnahme – mehrere Gebinde auf einmal behandeln
-          </Link>
-        </div>
-      )}
-
       {/* KAN-174 A: Gebinde suchen */}
       <form method="get" className="mb-4 flex items-center gap-2 print:hidden" role="search">
         <input type="search" name="q" defaultValue={suche} aria-label="Gebinde suchen"

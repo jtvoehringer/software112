@@ -158,7 +158,7 @@ describe('Reports-Seite: Umschalter', () => {
   })
 
   test('Dashboard, Finanzübersicht, Offene Posten, Morgenbericht ohne Basis-Wahl (fest Rechnungsdatum)', () => {
-    for (const p of ['src/app/(dashboard)/dashboard/verkauf/page.tsx', 'src/lib/finanzen/uebersicht.ts',
+    for (const p of ['src/app/(dashboard)/dashboard/_shared/VerkaufCrmSicht.tsx', 'src/lib/finanzen/uebersicht.ts',
       'src/app/(dashboard)/weinhandel/offene-posten/page.tsx', 'src/lib/morgenbericht/pruefungen.ts', 'src/app/(dashboard)/dashboard/_shared/data.ts']) {
       assert.doesNotMatch(quelle(p), /umsatzBasis|ladeUmsatzLieferscheine|ladeUmsatzBelege/, p)
     }

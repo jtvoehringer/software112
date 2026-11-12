@@ -247,7 +247,7 @@ describe('Verdrahtung', () => {
   })
 
   test('Verkaufs-Dashboard: Umsatzreihe zentral und beschriftet, überfällige Rechnungen nach Verzug', () => {
-    const v = quelle('src/app/(dashboard)/dashboard/verkauf/page.tsx')
+    const v = quelle('src/app/(dashboard)/dashboard/_shared/VerkaufCrmSicht.tsx')
     // KAN-389: Reihe, Balken und Tabelle sind gemeinsame Bausteine mit den Widgets der Übersicht
     const b = quelle('src/app/(dashboard)/dashboard/_shared/bausteine.tsx')
     assert.match(v, /ladeUmsatzRechnungen\(supabase, tenantId, absatzVon, absatzBis\)/)

@@ -76,7 +76,7 @@ export default async function SammelbehandlungPage() {
     <div className="space-y-6">
       <div>
         <nav aria-label="Brotkrumen" className="text-xs text-s112-muted mb-1">
-          <BrotkrumenLink href="/kellerbuch">Kellerbuch</BrotkrumenLink> <span aria-hidden="true">›</span> Sammelmaßnahme
+          <BrotkrumenLink href="/kellerbuch">Kellerbuch</BrotkrumenLink> <span aria-hidden="true">›</span> Sammelmaßnahmen
         </nav>
         <h1 className="text-xl font-semibold text-s112-text">Sammelmaßnahme</h1>
         <p className="text-sm text-s112-muted mt-1 max-w-3xl">

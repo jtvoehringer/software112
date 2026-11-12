@@ -66,7 +66,7 @@ describe('Verdrahtung', () => {
   })
 
   test('Verkaufs-Dashboard: Monatsgrenzen nach Wiener Uhr, nicht über toISOString', () => {
-    const v = quelle('src/app/(dashboard)/dashboard/verkauf/page.tsx')
+    const v = quelle('src/app/(dashboard)/dashboard/_shared/VerkaufCrmSicht.tsx')
     assert.match(v, /const heute = wienJetzt\(\)/)
     assert.doesNotMatch(v, /toISOString\(\)\.split\('T'\)/)
   })
