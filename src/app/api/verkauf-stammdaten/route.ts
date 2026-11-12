@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
+import { ladeReservierungen } from '@/lib/auftrag/laden'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -202,8 +203,10 @@ export async function GET() {
       })
       .filter((g: any) => g.je_lese.length > 0)
 
+    // KAN-418: für Aufträge reservierte Flaschen – der Verkauf darf nur den verfügbaren Rest abbuchen
+    const reserviert = await ladeReservierungen(supabase, tenantId)
     return NextResponse.json({
-      fuellungen:       fuellungen    ?? [],
+      fuellungen:       ((fuellungen ?? []) as { id: string }[]).map(f => ({ ...f, reserviert: reserviert.get(f.id) ?? 0 })),
       weinausbau:       weinausbau    ?? [],
       sonstige_artikel: sonstigeArtikel ?? [],
       ust_satz_standard: ustStandard,

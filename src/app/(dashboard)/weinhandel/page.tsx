@@ -9,6 +9,8 @@ import FuellungLoeschen from './FuellungLoeschen'
 import { Package, Truck, Grape, Search, Pencil } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { ladeReservierungen } from '@/lib/auftrag/laden'
+import { verfuegbar } from '@/lib/auftrag/regeln'
 import { fuellungStornoSperren, VERKAUFS_BEWEGUNGEN } from '@/lib/handel/fuellungStornoSperre'
 
 export const metadata: Metadata = { title: 'Warenwirtschaft' }
@@ -96,6 +98,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
   const tvRaw = geladen(tvRawRes, 'Traubenverkäufe')
 
   const alleFuellungen = (fuellungenRaw ?? []) as R[]
+  // KAN-418: reservierte Flaschen je Füllung (offene Aufträge)
+  const reserviert = tenantId ? await ladeReservierungen(supabase, tenantId) : new Map<string, number>()
   const ausverkaufteAnzahl = alleFuellungen.filter(f => (Number(f.bestand_flaschen) || 0) <= 0).length
   const fuellungen  = ausverkaufteZeigen ? alleFuellungen : alleFuellungen.filter(f => (Number(f.bestand_flaschen) || 0) > 0)
   const tanks       = (tanksRaw      ?? []) as R[]
@@ -272,6 +276,13 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <span className={`font-semibold tabular-nums ${bestandClr}`}>{fmtNum(bestand)}</span>
                         <span className="text-xs text-s112-muted ml-1">/ {fmtNum(gesamt)}</span>
+                        {/* KAN-418: für Aufträge reservierte Flaschen – verfügbar ist nur der Rest */}
+                        {(reserviert.get(f.id) ?? 0) > 0 && (
+                          <Link href="/weinhandel/auftraege" title="Für offene Aufträge reserviert – zu den Aufträgen"
+                            className="block text-[11px] text-s112-warn-fg hover:underline tabular-nums">
+                            {fmtNum(reserviert.get(f.id) ?? 0)} reserviert · {fmtNum(Math.max(verfuegbar(bestand, reserviert.get(f.id)), 0))} verfügbar
+                          </Link>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
                         {einstand != null

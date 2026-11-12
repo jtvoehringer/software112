@@ -35,6 +35,8 @@ interface Fuellung {
   rebsorte: string | null
   flaschengroesse_ml: number | null
   bestand_flaschen: number
+  /** KAN-418: für offene Aufträge reserviert */
+  reserviert?: number
   vk_preis_brutto: number | null
 }
 
@@ -736,7 +738,7 @@ export default function NeuerVerkaufPage() {
                         <option key={f.id} value={f.id}>
                           {f.name}{f.jahrgang ? ` (${f.jahrgang})` : ''}
                           {f.flaschengroesse_ml ? ` · ${FLASCHEN_LABEL[f.flaschengroesse_ml] ?? f.flaschengroesse_ml + 'ml'}` : ''}
-                          {' '}· Bestand: {f.bestand_flaschen}
+                          {' '}· {(f.reserviert ?? 0) > 0 ? `verfügbar: ${Math.max(f.bestand_flaschen - (f.reserviert ?? 0), 0)} (${f.reserviert} reserviert)` : `Bestand: ${f.bestand_flaschen}`}
                         </option>
                       ))}
                     </select>
