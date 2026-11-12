@@ -3,7 +3,7 @@ import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import LieferscheinTexte from '@/components/handel/LieferscheinTexte'
-import { rechnungstextAenderbar } from '@/lib/verkauf/rechnungstext'
+import { rechnungstextAenderbar, rechnungstexteFuerBeleg } from '@/lib/verkauf/rechnungstext'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { losText } from '@/lib/handel/losnummer'
@@ -545,7 +545,6 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           darfSchreiben={writeOk && !posten.storniert}
           textAenderbar={rechnungstextAenderbar({ rechnung_id: posten.rechnung_id ?? null, storniert: posten.storniert })}
           speichern={speichereVerkaufTexte.bind(null, posten.id)} />
-        {posten.rechnungstext && <p className="hidden print:block text-sm mt-2 whitespace-pre-line">{posten.rechnungstext}</p>}
       </div>
 
       {/* Positionen-Tabelle – Lieferschein vs Rechnung */}
@@ -632,6 +631,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <p className="font-semibold text-s112-text-1">Rechnungsbetrag: {fmtEur(gesamt)}</p>
           </div>
         )}
+        {/* KAN-416 (UAT 12.11.2026): „Text auf Rechnung“ unter den Positionen – am Bildschirm und im Druck der Rechnung
+            (vorher nur im Mail-PDF; die Zeile in der Kopfkarte erschien im Druck nie) */}
+        {isRechnung && rechnungstexteFuerBeleg([{ lieferscheinnummer: posten.lieferscheinnummer ?? null, rechnungstext: posten.rechnungstext ?? null }]).map((t, i) => (
+          <p key={i} className="px-4 py-3 border-t border-s112-line text-sm text-s112-text whitespace-pre-line break-inside-avoid">{t}</p>
+        ))}
       </div>
 
       {/* ── RECHNUNG-FOOTER: Bankdaten + Fußtext (nur Druck, Rechnungsmodus) ── */}
