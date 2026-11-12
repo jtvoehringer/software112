@@ -140,7 +140,9 @@ describe('KAN-418: Verdrahtung', () => {
     const l = quelle('src/lib/auftrag/laden.ts')
     assert.match(l, /\.eq\('tenant_id', tenantId\)\.eq\('art', 'auftrag'\)\.in\('status', \[\.\.\.RESERVIERT_STATUS\]\)\.is\('storniert_am', null\)\.order\('id'\)/)
     assert.match(l, /inBloecken<R>\(ids, b => alle<R>/)
-    assert.equal((l.match(/throw new AktionsFehler/g) ?? []).length, 2)
+    // KAN-418 Teil 5: die Datei hat weitere Lader bekommen – gezählt werden die Abbrüche in ladeReservierungen
+    const f = l.slice(l.indexOf('export async function ladeReservierungen('), l.indexOf('export async function ladeReservierungTage('))
+    assert.equal((f.match(/throw new AktionsFehler/g) ?? []).length, 2)
   })
   test('Verkauf und Weinlager zeigen den verfügbaren Bestand', () => {
     assert.match(quelle('src/app/api/verkauf-stammdaten/route.ts'), /ladeReservierungen\(/)

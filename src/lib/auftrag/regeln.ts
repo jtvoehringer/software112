@@ -8,6 +8,9 @@
 // Dieselben Regeln in Formular, Server Action und Datenbank (s112_auftrag_anlegen). Isomorph, ohne '@/'-Importe.
 
 export const RESERVIERUNG_TAGE = 14
+/** Grenzen der Standardfrist je Betrieb (tenant_einstellungen.auftrag_reservierung_tage, CHECK in der Datenbank) */
+export const RESERVIERUNG_TAGE_MIN = 1
+export const RESERVIERUNG_TAGE_MAX = 365
 export const AUFTRAG_POSITIONEN_MAX = 100
 export const AUFTRAG_NOTIZ_MAX = 2000
 export const AUFTRAG_STORNO_GRUND_MIN = 10
@@ -51,9 +54,27 @@ export function tagPlus(tag: string, tage: number): string {
   return d.toISOString().slice(0, 10)   // datum-ok: Rechnen auf reinen Daten über UTC-Mitternacht
 }
 
-/** Vorgeschlagenes Ende der Reservierung */
-export function reserviertBisVorschlag(datum: string): string {
-  return tagPlus(datum, RESERVIERUNG_TAGE)
+/** Standardfrist des Betriebs in Tagen (KAN-418 Teil 5); alles außerhalb 1–365 bzw. keine ganze Zahl → 14 */
+export function reservierungTage(wert: unknown): number {
+  const n = typeof wert === 'number' ? wert : typeof wert === 'string' && /^\d{1,3}$/.test(wert.trim()) ? Number(wert.trim()) : NaN
+  return Number.isInteger(n) && n >= RESERVIERUNG_TAGE_MIN && n <= RESERVIERUNG_TAGE_MAX ? n : RESERVIERUNG_TAGE
+}
+
+/** Vorgeschlagenes Ende der Reservierung (Frist des Betriebs, sonst 14 Tage) */
+export function reserviertBisVorschlag(datum: string, tage: unknown = RESERVIERUNG_TAGE): string {
+  return tagPlus(datum, reservierungTage(tage))
+}
+
+/** Tage zwischen zwei Kalendertagen (bis − von), rein auf Daten über UTC-Mitternacht */
+export function tageZwischen(von: string, bis: string): number {
+  return Math.round((Date.parse(`${bis}T00:00:00Z`) - Date.parse(`${von}T00:00:00Z`)) / 86400000)
+}
+
+export type AbgelaufeneReservierung = { id: string; nummer: string; kunde: string; reserviertBis: string; tage: number; offen: number }
+
+/** Dashboard-Hinweis: Text für n abgelaufene Reservierungen */
+export function abgelaufenText(n: number): string {
+  return n === 1 ? '1 Reservierung abgelaufen' : `${n} Reservierungen abgelaufen`
 }
 
 export type AuftragKopf = { kunde: string; datum: string; reserviert_bis: string; notizen?: string | null }
