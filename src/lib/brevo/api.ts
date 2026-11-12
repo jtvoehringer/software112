@@ -107,6 +107,20 @@ export async function deleteContact(email: string, zugang: BrevoZugang): Promise
   }
 }
 
+// ── Gesperrte Adressen (KAN-424) ──────────────────────────────────────────────
+// GET /smtp/blockedContacts: Adressen, an die das Konto nicht mehr sendet, mit Grund (reason.code: hardBounce,
+// unsubscribedViaEmail, adminBlocked …). Seitenweise, höchstens 100 je Abruf.
+
+export async function blockedContacts(zugang: BrevoZugang, offset = 0): Promise<{ contacts: unknown[] }> {
+  const res = await fetch(`${BREVO_BASE}/smtp/blockedContacts?limit=100&offset=${offset}`, { headers: headers(zugang) })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new AktionsFehler(`Brevo-Sperrliste: ${err}`)
+  }
+  const daten = await res.json() as { contacts?: unknown }
+  return { contacts: Array.isArray(daten?.contacts) ? daten.contacts : [] }
+}
+
 // ── Kontakt aus Liste entfernen (Opt-out) ─────────────────────────────────────
 
 export async function removeFromList(email: string, listId: number, zugang?: BrevoZugang) {

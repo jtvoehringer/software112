@@ -185,7 +185,8 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
 
   const now = new Date().toISOString()
   const { error: updErr } = await (supabase.from('kontakte') as any)   // aenderung-ohne-pruefung: Service-Role (öffentliche Newsletter-Seite), Kontakt eben gelesen
-    .update({ newsletter_bestaetigt: true, newsletter_token_hash: null, aktualisiert_am: now })
+    // KAN-424: Der Klick auf den Bestätigungslink beweist, dass die Adresse ankommt – ein Kennzeichen „E-Mail prüfen“ fällt weg
+    .update({ newsletter_bestaetigt: true, newsletter_token_hash: null, aktualisiert_am: now, email_pruefung: 'bestaetigt', email_pruef_hinweis: null })
     .eq('id', kontakt.id)
     .eq('tenant_id', tenantId)
   if (updErr) return { ok: false, error: 'Bestätigung derzeit nicht möglich. Bitte später erneut versuchen.', betrieb }

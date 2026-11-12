@@ -297,6 +297,29 @@ export async function deleteKontakt(id: string): Promise<LoeschErgebnis> {
   return crmLoeschen('kontakte', id, r => [r.vorname, r.nachname].filter(Boolean).join(' ') || 'Kontakt')
 }
 
+// ── E-Mail-Prüfung: Adresse als richtig bestätigen (KAN-424) ──────────────────
+// Hebt das Kennzeichen „E-Mail prüfen“ auf und nimmt die Adresse aus der nächtlichen Prüfung, bis sie sich ändert.
+// Ein Rückläufer ist ein Nachweis – er fällt erst mit einer geänderten Adresse weg.
+
+export async function kontaktEmailBestaetigen(id: string): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await crmSchreibTenant()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('kontakte') as any)
+      .update({ email_pruefung: 'bestaetigt', email_pruef_hinweis: null })
+      .eq('id', id).eq('tenant_id', tenantId).in('email_pruefung', ['schreibweise', 'domain'])
+      .select('id')
+    if (error) return { error: dbFehlerText(error) }
+    if (!(data as unknown[] | null)?.length) return { error: 'Nicht geändert – das Kennzeichen besteht nicht mehr oder stammt von einem Rückläufer. Bitte die Seite neu laden.' }
+    revalidatePath('/crm/kontakte')
+    revalidatePath('/crm/kontakte/[id]', 'page')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
 // ── Personendaten löschen (DSGVO Art. 17, KAN-425 Teil 1) ─────────────────────
 // Die RPC s112_kontakt_personendaten_loeschen löscht bzw. anonymisiert in einer Transaktion (Regeln: lib/crm/personendaten).
 // Danach – die Löschung steht schon – räumt die Action auf, was außerhalb der Datenbank liegt: Dokumente im Speicher und
