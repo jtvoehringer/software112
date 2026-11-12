@@ -102,6 +102,21 @@ befunde as (
   select z.tenant_id, 'fehler', 'zahlung_auf_storno', 'Gültige Zahlung auf storniertem Verkauf', coalesce(v.rechnungsnummer, v.id::text) || ' · ' || z.betrag || ' €'
     from public.zahlungen z join public.verkaufsposten v on v.id = z.verkaufsposten_id
    where z.storniert_am is null and (coalesce(v.storniert, false) or v.storniert_am is not null)
+  union all
+  -- KAN-418 Teil 2: Lieferung am Auftrag vermerkt, aber kein gültiger Verkauf dazu (Abbruch ohne Rücknahme)
+  select l.tenant_id, 'fehler', 'lieferung_ohne_verkauf', 'Lieferung zu einem Auftrag ohne gültigen Verkauf',
+         a.nummer || ' · ' || sum(l.menge) || ' Flaschen'
+    from public.auftrag_lieferungen l join public.auftraege a on a.id = l.auftrag_id
+   where l.zurueckgenommen_am is null
+     and not exists (select 1 from public.verkaufsposten v where v.id = l.verkaufsposten_id and not coalesce(v.storniert, false))
+   group by l.tenant_id, a.nummer, l.verkaufsposten_id
+  union all
+  select p.tenant_id, 'fehler', 'auftrag_geliefert_ungleich', 'Gelieferte Menge einer Auftragsposition ≠ Summe ihrer Lieferungen',
+         a.nummer || ' · ' || p.name || ' (' || p.geliefert || ' ≠ ' || coalesce(x.summe, 0) || ')'
+    from public.auftrag_positionen p join public.auftraege a on a.id = p.auftrag_id
+    left join (select auftrag_position_id, sum(menge) as summe from public.auftrag_lieferungen where zurueckgenommen_am is null group by 1) x
+           on x.auftrag_position_id = p.id
+   where p.geliefert <> coalesce(x.summe, 0)
 )
 select b.name as betrieb, x.schwere, x.pruefung, x.text, count(*) as anzahl,
        string_agg(x.beispiel, ' | ' order by x.beispiel) filter (where x.rn <= 5) as beispiele

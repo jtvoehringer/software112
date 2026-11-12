@@ -12,6 +12,8 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { heuteWien } from '@/lib/datum/wien'
 import { auftragFehler, auftragPositionenAus, fristFehler, stornoGrundFehlerAuftrag } from '@/lib/auftrag/regeln'
+import { alle } from '@/lib/supabase/alle'
+import { auftragIdAus, LIEFERBAR_STATUS, lieferVorschlag, type AuftragZeile, type LieferVorschlag } from '@/lib/auftrag/lieferung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -74,6 +76,45 @@ export async function stornoAuftrag(id: string, grund: string): Promise<{ error?
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.rpc as any)('s112_auftrag_stornieren', { p_tenant_id: tenantId, p_auftrag_id: id, p_grund: grund.trim() })
     if (error) return { error: dbFehlerText(error, 'Der Auftrag konnte nicht storniert werden') }
+    neuLaden()
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+/** KAN-418 Teil 2: Vorbelegung des Verkaufsformulars – Kunde und offene Mengen eines lieferbaren Auftrags */
+export async function ladeAuftragFuerLieferung(id: string): Promise<{ error: string } | { id: string; nummer: string; kunde: string; positionen: LieferVorschlag[] }> {
+  try {
+    const auftragId = auftragIdAus(id)
+    if (!auftragId) return { error: 'Auftrag nicht gefunden.' }
+    const { supabase, tenantId } = await getCtx()
+    const { data: aRaw, error: aErr } = await (supabase.from('auftraege') as R)
+      .select('id, nummer, status, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).maybeSingle()
+    if (aErr) return { error: dbFehlerText(aErr, 'Der Auftrag konnte nicht geladen werden') }
+    const a = aRaw as R | null
+    if (!a) return { error: 'Auftrag nicht gefunden.' }
+    if (!LIEFERBAR_STATUS.includes(String(a.status))) return { error: `Der Auftrag ${a.nummer} lässt sich nicht mehr liefern.` }
+    const { data: zeilen, error: zErr } = await alle<R>((supabase.from('auftrag_positionen') as R)
+      .select('id, fuellung_id, name, menge, geliefert').eq('tenant_id', tenantId).eq('auftrag_id', auftragId).order('erstellt_am').order('id'))
+    if (zErr) return { error: dbFehlerText(zErr, 'Die Positionen des Auftrags konnten nicht geladen werden') }
+    return {
+      id: String(a.id), nummer: String(a.nummer),
+      kunde: a.firma_id ? `firma:${a.firma_id}` : `kontakt:${a.kontakt_id}`,
+      positionen: lieferVorschlag((zeilen ?? []) as unknown as AuftragZeile[]),
+    }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+/** KAN-418 Teil 2: teilgelieferten Auftrag abschließen – der Rest wird nicht mehr geliefert, die Reservierung fällt weg */
+export async function auftragAbschliessen(id: string): Promise<{ error?: string }> {
+  try {
+    const { supabase, tenantId } = await getCtx()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.rpc as any)('s112_auftrag_abschliessen', { p_tenant_id: tenantId, p_auftrag_id: id })
+    if (error) return { error: dbFehlerText(error, 'Der Auftrag konnte nicht abgeschlossen werden') }
     neuLaden()
     return {}
   } catch (err) {

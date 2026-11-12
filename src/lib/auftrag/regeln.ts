@@ -12,9 +12,9 @@ export const AUFTRAG_POSITIONEN_MAX = 100
 export const AUFTRAG_NOTIZ_MAX = 2000
 export const AUFTRAG_STORNO_GRUND_MIN = 10
 
-export type AuftragStatus = 'offen' | 'teilgeliefert' | 'geliefert' | 'storniert'
+export type AuftragStatus = 'offen' | 'teilgeliefert' | 'geliefert' | 'abgeschlossen' | 'storniert'
 export const AUFTRAG_STATUS_LABEL: Record<AuftragStatus, string> = {
-  offen: 'Offen', teilgeliefert: 'Teilweise geliefert', geliefert: 'Geliefert', storniert: 'Storniert',
+  offen: 'Offen', teilgeliefert: 'Teilweise geliefert', geliefert: 'Geliefert', abgeschlossen: 'Abgeschlossen', storniert: 'Storniert',
 }
 /** Status, in denen ein Auftrag Flaschen reserviert */
 export const RESERVIERT_STATUS: readonly AuftragStatus[] = ['offen', 'teilgeliefert']
