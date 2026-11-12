@@ -1261,7 +1261,8 @@
 "behaelter_id",
 "weingarten_id",
 "transaktions_nr",
-"behandlung_id"
+"behandlung_id",
+"ea_transaktion_id"
 ],
 "kosteneintrag_behaelter": [
 "id",

@@ -43,7 +43,9 @@ describe('KAN-415: Wege und Absicherung', () => {
     const a = quelle('src/app/(dashboard)/buchhaltung/actions.ts')
     const pruefung = a.indexOf("belegDateienFehler(belege)"), anlegen = a.indexOf("}).select('id').single()"), anhaengen = a.indexOf('haengeDateienAn(supabase, tenantId')
     assert.ok(pruefung > 0 && anlegen > pruefung && anhaengen > anlegen, 'Reihenfolge prüfen → anlegen → anhängen')
-    assert.match(a, /belegFehler: `Die Buchung ist gespeichert, aber nicht alle Belege/)
+    // KAN-421: Hinweise (Belege, Kostenrechnung) werden gesammelt und gemeinsam als belegFehler zurückgegeben
+    assert.match(a, /if \(erg\.error\) hinweise\.push\(`Die Buchung ist gespeichert, aber nicht alle Belege/)
+    assert.match(a, /if \(hinweise\.length > 0\) return \{ ok: true, belegFehler: hinweise\.join\(' '\) \}/)
     const f = quelle('src/app/(dashboard)/buchhaltung/neu/page.tsx')
     assert.match(f, /<BelegDateiFeld \/>/)
     assert.match(f, /beleg_fehler=/)

@@ -1272,6 +1272,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_journal_trg_produktion()'),   -- KAN-118: Journal AB_VERAR/ZU_PROD
     ('trigger',       '--S', false, 's112_elabel_umleitung_schutz()'),   -- KAN-219: Umleitung nur über s112_elabel_umleiten
     ('trigger',       '--S', false, 's112_elabel_pruefen()'),   -- KAN-216: Zutatenliste aus dem Katalog, Kennung unveränderlich, Freigabe stempeln   -- KAN-96: generischer Freeze-Trigger
+    ('trigger',       '--S', false, 's112_kosten_buchung_schutz()'),   -- KAN-421: Kosteneinträge aus einer E&A-Buchung nur über die RPC
+    ('trigger',       '--S', false, 's112_kosten_storno_spiegeln()'),   -- KAN-421: Storno der Buchung spiegelt die Kosteneinträge negativ
+    ('mandant',       '-US', true , 's112_ea_kosten_zuordnen(p_tenant_id uuid, p_ea_transaktion_id uuid, p_zeilen jsonb)'),   -- KAN-421
     ('trigger',       '--S', false, 's112_rechnungstext_schutz()'),   -- KAN-416: Text auf Rechnung nach dem Erstellen der Rechnung unveränderlich
     ('trigger',       '--S', false, 's112_tb_stempel()'),
     ('trigger',       '--S', false, 's112_kellermittel_buchung_stempel()'),   -- KAN-107: Benutzer der Stoffkonto-Buchung   -- KAN-209: Zeitpunkt/Benutzer beim Ausstellen der Transportbescheinigung

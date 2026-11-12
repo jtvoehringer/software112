@@ -55,6 +55,7 @@ async function speichereAufteilungen(s: any, eintragsId: string, b: R): Promise<
 
 const fehlerAntwort = (fehler: string, status = 500) => NextResponse.json({ fehler }, { status })
 const NICHT_GEFUNDEN = 'Nicht gefunden oder keine Berechtigung – bitte die Seite neu laden.'
+const AUS_BUCHUNG = 'Dieser Kosteneintrag stammt aus einer Buchung der E&A-Rechnung und lässt sich hier nicht ändern oder löschen – bitte die Buchung stornieren und neu erfassen.'
 
 export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
 
   if (a === 'eintraege') {
     const { data, error: dataErr } = await (s.from('kosteneintraege') as any)
-      .select('id, datum, betrag, beschreibung, objekt_typ, periode, transaktions_nr, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
+      .select('id, datum, betrag, beschreibung, objekt_typ, periode, transaktions_nr, ea_transaktion_id, buchung:ea_transaktion_id(id, storniert_am, storno_von_id), kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
       .eq('tenant_id', t).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(300)
     if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     // WG-Splits nachladen
@@ -94,10 +95,23 @@ export async function GET(req: NextRequest) {
       if (bdErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(bdErr)}` }, { status: 500 })
       bhSplits = bd ?? []
     }
+    // KAN-421: Belege der E&A-Buchung, aus der ein Kosteneintrag stammt (Büroklammer in der Liste)
+    const eaIds = [...new Set((data ?? []).map((e: R) => e.ea_transaktion_id).filter(Boolean))] as string[]
+    let belege: R[] = []
+    if (eaIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: bel, error: belErr } = await inBloecken<R>(eaIds, b => alle<R>((s.from('ea_belege') as any)
+        .select('id, dateiname, ea_transaktion_id')
+        .eq('tenant_id', t).in('ea_transaktion_id', b)
+        .order('hochgeladen_am').order('id')))
+      if (belErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(belErr)}` }, { status: 500 })
+      belege = bel ?? []
+    }
     const eintraege = (data ?? []).map((e: R) => ({
       ...e,
       wg_splits: splits.filter((sp: R) => sp.kosteneintrag_id === e.id),
       bh_splits: bhSplits.filter((sp: R) => sp.kosteneintrag_id === e.id),
+      belege: e.ea_transaktion_id ? belege.filter((b: R) => b.ea_transaktion_id === e.ea_transaktion_id).map((b: R) => ({ id: b.id, dateiname: b.dateiname })) : [],
     }))
     return NextResponse.json({ eintraege })
   }
@@ -179,6 +193,13 @@ export async function POST(req: NextRequest) {
       return fehlerAntwort(e ? `${aufteilungFehler} – der Eintrag konnte nicht zurückgenommen werden (${e.message}), bitte prüfen.` : `${aufteilungFehler} – nichts gespeichert.`)
     }
     return NextResponse.json({ ok: true })
+  }
+  if (b.action === 'aktualisieren' || b.action === 'loeschen') {
+    // KAN-421: Einträge aus einer E&A-Buchung ändert nur die Buchung (Storno) – Schutz-Trigger a_kosten_buchung_schutz
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: vorh, error: vorhErr } = await (s.from('kosteneintraege') as any).select('ea_transaktion_id').eq('id', b.id).eq('tenant_id', t).maybeSingle()
+    if (vorhErr) return fehlerAntwort(dbFehlerText(vorhErr, 'Der Kosteneintrag konnte nicht geladen werden'))
+    if ((vorh as R | null)?.ea_transaktion_id) return fehlerAntwort(AUS_BUCHUNG, 409)
   }
   if (b.action === 'aktualisieren') {
     const { data: geaendert, error } = await (s.from('kosteneintraege') as any).update(fields).eq('id', b.id).eq('tenant_id', t).select('id')

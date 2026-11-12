@@ -173,6 +173,7 @@
   {"n":"kostenarten_tenant_id_fkey","t":"kostenarten","s":["tenant_id"],"z":"tenants"},
   {"n":"kosteneintraege_behaelter_id_fkey","t":"kosteneintraege","s":["behaelter_id"],"z":"behaelter"},
   {"n":"kosteneintraege_behandlung_id_fkey","t":"kosteneintraege","s":["behandlung_id"],"z":"behandlungen"},
+  {"n":"kosteneintraege_ea_transaktion_id_fkey","t":"kosteneintraege","s":["ea_transaktion_id"],"z":"ea_transaktionen"},
   {"n":"kosteneintraege_kostenart_id_fkey","t":"kosteneintraege","s":["kostenart_id"],"z":"kostenarten"},
   {"n":"kosteneintraege_kostenstelle_id_fkey","t":"kosteneintraege","s":["kostenstelle_id"],"z":"kostenstellen"},
   {"n":"kosteneintraege_ried_id_fkey","t":"kosteneintraege","s":["ried_id"],"z":"lagen"},

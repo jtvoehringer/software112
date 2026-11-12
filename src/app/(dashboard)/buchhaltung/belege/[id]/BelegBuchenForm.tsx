@@ -20,6 +20,7 @@ import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
+import KostenAufteilung from '@/components/buchhaltung/KostenAufteilung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -37,7 +38,7 @@ type Konto = { id: string; name: string }
 export default function BelegBuchenForm({
   belegId, dateiname, status, fehlerDetails, erkannt, ustStandard,
   einnahmeKat, ausgabeKat, konten, lieferanten, allFirmen, rabattgruppen,
-  verwerfenAction,
+  verwerfenAction, kostenstellen, kostenarten,
 }: {
   belegId: string
   dateiname: string
@@ -52,6 +53,9 @@ export default function BelegBuchenForm({
   allFirmen: FirmaRow[]
   rabattgruppen: { id: string; name: string; rabatt_pct: number }[]
   verwerfenAction: () => Promise<void>
+  /** KAN-421: leer = keine Übernahme in die Kostenrechnung (Modul Controlling aus oder keine Kostenstelle angelegt) */
+  kostenstellen: { id: string; name: string }[]
+  kostenarten: { id: string; name: string }[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -84,6 +88,8 @@ export default function BelegBuchenForm({
     startTransition(async () => {
       const result = await verbucheBeleg(belegId, fd)
       if (result?.error) { setSubmitError(result.error); return }
+      // KAN-421: gebucht, aber nicht in die Kostenrechnung übernommen – zur Buchungsliste mit Hinweis statt stillem Erfolg
+      if (result && 'hinweis' in result && result.hinweis) { router.push(`/buchhaltung?beleg_fehler=${encodeURIComponent(result.hinweis.slice(0, 400))}`); return }
       // zurueck-ausnahme: Verbuchen schließt den Beleg ab – zurück zur Belegliste (nächster Beleg), nicht bleiben
       router.push(zielNachVorgang('/buchhaltung/belege', 'gespeichert'))   // KAN-224
     })
@@ -264,6 +270,8 @@ export default function BelegBuchenForm({
             <p className="text-xs text-s112-muted mt-1">Optional – wenn gesetzt, erscheint die Buchung in der Kontoabstimmung dieses Kontos.</p>
           </div>
         )}
+
+        {kostenstellen.length > 0 && <KostenAufteilung kostenstellen={kostenstellen} kostenarten={kostenarten} />}
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
