@@ -5,7 +5,9 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { modulKonflikt } from '@/lib/auth/modul'
-import { verpackungFehler, verpackungWert } from '@/lib/export/auftragEingabe'
+import { exportauftragFehler, exportKopf, exportPositionen, verpackungFehler, verpackungWert } from '@/lib/export/auftragEingabe'
+import { normalisiereLand } from '@/lib/katalog/laender'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -86,4 +88,48 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (error) return fehler(error.message, error.code === '42501' ? 409 : 500)   // KAN-150 F2: stornierter Auftrag ist unveränderlich
   if (!data || data.length === 0) return fehler('Nicht gefunden', 404)
   return NextResponse.json({ ok: true })
+}
+
+// ── PUT: Exportauftrag bearbeiten (KAN-429) ─────────────────────────────────────────────────────────────────────────
+// Kopfdaten und Positionen eines Auftrags in Entwurf oder Bestätigt ersetzen – in einer Transaktion über die RPC
+// s112_exportauftrag_aendern (prüft Rollen, Abo-Sperre, Paket-Modul, Status und die Positionen erneut; setzt
+// ausgestellte Dokumente zurück auf „ausstehend“). Ab „Versendet“ lehnt die Datenbank ab (Freeze).
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_export')
+  if (ohneModul) return ohneModul
+  const { id } = await params
+  const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return fehler('Nicht autorisiert', 401)
+  const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (konflikt) return konflikt
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
+  if (!canWrite(membership, 'warenwirtschaft')) return fehler('Keine Berechtigung', 403)
+
+  let body: unknown
+  try { body = await req.json() } catch { return fehler('Ungültiger Request-Body', 400) }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return fehler('Ungültiger Request-Body', 400)
+  const b = body as R
+
+  const destLandRoh = typeof b.destination_land === 'string' ? b.destination_land.trim() : ''
+  const destinationLand = normalisiereLand(destLandRoh)
+  if (destLandRoh && !destinationLand) return fehler(`Unbekanntes Land „${destLandRoh}“ – bitte ein Land aus der Liste wählen.`, 400)
+  if (typeof b.datum !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.datum)) return fehler('Bitte das Auftragsdatum angeben.', 400)
+  const eingabeFehler = exportauftragFehler(b)
+  if (eingabeFehler) return fehler(eingabeFehler, 400)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('s112_exportauftrag_aendern', {
+    p_tenant_id: tenantId, p_auftrag_id: id, p_kopf: exportKopf(b, destinationLand), p_positionen: exportPositionen(b),
+  })
+  if (error) {
+    const status = error.code === 'P0002' ? 404 : error.code === '42501' ? 409 : ['23514', '22023', '23503', '22001', '22P02'].includes(error.code ?? '') ? 400 : 500
+    return fehler(dbFehlerText(error, 'Der Exportauftrag wurde nicht gespeichert'), status)
+  }
+  const erg = (Array.isArray(data) ? data[0] : data) as R | null
+  return NextResponse.json({ ok: true, id, dokumente_zurueck: Number(erg?.dokumente_zurueck) || 0 })
 }

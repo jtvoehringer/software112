@@ -40,7 +40,8 @@ const DATENBANK = [
 describe('Weinexport: Eingaben prüfen', () => {
   test('gültiger Auftrag → kein Fehler', () => {
     assert.equal(exportauftragFehler({ incoterms: 'EXW', transport_art: 'LKW', eori_kunde: 'AT1234567890', destination_stadt: 'München',
-      positionen: [{ einheit: 'Fl', taric_code: '2204.21' }] }), null)
+      // KAN-429 (12.11.2026): eine gültige Position braucht jetzt Menge über 0 und Füllung bzw. Bezeichnung
+      positionen: [{ einheit: 'Fl', taric_code: '2204.21', menge: 6, beschreibung: 'Riesling' }] }), null)
     assert.equal(exportauftragFehler({}), null)
   })
 
