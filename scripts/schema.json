@@ -1207,7 +1207,10 @@
 "position",
 "quelle",
 "titel",
-"titel_nachgestellt"
+"titel_nachgestellt",
+"anonymisiert_am",
+"anonymisiert_von",
+"anonymisiert_grund"
 ],
 "konten": [
 "id",

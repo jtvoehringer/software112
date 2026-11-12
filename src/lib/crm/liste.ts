@@ -31,7 +31,7 @@ export function bereinigterText(roh: unknown): string | null {
 // fehlte eines (bis 02.10.2026: email_weitere, skonto_pct, skonto_tage,
 // betrieb_nr), setzte Speichern es auf leer bzw. den Standardwert zurück.
 // Geprüft in scripts/tests/crm-bearbeiten-datenverlust.test.mjs.
-export const KONTAKT_SPALTEN = 'id, accountnummer, vorname, nachname, segment, firma_id, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, betrieb_nr, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle, titel, titel_nachgestellt'
+export const KONTAKT_SPALTEN = 'id, accountnummer, vorname, nachname, segment, firma_id, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, betrieb_nr, newsletter, newsletter_bestaetigt, stammkunde, aktiv, anonymisiert_am, notizen, erstellt_am, is_lead, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle, titel, titel_nachgestellt'
 
 /** Zeile aus KONTAKT_SPALTEN (+ firmen:firma_id(name…)) → KontaktRow-Felder */
 export function kontaktAusZeile(k: R) {
@@ -70,6 +70,7 @@ export function kontaktAusZeile(k: R) {
     position:              (k.position as string | null) ?? null,
     quelle:                (k.quelle as string | null) ?? null,
     aktiv:                 (k.aktiv as boolean | null) ?? true,
+    anonymisiert_am:       (k.anonymisiert_am as string | null) ?? null,   // KAN-425: Personendaten gelöscht
     erstellt_am:           k.erstellt_am as string,
   }
 }

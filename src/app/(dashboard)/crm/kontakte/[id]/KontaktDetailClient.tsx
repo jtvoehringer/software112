@@ -6,10 +6,13 @@ import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
 import Link from '@/components/ui/Link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, setzeKontaktAktiv, kontaktZuFirmaUmwandeln } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, setzeKontaktAktiv, kontaktPersonendatenLoeschen, kontaktZuFirmaUmwandeln } from '../../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
 import FehlerMeldung from '@/components/ui/FehlerMeldung'
+import StornoButton from '@/components/StornoButton'
+import { PERSONENDATEN_HINWEIS, istAnonymisiert, personendatenErfolgText } from '@/lib/crm/personendaten'
+import { zeigeErfolg } from '@/lib/ui/erfolg'
 import {
   SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -403,7 +406,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
 }
 
 export default function KontaktDetailClient({
-  kontakt, quellen = [], firmen = [], rabattgruppen = [], firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk, lieferadressen = [],
+  kontakt, quellen = [], firmen = [], rabattgruppen = [], firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk: darfSchreiben, lieferadressen = [],
 }: {
   kontakt: KontaktRow
   /** KAN-176: weitere Lieferadressen */
@@ -425,6 +428,10 @@ export default function KontaktDetailClient({
     return (b.rechnungsnummer ?? '').localeCompare(a.rechnungsnummer ?? '', 'de', { numeric: true })
   })
   const router = useRouter()
+  // KAN-425: Nach dem Löschen der Personendaten ist der Kontakt auf der ganzen Seite nur noch lesbar – sonst kämen über
+  // eine neue Aktivität oder Adresse wieder Personendaten dazu (die Datenbank sperrt nur die Kontaktzeile selbst)
+  const anonymisiert = istAnonymisiert(kontakt)
+  const writeOk = darfSchreiben && !anonymisiert
   const [editing, setEditing] = useState(false)
   const [deletePending, startDeleteTransition] = useTransition()
   const [aktionsFehler, setAktionsFehler] = useState<string | null>(null)
@@ -438,6 +445,15 @@ export default function KontaktDetailClient({
       if (ergebnis === 'geloescht') router.push('/crm/kontakte')
       router.refresh()
     })
+  }
+  // KAN-425: Personendaten löschen (DSGVO) – mit Pflicht-Grund; ohne Belege ist der Kontakt danach weg
+  async function handlePersonendaten(grund: string) {
+    const r = await kontaktPersonendatenLoeschen(kontakt.id, grund)
+    if (r.error) return { error: r.error }
+    zeigeErfolg(personendatenErfolgText(r.art ?? 'anonymisiert'))
+    if (r.hinweis) setAktionsFehler(r.hinweis)
+    if (r.art === 'geloescht') router.push('/crm/kontakte')
+    else router.refresh()
   }
   // KAN-150 F1: deaktivieren statt löschen bzw. wieder aktivieren
   function handleAktiv(aktiv: boolean) {
@@ -619,8 +635,17 @@ export default function KontaktDetailClient({
                 className="inline-flex items-center justify-center border border-s112-err/30 text-s112-err-fg w-8 h-8 rounded-lg hover:bg-s112-err-bg transition-colors disabled:opacity-40">
                 <Trash2 size={15} />
               </button>
+              {/* KAN-425: eigener Weg neben „Löschen“ – geht auch mit Belegen (dann anonymisiert) und verlangt einen Grund */}
+              <StornoButton modus="loeschen" mitText schwebend label="Personendaten löschen (DSGVO)"
+                hinweis={PERSONENDATEN_HINWEIS} action={handlePersonendaten} />
             </div>
           )}
+        </div>
+      )}
+      {anonymisiert && (
+        <div role="status" className="bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-xl px-4 py-3">
+          Die Personendaten dieses Kontakts wurden am {new Date(kontakt.anonymisiert_am as string).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })} gelöscht (DSGVO).
+          Der Kontakt bleibt wegen seiner Belege mit der Kundennummer stehen und lässt sich nicht mehr ändern.
         </div>
       )}
       <FehlerMeldung text={aktionsFehler} />

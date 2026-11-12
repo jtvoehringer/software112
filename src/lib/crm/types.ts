@@ -230,6 +230,8 @@ export type KontaktRow = {
   /** Woher der Kontakt kommt (≤ 80 Zeichen, Auswahl aus den Quellen des Betriebs, 02.10.2026) */
   quelle?: string | null
   aktiv: boolean
+  /** KAN-425: Personendaten gelöscht (DSGVO) – die Zeile bleibt wegen der Belege und ist unveränderlich */
+  anonymisiert_am?: string | null
   erstellt_am: string
 }
 

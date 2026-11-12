@@ -93,6 +93,20 @@ export async function upsertContact({
   }
 }
 
+// ── Kontakt löschen (DSGVO, KAN-425) ──────────────────────────────────────────
+// Entfernt den Kontakt samt Listen-Zugehörigkeit aus dem Brevo-Konto des Betriebs. 404 = dort nicht (mehr) vorhanden.
+
+export async function deleteContact(email: string, zugang: BrevoZugang): Promise<void> {
+  const res = await fetch(`${BREVO_BASE}/contacts/${encodeURIComponent(email)}?identifierType=email_id`, {
+    method: 'DELETE',
+    headers: headers(zugang),
+  })
+  if (!res.ok && res.status !== 404) {
+    const err = await res.text()
+    throw new AktionsFehler(`Brevo-Löschfehler: ${err}`)
+  }
+}
+
 // ── Kontakt aus Liste entfernen (Opt-out) ─────────────────────────────────────
 
 export async function removeFromList(email: string, listId: number, zugang?: BrevoZugang) {
