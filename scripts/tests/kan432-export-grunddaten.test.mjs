@@ -240,14 +240,15 @@ describe('KAN-432: Verdrahtung', () => {
     assert.match(l, /\.from\('weinanalysen'\) as any\)\s+\.select\('id, weinausbau_id, analyse_datum, created_at, alkohol_vol'\)\.eq\('tenant_id', tenantId\)\.in\('weinausbau_id', b\)\.is\('storniert_am', null\)/)
     assert.match(l, /if \(antragRes\.error\) throw new AktionsFehler/)
     assert.match(l, /if \(analyseRes\.error\) throw new AktionsFehler/)
-    assert.match(l, /bearbeitbar: exportBearbeitbar\(auftrag as/)
+    assert.match(l, /const bearbeitbar = exportBearbeitbar\(auftrag as/)   // KAN-434: als Konstante, auch für die Hinweise zur Rechnung
   })
   test('CSV: neue Spalten – Kopf nach dem Lieferdatum, Positionsangaben am Ende', () => {
     const l = quelle('src/lib/behoerden/exportauftrag.ts')
     const spalten = l.slice(l.indexOf('export const SPALTEN_EXPORTAUFTRAG'), l.indexOf('function zahlOderNull'))
     const koepfe = [...spalten.matchAll(/kopf: '([^']+)'/g)].map(x => x[1])
     assert.deepEqual(koepfe.slice(0, 7), ['Referenz', 'Datum', 'Lieferdatum', 'Versanddatum', 'Importeur', 'UID Importeur', 'Lieferfall'])
-    assert.deepEqual(koepfe.slice(-8), ['Flaschen', 'Flaschen je Karton', 'Kartons', 'Alkohol (% vol)', 'Prüfnummer', 'Farbe', 'Rebsorte', 'Jahrgang'])
+    // KAN-434: dahinter folgen die vier Spalten der Handelsrechnung (Test kan434-handelsrechnung)
+    assert.deepEqual(koepfe.slice(-12, -4), ['Flaschen', 'Flaschen je Karton', 'Kartons', 'Alkohol (% vol)', 'Prüfnummer', 'Farbe', 'Rebsorte', 'Jahrgang'])
   })
   test('Anlegen und Bearbeiten speichern die neuen Felder', () => {
     const post = quelle('src/app/api/weinexport/route.ts')
@@ -255,7 +256,7 @@ describe('KAN-432: Verdrahtung', () => {
     assert.match(post, /flaschen_je_karton: posNeu\[i\]\?\.flaschen_je_karton \?\? null/)
     assert.ok(post.indexOf('exportauftragFehler(body)') < post.indexOf('const kopfNeu = exportKopf(body, destinationLand)'))
     const b = quelle('src/app/(dashboard)/weinexport/[id]/bearbeiten/page.tsx')
-    assert.match(b, /notizen, versanddatum, zahlungsbedingungen, kunde_uid, mustersendung'\)/)   // KAN-433: + mustersendung
+    assert.match(b, /notizen, versanddatum, zahlungsbedingungen, kunde_uid, mustersendung, fracht_eur, versicherung_eur, ursprungserklaerung'\)/)   // KAN-433: + mustersendung, KAN-434: + Nebenkosten, Ursprungserklärung
     assert.match(b, /sort_order, flaschen_je_karton'\)/)
   })
   test('Formular: Felder mit Längengrenze, Vorschlag aus Kunde und Betrieb, Flaschen je Karton je Position', () => {
@@ -282,7 +283,8 @@ describe('KAN-432: Verdrahtung', () => {
   })
   test('Rechnungsansicht: Lieferbedingungen = Incoterm, Zahlungsbedingungen = eigenes Feld', () => {
     const r = quelle('src/app/api/weinexport/[id]/dokument/[art]/route.ts')
-    assert.match(r, /<strong>Lieferbedingungen \/ Delivery Terms:<\/strong> \$\{e\(a\.incoterms \?\? '–'\)\}/)
+    // KAN-434: die Rechnung ist neu aufgebaut – der Incoterm steht als eigenes Feld „Lieferbedingung“
+    assert.match(r, /<div class="label">Lieferbedingung \/ Delivery Term<\/div><div class="value">\$\{e\(a\.incoterms \?\? '–'\)\}<\/div>/)
     assert.match(r, /<strong>Zahlungsbedingungen \/ Payment Terms:<\/strong> \$\{e\(a\.zahlungsbedingungen \?\? '–'\)\}/)
     assert.doesNotMatch(r, /Payment Terms:<\/strong> \$\{e\(a\.incoterms/)
   })

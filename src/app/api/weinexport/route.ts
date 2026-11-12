@@ -82,6 +82,10 @@ export async function POST(req: NextRequest) {
       zahlungsbedingungen: kopfNeu.zahlungsbedingungen,
       kunde_uid:           kopfNeu.kunde_uid,
       mustersendung:       kopfNeu.mustersendung,   // KAN-433
+      // KAN-434: Nebenkosten und Ursprungserklärung (Handelsrechnung, Proforma)
+      fracht_eur:          kopfNeu.fracht_eur,
+      versicherung_eur:    kopfNeu.versicherung_eur,
+      ursprungserklaerung: kopfNeu.ursprungserklaerung,
       status:            'entwurf',
     }).select().single()
 

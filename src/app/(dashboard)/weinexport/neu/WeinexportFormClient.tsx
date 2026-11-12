@@ -9,6 +9,7 @@ import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmun
 import { heuteWien } from '@/lib/datum/wien'
 import { INCOTERMS, TRANSPORTARTEN as TRANSPORT, EXPORT_EINHEITEN, EXPORT_MAX, exportauftragFehler } from '@/lib/export/auftragEingabe'
 import { KARTON_MAX, KARTON_MIN, KARTON_STANDARD, KUNDE_UID_MAX, ZAHLUNGSBEDINGUNGEN_MAX, lieferfall, zahlungsbedingungenVorschlag } from '@/lib/export/grunddaten'
+import { abkommenFuer } from '@/lib/export/rechnungTexte'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { fehlerText } from '@/lib/fehler'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -49,6 +50,11 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   const [versanddatum, setVersanddatum] = useState(alsText(alt?.versanddatum).slice(0, 10))
   const [kundeUid, setKundeUid]     = useState(alsText(alt?.kunde_uid))
   const [mustersendung, setMustersendung] = useState(alt?.mustersendung === true)   // KAN-433
+  // KAN-434: Nebenkosten und Ursprungserklärung für Handelsrechnung und Proforma
+  const [fracht, setFracht]         = useState(alsText(alt?.fracht_eur))
+  const [versKosten, setVersKosten] = useState(alsText(alt?.versicherung_eur))
+  const [ursprung, setUrsprung]     = useState(alt?.ursprungserklaerung === true)
+  const abkommen = abkommenFuer(destLand)
   const [zahlung, setZahlung]       = useState(alt ? alsText(alt?.zahlungsbedingungen) : zahlungsbedingungenVorschlag(vorgaben?.zahlungszielTage ?? null))
 
   /** Kunde gewählt: UID (Firma) und Zahlungsbedingungen vorschlagen – eine eigene Eingabe bleibt stehen */
@@ -97,6 +103,9 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
       zahlungsbedingungen: zahlung.trim() || null,
       kunde_uid: kundeUid.trim() || null,
       mustersendung,
+      fracht_eur: fracht ? parseFloat(fracht) : null,
+      versicherung_eur: versKosten ? parseFloat(versKosten) : null,
+      ursprungserklaerung: ursprung && abkommen !== null,
       positionen,
     }
     // KAN-429: dieselbe Prüfung wie Route und Datenbank – u. a. jede Position mit Menge über 0
@@ -190,6 +199,18 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Versicherungswert (EUR)</label>
               <input aria-label="Versicherungswert (EUR)" type="number" step="0.01" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0,00"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Fracht (EUR)</label>
+              <input aria-label="Fracht (EUR)" type="number" step="0.01" min="0" value={fracht} onChange={e => setFracht(e.target.value)} placeholder="0,00"
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+              <p className="text-xs text-s112-muted mt-1">Frachtkosten, die du dem Kunden verrechnest – stehen auf der Handelsrechnung.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Versicherung (EUR)</label>
+              <input aria-label="Versicherung (EUR)" type="number" step="0.01" min="0" value={versKosten} onChange={e => setVersKosten(e.target.value)} placeholder="0,00"
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
+              <p className="text-xs text-s112-muted mt-1">Verrechnete Versicherungskosten – nicht der Versicherungswert.</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Verpackung gesamt (kg)</label>
@@ -326,6 +347,19 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             </span>
           </label>
         </div>
+
+        {/* KAN-434: Ursprungserklärung – nur bei einem Bestimmungsland mit Abkommen */}
+        {abkommen && (
+          <div className="bg-white rounded-xl border border-s112-border p-6">
+            <label className="flex items-start gap-3 text-sm text-s112-text">
+              <input type="checkbox" checked={ursprung} onChange={e => setUrsprung(e.target.checked)} className="mt-0.5 h-4 w-4 accent-s112-teal" />
+              <span>
+                <span className="font-medium">Ursprungserklärung auf der Rechnung</span>
+                <span className="block text-xs text-s112-muted mt-0.5">{abkommen.name}: Mit der Erklärung sicherst du zu, dass der Wein Ursprungsware der EU ist – der Empfänger zahlt dann weniger oder keinen Zoll. Bis 6.000 € Warenwert darf sie jeder Ausführer abgeben, darüber nur mit der {abkommen.nummer === 'rex' ? 'REX-Nummer' : 'Bewilligung als Ermächtigter Ausführer'} des Betriebs (Betrieb › Einstellungen).</span>
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Notizen */}
         <div className="bg-white rounded-xl border border-s112-border p-6">

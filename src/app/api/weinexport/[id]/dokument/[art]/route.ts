@@ -14,6 +14,8 @@ import { eurText, gesamtWert, positionsWert } from '@/lib/export/exportWerte'   
 import { ladeExportauftrag } from '@/lib/behoerden/exportauftrag'   // KAN-433: abgeleitete Angaben je Position (KAN-432)
 import { MUSTERSENDUNG_VERMERK, farbeGroesse, kartonAufschluesselung, kartonNummern, kartonText, kartonsGesamt, warenbeschreibung, zahlDe } from '@/lib/export/dokumente'
 import { fehlerText } from '@/lib/fehler'
+import { lieferfall } from '@/lib/export/grunddaten'
+import { PROFORMA_VERMERK, befreiung, rechnungsSumme, ursprungserklaerung } from '@/lib/export/rechnungTexte'   // KAN-434
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
 const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
@@ -46,6 +48,8 @@ function css() {
     .wb{font-size:8.5pt;color:#555;margin-top:.5mm}
     .hinweis-leiste{border:1px solid #E0B252;background:#FFF7E0;color:#6B4E00;padding:3mm 4mm;margin-bottom:6mm;border-radius:3px;font-size:9pt}
     .hinweis-leiste ul{margin:1mm 0 0 5mm}
+    .steuer{border:1px solid #333;padding:2mm 4mm;margin-top:4mm;font-size:9.5pt;font-weight:bold}
+    .ursprung{border:1px solid #ccc;padding:3mm 4mm;margin-top:4mm;font-size:9pt;line-height:1.5;border-radius:3px}
     .muster{border:2px solid #333;padding:2mm 4mm;margin-bottom:4mm;font-size:10pt;font-weight:bold;text-align:center}
     @media print{body{padding:0}@page{margin:15mm}.hinweis-leiste{display:none}}
     ${DRUCKLEISTE_CSS}
@@ -83,7 +87,7 @@ export async function GET(
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung,flaschengroesse_ml,leergewicht_g)').eq('exportauftrag_id', auftragId).order('sort_order').order('id'),
     (admin.from('tenant_einstellungen') as any)
-      .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_uid,rechnung_iban,rechnung_bic')   // Sweep 20.9.2026: betrieb_land/rechnung_bank_iban gab es nicht – Abfrage brach
+      .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_uid,betrieb_eori,betrieb_rex_nummer,betrieb_ea_bewilligung,rechnung_iban,rechnung_bic')   // Sweep 20.9.2026: betrieb_land/rechnung_bank_iban gab es nicht – Abfrage brach
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
 
@@ -393,41 +397,58 @@ export async function GET(
       break
 
     // ── Exportrechnung ────────────────────────────────────────────────────────
+    // ── Handelsrechnung und Proforma (KAN-434; Muster: ÖWM-Leitfaden Kap. 1, Zollrecherche KAN-417 A.4/B.2/B.5) ──────────
     case 'rechnung':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Exportrechnung – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
+    case 'proforma': {
+      const proforma = art === 'proforma'
+      const fall = lieferfall(a)
+      const steuer = befreiung(fall)
+      const summe = rechnungsSumme(gesamtEUR, a)
+      const ursprung = ursprungserklaerung({ land: a.destination_land, warenwert: gesamtEUR, gewaehlt: a.ursprungserklaerung, betrieb: b })
+      const summen = erg?.grunddaten.summen
+      const kartons = kartonsGesamt(dz)
+      const nebenzeile = (label: string, betrag: number | null) => betrag === null ? '' : `<tr>
+          <td colspan="6" style="text-align:right">${e(label)}</td>
+          <td style="text-align:right">${e(eurText(betrag))}</td>
+        </tr>`
+      const nebenzeilen = nebenzeile('Fracht / Freight', summe.fracht) + nebenzeile('Versicherung / Insurance', summe.versicherung)
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${e(proforma ? 'Proforma-Rechnung' : 'Exportrechnung')} – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
         ${header(b)}
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
-          <h1 style="text-align:left;margin:0">EXPORTRECHNUNG<br/><span style="font-size:10pt;font-weight:normal;color:#666">COMMERCIAL INVOICE</span></h1>
+          <h1 style="text-align:left;margin:0">${e(proforma ? 'PROFORMA-RECHNUNG' : 'EXPORTRECHNUNG')}<br/><span style="font-size:10pt;font-weight:normal;color:#666">${e(proforma ? 'PROFORMA INVOICE' : 'COMMERCIAL INVOICE')}</span></h1>
           <div style="text-align:right">
-            <div style="font-size:9pt;color:#666">Rechnungs-Nr. / Invoice No.</div>
+            <div style="font-size:9pt;color:#666">${e(proforma ? 'Proforma-Nr. / Proforma No.' : 'Rechnungs-Nr. / Invoice No.')}</div>
             <div style="font-size:14pt;font-weight:bold">${e(a.referenz ?? '–')}</div>
-            <div style="font-size:9pt;color:#666">Datum: ${e(fmt(a.datum))}</div>
+            <div style="font-size:9pt;color:#666">Datum / Date: ${e(fmt(a.datum))}</div>
           </div>
         </div>
+        ${proforma ? `<div class="muster">${e(PROFORMA_VERMERK)}</div>` : ''}
         <div class="grid2">
           <div class="box">
             <div class="label">Verkäufer / Seller</div>
             <div class="value">${e(b.betrieb_name ?? '–')}</div>
-            <div style="font-size:9pt">${e(b.betrieb_strasse ?? '')}, ${e(b.betrieb_plz ?? '')} ${e(b.betrieb_ort ?? '')}, Österreich</div>
-            ${b.betrieb_uid ? `<div style="font-size:9pt">UID/VAT: ${e(b.betrieb_uid)}</div>` : ''}
+            <div style="font-size:9pt">${e(b.betrieb_strasse ?? '')}, ${e(b.betrieb_plz ?? '')} ${e(b.betrieb_ort ?? '')}, Österreich / Austria</div>
+            <div style="font-size:9pt">UID / VAT No.: ${e(b.betrieb_uid ?? '–')}</div>
+            ${fall.gebiet === 'drittland' ? `<div style="font-size:9pt">EORI: ${e(b.betrieb_eori ?? '–')}</div>` : ''}
           </div>
           <div class="box">
             <div class="label">Käufer / Buyer</div>
             <div class="value">${e(importeur)}</div>
-            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(landAnzeige(a.destination_land))}</div>
+            <div style="font-size:9pt">${e([a.destination_stadt, landAnzeige(a.destination_land)].filter(Boolean).join(', '))}</div>
+            ${fall.gebiet === 'eu' || a.kunde_uid ? `<div style="font-size:9pt">UID / VAT No.: ${e(a.kunde_uid ?? '–')}</div>` : ''}
             ${a.eori_kunde ? `<div style="font-size:9pt">EORI: ${e(a.eori_kunde)}</div>` : ''}
           </div>
         </div>
         <div class="grid3">
-          <div class="box"><div class="label">Incoterms</div><div class="value">${e(a.incoterms ?? '–')}</div></div>
-          <div class="box"><div class="label">Lieferdatum / Delivery</div><div class="value">${e(fmt(a.lieferdatum))}</div></div>
-          <div class="box"><div class="label">Ursprungsland / Origin</div><div class="value">Austria</div></div>
+          <div class="box"><div class="label">Lieferbedingung / Delivery Term</div><div class="value">${e(a.incoterms ?? '–')}</div></div>
+          <div class="box"><div class="label">Versanddatum / Shipped on</div><div class="value">${e(fmt(a.versanddatum))}</div></div>
+          <div class="box"><div class="label">Ursprungsland / Country of Origin</div><div class="value">Österreich / Austria</div></div>
         </div>
         <table style="margin-top:4mm"><thead>
-          <tr><th>Pos.</th><th>Bezeichnung / Description</th><th>Menge</th><th>Einh.</th><th>TARIC</th><th>€/Einh.</th><th>Gesamtwert EUR</th></tr>
+          <tr><th>Pos.</th><th>Bezeichnung / Description</th><th>Menge / Qty</th><th>Einh.</th><th>KN-Code / CN</th><th>€/Einh.</th><th>Betrag EUR</th></tr>
         </thead><tbody>
-        ${pos.map((p,i) => `<tr>
-          <td style="text-align:center">${i+1}</td>
+        ${pos.map((p, i) => `<tr>
+          <td style="text-align:center">${e(i + 1)}</td>
           <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${wb(i) || (p.fuellungen?.flaschengroesse_ml ? ` (${e(p.fuellungen.flaschengroesse_ml)}ml)` : '')}</td>
           <td style="text-align:right">${e(p.menge)}</td>
           <td>${e(p.einheit)}</td>
@@ -435,21 +456,33 @@ export async function GET(
           <td style="text-align:right">${e(eurText(parseFloat(p.preis_eur)))}</td>
           <td style="text-align:right;font-weight:bold">${e(eurText(positionsWert(p)))}</td>
         </tr>`).join('')}
+        <tr>
+          <td colspan="6" style="text-align:right">Warenwert / Value of goods</td>
+          <td style="text-align:right">${e(eurText(summe.warenwert))}</td>
+        </tr>
+        ${nebenzeilen}
         <tr class="total">
-          <td colspan="6" style="text-align:right">Gesamtwert / Total Value EUR</td>
-          <td style="text-align:right">${e(eurText(gesamtEUR))}</td>
+          <td colspan="6" style="text-align:right">${e(proforma ? 'Gesamtbetrag / Total EUR' : 'Rechnungsbetrag / Invoice total EUR')}</td>
+          <td style="text-align:right">${e(eurText(summe.betrag))}</td>
         </tr>
         </tbody></table>
         ${muster}
-        <div class="box" style="margin-top:4mm;font-size:9pt">
-          <strong>Lieferbedingungen / Delivery Terms:</strong> ${e(a.incoterms ?? '–')} ·
-          <strong>Zahlungsbedingungen / Payment Terms:</strong> ${e(a.zahlungsbedingungen ?? '–')} · 
-          Währung / Currency: EUR ·
-          Nettogewicht / Net weight: ${e(kgMit(gew.nettoKg))} · 
-          Bruttogewicht / Gross weight: ${e(kgMit(gew.bruttoKg))} · 
-          Versicherungswert / Insurance Value: EUR ${e(a.versicherungswert ? eurText(parseFloat(a.versicherungswert)) : eurText(gesamtEUR))}
+        ${steuer.text ? `<div class="steuer">${e(steuer.text)}</div>` : ''}
+        <div class="box" style="margin-top:4mm;font-size:9pt;line-height:1.6">
+          <div><strong>Zahlungsbedingungen / Payment Terms:</strong> ${e(a.zahlungsbedingungen ?? '–')} · Währung / Currency: EUR</div>
+          <div><strong>Packstücke / Packages:</strong> ${e(kartons === null ? '–' : String(kartons))} · <strong>Nettogewicht / Net weight:</strong> ${e(kgMit(gew.nettoKg))} · <strong>Bruttogewicht / Gross weight:</strong> ${e(kgMit(gew.bruttoKg))}</div>
+          <div><strong>Liter gesamt / Liters total:</strong> ${e(zahlDe(summen?.liter, 3))} l – ${e(zahlDe(summen?.literWeiss, 3))} l weiß / white · ${e(zahlDe(summen?.literRot, 3))} l rot / red</div>
+          <div><strong>Versicherungswert / Insurance Value:</strong> EUR ${e(a.versicherungswert ? eurText(parseFloat(a.versicherungswert)) : eurText(summe.betrag))}</div>
         </div>
-        ${b.rechnung_iban ? `<div class="box" style="font-size:9pt"><strong>Bankverbindung / Bank Details:</strong> IBAN: ${e(b.rechnung_iban)}${b.rechnung_bic ? ` · BIC: ${e(b.rechnung_bic)}` : ''}</div>` : ''}
+        ${ursprung.status === 'ok' ? `<div class="ursprung">
+          <div class="label">Ursprungserklärung / Origin declaration</div>
+          ${ursprung.zeilen.map(z => `<div>${e(z)}</div>`).join('')}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:8mm">
+            <div class="sign-box">Ort und Datum / Place and date</div>
+            <div class="sign-box">${e(ursprung.unterschrift ?? '')}</div>
+          </div>
+        </div>` : ''}
+        ${!proforma && b.rechnung_iban ? `<div class="box" style="margin-top:4mm;font-size:9pt"><strong>Bankverbindung / Bank Details:</strong> IBAN: ${e(b.rechnung_iban)}${b.rechnung_bic ? ` · BIC: ${e(b.rechnung_bic)}` : ''}</div>` : ''}
         <div class="sign" style="margin-top:12mm">
           <div class="sign-box">Ort, Datum / Place, Date</div>
           <div class="sign-box">Aussteller / Issuer</div>
@@ -457,6 +490,7 @@ export async function GET(
         </div>
       </body></html>`
       break
+    }
 
     // ── Packliste (KAN-433, Muster: ÖWM-Leitfaden „Begleitdokumente für den Weinexport“) ────────────────────────────────
     case 'packliste': {

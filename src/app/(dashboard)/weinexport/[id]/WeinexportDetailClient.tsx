@@ -185,6 +185,9 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                   ) : (gewicht.verpackungKg > 0 ? `${fmtNum(gewicht.verpackungKg, 2)} kg` : '–')}
                 </dd>
               </div>
+              <div><dt className="text-xs text-s112-muted">Fracht</dt><dd>{auftrag.fracht_eur != null ? `EUR ${fmtNum(parseFloat(auftrag.fracht_eur), 2)}` : '–'}</dd></div>
+              <div><dt className="text-xs text-s112-muted">Versicherung (verrechnet)</dt><dd>{auftrag.versicherung_eur != null ? `EUR ${fmtNum(parseFloat(auftrag.versicherung_eur), 2)}` : '–'}</dd></div>
+              {auftrag.ursprungserklaerung === true && <div className="col-span-2"><dt className="text-xs text-s112-muted">Ursprungserklärung</dt><dd>Ja – steht auf Handelsrechnung und Proforma</dd></div>}
               <div><dt className="text-xs text-s112-muted">Versicherungswert</dt><dd>{auftrag.versicherungswert ? `EUR ${fmtNum(parseFloat(auftrag.versicherungswert), 2)}` : '–'}</dd></div>
             </dl>
             {gewicht.hinweis && (

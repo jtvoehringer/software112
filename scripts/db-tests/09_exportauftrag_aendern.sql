@@ -49,7 +49,8 @@ BEGIN
   INSERT INTO public.export_dokumente (exportauftrag_id, dokument_art, status, ausgestellt_am) VALUES (v_auf, 'eur1', 'ausgestellt', pg_temp.s112_heute()), (v_auf, 'rechnung', 'ausstehend', NULL);
   v_kopf := jsonb_build_object('datum', pg_temp.s112_heute(), 'incoterms', 'DAP', 'transport_art', 'LKW', 'destination_land', 'DE', 'destination_stadt', ' München ', 'verpackung_kg', 40,
     'versanddatum', pg_temp.s112_heute(), 'zahlungsbedingungen', ' S112TEST 30 Tage netto ', 'kunde_uid', ' de 123456789 ',   -- KAN-432
-    'mustersendung', true);   -- KAN-433
+    'mustersendung', true,   -- KAN-433
+    'fracht_eur', 120.5, 'versicherung_eur', '', 'ursprungserklaerung', true);   -- KAN-434
   v_ok := jsonb_build_array(jsonb_build_object('fullung_id', v_f, 'beschreibung', 'S112TEST A', 'menge', 60, 'einheit', 'Fl', 'preis_eur', 9.5, 'flaschen_je_karton', '6'),
                             jsonb_build_object('beschreibung', 'S112TEST B', 'menge', '2', 'einheit', 'HL', 'preis_eur', ''));
 
@@ -107,6 +108,11 @@ BEGIN
   -- KAN-433: Mustersendung über die RPC gesetzt
   v_erg := v_erg || pg_temp.s112_erwarte('mustersendung_gesetzt',
     (SELECT mustersendung::text FROM public.exportauftraege WHERE id = v_auf), 'true');
+  -- KAN-434: Nebenkosten (leer = NULL) und Ursprungserklärung über die RPC gesetzt
+  v_erg := v_erg || pg_temp.s112_erwarte('rechnung_angaben_gesetzt',
+    (SELECT fracht_eur::text || '/' || coalesce(versicherung_eur::text, '-') || '/' || ursprungserklaerung::text FROM public.exportauftraege WHERE id = v_auf), '120.50/-/true');
+  v_erg := v_erg || pg_temp.s112_erwarte('fracht_nicht_negativ',
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, v_kopf || jsonb_build_object('fracht_eur', -1), v_ok)) LIKE '23514:%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('grunddaten_karton',
     (SELECT string_agg(coalesce(flaschen_je_karton::text, '-'), ',' ORDER BY sort_order) FROM public.exportauftrag_positionen WHERE exportauftrag_id = v_auf), '6,-');
   PERFORM pg_temp.s112_als(v_bw);
@@ -141,6 +147,9 @@ BEGIN
   -- KAN-433: auch die Mustersendung steht nicht in der Positivliste
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_mustersendung_gesperrt',
     pg_temp.s112_versuch(format('UPDATE public.exportauftraege SET mustersendung = false WHERE id = %L', v_auf)), 'T');
+  -- KAN-434: ebenso Nebenkosten und Ursprungserklärung
+  v_erg := v_erg || pg_temp.s112_erwarte('direkt_rechnung_angaben_gesperrt',
+    pg_temp.s112_versuch(format('UPDATE public.exportauftraege SET fracht_eur = 1, ursprungserklaerung = false WHERE id = %L', v_auf)), 'T');
   PERFORM pg_temp.s112_als_postgres();
   SELECT id INTO v_pos FROM public.exportauftrag_positionen WHERE exportauftrag_id = v_auf ORDER BY sort_order LIMIT 1;
   PERFORM pg_temp.s112_als(v_bw);
@@ -169,5 +178,5 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rechte',
     has_function_privilege('anon', 'public.s112_exportauftrag_aendern(uuid, uuid, jsonb, jsonb)', 'EXECUTE'), false);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 36);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 39);
 END $test$;
