@@ -111,9 +111,12 @@ describe('KAN-416: Text auf Rechnung in den Druckansichten', () => {
     assert.ok(rechnung.includes("'id, lieferscheinnummer, datum, rechnungstext')}"))
     assert.ok(rechnung.includes('{!storno && rechnungstexteFuerBeleg(r.lieferscheine as'))
   })
-  test('nach „Texte speichern“ zurück zur vorigen Übersicht', () => {
+  // Entscheidung Jörgen 12.11.2026 (Kommentar im Ticket): die Regel aus KAN-334 bleibt – auf der Detailseite bleiben,
+  // aber mit sichtbarer Bestätigung (vorher wurde nur der Knopf blass)
+  test('nach „Texte speichern“ bleibt die Seite stehen und bestätigt „Gespeichert.“', () => {
     const k = quelle('src/components/handel/LieferscheinTexte.tsx')
-    assert.ok(k.includes("router.push(zielNachSpeichern('/weinhandel/verkauf'))"))
-    assert.ok(k.indexOf('if (r && r.error) { setFehler(r.error); return }') < k.indexOf('router.push(zielNachSpeichern('))
+    assert.ok(k.includes('router.replace(hierBleiben(), { scroll: false })'))
+    assert.ok(!k.includes('router.push('))
+    assert.ok(k.indexOf('if (r && r.error) { setFehler(r.error); return }') < k.indexOf('router.replace(hierBleiben()'))
   })
 })
