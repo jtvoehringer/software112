@@ -85,6 +85,8 @@ const NAV: NavGroup[] = [
   {
     key: 'rieden', label: 'Rieden', icon: Grape,
     items: [
+      // KAN-427: Einstieg in den Bereich = die Sicht „Weingarten & Ernte“ (derselbe Inhalt wie /dashboard/weingarten)
+      { href: '/weingarten/uebersicht', label: 'Weingarten & Ernte', keywords: 'übersicht lese checkliste wartefristen karte' },
       { href: '/weingarten',         label: 'Rieden',         phase: 1, keywords: 'weingarten grundstücke flächen' },
       // KAN-89: Rebsorten ohne amtliches BKI-Kürzel prüfen und gesammelt korrigieren
       { href: '/weingarten/rebsorten', label: 'Rebsorten prüfen', child: true, keywords: 'rebsorte kürzel bki kürzelliste korrektur sortenverschnitt prüfen' },
@@ -109,7 +111,9 @@ const NAV: NavGroup[] = [
   {
     key: 'kellerbuch', label: 'Kellerbuch', icon: BookOpen,
     items: [
-      { href: '/kellerbuch',                 label: 'Übersicht',      phase: 1, keywords: 'behälter tank fass chargen' },
+      // KAN-428: Einstieg = Dashboard-Sicht „Kellerbuch“; die bisherige Übersicht heißt „Gebinde & Chargen“
+      { href: '/kellerbuch/uebersicht',      label: 'Übersicht',      keywords: 'chargen pipeline gärung kanban dashboard' },
+      { href: '/kellerbuch',                 label: 'Gebinde & Chargen', phase: 1, keywords: 'behälter tank fass chargen' },
       // Pilottest 30.09.2026: Pressungen (vorher auf der Lese-Seite) und Zukauf (vorher Warenwirtschaft) direkt nach
       // der Übersicht; die Zukauf-Seiten behalten ihre Adresse /weinhandel/zukauf (activeGroup: längster Treffer).
       { href: '/kellerbuch/pressungen',      label: 'Pressungen',     phase: 1, keywords: 'pressung most trauben keltern presse lese charge' },
@@ -133,6 +137,8 @@ const NAV: NavGroup[] = [
   {
     key: 'warenwirtschaft', label: 'Warenwirtschaft', icon: Warehouse,
     items: [
+      // KAN-428: Einstieg = Verkaufs-Teil der Sicht „Verkauf & CRM“
+      { href: '/weinhandel/uebersicht',       label: 'Übersicht',          keywords: 'umsatz aufträge offene rechnungen überfällig top-kunden flaschenbestand dashboard' },
       { href: '/weinhandel',                  label: 'Warenlager',         phase: 1, keywords: 'flaschen füllungen bestand' },
       { href: '/weinhandel/verkauf',          label: 'Verkauf',            phase: 1, keywords: 'rechnung auftrag lieferschein' },
       // KAN-418: Aufträge reservieren Flaschen (verfügbar = Bestand − reserviert)
@@ -149,6 +155,8 @@ const NAV: NavGroup[] = [
   {
     key: 'crm', label: 'CRM', icon: Users,
     items: [
+      // KAN-428: Einstieg = CRM-Teil der Sicht „Verkauf & CRM“
+      { href: '/crm/uebersicht',          label: 'Übersicht', keywords: 'meine aktivitäten nächste termine leads dashboard' },
       { href: '/nachrichten',             label: 'E-Mail',   keywords: 'mail posteingang nachrichten' },
       { href: '/crm',                     label: 'Kalender', keywords: 'termine aktivitäten' },
       { href: '/crm/kontakte',            label: 'Kontakte', keywords: 'kunden personen' },
@@ -184,6 +192,8 @@ const NAV: NavGroup[] = [
   {
     key: 'controlling', label: 'Controlling', icon: Calculator, modulKey: 'modul_controlling', auswertungen: true,
     items: [
+      // KAN-428: Einstieg = „Meldungen & Fristen“ (bleibt zusätzlich unter Übersicht für alle erreichbar)
+      { href: '/controlling/fristen',         label: 'Meldungen & Fristen', keywords: 'termine meldung uva erntemeldung ampel behörden' },
       { href: '/reports',                     label: 'Auswertungen',      keywords: 'reports berichte weinbuch protokoll umsatz lager' },
       { href: '/controlling/kostenrechnung',  label: 'Kostenrechnung',    keywords: 'kostenstellen kostenarten' },
       { href: '/auswertungen/kostenrechnung', label: 'Kosten-Auswertung', child: true, keywords: 'kosten je ried behälter periode' },

@@ -21,15 +21,18 @@ function bereiche() {
 
 test('Kellerbuch: Übersicht, Pressungen, Zukauf, dann der Rest', () => {
   const k = bereiche().kellerbuch
-  assert.deepEqual(k.slice(0, 3).map(i => i.label), ['Übersicht', 'Pressungen', 'Zukauf'])
-  assert.equal(k[1].href, '/kellerbuch/pressungen')
-  assert.equal(k[2].href, '/weinhandel/zukauf')
+  // KAN-428 (12.11.2026): davor die Dashboard-Sicht als „Übersicht“, die bisherige Übersicht heißt „Gebinde & Chargen“
+  assert.deepEqual(k.slice(0, 4).map(i => i.label), ['Übersicht', 'Gebinde & Chargen', 'Pressungen', 'Zukauf'])
+  assert.deepEqual(k.slice(0, 2).map(i => i.href), ['/kellerbuch/uebersicht', '/kellerbuch'])
+  assert.equal(k[2].href, '/kellerbuch/pressungen')
+  assert.equal(k[3].href, '/weinhandel/zukauf')
 })
 
 test('Warenwirtschaft ohne Zukauf, Warenlager und Verkauf unverändert', () => {
   const w = bereiche().warenwirtschaft
   assert.ok(!w.some(i => i.href === '/weinhandel/zukauf'))
-  assert.deepEqual(w.slice(0, 2).map(i => i.href), ['/weinhandel', '/weinhandel/verkauf'])
+  // KAN-428 (12.11.2026): davor die Übersicht des Bereichs
+  assert.deepEqual(w.slice(0, 3).map(i => i.href), ['/weinhandel/uebersicht', '/weinhandel', '/weinhandel/verkauf'])
   // 30.09.2026: Liste der Transportbescheinigungen als eigener Tab nach „Offene Posten“
   const i = w.findIndex(x => x.href === '/weinhandel/offene-posten')
   assert.deepEqual(w[i + 1], { href: '/weinhandel/transportbescheinigungen', label: 'Transportbescheinigungen' })

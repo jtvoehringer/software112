@@ -32,7 +32,7 @@ describe('check-alle: Helfer q()/ctx.q() und ctx.tf()', () => {
 describe('Regression: die gefundenen Stellen laufen über alle()', () => {
   // KAN-346/374: offene Posten und Umsatzreihe über die zentralen Lader (alle() in lib/verkauf/umsatz.ts)
   test('Verkaufs-Dashboard: offene Posten und Umsatzreihe', () => {
-    const p = quelle('src/app/(dashboard)/dashboard/verkauf/page.tsx')
+    const p = quelle('src/app/(dashboard)/dashboard/_shared/VerkaufCrmSicht.tsx')
     assert.match(p, /ladeUmsatzRechnungen\(supabase, tenantId, absatzVon, absatzBis\)/)
     assert.match(p, /ladeOffenePosten\(ctx\)/)
     assert.doesNotMatch(p, /q\('verkaufsposten'\)\s*\n?\s*\.select\('id, datum/)
