@@ -41,8 +41,10 @@ export default async function SupportPage() {
         <p className="text-sm text-s112-muted mt-0.5">So erreichen Sie uns bei Fragen und Problemen</p>
       </div>
 
-      <div className="space-y-4 max-w-3xl">
+      {/* KAN-438: die Tabelle der Anfragen braucht die Breite – die übrigen Karten bleiben schmal (max-w-3xl) */}
+      <div className="space-y-4 max-w-6xl">
         {jsmKonfiguriert() && <SupportAnfrage emailFallback={kontakt.email} />}
+       <div className="space-y-4 max-w-3xl">
         {/* KAN-236: Rückruf anfordern (Anfragetyp „Rückruf“, höchste Priorität) */}
         {jsmKonfiguriert() && <RueckrufAnfordern />}
         {premium ? (
@@ -111,6 +113,7 @@ export default async function SupportPage() {
             </p>
           </section>
         )}
+       </div>
       </div>
     </div>
   )

@@ -20,7 +20,7 @@ describe('Register', () => {
     assert.equal(new Set(alle).size, alle.length)
     assert.deepEqual(STANDARD_LAYOUT.map(e => e.id), [
       'schnellaktionen', 'kellerbestand', 'flaschenlager', 'offene-posten', 'offene-aufgaben',
-      'finanzen', 'naechste-schritte', 'morgenbericht', 'aufgaben-termine', 'schnellzugriff',
+      'finanzen', 'naechste-schritte', 'morgenbericht', 'aufgaben-termine', 'support-anfragen', 'schnellzugriff',   // KAN-438: + Support-Anfragen
     ])
   })
 
@@ -70,7 +70,7 @@ describe('Quellen', () => {
 describe('Abschnitte', () => {
   test('Standard: Handy-Schnellaktionen, Kacheln, Karten', () => {
     const a = abschnitte(sichtbareWidgets(STANDARD_LAYOUT, ALLES))
-    assert.deepEqual(a.map(x => [x.art, x.nurHandy, x.widgets.length]), [['karten', true, 1], ['kacheln', false, 4], ['karten', false, 5]])
+    assert.deepEqual(a.map(x => [x.art, x.nurHandy, x.widgets.length]), [['karten', true, 1], ['kacheln', false, 4], ['karten', false, 6]])   // KAN-438: sechste Karte „Support-Anfragen“
   })
   test('Kachel zwischen Karten trennt die Abschnitte', () => {
     const a = abschnitte(sichtbareWidgets([{ id: 'morgenbericht' }, { id: 'kellerbestand' }, { id: 'finanzen' }], ALLES))

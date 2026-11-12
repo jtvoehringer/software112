@@ -12,6 +12,11 @@ import 'server-only'
 // aus der Dringlichkeit setzen (nicht im Kundenformular, deshalb nachträglich als Agent).
 
 import { JSM_SERVICEDESK_ID, JSM_SITE, antwortKommentar, beschreibungOhneKontext, jqlString, kommentarZerlegen, portalLink, RATE_LIMIT } from './anfrage'
+import { darfSehen, tenantAusBeschreibung, ticketAus, type SupportTicket, type TicketZugriff } from './tickets'
+
+// KAN-438: Feld-IDs der Service-Desk-Felder (je Site verschieden, deshalb überschreibbar; Vorgaben wie in der Hohenstein Suite)
+const FELD_SLA = (process.env.JSM_FELD_SLA ?? '').trim() || 'customfield_10107'                // „Time to resolution“
+const FELD_ANFRAGETYP = (process.env.JSM_FELD_ANFRAGETYP ?? '').trim() || 'customfield_10010'  // „Request Type“
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -53,7 +58,7 @@ async function json(pfad: string, init: RequestInit = {}, kontext: string): Prom
 
 // ── Kunde ────────────────────────────────────────────────────────────────────────────────────────────────
 
-async function kontoZurEmail(email: string): Promise<string | null> {
+export async function kontoZurEmail(email: string): Promise<string | null> {
   const gleich = (u: R) => String(u.emailAddress ?? '').toLowerCase() === email.toLowerCase()
   const liste = await json(`/rest/api/3/user/search?query=${encodeURIComponent(email)}&maxResults=10`, {}, 'Benutzersuche') as unknown as R[]
   const treffer = (Array.isArray(liste) ? liste : []).find(gleich) ?? (Array.isArray(liste) && liste.length === 1 ? liste[0] : null)
@@ -198,6 +203,59 @@ export async function meineAnfragen(email: string): Promise<MeineAnfrage[]> {
   }))
 }
 
+// ── KAN-438: alle Anfragen der Betriebe des Benutzers ─────────────────────────────────────────────────────────
+
+/** Wer fragt (Konto in Jira, Betriebe id → Name) und unter welchen JSM-Organisationen seine Betriebe laufen */
+export type SupportZugriff = TicketZugriff & { organisationen: readonly string[] }
+
+const TICKET_FELDER = ['summary', 'status', 'issuetype', 'priority', 'assignee', 'reporter', 'created', 'duedate', 'resolutiondate', 'description', FELD_SLA, FELD_ANFRAGETYP]
+const TICKETS_MAX = 300
+
+/**
+ * Anfragen, die der Benutzer sehen darf (neueste zuerst, höchstens 300): die eigenen und alle Anfragen seiner Betriebe.
+ * Jira sucht grob (Melder bzw. Organisation); was davon gezeigt wird, entscheidet danach `darfSehen` über die
+ * Mandanten-ID in der Beschreibung – der Name der Organisation allein gibt nie Zugriff.
+ */
+export async function betriebsAnfragen(z: SupportZugriff): Promise<SupportTicket[]> {
+  const teile: string[] = []
+  if (z.accountId) teile.push(`reporter = ${jqlString(z.accountId)}`)
+  if (z.organisationen.length > 0) {
+    // nur Organisationen nennen, die es in JSM gibt – ein unbekannter Name lässt die ganze Suche scheitern
+    const vorhanden = await json(`/rest/servicedeskapi/servicedesk/${JSM_SERVICEDESK_ID}/organization?limit=200`, {}, 'Organisationen')
+    const namen = new Set(((vorhanden.values ?? []) as R[]).map(o => String(o.name ?? '')))
+    const bekannt = z.organisationen.filter(n => namen.has(n))
+    if (bekannt.length > 0) teile.push(`organizations in (${bekannt.map(jqlString).join(', ')})`)
+  }
+  if (teile.length === 0) return []
+  const tickets: SupportTicket[] = []
+  let seite: string | undefined
+  let geladen = 0
+  do {
+    const d = await json('/rest/api/3/search/jql', {
+      method: 'POST',
+      body: JSON.stringify({ jql: `project = SUP AND (${teile.join(' OR ')}) ORDER BY created DESC`, fields: TICKET_FELDER, maxResults: 100, ...(seite ? { nextPageToken: seite } : {}) }),
+    }, 'Anfragen der Betriebe')
+    const issues = (d.issues ?? []) as R[]
+    geladen += issues.length
+    for (const i of issues) {
+      const t = ticketAus(i, z, { sla: FELD_SLA, anfragetyp: FELD_ANFRAGETYP })
+      if (t) tickets.push(t)
+    }
+    seite = typeof d.nextPageToken === 'string' && d.nextPageToken && issues.length > 0 ? d.nextPageToken : undefined
+  } while (seite && geladen < TICKETS_MAX)
+  return tickets
+}
+
+/** Darf der Benutzer diese Anfrage sehen und beantworten? Dieselbe Regel wie in der Liste (eigene bzw. Mandanten-ID). */
+export async function anfrageSichtbar(key: string, z: TicketZugriff): Promise<boolean> {
+  const r = await jsm(`/rest/api/3/issue/${encodeURIComponent(key)}?fields=reporter,description,project`)
+  if (r.status === 404 || r.status === 403) return false
+  if (!r.ok) throw new JsmFehler(`Support-System nicht erreichbar (Anfrage, HTTP ${r.status}).`)
+  const f = (((await r.json()) as R).fields ?? {}) as R
+  if (String(f.project?.key ?? '') !== 'SUP') return false
+  return darfSehen({ melderAccountId: (f.reporter?.accountId as string | undefined) ?? null, tenantId: tenantAusBeschreibung(f.description) }, z)
+}
+
 // ── KAN-235: eine eigene Anfrage im Detail und Antworten ────────────────────────────────────────────────────
 
 export type AnfrageDetail = {
@@ -211,17 +269,16 @@ export type AnfrageDetail = {
 }
 
 /**
- * Anfrage mit öffentlichen Kommentaren – nur, wenn der Benutzer (E-Mail) sie gemeldet hat; sonst null (→ 404).
- * Interne Kommentare des Supports bleiben verborgen (public=true, internal=false).
+ * Anfrage mit öffentlichen Kommentaren – nur, wenn der Benutzer sie sehen darf (eigene Anfrage bzw. Anfrage eines
+ * seiner Betriebe, KAN-438); sonst null (→ 404). Interne Kommentare des Supports bleiben verborgen
+ * (public=true, internal=false).
  */
-export async function anfrageDetail(email: string, key: string): Promise<AnfrageDetail | null> {
-  const accountId = await kontoZurEmail(email)
-  if (!accountId) return null
+export async function anfrageDetail(z: TicketZugriff, key: string): Promise<AnfrageDetail | null> {
+  if (!(await anfrageSichtbar(key, z))) return null
   const r = await jsm(`/rest/servicedeskapi/request/${encodeURIComponent(key)}?expand=status`)
   if (r.status === 404 || r.status === 403) return null
   if (!r.ok) throw new JsmFehler(`Support-System nicht erreichbar (Anfrage, HTTP ${r.status}).`)
   const a = (await r.json()) as R
-  if (String(a.reporter?.accountId ?? '') !== accountId) return null
   const feld = (id: string) => ((a.requestFieldValues ?? []) as R[]).find(f => f.fieldId === id)?.value
   const k = await json(`/rest/servicedeskapi/request/${encodeURIComponent(key)}/comment?public=true&internal=false&limit=100`, {}, 'Kommentare')
   return {
@@ -236,7 +293,7 @@ export async function anfrageDetail(email: string, key: string): Promise<Anfrage
       return {
         id: String(c.id),
         vonKunde: z.vonKunde,
-        autor: z.vonKunde ? (z.name ?? 'Sie') : 'Support',
+        autor: z.vonKunde ? (z.name ?? 'Kunde') : 'Support',
         text: z.text,
         am: String(c.created?.iso8601 ?? ''),
       }
@@ -244,7 +301,7 @@ export async function anfrageDetail(email: string, key: string): Promise<Anfrage
   }
 }
 
-/** Antwort als öffentlicher Kommentar – vorher wie anfrageDetail prüfen, ob die Anfrage dem Benutzer gehört */
+/** Antwort als öffentlicher Kommentar – vorher wie anfrageDetail prüfen, ob der Benutzer die Anfrage sehen darf */
 export async function antwortSenden(key: string, benutzer: string, text: string): Promise<void> {
   await json(`/rest/servicedeskapi/request/${encodeURIComponent(key)}/comment`, {
     method: 'POST',

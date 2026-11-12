@@ -1,19 +1,19 @@
 'use client'
 
-// KAN-230 Phase 2: „Problem melden“ und „Meine Anfragen“ auf der Support-Seite. Daten über
+// KAN-230 Phase 2: „Problem melden“ und die Anfragen auf der Support-Seite. Daten über
 // /api/support/anfragen (Jira Service Management, Projekt SUP); der Screenshot geht nur mit Haken mit.
+// KAN-438: „Support-Anfragen“ zeigt alle Anfragen der Betriebe des Benutzers in der Darstellung der Hohenstein Suite.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, Paperclip, Send, X } from 'lucide-react'
+import { Paperclip, Send, X } from 'lucide-react'
 import AnfrageVerlauf from './AnfrageVerlauf'
+import SupportTickets from '@/components/support/SupportTickets'
+import type { SupportTicket } from '@/lib/support/tickets'
 import { screenshotFehler } from '@/lib/support/anfrage'
 import { fehlerText } from '@/lib/fehler'
 
 type Option = { wert: string; label: string }
-type Anfrage = { key: string; betreff: string; status: string; erledigt: boolean; erstellt: string; link: string }
-type Stand = { aktiv: boolean; arten: Option[]; dringlichkeiten: Option[]; anfragen: Anfrage[]; fehler?: string }
-
-const datum = (iso: string) => (iso ? new Date(iso).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '')
+type Stand = { aktiv: boolean; arten: Option[]; dringlichkeiten: Option[]; anfragen: SupportTicket[]; heute?: string; fehler?: string }
 
 /** Herkunftsseite: Pfad der vorigen Seite in software:112 (ohne Query), sonst die Support-Seite */
 function herkunft(): string {
@@ -127,16 +127,16 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
 
   return (
     <div className="space-y-4">
-      <section className="card p-5 space-y-3">
+      <section className="card p-5 space-y-3 max-w-3xl">
         <h2 className="text-base font-semibold text-s112-text">Problem melden</h2>
         <p className="text-sm text-s112-text-2">
           Ihre Anfrage geht direkt an unser Support-Team. Bearbeitungsstand und Antworten sehen Sie unten unter
-          „Meine Anfragen“ – dort können Sie auch antworten. Bei jeder Antwort des Supports kommt zusätzlich eine E-Mail.
+          „Support-Anfragen“ – dort können Sie auch antworten. Bei jeder Antwort des Supports kommt zusätzlich eine E-Mail.
         </p>
 
         {erfolg && (
           <div className="rounded-lg bg-s112-ok-bg text-s112-ok-fg p-3 text-sm space-y-1" role="status">
-            <p>Danke! Ihre Anfrage <strong>{erfolg.key}</strong> ist eingegangen – Sie finden sie unten unter „Meine Anfragen“.</p>
+            <p>Danke! Ihre Anfrage <strong>{erfolg.key}</strong> ist eingegangen – Sie finden sie unten unter „Support-Anfragen“.</p>
             {erfolg.hinweise.map(h => <p key={h}>{h}</p>)}
           </div>
         )}
@@ -211,29 +211,19 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
         </form>
       </section>
 
+      {/* KAN-438: alle Anfragen der Betriebe des Benutzers – volle Breite, die übrigen Karten bleiben schmal */}
       <section className="card p-5 space-y-3">
-        <h2 className="text-base font-semibold text-s112-text">Meine Anfragen</h2>
-        {stand.fehler && <p className="text-sm text-s112-err-fg">{stand.fehler}</p>}
+        <div>
+          <h2 className="text-base font-semibold text-s112-text">Support-Anfragen</h2>
+          <p className="text-xs text-s112-muted mt-0.5">Alle Anfragen Ihrer Betriebe – auch die Ihrer Kolleginnen und Kollegen. Im Verlauf können Sie mitlesen und antworten.</p>
+        </div>
+        {stand.fehler && <p role="alert" className="text-sm text-s112-err-fg">{stand.fehler}</p>}
         {stand.anfragen.length === 0 ? (
-          <p className="text-sm text-s112-muted">Noch keine Anfragen.{emailFallback && <> Alternativ erreichen Sie uns unter {emailFallback}.</>}</p>
+          !stand.fehler && <p className="text-sm text-s112-muted">Noch keine Anfragen.{emailFallback && <> Alternativ erreichen Sie uns unter {emailFallback}.</>}</p>
         ) : (
-          <ul className="divide-y divide-s112-line text-sm">
-            {stand.anfragen.map(a => (
-              <li key={a.key} className="py-2">
-               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="font-mono text-xs text-s112-muted">{a.key}</span>
-                <span className="flex-1 min-w-0 truncate">{a.betreff}</span>
-                <span className={`text-xs px-2 py-0.5 rounded ${a.erledigt ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-warn-bg text-s112-warn-fg'}`}>{a.status}</span>
-                <span className="text-xs text-s112-muted tabular-nums">{datum(a.erstellt)}</span>
-                <button type="button" onClick={() => setOffen(o => (o === a.key ? null : a.key))} aria-expanded={offen === a.key}
-                  className="text-s112-blue-700 hover:underline inline-flex items-center gap-1" aria-label={`Verlauf von ${a.key} ${offen === a.key ? 'schließen' : 'anzeigen'}`}>
-                  {offen === a.key ? <ChevronDown className="w-3 h-3" aria-hidden /> : <ChevronRight className="w-3 h-3" aria-hidden />} Verlauf
-                </button>
-               </div>
-               {offen === a.key && <AnfrageVerlauf anfrageKey={a.key} onGeaendert={laden} />}
-              </li>
-            ))}
-          </ul>
+          <SupportTickets tickets={stand.anfragen} heute={stand.heute ?? ''} offen={offen}
+            onVerlauf={key => setOffen(o => (o === key ? null : key))}
+            verlauf={t => <AnfrageVerlauf anfrageKey={t.key} onGeaendert={laden} />} />
         )}
       </section>
     </div>

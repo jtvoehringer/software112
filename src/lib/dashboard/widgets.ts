@@ -58,6 +58,8 @@ export const WIDGETS = [
   { id: 'naechste-schritte', titel: 'Nächste Schritte', bereich: 'uebersicht', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['keller', 'fristen', 'weingarten'] },
   { id: 'morgenbericht', titel: 'Morgenbericht', bereich: 'uebersicht', groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['morgenbericht'] },
   { id: 'aufgaben-termine', titel: 'Aufgaben & Termine', bereich: 'uebersicht', groesse: 'breit', groessen: ['mittel', 'breit'], quellen: ['aufgabenTermine'] },
+  // KAN-438: offene Support-Anfragen der Betriebe des Benutzers – lädt selbst nach (keine Quelle der Übersicht)
+  { id: 'support-anfragen', titel: 'Support-Anfragen', bereich: 'uebersicht', groesse: 'breit', groessen: ['mittel', 'breit'], quellen: [] },
   { id: 'schnellzugriff', titel: 'Schnellzugriff', bereich: 'uebersicht', groesse: 'breit', quellen: [] },
   // KAN-389: weitere Widgets aus den Sichten – nicht im Standard, dieselben Bausteine wie die Sicht (dashboard/_shared)
   { id: 'umsatz-trend', titel: 'Umsatz-Trend (12 Monate)', bereich: 'verkauf', standard: false, groesse: 'mittel', groessen: ['mittel', 'breit'], quellen: ['umsatz'] },

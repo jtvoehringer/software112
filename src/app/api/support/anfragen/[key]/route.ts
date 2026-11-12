@@ -1,14 +1,14 @@
 // /api/support/anfragen/<SUP-n> – eine eigene Support-Anfrage im Detail (KAN-235, 08.10.2026)
 //
 // GET:  Status, Beschreibung (ohne Kontextblock) und öffentliche Kommentare – nur für Anfragen, die der Benutzer
-//       gemeldet hat (Reporter = Konto zur E-Mail); sonst 404. Interne Kommentare des Supports bleiben verborgen.
+//       sehen darf (eigene bzw. Anfrage eines seiner Betriebe, KAN-438); sonst 404. Interne Kommentare bleiben verborgen.
 // POST: Antwort { text } als öffentlicher Kommentar mit dem Namen des Benutzers in der ersten Zeile.
 // Ersetzt den Link ins Kundenportal, für das die Kunden kein Passwort haben (Entscheidung Jörgen 08.10.2026).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
-import { KEIN_CACHE, supportKontext } from '@/lib/support/kontext'
+import { KEIN_CACHE, supportKontext, supportZugriff } from '@/lib/support/kontext'
 import { antwortFehler, supportKeyGueltig } from '@/lib/support/anfrage'
 import { JsmFehler, anfrageDetail, antwortSenden, jsmKonfiguriert } from '@/lib/support/jsm'
 
@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ key
   if (!supportKeyGueltig(key)) return nichtGefunden()
   if (!jsmKonfiguriert()) return NextResponse.json({ fehler: 'Die Support-Anbindung ist nicht eingerichtet.' }, { status: 503, headers: KEIN_CACHE })
   try {
-    const detail = await anfrageDetail(k.user.email!, key)
+    const detail = await anfrageDetail(await supportZugriff(k.user.id, k.user.email!), key)
     return detail ? NextResponse.json(detail, { headers: KEIN_CACHE }) : nichtGefunden()
   } catch (e) {
     return jsmFehler(e, 'Die Anfrage konnte nicht geladen werden.')
@@ -55,11 +55,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ key
   const fehler = antwortFehler(body?.text)
   if (fehler) return NextResponse.json({ fehler }, { status: 400, headers: KEIN_CACHE })
   try {
-    // nur auf eigene Anfragen antworten (dieselbe Prüfung wie GET)
-    const detail = await anfrageDetail(k.user.email!, key)
+    // KAN-438: antworten darf, wer die Anfrage sehen darf – eigene bzw. Anfrage eines seiner Betriebe (dieselbe Prüfung wie GET)
+    const zugriff = await supportZugriff(k.user.id, k.user.email!)
+    const detail = await anfrageDetail(zugriff, key)
     if (!detail) return nichtGefunden()
     await antwortSenden(key, k.benutzerName ?? k.user.email!, String(body!.text))
-    const neu = await anfrageDetail(k.user.email!, key)
+    const neu = await anfrageDetail(zugriff, key)
     return NextResponse.json(neu ?? detail, { status: 201, headers: KEIN_CACHE })
   } catch (e) {
     return jsmFehler(e, 'Die Antwort konnte nicht gesendet werden.')

@@ -34,20 +34,24 @@ describe('KAN-235: Verlauf und Antworten', () => {
     assert.equal(a.beschreibungOhneKontext('Nur Text'), 'Nur Text')
   })
 
-  test('Route: nur eigene Anfragen, Antwort erst nach der Prüfung, Betrieb der Seite', () => {
+  // KAN-438 (Entscheidung Jörgen 12.11.2026, 2B/4A): nicht mehr nur eigene Anfragen – sichtbar und beantwortbar sind auch
+  // die Anfragen der eigenen Betriebe (Mandanten-ID der Anfrage). Die Prüfung vor der Antwort bleibt.
+  test('Route: nur sichtbare Anfragen (eigene bzw. eigener Betrieb), Antwort erst nach der Prüfung, Betrieb der Seite', () => {
     const r = quelle('src/app/api/support/anfragen/[key]/route.ts')
     const post = r.slice(r.indexOf('export async function POST'))
     assert.match(r, /if \(!supportKeyGueltig\(key\)\) return nichtGefunden\(\)/)
     assert.match(post, /seitenBetriebKonflikt\(k\.membership\.tenantId\)/)
-    assert.ok(post.indexOf('anfrageDetail(k.user.email!, key)') < post.indexOf('antwortSenden('), 'erst Eigentum prüfen, dann antworten')
+    assert.ok(post.indexOf('anfrageDetail(zugriff, key)') > 0 && post.indexOf('anfrageDetail(zugriff, key)') < post.indexOf('antwortSenden('), 'erst Sichtbarkeit prüfen, dann antworten')
     const j = quelle('src/lib/support/jsm.ts')
-    assert.match(j, /if \(String\(a\.reporter\?\.accountId \?\? ''\) !== accountId\) return null/)
+    assert.match(j, /if \(!\(await anfrageSichtbar\(key, z\)\)\) return null/)
+    assert.match(j, /return darfSehen\(\{ melderAccountId: /)
     assert.match(j, /comment\?public=true&internal=false&limit=100/)
   })
   test('Oberfläche: Verlauf statt Portal-Link', () => {
     const s = quelle('src/app/(dashboard)/hilfe/support/SupportAnfrage.tsx')
     assert.doesNotMatch(s, /Im Support-Portal ansehen|im Support-Portal öffnen/)
-    assert.match(s, /\{offen === a\.key && <AnfrageVerlauf anfrageKey=\{a\.key\} onGeaendert=\{laden\} \/>\}/)
+    // KAN-438: der Verlauf klappt in der Tabelle der Support-Anfragen auf
+    assert.match(s, /verlauf=\{t => <AnfrageVerlauf anfrageKey=\{t\.key\} onGeaendert=\{laden\} \/>\}/)
     const v = quelle('src/app/(dashboard)/hilfe/support/AnfrageVerlauf.tsx')
     assert.match(v, /method: 'POST', headers: \{ 'Content-Type': 'application\/json' \}, body: JSON\.stringify\(\{ text: antwort \}\)/)
   })
