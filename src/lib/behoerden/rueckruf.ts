@@ -289,7 +289,9 @@ export async function ladeRueckruf(supabase: any, tenantId: string, start: Rueck
   // tenant-isolation-ignore: exportauftrag_positionen ohne tenant_id, Filter über den Auftrag (!inner)
   const ex = await inBloecken<R>(fl.data.map(f => String(f.id)), b => alle(q(supabase, 'exportauftrag_positionen')
     .select('id, fullung_id, menge, einheit, auftrag:exportauftrag_id!inner(tenant_id, datum, referenz, storniert_am, partner_daten, kontakt:kontakt_id(vorname, nachname, strasse, plz, ort, land, betrieb_nr), firma:firma_id(name, strasse, plz, ort, land, betrieb_nr))')
-    .eq('auftrag.tenant_id', tenantId).is('auftrag.storniert_am', null).in('fullung_id', b).order('id')))
+    .eq('auftrag.tenant_id', tenantId).is('auftrag.storniert_am', null)
+    .is('auftrag.verkaufsposten_id', null)   // KAN-436 E1: mit Rechnung stehen die Flaschen schon als Verkauf in der Liste
+    .in('fullung_id', b).order('id')))
   if (ex.error) throw fehler('Export', ex.error)
 
   const posten = [...vpF.data, ...vpT.data.filter(v => !v.fuellung_id)]

@@ -39,6 +39,8 @@ import { notizFehler, rechnungstextAenderbar, rechnungstextFehler, textOderNull 
 import { emailBezugWerte } from '@/lib/verkauf/ausMail'
 import { lernZeilen } from '@/lib/verkauf/bestellungKi'
 import { lerneBegriffe } from '@/lib/verkauf/bestellungLernen'
+import { ladeExportFaktura } from '@/lib/export/fakturaLaden'
+import { fakturaRechnungstext } from '@/lib/export/fakturierung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -441,6 +443,26 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     if (lf) return { error: lf }
   }
 
+  // KAN-436 E1: Rechnung aus einem Exportauftrag („Rechnung stellen“). Kunde, Positionen, Steuerfall und Text kommen
+  // nicht aus dem Formular, sondern werden hier aus dem Exportauftrag neu berechnet und mit der Eingabe verglichen –
+  // so entsteht zu einem Exportauftrag nur genau der Verkauf, den seine Positionen ergeben.
+  const exportId = auftragIdAus(formData.get('export_id'))
+  let exportFall: { steuerfall: string; kundeUid: string | null; lieferland: string | null; referenz: string } | null = null
+  if (exportId) {
+    if (auftragId) return { error: 'Ein Verkauf gehört entweder zu einem Auftrag oder zu einem Exportauftrag.' }
+    if (rechnungSpaeter) return { error: 'Zu einem Exportauftrag entsteht die Rechnung sofort.' }
+    const ex = await ladeExportFaktura(supabase, tenantId, exportId)
+    if (!ex) return { error: 'Exportauftrag nicht gefunden – bitte die Seite neu laden.' }
+    if (ex.faktura.fehler.length > 0) return { error: `Keine Rechnung möglich: ${ex.faktura.fehler.join(' ')}` }
+    const referenz = String(ex.auftrag.referenz ?? '')
+    if (ex.faktura.kontaktId !== kontaktId || ex.faktura.firmaId !== firmaId
+      || JSON.stringify(ex.faktura.positionen) !== JSON.stringify(positionen)
+      || fakturaRechnungstext(ex.faktura, referenz) !== (rechnungstext ?? '')) {
+      return { error: 'Der Exportauftrag wurde inzwischen geändert – bitte die Seite neu laden und die Rechnung erneut stellen.' }
+    }
+    exportFall = { steuerfall: ex.faktura.steuerfall as string, kundeUid: ex.faktura.kundeUid, lieferland: ex.faktura.lieferland, referenz }
+  }
+
   // ── Prüfung VOR dem ersten Schreibzugriff (auch vor der Rechnungsnummer –
   //    eine Ablehnung hinterlässt so keine Lücke im Nummernkreis)
   const { literJeCharge, stueckJeFuellung, mostgewichtJePosition, leseJePosition } = await pruefePositionen(supabase, membership, positionen, datum)
@@ -536,6 +558,8 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     lieferadresse:    liefer?.moment ?? null,
     lieferadresse_id: liefer?.id ?? null,
     rechnung_spaeter: rechnungSpaeter,
+    // KAN-436 E1: steuerfreier Fall, UID des Kunden und Bestimmungsland (nur aus dem Exportauftrag)
+    ...(exportFall ? { steuerfall: exportFall.steuerfall, kunde_uid: exportFall.kundeUid, lieferland: exportFall.lieferland } : {}),
   }).select('rechnungsnummer').single()
 
   if (postenErr) await abbruch(dbFehlerText(postenErr, 'Speichern fehlgeschlagen (verkaufsposten)'), null)
@@ -612,6 +636,16 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     if (lagerErr) await abbruch(dbFehlerText(lagerErr, 'Lagerstand der Sonstigen Produkte konnte nicht gebucht werden'), postenId)
   }
 
+  // KAN-436 E1: Exportauftrag mit dem Verkauf verknüpfen – nur, wenn er noch keinen hat (zwei gleichzeitige Klicks:
+  // der zweite Beleg wird sofort storniert). Die Datenbank prüft Status, Betrieb und Steuerfall (zz_export_rechnung_schutz).
+  if (exportFall && exportId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: verkn, error: vErr } = await (supabase.from('exportauftraege') as any)
+      .update({ verkaufsposten_id: postenId }).eq('id', exportId).eq('tenant_id', tenantId).is('verkaufsposten_id', null).select('id')
+    if (vErr) await abbruch(dbFehlerText(vErr, `Der Exportauftrag ${exportFall.referenz} konnte nicht mit der Rechnung verknüpft werden`), postenId)
+    if (!verkn || (verkn as AR[]).length === 0) await abbruch(`Zum Exportauftrag ${exportFall.referenz} gibt es inzwischen schon eine Rechnung`, postenId)
+  }
+
   // Ab hier ist der Verkauf vollständig gebucht – Folgeschritte (CRM, Lead-Status) dürfen
   // nicht mehr als Fehler zurückkommen, sonst speichert ein erneutes Absenden doppelt.
 
@@ -678,6 +712,10 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
   revalidatePath('/kellerbuch')
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
+  if (exportId) {   // KAN-436 E1
+    revalidatePath('/weinexport')
+    revalidatePath(`/weinexport/${exportId}`)
+  }
   if (auftragId) {   // KAN-418 Teil 2
     revalidatePath('/weinhandel/auftraege')
     revalidatePath('/weinhandel/auftraege/[id]', 'page')

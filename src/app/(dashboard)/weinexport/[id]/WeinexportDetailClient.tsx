@@ -121,7 +121,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-end">
           {/* KAN-429: Bearbeiten in Entwurf und Bestätigt; ab Versendet gesperrt (auch in der Datenbank) */}
-          {darfSchreiben && exportBearbeitbar({ status, storniert_am: auftrag.storniert_am }) && (
+          {darfSchreiben && exportBearbeitbar({ status, storniert_am: auftrag.storniert_am, verkaufsposten_id: auftrag.verkaufsposten_id, muster_ausgebucht_am: auftrag.muster_ausgebucht_am }) && (
             <Link href={`/weinexport/${auftrag.id}/bearbeiten`}
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm text-s112-text-1 hover:bg-s112-bg">Bearbeiten</Link>
           )}
@@ -135,7 +135,13 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           {fehler && <span role="alert" className="text-xs text-s112-err">{fehler}</span>}
         </div>
       </div>
-      {darfSchreiben && !auftrag.storniert_am && !exportBearbeitbar({ status, storniert_am: auftrag.storniert_am }) && (
+      {/* KAN-436 E1: mit Rechnung bzw. ausgebuchtem Muster gesperrt – der Weg zurück führt über das Storno der Rechnung */}
+      {darfSchreiben && !auftrag.storniert_am && (auftrag.verkaufsposten_id || auftrag.muster_ausgebucht_am) && (
+        <GesperrtHinweis grund={auftrag.verkaufsposten_id
+          ? 'Zum Exportauftrag gibt es eine Rechnung – zum Bearbeiten zuerst die Rechnung stornieren'
+          : 'Das Muster ist ausgebucht – zum Bearbeiten zuerst zurückbuchen'} erlaubt={['Status', 'EMCS-Angaben', 'Verpackung', 'Dokumente']} />
+      )}
+      {darfSchreiben && !auftrag.storniert_am && !auftrag.verkaufsposten_id && !auftrag.muster_ausgebucht_am && !exportBearbeitbar({ status, storniert_am: auftrag.storniert_am }) && (
         <GesperrtHinweis grund="Exportauftrag versendet – zum Bearbeiten von Kopfdaten und Positionen den Status auf „Bestätigt“ zurückstellen" erlaubt={['Status', 'EMCS-Angaben', 'Verpackung', 'Dokumente']} />
       )}
 
