@@ -4,6 +4,8 @@ import { Check, Pencil, Trash2 } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
+import BelegAnhang from '@/components/buchhaltung/BelegAnhang'
+import { kostenHerkunft } from '@/lib/kosten/aufteilung'
 
 type KS = { id: string; name: string; kuerzel?: string; beschreibung?: string }
 type KA = { id: string; name: string; kuerzel?: string; kategorie?: string }
@@ -15,7 +17,12 @@ type Eintrag = {
   objekt_typ: string | null; periode: string | null; transaktions_nr: string | null
   kostenstelle: { name: string } | null; kostenart: { name: string } | null
   wg_splits?: Split[]; bh_splits?: Split[]
+  // KAN-421: Eintrag aus einer E&A-Buchung (nicht änderbar, Belege der Buchung)
+  ea_transaktion_id?: string | null
+  buchung?: { id: string; storniert_am: string | null; storno_von_id: string | null } | null
+  belege?: { id: string; dateiname: string }[]
 }
+const HERKUNFT_TEXT = { buchung: 'aus E&A-Buchung', storniert: 'storniert', storno: 'Storno' } as const
 type Tab = 'buchungen' | 'kostenstellen' | 'kostenarten'
 const KAT = ['betriebsmittel','personal','energie','abschreibung','pacht','sonstiges']
 
@@ -340,7 +347,17 @@ export default function KostenrechnungPage() {
                 <tr key={e.id} className={`hover:bg-s112-bg/30 ${editId===e.id?'bg-s112-teal/5':''}`}>
                   <td className="px-4 py-2.5 font-mono text-xs text-s112-muted whitespace-nowrap">{e.transaktions_nr??'–'}</td>
                   <td className="px-4 py-2.5 text-s112-muted tabular-nums">{new Date(e.datum).toLocaleDateString('de-AT')}</td>
-                  <td className="px-4 py-2.5">{e.beschreibung??'–'}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={kostenHerkunft(e) === 'storniert' ? 'line-through text-s112-muted' : ''}>{e.beschreibung??'–'}</span>
+                    {kostenHerkunft(e) !== 'manuell' && (
+                      <span className="ml-2 inline-flex items-center gap-1.5 align-middle">
+                        <span className={`text-[11px] px-1.5 py-0.5 rounded-sm border ${kostenHerkunft(e) === 'buchung' ? 'border-s112-border text-s112-muted' : 'border-s112-warn/30 bg-s112-warn-bg text-s112-warn-fg'}`}>
+                          {HERKUNFT_TEXT[kostenHerkunft(e) as keyof typeof HERKUNFT_TEXT]}
+                        </span>
+                        {e.ea_transaktion_id && <BelegAnhang transaktionId={e.ea_transaktion_id} bezeichnung={e.beschreibung ?? 'Buchung'} belege={e.belege ?? []} offeneBelege={[]} darfAnhaengen={false} />}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-s112-text-2"><div>{e.kostenstelle?.name??'–'}</div><div className="text-xs text-s112-muted">{e.kostenart?.name??''}</div></td>
                   <td className="px-4 py-2.5 text-s112-text-2">
                     <div className="text-xs">{splitLabel(e)}</div>
@@ -348,10 +365,10 @@ export default function KostenrechnungPage() {
                     {(e.bh_splits?.length??0) > 1 && <div className="text-[11px] text-s112-muted">{e.bh_splits!.map(s=>`${s.bh?.name}: ${eur(s.betrag_anteil??0)}`).join(' · ')}</div>}
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
-                  <td className="px-4 py-2.5"><div className="flex gap-2">
+                  <td className="px-4 py-2.5">{e.ea_transaktion_id ? null : <div className="flex gap-2">
                     <button aria-label="Bearbeiten" onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-blue-700 text-xs"><Pencil size={13} /></button>
                     <button aria-label="Löschen" title="Löschen" onClick={async ()=>{if(await rueckfrage({ titel: 'Kostenbuchung löschen?', bestaetigen: 'Löschen', gefaehrlich: true }))void listenAktion({action:'loeschen',id:e.id})}} className="text-s112-muted hover:text-s112-err text-xs"><Trash2 size={13} /></button>
-                  </div></td>
+                  </div>}</td>
                 </tr>
               ))}
               {eintraege.length===0 && <tr><td colSpan={6} className="text-center py-8 text-s112-muted">Noch keine Buchungen</td></tr>}

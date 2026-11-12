@@ -14,6 +14,7 @@ import { abgleichVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
 import { pruefeModul } from '@/lib/auth/modul'
 import { ustSatzAus, UST_SATZ_FEHLER } from '@/lib/ea/ustSatz'
+import { KOSTEN_FELD, kostenAufteilungFehler, kostenRpcZeilen, kostenZeilenAus, type KostenZeile } from '@/lib/kosten/aufteilung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -53,6 +54,29 @@ async function getKategorieAbzugsfaehigPct(supabase: any, tenantId: string, kate
   return pct == null ? 100 : Number(pct)
 }
 
+// KAN-421: Ausgabe in die Kostenrechnung übernehmen (RPC s112_ea_kosten_zuordnen – prüft Rollen, beide Paket-Module,
+// Summe ≤ netto und schreibt alle Zeilen in einer Transaktion). Die Buchung steht dann schon: ein Fehler hier wird
+// als Hinweis gemeldet, nicht als Fehler der Buchung (sonst würde sie ein zweites Mal erfasst).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function kostenUebernehmen(supabase: any, tenantId: string, eaId: string, zeilen: KostenZeile[]): Promise<string | null> {
+  if (zeilen.length === 0) return null
+  const { error } = await supabase.rpc('s112_ea_kosten_zuordnen', {
+    p_tenant_id: tenantId, p_ea_transaktion_id: eaId, p_zeilen: kostenRpcZeilen(zeilen),
+  })
+  return error
+    ? `Die Buchung ist gespeichert (bitte nicht erneut buchen), aber nicht in die Kostenrechnung übernommen: ${dbFehlerText(error)} Bitte den Kosteneintrag unter Controlling › Kostenrechnung nachtragen.`
+    : null
+}
+
+/** Aufteilung auf Kostenstellen aus dem Formular; { error } bei ungültiger Eingabe */
+async function kostenAusFormular(formData: FormData, typ: string, netto: number): Promise<{ zeilen: KostenZeile[] } | { error: string }> {
+  const zeilen = kostenZeilenAus(formData.get(KOSTEN_FELD))
+  const fehler = kostenAufteilungFehler(zeilen, typ, netto)
+  if (fehler || !zeilen) return { error: fehler ?? 'Die Aufteilung auf Kostenstellen konnte nicht gelesen werden.' }
+  if (zeilen.length > 0) await pruefeModul('modul_controlling')   // vor dem Anlegen der Buchung, nicht erst in der RPC
+  return { zeilen }
+}
+
 // ── Buchung anlegen ───────────────────────────────────────────────────────────
 
 export async function createEaTransaktion(formData: FormData) {
@@ -75,6 +99,8 @@ export async function createEaTransaktion(formData: FormData) {
     return { error: 'Pflichtfelder fehlen' }
   }
   if (ust_satz === null) return { error: UST_SATZ_FEHLER }
+  const kosten = await kostenAusFormular(formData, typ, betrag_netto)   // KAN-421
+  if ('error' in kosten) return { error: kosten.error }
 
   // Zeitraum darf weder abgeschlossen (Monatsabschluss) noch bereits per UVA
   // übermittelt sein – sonst könnte ein geschlossener Zeitraum durch eine
@@ -99,12 +125,18 @@ export async function createEaTransaktion(formData: FormData) {
 
   if (error) return { error: dbFehlerText(error) }
   revalidatePath('/buchhaltung')
+  // Die Buchung steht – nicht erneut speichern; was danach scheitert, wird als Hinweis gemeldet
+  const hinweise: string[] = []
+  const kostenHinweis = await kostenUebernehmen(supabase, tenantId, (neu as R).id as string, kosten.zeilen)
+  if (kostenHinweis) hinweise.push(kostenHinweis)
+  if (kosten.zeilen.length > 0) revalidatePath('/controlling/kostenrechnung')
   if (belege.length > 0) {
     const { data: { user } } = await supabase.auth.getUser()
     const erg = await haengeDateienAn(supabase, tenantId, user?.id ?? null, (neu as R).id as string, belege)
-    // Die Buchung steht – nicht erneut speichern; fehlende Belege lassen sich an der Buchung nachtragen
-    if (erg.error) return { ok: true, belegFehler: `Die Buchung ist gespeichert, aber nicht alle Belege wurden angehängt: ${erg.error} Bitte an der Buchung nachtragen.` }
+    // fehlende Belege lassen sich an der Buchung nachtragen
+    if (erg.error) hinweise.push(`Die Buchung ist gespeichert, aber nicht alle Belege wurden angehängt: ${erg.error} Bitte an der Buchung nachtragen.`)
   }
+  if (hinweise.length > 0) return { ok: true, belegFehler: hinweise.join(' ') }
   return { ok: true }
 }
 
@@ -410,6 +442,8 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
     return { error: 'Pflichtfelder fehlen' }
   }
   if (ust_satz === null) return { error: UST_SATZ_FEHLER }
+  const kosten = await kostenAusFormular(formData, typ, betrag_netto)   // KAN-421
+  if ('error' in kosten) return { error: kosten.error }
 
   const { data: pruefRaw, error: pruefErr } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
     p_tenant_id: tenantId, p_datum: datum,
@@ -452,6 +486,10 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
 
   revalidatePath('/buchhaltung')
   revalidatePath('/buchhaltung/belege')
+  // KAN-421: Buchung und Beleg stehen – ein Fehler der Kostenübernahme ist ein Hinweis, kein Fehler der Buchung
+  const kostenHinweis = await kostenUebernehmen(supabase, tenantId, (neu as R).id as string, kosten.zeilen)
+  if (kosten.zeilen.length > 0) revalidatePath('/controlling/kostenrechnung')
+  if (kostenHinweis) return { ok: true, hinweis: kostenHinweis }
   return { ok: true }
 }
 

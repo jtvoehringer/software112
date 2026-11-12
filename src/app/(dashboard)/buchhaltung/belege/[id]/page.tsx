@@ -25,9 +25,17 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
   const tenantId = membership.tenantId
 
   const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
+    .select('modul_ea, modul_controlling, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
   const ustStandard = einst?.ust_satz_standard ?? 20
+
+  // KAN-421: Kostenstellen und Kostenarten für die Übernahme in die Kostenrechnung (nur mit Modul Controlling)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kostenstellen = einst?.modul_controlling ? geladen(await (supabase.from('kostenstellen') as any)
+    .select('id, name').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id'), 'Kostenstellen') as R[] : []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kostenarten = einst?.modul_controlling ? geladen(await (supabase.from('kostenarten') as any)
+    .select('id, name').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id'), 'Kostenarten') as R[] : []
 
   const belegRaw = geladen(await (supabase.from('ea_belege') as any)
     .select('id, dateiname, dateityp, status, storage_pfad, erkannte_daten, fehler_details, hochgeladen_am')
@@ -144,6 +152,8 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
           allFirmen={allFirmen}
           rabattgruppen={rabattgruppen}
           verwerfenAction={verwerfenWithId}
+          kostenstellen={kostenstellen.map(k => ({ id: k.id as string, name: k.name as string }))}
+          kostenarten={kostenarten.map(k => ({ id: k.id as string, name: k.name as string }))}
         />
       </div>
     </div>
