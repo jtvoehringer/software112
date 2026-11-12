@@ -285,6 +285,13 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
               defaultValue={daten.psm_erfassungsfrist_h} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Ab Ende des Anwendungstags (24:00); später erfasste Pflanzenschutz-Maßnahmen und Düngungen gelten als „nacherfasst“ (Ampel bis 72 h gelb, darüber rot).</p>
           </div>
+          {/* KAN-418 Teil 5: Standardfrist einer Reservierung */}
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Reservierung gilt (Tage)</label>
+            <input aria-label="Reservierung gilt (Tage)" name="auftrag_reservierung_tage" type="number" step="1" min="1" max="365" required
+              defaultValue={daten.auftrag_reservierung_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <p className="text-xs text-s112-muted mt-1">Vorschlag für „Reserviert bis“ bei einem neuen Auftrag. Eine abgelaufene Reservierung bleibt bestehen und erscheint als Hinweis (Warenwirtschaft-Übersicht, Glocke).</p>
+          </div>
         </div>
       </div>
 

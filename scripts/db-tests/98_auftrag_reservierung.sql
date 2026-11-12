@@ -80,6 +80,24 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('nummer', (v_r ->> 'nummer') ~ '^AB-[0-9]{4}-0001$', true);
   v_erg := v_erg || pg_temp.s112_erwarte('frist_14_tage',
     (SELECT (reserviert_bis = datum + 14 AND status = 'offen' AND erstellt_von = v_bw)::text FROM public.auftraege WHERE id = v_auf), 'true');
+  -- KAN-418 Teil 5: Standardfrist des Betriebs (30 statt 14 Tage) – lesbar, nicht direkt schreibbar, wirkt beim Anlegen
+  PERFORM pg_temp.s112_als_postgres();
+  UPDATE public.tenant_einstellungen SET auftrag_reservierung_tage = 30 WHERE tenant_id = v_b;
+  PERFORM pg_temp.s112_als(v_bw);
+  v_erg := v_erg || pg_temp.s112_erwarte('frist_betrieb_lesbar',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenant_einstellungen WHERE tenant_id = %L AND auftrag_reservierung_tage = 30', v_b)), '1');
+  v_erg := v_erg || pg_temp.s112_erwarte('frist_betrieb_nicht_direkt',
+    left(pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET auftrag_reservierung_tage = 60 WHERE tenant_id = %L', v_b)), 1) <> 'k', true);
+  v_r := public.s112_auftrag_anlegen(v_b, jsonb_build_object('kontakt_id', v_k), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1)));
+  v_erg := v_erg || pg_temp.s112_erwarte('frist_des_betriebs',
+    (SELECT (reserviert_bis = datum + 30)::text FROM public.auftraege WHERE id = (v_r ->> 'id')::uuid), 'true');
+  -- eine ausdrücklich angegebene Frist bleibt
+  PERFORM public.s112_auftrag_stornieren(v_b, (v_r ->> 'id')::uuid, 'S112TEST Frist des Betriebs geprüft');
+  v_r := public.s112_auftrag_anlegen(v_b, jsonb_build_object('kontakt_id', v_k, 'reserviert_bis', (pg_temp.s112_heute() + 3)::text),
+           jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1)));
+  v_erg := v_erg || pg_temp.s112_erwarte('frist_ausdruecklich',
+    (SELECT (reserviert_bis = pg_temp.s112_heute() + 3)::text FROM public.auftraege WHERE id = (v_r ->> 'id')::uuid), 'true');
+  PERFORM public.s112_auftrag_stornieren(v_b, (v_r ->> 'id')::uuid, 'S112TEST ausdrückliche Frist geprüft');
   v_erg := v_erg || pg_temp.s112_erwarte('zweiter_auftrag_zu_viel',
     split_part(pg_temp.s112_fehlertext(format(c_neu, v_b, jsonb_build_object('kontakt_id', v_k), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 41)))), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('verkauf_in_reservierung',
@@ -146,5 +164,5 @@ BEGIN
     has_function_privilege('anon', 'public.s112_auftrag_anlegen(uuid, jsonb, jsonb)', 'EXECUTE')
     OR has_function_privilege('authenticated', 'public.s112_fuellung_reserviert(uuid)', 'EXECUTE'), false);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 34);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 38);
 END $test$;

@@ -30,6 +30,7 @@ export type EigeneBetriebsdaten = {
   gaerung_messintervall_tage: number
   fristen_vorwarnung_tage: number
   psm_erfassungsfrist_h: number
+  auftrag_reservierung_tage: number
   // Morgenbericht & Wetter (Migration 201)
   morgenbericht_aktiv: boolean
   wetter_aktiv: boolean
@@ -84,7 +85,7 @@ export default async function MeinBetriebPage() {
     (admin.from('tenant_einstellungen') as any)
       .select(`
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
-        gaerung_messintervall_tage, fristen_vorwarnung_tage, psm_erfassungsfrist_h, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage,
+        gaerung_messintervall_tage, fristen_vorwarnung_tage, psm_erfassungsfrist_h, auftrag_reservierung_tage, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage,
         betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon,
         betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, betriebsart, betrieb_rechtsform, betrieb_vorname, betrieb_nachname, betrieb_betriebsstaette, ea_betriebsbeginn, modul_ea, buchhaltungsart,
         rechnung_iban, rechnung_bic, rechnung_fusstext,
@@ -116,6 +117,7 @@ export default async function MeinBetriebPage() {
     gaerung_messintervall_tage: Number(s?.gaerung_messintervall_tage ?? 3),
     fristen_vorwarnung_tage:    Number(s?.fristen_vorwarnung_tage ?? 30),
     psm_erfassungsfrist_h:      Number(s?.psm_erfassungsfrist_h ?? 24),
+    auftrag_reservierung_tage:  Number(s?.auftrag_reservierung_tage ?? 14),
     morgenbericht_aktiv: s?.morgenbericht_aktiv !== false,
     wetter_aktiv: s?.wetter_aktiv !== false,
     wetter_abwasch_mm: Number(s?.wetter_abwasch_mm ?? 25),

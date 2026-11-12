@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen, gezaehlt } from '@/lib/supabase/geladen'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import Link from '@/components/ui/Link'
 import { ReceiptText, Package, Users, ShoppingCart, Calendar, Wallet, Upload } from 'lucide-react'
 import { DashHeader, Card, BarRow, Empty, fmtNum, fmtEur } from './ui'
@@ -8,6 +8,9 @@ import { getCtx, ladeFlaschenlager, ladeOffenePosten } from './data'
 import { umsatzFenster, umsatzReihe, ueberfaelligeRechnungen, UmsatzTrendKarte, UeberfaelligeRechnungenKarte, TopKundenKarte } from './bausteine'
 import { ladeUmsatzRechnungen, umsatzJeKunde } from '@/lib/verkauf/umsatz'
 import { AktionsFehler } from '@/lib/fehler'
+import { ladeAbgelaufeneReservierungen, ladeReservierungTage } from '@/lib/auftrag/laden'
+import { tagPlus } from '@/lib/auftrag/regeln'
+import ReservierungenAbgelaufenKarte from './ReservierungenAbgelaufenKarte'
 import { wienJetzt, lokalerTag } from '@/lib/datum/wien'
 
 // KAN-428 (12.11.2026): Die Sicht „Verkauf & CRM“ als Baustein. Unter Übersicht bleibt sie eine gemeinsame Seite
@@ -105,6 +108,10 @@ export default async function VerkaufCrmSicht({ teil = 'beide', crmImport = fals
 
   const ctx = await getCtx()
   const [flaschen, offen] = await Promise.all([ladeFlaschenlager(ctx), ladeOffenePosten(ctx)])
+  // KAN-418 Teil 5: abgelaufene Reservierungen (bleiben bestehen, bis jemand verlängert oder storniert)
+  const [abgelaufen, fristTage] = mitVerkauf && tenantId
+    ? await Promise.all([ladeAbgelaufeneReservierungen(supabase, tenantId, heuteStr), ladeReservierungTage(supabase, tenantId)])
+    : [[], 14]
   // KAN-346/374: offene Posten zentral (Rechnungen, nach Teilzahlungen, überfällig ab Fälligkeit nach Kundenziel)
   if (offen.fehler) throw new AktionsFehler(`Offene Posten konnten nicht geladen werden: ${offen.fehler}`)
 
@@ -229,6 +236,10 @@ export default async function VerkaufCrmSicht({ teil = 'beide', crmImport = fals
           </p>
         </div>}
       </div>
+
+      {/* KAN-418 Teil 5: Hinweis nur, wenn Reservierungen abgelaufen sind */}
+      {mitVerkauf && <ReservierungenAbgelaufenKarte auftraege={abgelaufen} fristTage={fristTage}
+        verlaengernBis={tagPlus(heuteStr, fristTage)} schreiben={!!membership && canWrite(membership, 'warenwirtschaft')} />}
 
       {/* ── Balkendiagramm + Tabelle ────────────────────────────────── */}
       {mitVerkauf && <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">

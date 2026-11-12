@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getCtx, ladeEinstellungen, ladeFristen, ladeKeller } from '@/app/(dashboard)/dashboard/_shared/data'
 import { ladeMorgenbericht } from '@/lib/morgenbericht/erstellen'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { ladeAbgelaufeneReservierungen } from '@/lib/auftrag/laden'
+import { abgelaufenText } from '@/lib/auftrag/regeln'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +26,7 @@ export async function GET() {
   if (!ctx.tenantId) return NextResponse.json({ hinweise: [], benachrichtigungen: [] })
 
   const einst = await ladeEinstellungen(ctx)
-  const [fristen, keller, bericht, benachr] = await Promise.all([
+  const [fristen, keller, bericht, benachr, abgelaufen] = await Promise.all([
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     ladeKeller(ctx, einst.messintervallTage),
     ladeMorgenbericht(ctx.supabase, ctx.tenantId),
@@ -35,6 +37,8 @@ export async function GET() {
           .eq('tenant_id', ctx.tenantId).eq('empfaenger_id', ctx.userId).is('gelesen_am', null)
           .order('erstellt_am', { ascending: false }).limit(30)
       : Promise.resolve({ data: [] }),
+    // KAN-418 Teil 5: abgelaufene Reservierungen (ein Sammelhinweis)
+    ladeAbgelaufeneReservierungen(ctx.supabase, ctx.tenantId, ctx.heuteStr),
   ])
   const benachrichtigungen = ((benachr.data ?? []) as Benachrichtigung[])
 
@@ -50,6 +54,13 @@ export async function GET() {
       key: `mess:${c.id}`, titel: `Gärkontrolle – ${c.name}`,
       detail: c.tageSeitMessung === null ? 'noch keine Analyse erfasst' : `letzte Messung vor ${c.tageSeitMessung} Tagen`,
       tone: 'warn', href: '/dashboard/kellerbuch',
+    })
+  }
+  if (abgelaufen.length > 0) {
+    hinweise.push({
+      key: 'reservierung:abgelaufen', titel: abgelaufenText(abgelaufen.length),
+      detail: `${abgelaufen.reduce((s, a) => s + a.offen, 0)} Flaschen bleiben reserviert – verlängern oder stornieren`,
+      tone: 'warn', href: '/weinhandel/uebersicht',
     })
   }
   // Morgenbericht (Migration 201): dringende Befunde von heute, die nicht schon
