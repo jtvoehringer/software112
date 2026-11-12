@@ -1210,7 +1210,10 @@
 "titel_nachgestellt",
 "anonymisiert_am",
 "anonymisiert_von",
-"anonymisiert_grund"
+"anonymisiert_grund",
+"email_pruefung",
+"email_geprueft_am",
+"email_pruef_hinweis"
 ],
 "konten": [
 "id",

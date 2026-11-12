@@ -8,6 +8,7 @@ import { spiegleMailboxen } from '@/lib/email/spiegel'
 import { ereignisMelden, ereignisseBereinigen } from '@/lib/system/ereignis'
 import { journalAbgleichAlle } from '@/lib/kellerbuch/journal'
 import { dbFehlerText } from '@/lib/fehler'
+import { laufEmailPruefung } from '@/lib/crm/emailPruefungLauf'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 800
@@ -61,6 +62,10 @@ async function handle(req: NextRequest) {
   //    auch dann erhalten, wenn der Morgenbericht danach das Zeitlimit reißt.
   const emailSpiegel = await spiegleMailboxen(22000)
 
+  // 2b. E-Mail-Adressen der Kontakte prüfen (KAN-424): Schreibweise, Domain, Rückläufer aus Brevo – festes Budget,
+  //     höchstens 300 Kontakte je Betrieb und Nacht; kennzeichnet nur, ändert keine Adresse
+  const emailPruefung = await laufEmailPruefung(admin, 60000)
+
   // 3. Morgenberichte: Rest bis maxDuration abzüglich Reserve für Bereinigung und Protokoll
   //    (KAN-123; Zeitgrenzen je Betrieb, Reihenfolge und Parallelität in lib/morgenbericht/zeitplan.ts)
   const rest = maxDuration * 1000 - LAUF_RESERVE_MS - (Date.now() - start)
@@ -72,15 +77,15 @@ async function handle(req: NextRequest) {
   //    (GeoSphere-Zeitlimit, HTTP-Fehler – der Bericht nutzt dann den Cache) stehen in der Meldung,
   //    zählen aber nicht als Fehler.
   const mb = laufBilanz(morgenbericht.ergebnis)
-  const fehlerAnzahl = (daErr ? 1 : 0) + Number(da?.fehler ?? 0) + journal.fehler.length + emailSpiegel.fehler.length + mb.alsFehler
+  const fehlerAnzahl = (daErr ? 1 : 0) + Number(da?.fehler ?? 0) + journal.fehler.length + emailPruefung.fehler.length + emailSpiegel.fehler.length + mb.alsFehler
   const mbText = `${mb.erstellt} Morgenberichte${mb.bewusst ? ` (${mb.bewusst} bewusst ausgelassen)` : ''}${mb.zeitUebersprungen ? `, ${mb.zeitUebersprungen} aus Zeitmangel übersprungen` : ''}${mb.gekuerzt ? `, ${mb.gekuerzt} wegen der Zeitgrenze gekürzt` : ''}${mb.wetterFehler ? `, ${mb.wetterFehler} ${mb.wetterFehler === 1 ? 'Wetterpunkt' : 'Wetterpunkte'} nicht abrufbar` : ''}`
   const bereinigt = await ereignisseBereinigen()
   await ereignisMelden({
     art: 'cron', quelle: TAEGLICH_QUELLE,
     meldung: `Täglicher Lauf: ${daErr ? 'Daueraufträge FEHLER' : `${da?.erstellt ?? 0} Daueraufträge`}, ${journal.betriebe ? `Journal ${journal.betriebe} ${journal.betriebe === 1 ? 'Betrieb' : 'Betriebe'}/${journal.korrekturen} Korrekturen, ` : ''}${emailSpiegel.angelegt} E-Mails gespiegelt${emailSpiegel.uebersprungen.length ? ` (${emailSpiegel.uebersprungen.length} ${emailSpiegel.uebersprungen.length === 1 ? 'Postfach' : 'Postfächer'} bewusst ausgelassen)` : ''}${emailSpiegel.neuVerbinden.length ? ` (${emailSpiegel.neuVerbinden.length} neu zu verbinden)` : ''}, ${mbText}, ${fehlerAnzahl} Fehler, ${Math.round((Date.now() - start) / 1000)} s`,
     // KAN-69: ausgelassene Postfächer (inaktive Mitgliedschaft, Abo gesperrt) zählen nicht als Fehler
-    details: { fehler: fehlerAnzahl, dauerauftraege, journal, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20), uebersprungen: emailSpiegel.uebersprungen.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok' || e.wetterFehler) }, bereinigt },
+    details: { fehler: fehlerAnzahl, dauerauftraege, journal, emailPruefung: { ...emailPruefung, fehler: emailPruefung.fehler.slice(0, 20) }, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20), uebersprungen: emailSpiegel.uebersprungen.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok' || e.wetterFehler) }, bereinigt },
   })
 
-  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, journal, emailSpiegel, morgenbericht })
+  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, journal, emailSpiegel, emailPruefung, morgenbericht })
 }

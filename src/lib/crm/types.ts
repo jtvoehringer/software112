@@ -235,6 +235,9 @@ export type KontaktRow = {
   /** KAN-426: Bezeichnung des Imports, aus dem der Kontakt stammt, und Zeitpunkt */
   import_quelle?: string | null
   importiert_am?: string | null
+  /** KAN-424: Ergebnis der E-Mail-Prüfung (schreibweise, domain, ruecklaeufer, bestaetigt) und Klartext dazu */
+  email_pruefung?: string | null
+  email_pruef_hinweis?: string | null
   erstellt_am: string
 }
 

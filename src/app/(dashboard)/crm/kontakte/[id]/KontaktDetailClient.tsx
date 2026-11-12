@@ -6,13 +6,14 @@ import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
 import Link from '@/components/ui/Link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, setzeKontaktAktiv, kontaktPersonendatenLoeschen, kontaktZuFirmaUmwandeln } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, setzeKontaktAktiv, kontaktPersonendatenLoeschen, kontaktEmailBestaetigen, kontaktZuFirmaUmwandeln } from '../../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
 import FehlerMeldung from '@/components/ui/FehlerMeldung'
 import StornoButton from '@/components/StornoButton'
 import { PERSONENDATEN_HINWEIS, istAnonymisiert, personendatenErfolgText } from '@/lib/crm/personendaten'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
+import { emailAuffaellig, emailBestaetigbar, emailPruefText } from '@/lib/crm/emailPruefung'
 import {
   SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -455,6 +456,16 @@ export default function KontaktDetailClient({
     if (r.art === 'geloescht') router.push('/crm/kontakte')
     else router.refresh()
   }
+  // KAN-424: Kennzeichen „E-Mail prüfen“ aufheben
+  function handleEmailBestaetigen() {
+    setAktionsFehler(null)
+    startDeleteTransition(async () => {
+      const r = await kontaktEmailBestaetigen(kontakt.id)
+      if (r.error) setAktionsFehler(r.error)
+      else zeigeErfolg('Die Adresse gilt als geprüft.')
+      router.refresh()
+    })
+  }
   // KAN-150 F1: deaktivieren statt löschen bzw. wieder aktivieren
   function handleAktiv(aktiv: boolean) {
     setAktionsFehler(null)
@@ -646,6 +657,17 @@ export default function KontaktDetailClient({
         <div role="status" className="bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-xl px-4 py-3">
           Die Personendaten dieses Kontakts wurden am {new Date(kontakt.anonymisiert_am as string).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })} gelöscht (DSGVO).
           Der Kontakt bleibt wegen seiner Belege mit der Kundennummer stehen und lässt sich nicht mehr ändern.
+        </div>
+      )}
+      {emailAuffaellig(kontakt) && (
+        <div role="status" className="flex items-start justify-between gap-3 flex-wrap bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-xl px-4 py-3">
+          <span><strong>E-Mail prüfen:</strong> {emailPruefText(kontakt)} Die Adresse wurde nicht geändert.</span>
+          {writeOk && emailBestaetigbar(kontakt) && (
+            <button type="button" onClick={handleEmailBestaetigen} disabled={deletePending}
+              className="shrink-0 border border-s112-warn/40 rounded-lg px-3 py-1 text-xs font-medium hover:bg-white/60 disabled:opacity-40">
+              Adresse ist in Ordnung
+            </button>
+          )}
         </div>
       )}
       <FehlerMeldung text={aktionsFehler} />

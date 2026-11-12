@@ -798,6 +798,11 @@ export default function KontakteClient({
         <div className="ml-auto flex items-center gap-2">
           {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/kontakte (KAN-54);
               der Knopf zeigt Fehler und Hinweise der Route (X-Warnungen) statt sie als Datei zu speichern */}
+          {/* KAN-424: nur Kontakte, deren Adresse bei der Prüfung aufgefallen ist */}
+          <label className="inline-flex items-center gap-1.5 text-xs text-s112-text-2" title="Kontakte, deren E-Mail-Adresse bei der Prüfung aufgefallen ist (Schreibweise, Domain, Rückläufer)">
+            <input type="checkbox" checked={filter.emailPruefen} onChange={() => setzeFilter({ emailPruefen: !filter.emailPruefen })} />
+            E-Mail prüfen
+          </label>
           <ImportFilter importe={importe} wert={filter.imp} onChange={imp => setzeFilter({ imp })} />
           {writeOk && (
             <CsvExportKnopf href={`/api/export/kontakte${filter.imp ? `?import=${encodeURIComponent(filter.imp)}` : ''}`} label="CSV" ariaLabel="Kontakte als CSV exportieren"
