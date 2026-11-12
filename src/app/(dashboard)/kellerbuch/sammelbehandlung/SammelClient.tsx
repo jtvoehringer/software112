@@ -12,7 +12,7 @@ import { fehlerText } from '@/lib/fehler'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
-import { sammelFehler, sammelSumme, sammelZeilen, type SammelModus } from '@/lib/kellerbuch/sammelbehandlung'
+import { sammelFehler, sammelSumme, sammelZeilen, type SammelModus, SAMMEL_EINHEITEN, istMesswertEinheit, sammelModusFuer } from '@/lib/kellerbuch/sammelbehandlung'
 import { speichereSammelbehandlung, storniereSammelbehandlung } from './actions'
 
 export type SammelChargeZeile = {
@@ -24,7 +24,7 @@ export type Sammlung = {
 type Typ = { id: string; name: string; einheit: string | null; pnWirkung: string | null }
 type Stoff = { id: string; name: string; einheit: string }
 
-const EINHEITEN = ['kg', 'g', 'L', 'mL', 'mg', '-']
+const EINHEITEN: readonly string[] = SAMMEL_EINHEITEN   // wie die Einzelbehandlung, samt °C
 const datumDe = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}` : d)
 
 export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute, writeOk }: {
@@ -36,9 +36,12 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
   const [suche, setSuche] = useState('')
   const [datum, setDatum] = useState(heute)
   const [typId, setTypId] = useState('')
-  const [modus, setModus] = useState<SammelModus>('gesamt')
+  const [modusWahl, setModus] = useState<SammelModus>('gesamt')
   const [menge, setMenge] = useState('')
   const [einheit, setEinheit] = useState('g')
+  // UAT 12.11.2026: °C ist ein Messwert – jedes Gebinde bekommt denselben Wert, keine Aufteilung nach Litern
+  const messwert = istMesswertEinheit(einheit)
+  const modus = sammelModusFuer(einheit, modusWahl)
   const [stoffId, setStoffId] = useState('')
   const [stoffMenge, setStoffMenge] = useState('')
   const [notizen, setNotizen] = useState('')
@@ -212,7 +215,15 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
             </label>
           </div>
 
-          {einheit !== '-' && (
+          {messwert && (
+            <label className="block text-sm sm:max-w-sm">
+              <span className="block text-xs font-medium text-s112-text-2 mb-1">Temperatur ({einheit}) – gilt für jedes gewählte Gebinde</span>
+              <input type="text" inputMode="decimal" value={menge} onChange={e => setMenge(e.target.value)} disabled={!writeOk}
+                placeholder="z. B. 18" className="input w-full py-2 text-sm" />
+              <span className="block text-xs text-s112-muted mt-1">Ein Messwert wird nicht nach Litern aufgeteilt – jede Behandlung bekommt denselben Wert.</span>
+            </label>
+          )}
+          {einheit !== '-' && !messwert && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <fieldset className="text-sm">
                 <legend className="block text-xs font-medium text-s112-text-2 mb-1">Die Menge gilt als</legend>
@@ -300,7 +311,7 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
                     <tr key={s.id} className={`border-b border-s112-border last:border-0 align-top ${ganzStorniert ? 'text-s112-muted line-through' : ''}`}>
                       <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{datumDe(s.datum)}</td>
                       <td className="py-2 pr-3">{s.typ}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums whitespace-nowrap">{s.einheit && s.einheit !== '-' ? `${fmtNum(s.menge, 3)} ${s.einheit}` : '–'}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums whitespace-nowrap">{istMesswertEinheit(s.einheit) && s.anzahl > s.storniert ? `${fmtNum(s.menge / (s.anzahl - s.storniert), 1)} ${s.einheit} je Gebinde` : s.einheit && s.einheit !== '-' ? `${fmtNum(s.menge, 3)} ${s.einheit}` : '–'}</td>
                       <td className="py-2 pr-3">
                         {s.anzahl} Gebinde{s.storniert > 0 && !ganzStorniert ? `, davon ${s.storniert} storniert` : ''}
                         <span className="block text-xs text-s112-muted">{s.gebinde.slice(0, 8).join(', ')}{s.gebinde.length > 8 ? ' …' : ''}</span>

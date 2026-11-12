@@ -23,7 +23,7 @@ export type GewichtPosition = {
   menge?: unknown
   einheit?: unknown
   /** Füllung der Position (null/undefined: freie Position ohne Füllung) */
-  fuellung?: { flaschengroesse_ml?: unknown; leergewicht_g?: unknown } | null
+  fuellung?: { flaschengroesse_ml?: unknown; leergewicht_g?: unknown; /** für den Hinweis am Auftrag (UAT 12.11.2026) */ id?: unknown; name?: unknown; jahrgang?: unknown } | null
 }
 
 export type PositionsGewicht = {
@@ -89,6 +89,8 @@ export type SendungsGewicht = {
   unvollstaendig: number
   /** Hinweis für den Auftrag, wenn Gewichte fehlen – sonst null */
   hinweis: string | null
+  /** Füllungen ohne Leergewicht (je Füllung einmal) – der Auftrag verlinkt sie zum Nachtragen */
+  ohneLeergewicht: { id: string | null; name: string }[]
 }
 
 /** Gewichte einer Sendung: Summen aus den gerundeten Positionswerten, Verpackung nur im Brutto */
@@ -99,8 +101,22 @@ export function sendungsGewicht(positionen: readonly GewichtPosition[], verpacku
   const bruttoVollstaendig = pos.length > 0 && pos.every(p => p.bruttoKg !== null)
   const unvollstaendig = pos.filter(p => p.bruttoKg === null).length
   const gruende = new Set(pos.map(p => p.fehlt).filter(Boolean))
+  // UAT 12.11.2026 (KAN-414): die Füllungen beim Namen nennen – gleichnamige Füllungen verschiedener Jahrgänge
+  // (Leergewicht am Jahrgang 2025 eingetragen, im Auftrag steht der Jahrgang 2024) waren sonst nicht zu unterscheiden
+  const ohneLeergewicht: { id: string | null; name: string }[] = []
+  positionen.forEach((p, i) => {
+    if (pos[i].fehlt !== 'leergewicht' || !p.fuellung) return
+    const id = typeof p.fuellung.id === 'string' && p.fuellung.id ? p.fuellung.id : null
+    const name = [p.fuellung.name, p.fuellung.jahrgang].map(x => (x === null || x === undefined ? '' : String(x).trim())).filter(Boolean).join(' ')
+    if (!name && !id) return
+    if (!ohneLeergewicht.some(o => (id ? o.id === id : o.id === null && o.name === name))) ohneLeergewicht.push({ id, name: name || 'Füllung ohne Namen' })
+  })
   const teile: string[] = []
-  if (gruende.has('leergewicht')) teile.push('bei mindestens einer Füllung fehlt das Leergewicht der Flasche')
+  if (gruende.has('leergewicht')) {
+    teile.push(ohneLeergewicht.length
+      ? `bei ${ohneLeergewicht.map(o => `„${o.name}“`).join(', ')} fehlt das Leergewicht der Flasche`
+      : 'bei mindestens einer Füllung fehlt das Leergewicht der Flasche')
+  }
   if (gruende.has('fuellung')) teile.push('mindestens eine Position hat keine Füllung')
   if (gruende.has('flaschengroesse')) teile.push('bei mindestens einer Füllung fehlt die Flaschengröße')
   if (gruende.has('kiste')) teile.push('bei der Einheit „Kiste“ ist die Flaschenzahl unbekannt – bitte in Flaschen erfassen')
@@ -112,6 +128,7 @@ export function sendungsGewicht(positionen: readonly GewichtPosition[], verpacku
     verpackungKg: rund(verpackung, GEWICHT_STELLEN),
     unvollstaendig,
     hinweis: teile.length ? `Gewicht unvollständig: ${teile.join('; ')}. In den Dokumenten bleibt das Gewicht leer.` : null,
+    ohneLeergewicht,
   }
 }
 

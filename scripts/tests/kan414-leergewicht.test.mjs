@@ -73,6 +73,29 @@ describe('KAN-414: Gewicht der Sendung', nurMitHooks, () => {
     assert.match(s.hinweis, /bleibt das Gewicht leer/)
     assert.equal(sendungsGewicht([], 5).bruttoKg, null)   // ohne Positionen kein Gewicht
   })
+  // UAT 12.11.2026: Leergewicht am Jahrgang 2025 eingetragen, im Auftrag stand die gleichnamige Füllung 2024 –
+  // der Hinweis nannte keine Füllung. Jetzt mit Name und Jahrgang, je Füllung einmal, samt id für den Link.
+  test('Hinweis nennt die Füllungen ohne Leergewicht mit Namen und Jahrgang', async () => {
+    const { sendungsGewicht } = await g()
+    const ohne = { id: 'aaaaaaaa-0000-4000-8000-000000000003', name: 'Riesling Ried Pfaffenberg Reserve', jahrgang: 2024, flaschengroesse_ml: 750, leergewicht_g: null }
+    const mit = { id: 'aaaaaaaa-0000-4000-8000-00000000000b', name: 'Riesling Ried Pfaffenberg Reserve', jahrgang: 2025, flaschengroesse_ml: 750, leergewicht_g: '500' }
+    const s = sendungsGewicht([
+      { menge: 600, einheit: 'Fl', fuellung: ohne }, { menge: 60, einheit: 'Fl', fuellung: ohne }, { menge: 120, einheit: 'Fl', fuellung: mit },
+    ], 80)
+    assert.equal(s.bruttoKg, null)
+    assert.deepEqual(s.ohneLeergewicht, [{ id: ohne.id, name: 'Riesling Ried Pfaffenberg Reserve 2024' }])
+    assert.match(s.hinweis, /bei „Riesling Ried Pfaffenberg Reserve 2024“ fehlt das Leergewicht der Flasche/)
+    assert.doesNotMatch(s.hinweis, /2025/)
+    // vollständig: kein Hinweis, leere Liste; Leergewicht als Text aus der Datenbank (numeric) zählt
+    const voll = sendungsGewicht([{ menge: 600, einheit: 'Fl', fuellung: mit }], 80)
+    assert.deepEqual([voll.bruttoKg, voll.hinweis, voll.ohneLeergewicht], [825.5, null, []])
+  })
+  test('Auftrag lädt Name, Jahrgang und id der Füllung und verlinkt sie im Hinweis', () => {
+    assert.ok(quelle('src/lib/behoerden/exportauftrag.ts').includes('fuellungen(id,name,jahrgang,bezeichnung,flaschengroesse_ml,leergewicht_g)'))
+    const c = quelle('src/app/(dashboard)/weinexport/[id]/WeinexportDetailClient.tsx')
+    assert.ok(c.includes('gewicht.ohneLeergewicht.filter(o => o.id).map'))
+    assert.ok(c.includes('href={`/weinhandel/fuellungen/${o.id}/edit`}'))
+  })
 })
 
 describe('KAN-414: Eingabe und Verdrahtung', nurMitHooks, () => {

@@ -25,7 +25,9 @@ const tokens = (c: string) => new Set(c.split(/\s+/).filter(Boolean))
 
 /** Kleines Abzeichen (Status-Pille wie „Überfällig“) – nie eine Meldung */
 function istAbzeichen(t: Set<string>, tag: string): boolean {
-  return t.has('rounded-full') || tag === 'tr' || tag === 'td' || tag === 'th'
+  // KAN-413 (UAT 12.11.2026): Bedienelemente sind nie eine Meldung – der rote Knopf „… stornieren“ (bg-s112-err-bg)
+  // erschien nach dem Speichern neu in der Liste und löste „Es gibt eine Fehlermeldung außer Sicht“ aus
+  return t.has('rounded-full') || tag === 'tr' || tag === 'td' || tag === 'th' || tag === 'button' || tag === 'a'
 }
 
 /**

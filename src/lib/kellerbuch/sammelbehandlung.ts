@@ -15,10 +15,30 @@ export const SAMMEL_STELLEN = 3
 /** Obergrenze je Sammelmaßnahme – schützt Formular und RPC vor versehentlich riesigen Listen */
 export const SAMMEL_MAX = 200
 
-export type SammelModus = 'gesamt' | 'dosis'
+/** gesamt = nach Litern aufteilen · dosis = je hl · gleich = derselbe Wert je Gebinde (Messwerte wie °C) */
+export type SammelModus = 'gesamt' | 'dosis' | 'gleich'
 
 export function istSammelModus(x: unknown): x is SammelModus {
-  return x === 'gesamt' || x === 'dosis'
+  return x === 'gesamt' || x === 'dosis' || x === 'gleich'
+}
+
+/** Einheiten der Sammelmaßnahme – dieselben wie bei der Einzelbehandlung am Gebinde (UAT 12.11.2026: °C fehlte) */
+export const SAMMEL_EINHEITEN = ['kg', 'g', 'L', 'mL', 'mg', '°C', '-'] as const
+
+/** Einheiten, die kein Stoff sind, sondern ein Messwert: nicht aufteilbar, jedes Gebinde bekommt denselben Wert */
+export function istMesswertEinheit(einheit: string | null | undefined): boolean {
+  return einheit === '°C'
+}
+
+/** Wirksamer Modus: ein Messwert (°C) gilt je Gebinde, sonst die Wahl des Benutzers (nie „gleich“ für Stoffmengen) */
+export function sammelModusFuer(einheit: string | null | undefined, wahl: SammelModus): SammelModus {
+  if (istMesswertEinheit(einheit)) return 'gleich'
+  return wahl === 'gleich' ? 'gesamt' : wahl
+}
+
+/** Derselbe Wert für jedes Gebinde (Messwert) */
+export function mengenGleich(wert: number, liter: number[], stellen: number = SAMMEL_STELLEN): number[] {
+  return liter.map(() => (Number.isFinite(wert) ? rund(wert, stellen) : 0))
 }
 
 /**
@@ -67,7 +87,8 @@ export function sammelZeilen(p: {
   const liter = p.chargen.map(c => c.liter)
   const mengen = p.menge == null
     ? null
-    : p.modus === 'dosis' ? mengenAusDosis(p.menge, liter) : verteileNachLitern(p.menge, liter)
+    : p.modus === 'gleich' ? mengenGleich(p.menge, liter)
+      : p.modus === 'dosis' ? mengenAusDosis(p.menge, liter) : verteileNachLitern(p.menge, liter)
   const stoff = p.stoffGesamt == null ? null : verteileNachLitern(p.stoffGesamt, liter)
   return p.chargen.map((c, i) => ({ ...c, menge: mengen ? mengen[i] : null, stoffMenge: stoff ? stoff[i] : null }))
 }
@@ -94,7 +115,17 @@ export function sammelFehler(p: {
   if (new Set(p.chargen.map(c => c.chargeId)).size !== p.chargen.length) return 'Eine Charge ist doppelt gewählt.'
   if (p.chargen.some(c => !Number.isFinite(c.liter) || !(c.liter > 0))) return 'Eine gewählte Charge hat keine Menge (0 L) – sie kann keinen Anteil bekommen.'
   if (!istSammelModus(p.modus)) return 'Bitte wählen, ob die Menge als Gesamtmenge oder als Dosis je hl gilt.'
-  if (p.einheit !== '-') {
+  // Messwert (°C) und „derselbe Wert je Gebinde“ gehören zusammen – eine Temperatur lässt sich nicht nach Litern aufteilen
+  if (istMesswertEinheit(p.einheit) !== (p.modus === 'gleich')) {
+    return istMesswertEinheit(p.einheit)
+      ? 'Eine Temperatur gilt je Gebinde – sie lässt sich nicht nach Litern aufteilen.'
+      : 'Derselbe Wert je Gebinde gilt nur für Messwerte (°C) – bitte Gesamtmenge oder Dosis je hl wählen.'
+  }
+  if (p.modus === 'gleich') {
+    if (p.menge == null || !Number.isFinite(p.menge)) return 'Bitte die Temperatur angeben.'
+    // die Datenbank verlangt je Charge einen Wert über 0 (s112_kellerbehandlung_sammel)
+    if (!(p.menge > 0)) return 'Die Temperatur muss über 0 °C liegen – Werte ab 0 °C abwärts bitte als Einzelbehandlung am Gebinde erfassen.'
+  } else if (p.einheit !== '-') {
     if (p.menge == null || !Number.isFinite(p.menge)) return 'Bitte die Menge angeben (bei Behandlungen ohne Mengenangabe die Einheit „-“ wählen).'
     if (!(p.menge > 0)) return 'Die Menge muss größer als 0 sein.'
     const mengen = p.modus === 'dosis' ? mengenAusDosis(p.menge, p.chargen.map(c => c.liter)) : verteileNachLitern(p.menge, p.chargen.map(c => c.liter))
