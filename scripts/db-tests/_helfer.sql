@@ -1306,6 +1306,11 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 's112_auftrag_status_setzen(p_auftrag_id uuid)'),   -- KAN-418 Teil 2
     ('intern',        '--S', false, 's112_auftrag_lieferung_zurueck_intern(p_verkaufsposten_id uuid, p_grund text)'),   -- KAN-418 Teil 2
     ('trigger',       '--S', false, 's112_auftrag_lieferung_storno()'),   -- KAN-418 Teil 2: Storno des Verkaufs nimmt die Lieferung zurück
+    ('mandant',       '-US', true , 's112_angebot_anlegen(p_tenant_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-418 Teil 4: Angebot
+    ('mandant',       '-US', true , 's112_angebot_aendern(p_tenant_id uuid, p_angebot_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-418 Teil 4
+    ('mandant',       '-US', true , 's112_angebot_status_setzen(p_tenant_id uuid, p_angebot_id uuid, p_status text, p_grund text)'),   -- KAN-418 Teil 4: ablehnen/stornieren
+    ('intern',        '--S', false, 's112_angebot_schreiben_intern(p_tenant_id uuid, p_angebot_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-418 Teil 4
+    ('intern',        '--S', false, 's112_angebotsnummer_ziehen(p_tenant_id uuid)'),   -- KAN-418 Teil 4: Nummernkreis AN
     ('trigger',       '--S', false, 's112_kontakt_anonymisiert_schutz()'),   -- KAN-425: anonymisierter Kontakt unveränderlich
     ('mandant',       '-US', true , 's112_kontakt_personendaten_loeschen(p_tenant_id uuid, p_kontakt_id uuid, p_grund text)'),   -- KAN-425: Personendaten löschen (DSGVO)
     ('trigger',       '--S', false, 's112_kosten_buchung_schutz()'),   -- KAN-421: Kosteneinträge aus einer E&A-Buchung nur über die RPC

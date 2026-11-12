@@ -10,9 +10,14 @@ import { fehlerText } from '@/lib/fehler'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { AB_NACHRICHT_MAX, abEmpfaengerFehler } from '@/lib/auftrag/bestaetigung'
 
-export default function AuftragsbestaetigungPanel({ id, nummer, defaultEmail, gesendetText, darfSenden }: {
+export default function AuftragsbestaetigungPanel({ id, nummer, defaultEmail, gesendetText, darfSenden, beleg }: {
   id: string; nummer: string; defaultEmail: string; /** „gesendet am … an …“ oder null */ gesendetText: string | null; darfSenden: boolean
+  /** KAN-418 Teil 4: anderer Beleg mit demselben Ablauf (Angebot) – ohne Angabe die Auftragsbestätigung */
+  beleg?: { titel: string; api: string; hinweis: string }
 }) {
+  const titel = beleg?.titel ?? 'Auftragsbestätigung'
+  const api = beleg?.api ?? `/api/weinhandel/auftraege/${id}`
+  const hinweis = beleg?.hinweis ?? 'Bestätigt werden die bestellten Flaschen und die Reservierung – ohne Preise.'
   const router = useRouter()
   const feldId = useId()
   const [offen, setOffen] = useState(false)
@@ -27,7 +32,7 @@ export default function AuftragsbestaetigungPanel({ id, nummer, defaultEmail, ge
     if (f) return
     setSendet(true)
     try {
-      const res = await fetch(`/api/weinhandel/auftraege/${id}/send`, {
+      const res = await fetch(`${api}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: an.trim(), message: nachricht.trim() || undefined }),
@@ -37,7 +42,7 @@ export default function AuftragsbestaetigungPanel({ id, nummer, defaultEmail, ge
       // erst nach Erfolg leeren und schließen
       setOffen(false)
       setNachricht('')
-      zeigeErfolg(`Auftragsbestätigung ${nummer} an ${json.sentTo ?? an.trim()} gesendet.`)
+      zeigeErfolg(`${titel} ${nummer} an ${json.sentTo ?? an.trim()} gesendet.`)
       router.refresh()
     } catch (e) {
       setFehler(fehlerText(e, 'Der Versand ist fehlgeschlagen'))
@@ -50,15 +55,15 @@ export default function AuftragsbestaetigungPanel({ id, nummer, defaultEmail, ge
     <div className="card p-5 space-y-3 print:hidden">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-sm font-semibold text-s112-text">Auftragsbestätigung</h2>
+          <h2 className="text-sm font-semibold text-s112-text">{titel}</h2>
           <p className="text-xs text-s112-muted mt-0.5">
-            {gesendetText ?? 'Noch nicht an den Kunden gesendet.'} Bestätigt werden die bestellten Flaschen und die Reservierung – ohne Preise.
+            {gesendetText ?? 'Noch nicht an den Kunden gesendet.'} {hinweis}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <a href={`/api/weinhandel/auftraege/${id}/pdf`} target="_blank" rel="noopener"
+          <a href={`${api}/pdf`} target="_blank" rel="noopener"
             className="inline-flex items-center gap-1.5 border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">
-            <FileText className="w-4 h-4" aria-hidden="true" /> Auftragsbestätigung (PDF)
+            <FileText className="w-4 h-4" aria-hidden="true" /> {titel} (PDF)
           </a>
           {darfSenden && !offen && (
             <button type="button" onClick={() => { setOffen(true); setFehler(null) }}

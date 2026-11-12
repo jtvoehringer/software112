@@ -394,9 +394,9 @@ export default function NeuerVerkaufPage() {
             ...newEmptyPosition(),
             fuellung_id: p.fuellung_id,
             name: f ? [f.name, f.jahrgang, f.flaschengroesse_ml ? FLASCHEN_LABEL[f.flaschengroesse_ml] : null].filter(Boolean).join(' · ') : p.name,
-            preis_brutto: f?.vk_preis_brutto != null ? String(f.vk_preis_brutto) : '',
+            preis_brutto: p.preis ? String(p.preis.preis_brutto) : f?.vk_preis_brutto != null ? String(f.vk_preis_brutto) : '',
             menge: String(p.offen),
-            ust_satz: String(ustStandard),
+            ust_satz: String(p.preis?.ust_satz ?? ustStandard),
             auftrag_position_id: p.position_id,
             auftrag_offen: p.offen,
           }
@@ -406,6 +406,16 @@ export default function NeuerVerkaufPage() {
         const t = res.ok ? ((d.treffer ?? []) as PartnerTreffer[]).find(x => x.id === r.kunde) : undefined
         if (t) kundeWaehlen(r.kunde, t)
         else setAuftragHinweis('Der Kunde des Auftrags konnte nicht geladen werden – bitte im Formular wählen.')
+        // KAN-418 Teil 4 (Frage 3A): Stammt der Auftrag aus einem Angebot, gelten dessen Preise und Rabatte als Vorschlag –
+        // nach der Kundenwahl gesetzt, weil diese die Rabatte aller Positionen mit den Konditionen des Kunden belegt
+        if (r.positionen.some(p => p.preis)) {
+          const jePosition = new Map(r.positionen.map(p => [p.position_id, p.preis]))
+          setPositionen(prev => prev.map(pos => {
+            const preis = pos.auftrag_position_id ? jePosition.get(pos.auftrag_position_id) : null
+            return preis ? { ...pos, ...rabattFuerNeuePosition({ rabatt_pct: preis.rabatt_pct, sonderrabatt_pct: preis.sonderrabatt_pct }) } : pos
+          }))
+          setAuftragHinweis(`Die Preise und Rabatte stammen aus dem Angebot zu Auftrag ${r.nummer} – bitte prüfen.`)
+        }
       } catch (e) {
         setAuftragHinweis(fehlerText(e, 'Der Auftrag konnte nicht geladen werden'))
       }

@@ -20,15 +20,17 @@ type Zeile = { fuellung_id: string; menge: string }
 
 const feld = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
-export default function AuftragForm({ fuellungen, heute, reserviertBis, crmSchreiben }: {
+export default function AuftragForm({ fuellungen, heute, reserviertBis, crmSchreiben, angebot }: {
   fuellungen: Fuellung[]; heute: string; reserviertBis: string; crmSchreiben: boolean
+  /** KAN-418 Teil 4: Übernahme aus einem offenen Angebot – Kunde fest, Positionen vorbelegt (Mengen änderbar) */
+  angebot?: { id: string; nummer: string; kunde: string; zeilen: Zeile[] }
 }) {
   const router = useRouter()
-  const [kunde, setKunde] = useState('')
+  const [kunde, setKunde] = useState(angebot?.kunde ?? '')
   const [datum, setDatum] = useState(heute)
   const [bis, setBis] = useState(reserviertBis)
   const [notizen, setNotizen] = useState('')
-  const [zeilen, setZeilen] = useState<Zeile[]>([{ fuellung_id: '', menge: '' }])
+  const [zeilen, setZeilen] = useState<Zeile[]>(angebot?.zeilen.length ? angebot.zeilen : [{ fuellung_id: '', menge: '' }])
   const [fehler, setFehler] = useState<string | null>(null)
   const [laeuft, setLaeuft] = useState(false)
 
@@ -46,6 +48,7 @@ export default function AuftragForm({ fuellungen, heute, reserviertBis, crmSchre
     try {
       const fd = new FormData()
       fd.set('kunde', kunde); fd.set('datum', datum); fd.set('reserviert_bis', bis); fd.set('notizen', notizen); fd.set('positionen_json', json)
+      if (angebot) fd.set('angebot_id', angebot.id)
       const r = await createAuftrag(fd)
       if (r.error || !r.id) { setFehler(r.error ?? 'Der Auftrag wurde nicht gespeichert.'); return }
       zeigeErfolg(`Auftrag ${r.nummer} angelegt – die Flaschen sind reserviert.`)
@@ -60,10 +63,16 @@ export default function AuftragForm({ fuellungen, heute, reserviertBis, crmSchre
   return (
     <form data-ungespeichert onSubmit={speichern} className="card p-6 space-y-5">
       {fehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2.5 rounded-lg">{fehler}</div>}
+      {angebot && (
+        <p role="status" className="bg-s112-bg border border-s112-border text-sm text-s112-text-2 rounded-xl px-4 py-3">
+          Übernahme aus Angebot {angebot.nummer}: Mit dem Speichern werden die Flaschen reserviert und das Angebot gilt als angenommen.
+          Die Preise des Angebots werden bei der Lieferung vorgeschlagen.
+        </p>
+      )}
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Kunde *</label>
-        <PartnerSuche art="kunde" value={kunde} onChange={id => setKunde(id)} anlegen={crmSchreiben} ariaLabel="Kunde suchen" />
+        <PartnerSuche art="kunde" value={kunde} onChange={id => setKunde(id)} anlegen={crmSchreiben} ariaLabel="Kunde suchen" disabled={!!angebot} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -119,7 +128,7 @@ export default function AuftragForm({ fuellungen, heute, reserviertBis, crmSchre
         <textarea aria-label="Notiz" rows={2} maxLength={AUFTRAG_NOTIZ_MAX} value={notizen} onChange={e => setNotizen(e.target.value)} className={`${feld} resize-none`} />
       </div>
 
-      <p className="text-xs text-s112-muted">Preise und Rabatte entstehen erst bei der Lieferung – der Auftrag reserviert nur die Flaschen.</p>
+      {!angebot && <p className="text-xs text-s112-muted">Preise und Rabatte entstehen erst bei der Lieferung – der Auftrag reserviert nur die Flaschen.</p>}
 
       <div className="flex gap-3 pt-1">
         <button type="submit" disabled={laeuft}

@@ -37,7 +37,8 @@ describe('KAN-418 Teil 2: offene Mengen und Vorbelegung', () => {
     assert.equal(offeneMenge({ menge: 6, geliefert: 9 }), 0)
   })
   test('Vorschlag: nur Positionen mit offener Menge, in der Reihenfolge des Auftrags', () => {
-    assert.deepEqual(lieferVorschlag(AUFTRAG), [{ position_id: P1, fuellung_id: F1, name: 'Zierfandler 2025', offen: 7 }])
+    // KAN-418 Teil 4: der Vorschlag trägt zusätzlich den Angebotspreis – null, wenn der Auftrag nicht aus einem Angebot stammt
+    assert.deepEqual(lieferVorschlag(AUFTRAG), [{ position_id: P1, fuellung_id: F1, name: 'Zierfandler 2025', offen: 7, preis: null }])
     assert.deepEqual(lieferVorschlag([]), [])
   })
   test('Auftrags-ID aus Adresszeile und Formular: nur UUIDs', () => {

@@ -14,6 +14,7 @@
   {"n":"assistent_korrekturen_tenant_id_fkey","t":"assistent_korrekturen","s":["tenant_id"],"z":"tenants"},
   {"n":"assistent_nachrichten_unterhaltung_id_fkey","t":"assistent_nachrichten","s":["unterhaltung_id"],"z":"assistent_unterhaltungen"},
   {"n":"assistent_unterhaltungen_tenant_id_fkey","t":"assistent_unterhaltungen","s":["tenant_id"],"z":"tenants"},
+  {"n":"auftraege_angebot_id_fkey","t":"auftraege","s":["angebot_id"],"z":"auftraege"},
   {"n":"auftraege_firma_id_fkey","t":"auftraege","s":["firma_id"],"z":"firmen"},
   {"n":"auftraege_kontakt_id_fkey","t":"auftraege","s":["kontakt_id"],"z":"kontakte"},
   {"n":"auftraege_tenant_id_fkey","t":"auftraege","s":["tenant_id"],"z":"tenants"},

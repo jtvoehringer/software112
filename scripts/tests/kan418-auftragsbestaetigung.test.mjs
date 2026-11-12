@@ -126,7 +126,10 @@ describe('KAN-418 Teil 3: Seite und Migration', () => {
     assert.ok(p.includes('darfSenden={darfSchreiben}'))
     const panel = quelle('src/app/(dashboard)/weinhandel/auftraege/[id]/AuftragsbestaetigungPanel.tsx')
     assert.ok(panel.includes('{darfSenden && !offen && ('))
-    assert.ok(panel.includes('`/api/weinhandel/auftraege/${id}/pdf`') && panel.includes('`/api/weinhandel/auftraege/${id}/send`'))
+    // KAN-418 Teil 4: das Panel dient auch dem Angebot – ohne Angabe bleiben es die Routen der Auftragsbestätigung
+    assert.ok(panel.includes('const api = beleg?.api ?? `/api/weinhandel/auftraege/${id}`'))
+    assert.ok(panel.includes('href={`${api}/pdf`}') && panel.includes('fetch(`${api}/send`, {'))
+    assert.ok(!p.includes('beleg={'), 'die Auftragsseite nutzt die Vorgabe (Auftragsbestätigung)')
     // Ladezustand mit finally, Eingaben erst nach Erfolg leeren
     assert.ok(panel.indexOf('if (!res.ok) {') < panel.indexOf("setNachricht('')"))
     assert.match(panel, /\} finally \{\n\s+setSendet\(false\)/)

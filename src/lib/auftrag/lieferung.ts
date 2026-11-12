@@ -12,19 +12,39 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** Status, in denen sich ein Auftrag liefern lässt */
 export const LIEFERBAR_STATUS: readonly string[] = ['offen', 'teilgeliefert']
 
-export type AuftragZeile = { id: string; fuellung_id: string; name: string; menge: number; geliefert?: number | null }
+export type AuftragZeile = {
+  id: string; fuellung_id: string; name: string; menge: number; geliefert?: number | null
+  /** KAN-418 Teil 4: Preise aus dem Angebot, wenn der Auftrag aus einem Angebot stammt (sonst null) */
+  preis_brutto?: number | string | null; rabatt_pct?: number | string | null; sonderrabatt_pct?: number | string | null; ust_satz?: number | string | null
+}
+
+/** Preise einer Auftragsposition aus dem Angebot (Frage 3A: Vorschlag für die Lieferung, änderbar) */
+export type AngebotsPreis = { preis_brutto: number; rabatt_pct: number; sonderrabatt_pct: number; ust_satz: number | null }
+
+const zahlOderNull = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+/** Angebotspreis der Position; null = der Auftrag stammt nicht aus einem Angebot (dann gelten die Preise von heute) */
+export function angebotsPreis(p: Pick<AuftragZeile, 'preis_brutto' | 'rabatt_pct' | 'sonderrabatt_pct' | 'ust_satz'>): AngebotsPreis | null {
+  const preis = zahlOderNull(p.preis_brutto)
+  if (preis === null) return null
+  return { preis_brutto: preis, rabatt_pct: zahlOderNull(p.rabatt_pct) ?? 0, sonderrabatt_pct: zahlOderNull(p.sonderrabatt_pct) ?? 0, ust_satz: zahlOderNull(p.ust_satz) }
+}
 
 /** Noch nicht gelieferte Flaschen einer Auftragsposition */
 export function offeneMenge(p: { menge: number; geliefert?: number | null }): number {
   return Math.max(0, (Number(p.menge) || 0) - (Number(p.geliefert) || 0))
 }
 
-export type LieferVorschlag = { position_id: string; fuellung_id: string; name: string; offen: number }
+export type LieferVorschlag = { position_id: string; fuellung_id: string; name: string; offen: number; /** Preise aus dem Angebot, sonst null */ preis: AngebotsPreis | null }
 
 /** Vorbelegung des Verkaufsformulars: je Auftragsposition die offene Menge (ganz gelieferte fallen weg) */
 export function lieferVorschlag(positionen: readonly AuftragZeile[]): LieferVorschlag[] {
   return positionen
-    .map(p => ({ position_id: p.id, fuellung_id: p.fuellung_id, name: p.name, offen: offeneMenge(p) }))
+    .map(p => ({ position_id: p.id, fuellung_id: p.fuellung_id, name: p.name, offen: offeneMenge(p), preis: angebotsPreis(p) }))
     .filter(p => p.offen > 0)
 }
 

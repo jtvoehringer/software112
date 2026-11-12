@@ -58,7 +58,11 @@
 "abgeschlossen_am",
 "abgeschlossen_von",
 "ab_versendet_am",
-"ab_versendet_an"
+"ab_versendet_an",
+"gueltig_bis",
+"angebot_id",
+"abgelehnt_am",
+"abgelehnt_grund"
 ],
 "auftrag_lieferungen": [
 "id",
@@ -80,7 +84,11 @@
 "name",
 "menge",
 "geliefert",
-"erstellt_am"
+"erstellt_am",
+"preis_brutto",
+"rabatt_pct",
+"sonderrabatt_pct",
+"ust_satz"
 ],
 "ama_erntemeldungen": [
 "id",
@@ -1921,7 +1929,10 @@
 "auftrag_prefix",
 "auftrag_stellen",
 "auftrag_zaehler",
-"auftrag_reservierung_tage"
+"auftrag_reservierung_tage",
+"angebot_prefix",
+"angebot_stellen",
+"angebot_zaehler"
 ],
 "tenant_memberships": [
 "id",

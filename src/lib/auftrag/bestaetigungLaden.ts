@@ -30,7 +30,7 @@ export async function ladeAuftragsbestaetigung(supabase: any, tenantId: string, 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(auftragId)) return { ok: false, status: 404, fehler: 'Auftrag nicht gefunden' }
   const [aRes, eRes, pRes] = await Promise.all([
     (supabase.from('auftraege') as R)
-      .select('id, nummer, datum, status, reserviert_bis, storniert_am, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).maybeSingle(),
+      .select('id, nummer, datum, status, reserviert_bis, storniert_am, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).eq('art', 'auftrag').maybeSingle(),
     (supabase.from('tenant_einstellungen') as R)
       .select('anzeigename, logo_url, betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_email, betrieb_website, betrieb_uid')
       .eq('tenant_id', tenantId).maybeSingle(),
