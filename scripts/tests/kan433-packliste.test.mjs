@@ -169,7 +169,7 @@ describe('KAN-433: Mustersendung am Auftrag (4B)', () => {
   })
   test('Anlegen, Bearbeiten, Formular und Schema kennen die Spalte', () => {
     assert.match(quelle('src/app/api/weinexport/route.ts'), /mustersendung:\s+kopfNeu\.mustersendung,/)
-    assert.match(quelle('src/app/(dashboard)/weinexport/[id]/bearbeiten/page.tsx'), /kunde_uid, mustersendung'\)/)
+    assert.match(quelle('src/app/(dashboard)/weinexport/[id]/bearbeiten/page.tsx'), /kunde_uid, mustersendung, /)
     const f = quelle('src/app/(dashboard)/weinexport/neu/WeinexportFormClient.tsx')
     assert.match(f, /useState\(alt\?\.mustersendung === true\)/)
     assert.match(f, /<input type="checkbox" checked=\{mustersendung\} onChange=\{e => setMustersendung\(e\.target\.checked\)\}/)

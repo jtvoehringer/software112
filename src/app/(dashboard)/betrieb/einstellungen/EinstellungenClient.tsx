@@ -429,6 +429,17 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
                 defaultValue={daten.export_flaschen_je_karton} className={inputCls()} style={{ maxWidth: '180px' }} />
               <p className="text-xs text-s112-muted mt-1">Vorschlag für neue Positionen im Exportauftrag; je Position änderbar.</p>
             </div>
+            {/* KAN-434: Nummern für die Ursprungserklärung auf der Exportrechnung */}
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">REX-Nummer</label>
+              <input aria-label="REX-Nummer" name="betrieb_rex_nummer" maxLength={40} defaultValue={daten.betrieb_rex_nummer ?? ''} className={inputCls()} placeholder="ATREX…" />
+              <p className="text-xs text-s112-muted mt-1">Registrierter Ausführer – für die Ursprungserklärung über 6.000 € (z. B. Vereinigtes Königreich, Japan).</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Bewilligung Ermächtigter Ausführer</label>
+              <input aria-label="Bewilligung Ermächtigter Ausführer" name="betrieb_ea_bewilligung" maxLength={40} defaultValue={daten.betrieb_ea_bewilligung ?? ''} className={inputCls()} placeholder="AT/…" />
+              <p className="text-xs text-s112-muted mt-1">Bewilligungsnummer des Zollamts – für die Ursprungserklärung über 6.000 € (z. B. Südkorea).</p>
+            </div>
             <div className="sm:col-span-2">
               <label className="inline-flex items-start gap-2 text-sm text-s112-text-1">
                 <input type="checkbox" name="kleiner_weinerzeuger" defaultChecked={daten.kleiner_weinerzeuger} className="mt-0.5" />

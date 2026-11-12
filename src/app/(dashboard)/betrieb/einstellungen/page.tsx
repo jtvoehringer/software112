@@ -45,6 +45,8 @@ export type EigeneBetriebsdaten = {
   betrieb_website: string | null
   betrieb_uid: string | null
   betrieb_eori: string | null
+  betrieb_rex_nummer: string | null
+  betrieb_ea_bewilligung: string | null
   kleiner_weinerzeuger: boolean
   export_flaschen_je_karton: number
   betrieb_betriebsnummer: string | null
@@ -90,7 +92,7 @@ export default async function MeinBetriebPage() {
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
         gaerung_messintervall_tage, fristen_vorwarnung_tage, psm_erfassungsfrist_h, auftrag_reservierung_tage, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage,
         betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon,
-        betrieb_email, betrieb_website, betrieb_uid, betrieb_eori, kleiner_weinerzeuger, export_flaschen_je_karton, betrieb_betriebsnummer, betriebsart, betrieb_rechtsform, betrieb_vorname, betrieb_nachname, betrieb_betriebsstaette, ea_betriebsbeginn, modul_ea, buchhaltungsart,
+        betrieb_email, betrieb_website, betrieb_uid, betrieb_eori, betrieb_rex_nummer, betrieb_ea_bewilligung, kleiner_weinerzeuger, export_flaschen_je_karton, betrieb_betriebsnummer, betriebsart, betrieb_rechtsform, betrieb_vorname, betrieb_nachname, betrieb_betriebsstaette, ea_betriebsbeginn, modul_ea, buchhaltungsart,
         rechnung_iban, rechnung_bic, rechnung_fusstext,
         bawb_kennung, bawb_passwort, mostgewicht_einheit
       `)
@@ -134,6 +136,8 @@ export default async function MeinBetriebPage() {
     betrieb_website:   s?.betrieb_website ?? null,
     betrieb_uid:       s?.betrieb_uid ?? null,
     betrieb_eori:      s?.betrieb_eori ?? null,
+    betrieb_rex_nummer:     s?.betrieb_rex_nummer ?? null,
+    betrieb_ea_bewilligung: s?.betrieb_ea_bewilligung ?? null,
     kleiner_weinerzeuger: !!s?.kleiner_weinerzeuger,
     export_flaschen_je_karton: Number(s?.export_flaschen_je_karton ?? 6),
     betrieb_betriebsnummer: s?.betrieb_betriebsnummer ?? null,

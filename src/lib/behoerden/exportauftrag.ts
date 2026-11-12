@@ -27,6 +27,7 @@ import {
 } from '../export/grunddaten'
 import { exportBearbeitbar } from '../export/auftragEingabe'
 import { EXPORT_DOKUMENT_ARTEN, EXPORT_DOKUMENT_LABEL } from '../export/dokumente'
+import { befreiung, rechnungHinweise, rechnungsSumme } from '../export/rechnungTexte'
 
 export const EXPORT_STATUS_LABEL: Record<string, string> = {
   entwurf: 'Entwurf', bestaetigt: 'Bestätigt', versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
@@ -85,6 +86,11 @@ export type ExportPositionZeile = {
   farbe: string | null
   rebsorte: string | null
   jahrgang: string | null
+  /** KAN-434: Nebenkosten, Rechnungsbetrag (Warenwert + Fracht + Versicherung) und Steuerbefreiung des Auftrags */
+  frachtEur: number | null
+  versicherungEur: number | null
+  rechnungsbetragEur: number | null
+  befreiung: string | null
 }
 
 export const SPALTEN_EXPORTAUFTRAG: CsvSpalte<ExportPositionZeile>[] = [
@@ -122,6 +128,11 @@ export const SPALTEN_EXPORTAUFTRAG: CsvSpalte<ExportPositionZeile>[] = [
   { kopf: 'Farbe', typ: 'text', wert: z => z.farbe },
   { kopf: 'Rebsorte', typ: 'text', wert: z => z.rebsorte },
   { kopf: 'Jahrgang', typ: 'code', wert: z => z.jahrgang },
+  // KAN-434: Angaben der Handelsrechnung (je Auftrag gleich)
+  { kopf: 'Fracht (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.frachtEur },
+  { kopf: 'Versicherung (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.versicherungEur },
+  { kopf: 'Rechnungsbetrag (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.rechnungsbetragEur },
+  { kopf: 'Steuerbefreiung', typ: 'text', wert: z => z.befreiung },
 ]
 
 function zahlOderNull(v: unknown): number | null {
@@ -188,6 +199,7 @@ export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, w
     incoterms: textOderNull(auftrag.incoterms),
     transportart: textOderNull(auftrag.transport_art),
     versenderUid: textOderNull(betrieb.betrieb_uid),
+    befreiung: befreiung(lieferfall(auftrag)).label,
   }
   const ohneLiter: string[] = []
   const zeilen = positionen.map((p, i) => {
@@ -222,8 +234,12 @@ export function exportZeilen(auftrag: R, positionen: readonly R[], betrieb: R, w
       farbe: farbeLabel(gd.farbe) || null,
       rebsorte: gd.rebsorte,
       jahrgang: gd.jahrgang,
+      frachtEur: null as number | null, versicherungEur: null as number | null, rechnungsbetragEur: null as number | null,
     }
   })
+  // KAN-434: Rechnungsbetrag = Summe der gerundeten Zeilenwerte + Fracht + Versicherung (wie auf der Handelsrechnung)
+  const summe = rechnungsSumme(summeGerundet(zeilen.map(z => z.wertEur)), auftrag)
+  for (const z of zeilen) { z.frachtEur = summe.fracht; z.versicherungEur = summe.versicherung; z.rechnungsbetragEur = summe.betrag }
   if (ohneLiter.length > 0) {
     const ref = kopf.referenz ? `${kopf.referenz}: ` : ''
     warnungen.push(`${ref}Volumen (l) leer gelassen – ${ohneLiter.slice(0, 5).join('; ')}${ohneLiter.length > 5 ? ' …' : ''}`)
@@ -283,7 +299,7 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
       .order('dokument_art')
       .order('id')),
     (supabase.from('tenant_einstellungen') as any)
-      .select('betrieb_uid, betrieb_eori')
+      .select('betrieb_uid, betrieb_eori, betrieb_rex_nummer, betrieb_ea_bewilligung')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
@@ -321,15 +337,21 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
   if (auftrag.storniert_am) warnungen.push(`Der Exportauftrag ist storniert${auftrag.storno_grund ? ` (${auftrag.storno_grund})` : ''}.`)   // KAN-150 F2
   const gewicht = sendungsGewicht(posRes.data.map(x => ({ menge: x.menge, einheit: x.einheit, flaschen_je_karton: x.flaschen_je_karton, fuellung: x.fuellungen ?? null })), auftrag.verpackung_kg)
   if (gewicht.hinweis) warnungen.push(gewicht.hinweis)
+  const bearbeitbar = exportBearbeitbar(auftrag as { status?: string | null; storniert_am?: string | null })
   const grunddaten = {
     lieferfall: lieferfall(auftrag),
     positionen: gdPositionen,
     summen: grunddatenSummen(gdPositionen),
-    hinweise: grunddatenHinweise({
-      auftragId: String(auftrag.id), auftrag, betrieb: (cfgRes.data ?? {}) as R,
-      positionen: eingaben.map((eingabe, i) => ({ eingabe, daten: gdPositionen[i] })),
-      bearbeitbar: exportBearbeitbar(auftrag as { status?: string | null; storniert_am?: string | null }),
-    }),
+    hinweise: [
+      ...grunddatenHinweise({
+        auftragId: String(auftrag.id), auftrag, betrieb: (cfgRes.data ?? {}) as R,
+        positionen: eingaben.map((eingabe, i) => ({ eingabe, daten: gdPositionen[i] })),
+        bearbeitbar,
+      }),
+      // KAN-434: Steuerbefreiung und Ursprungserklärung der Handelsrechnung
+      ...rechnungHinweise({ auftrag, betrieb: (cfgRes.data ?? {}) as R, warenwert: summeGerundet(zeilen.map(z => z.wertEur)) })
+        .map(text => ({ text, href: bearbeitbar ? `/weinexport/${String(auftrag.id)}/bearbeiten` : null })),
+    ],
   }
   return { auftrag, dokumente: dokRes.data, zeilen, gesamtEur: summeGerundet(zeilen.map(z => z.wertEur)), gewicht, grunddaten, warnungen }
 }

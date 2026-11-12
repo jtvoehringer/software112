@@ -760,7 +760,10 @@
 "versanddatum",
 "zahlungsbedingungen",
 "kunde_uid",
-"mustersendung"
+"mustersendung",
+"fracht_eur",
+"versicherung_eur",
+"ursprungserklaerung"
 ],
 "exportauftrag_positionen": [
 "id",
@@ -1940,6 +1943,8 @@
 "angebot_zaehler",
 "betrieb_eori",
 "kleiner_weinerzeuger",
+"betrieb_rex_nummer",
+"betrieb_ea_bewilligung",
 "export_flaschen_je_karton"
 ],
 "tenant_memberships": [

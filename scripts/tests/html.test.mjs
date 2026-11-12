@@ -63,7 +63,7 @@ describe('Weinexport-Druckansicht', () => {
     // JSON-Fehlermeldung bzw. innerhalb von sichererDateiname(…) im Content-Disposition-Header.
     // KAN-433: leiste (Druckleiste + Hinweisleiste), wb(i) (zweite Zeile der Warenbeschreibung) und muster (Vermerk
     // Mustersendung) sind wie header(b) fertiges HTML – ihre Werte laufen beim Aufbau über e() (Test kan433-packliste).
-    const erlaubt = new Set(['css()', 'header(b)', 'i+1', 'gesamtEUR.toFixed(2)', 'art', 'a.referenz ?? auftragId', 'druckleiste()', 'DRUCKLEISTE_CSS', 'leiste', 'wb(i)', 'muster'])
+    const erlaubt = new Set(['css()', 'header(b)', 'i+1', 'gesamtEUR.toFixed(2)', 'art', 'a.referenz ?? auftragId', 'druckleiste()', 'DRUCKLEISTE_CSS', 'leiste', 'wb(i)', 'muster', 'nebenzeilen'])   // KAN-434: nebenzeilen = Zeilen Fracht/Versicherung, Werte über e()
     const roh = [...quelle.matchAll(/\$\{([^{}`]+)\}/g)]
       .map(m => m[1].trim())
       .filter(x => !erlaubt.has(x) && !/^(e|escHtmlMehrzeilig)\(/.test(x))

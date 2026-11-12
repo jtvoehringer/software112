@@ -151,6 +151,9 @@ export async function saveBetriebOwn(formData: FormData) {
       betrieb_uid:               (formData.get('betrieb_uid')           as string) || null,
       // KAN-432: Weinexport – EORI, kleiner Weinerzeuger, Standard „Flaschen je Karton“ (Grenzen wie der CHECK in der DB)
       betrieb_eori:              ((formData.get('betrieb_eori') as string | null) ?? '').replace(/\s+/g, '').toUpperCase().slice(0, 30) || null,
+      // KAN-434: Nummern für die Ursprungserklärung über 6.000 EUR (Grenze wie der CHECK in der DB)
+      betrieb_rex_nummer:        ((formData.get('betrieb_rex_nummer') as string | null) ?? '').trim().slice(0, 40) || null,
+      betrieb_ea_bewilligung:    ((formData.get('betrieb_ea_bewilligung') as string | null) ?? '').trim().slice(0, 40) || null,
       kleiner_weinerzeuger:      formData.get('kleiner_weinerzeuger') === 'on',
       export_flaschen_je_karton: Math.min(60, Math.max(1, ganzzahlAus(formData.get('export_flaschen_je_karton')) ?? 6)),
       betrieb_betriebsnummer:    betriebsnummer.wert,

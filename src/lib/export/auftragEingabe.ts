@@ -14,6 +14,8 @@ export const EXPORT_MAX = { eori: 30, stadt: 100, taric: 20 } as const
 
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { ZAHLUNGSBEDINGUNGEN_MAX, flaschenJeKarton, kartonFehler, kundeUidFehler, uidBereinigt } from './grunddaten.ts'
+// @ts-expect-error TS5097 – wie oben
+import { abkommenFuer, nebenkostenFehler, nebenkostenWert } from './rechnungTexte.ts'
 
 type Body = Record<string, unknown>
 
@@ -51,6 +53,9 @@ export function exportauftragFehler(body: Body): string | null {
   if (text(body.zahlungsbedingungen).length > ZAHLUNGSBEDINGUNGEN_MAX) return `Die Zahlungsbedingungen dürfen höchstens ${ZAHLUNGSBEDINGUNGEN_MAX} Zeichen haben.`
   const uidFehler = kundeUidFehler(body.kunde_uid)
   if (uidFehler) return uidFehler
+  // KAN-434: Nebenkosten der Handelsrechnung
+  const nebenFehler = nebenkostenFehler(body.fracht_eur, 'Die Fracht') ?? nebenkostenFehler(body.versicherung_eur, 'Die Versicherung')
+  if (nebenFehler) return nebenFehler
   const positionen = Array.isArray(body.positionen) ? (body.positionen as Body[]) : []
   for (const [i, p] of positionen.entries()) {
     const einheit = text(p?.einheit)
@@ -111,6 +116,10 @@ export function exportKopf(body: Body, destinationLand: string | null): Record<s
     kunde_uid: uidBereinigt(body.kunde_uid) || null,
     // KAN-433: Mustersendung (Vermerk auf Packliste und Rechnung)
     mustersendung: body.mustersendung === true || body.mustersendung === 'true',
+    // KAN-434: Nebenkosten; die Ursprungserklärung gibt es nur für ein Bestimmungsland mit Abkommen
+    fracht_eur: nebenkostenWert(body.fracht_eur),
+    versicherung_eur: nebenkostenWert(body.versicherung_eur),
+    ursprungserklaerung: (body.ursprungserklaerung === true || body.ursprungserklaerung === 'true') && abkommenFuer(destinationLand) !== null,
   }
 }
 

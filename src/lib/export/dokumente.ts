@@ -33,6 +33,7 @@ export const EXPORT_DOKUMENTE: readonly ExportDokument[] = [
   { art: 'phytosanitaer', label: 'Phytosanitäres Zertifikat', druck: false, standard: false, waehlbar: false },
   { art: 'lieferschein', label: 'Lieferschein', druck: true, standard: true, waehlbar: true },
   { art: 'rechnung', label: 'Exportrechnung', druck: true, standard: true, waehlbar: true },
+  { art: 'proforma', label: 'Proforma-Rechnung', druck: true, standard: false, waehlbar: true },   // KAN-434 (Entscheidung 6A)
 ]
 
 export const EXPORT_DOKUMENT_ARTEN: readonly string[] = EXPORT_DOKUMENTE.map(d => d.art)
