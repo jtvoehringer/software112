@@ -1,14 +1,16 @@
 'use client'
 
 // KAN-415 (11.11.2026): Belege einer E&A-Buchung – Büroklammer mit Anzahl, Öffnen, Anhängen (Datei hochladen oder einen
-// per Belegscan erfassten, noch nicht verbuchten Beleg zuordnen). Angehängte Belege sind unveränderlich (Nachweis).
+// per Belegscan erfassten, noch nicht verbuchten Beleg zuordnen) und Entfernen (UAT 12.11.2026: mit Grund, nur im
+// offenen Zeitraum der Buchung – der Beleg liegt danach wieder bei den nicht verbuchten Belegen). Die Box schließt
+// bei einem Klick daneben und mit Esc.
 
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Paperclip } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
-import { BELEG_ACCEPT, belegAnzahlText, belegDateienFehler, belegDateiPfad } from '@/lib/buchhaltung/belegAnhang'
+import { BELEG_ACCEPT, belegAnzahlText, belegDateienFehler, belegDateiPfad, belegLoesenGrundFehler, belegLoesenPfad } from '@/lib/buchhaltung/belegAnhang'
 
 export type BelegKurz = { id: string; dateiname: string }
 
@@ -28,8 +30,47 @@ export default function BelegAnhang({ transaktionId, bezeichnung, belege, offene
   const [belegId, setBelegId] = useState('')
   const [laeuft, setLaeuft] = useState(false)
   const [fehler, setFehler] = useState<string | null>(null)
+  // Entfernen: Beleg, für den gerade der Grund abgefragt wird
+  const [entfernen, setEntfernen] = useState<string | null>(null)
+  const [grund, setGrund] = useState('')
+  const huelle = useRef<HTMLSpanElement | null>(null)
+
+  // UAT 12.11.2026: Die Box blieb offen, egal wohin man klickte – schließen bei Klick daneben und mit Esc
+  // (nicht während ein Vorgang läuft, damit dessen Ergebnis nicht verschwindet)
+  useEffect(() => {
+    if (!offen) return
+    const beiKlick = (e: MouseEvent) => {
+      if (laeuft) return
+      if (huelle.current && e.target instanceof Node && !huelle.current.contains(e.target)) setOffen(false)
+    }
+    const beiTaste = (e: KeyboardEvent) => { if (e.key === 'Escape' && !laeuft) setOffen(false) }
+    document.addEventListener('mousedown', beiKlick)
+    document.addEventListener('keydown', beiTaste)
+    return () => { document.removeEventListener('mousedown', beiKlick); document.removeEventListener('keydown', beiTaste) }
+  }, [offen, laeuft])
 
   if (belege.length === 0 && !darfAnhaengen) return null
+
+  async function loesen(belegId: string) {
+    const f = belegLoesenGrundFehler(grund)
+    setFehler(f)
+    if (f) return
+    setLaeuft(true)
+    try {
+      const res = await fetch(belegLoesenPfad(belegId), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grund: grund.trim() }) })
+      const j = await res.json().catch(() => ({})) as { error?: string }
+      if (!res.ok) { setFehler(j.error ?? 'Der Beleg wurde nicht entfernt.'); return }
+      // erst nach Erfolg leeren
+      setEntfernen(null)
+      setGrund('')
+      zeigeErfolg('Beleg von der Buchung entfernt – er liegt wieder unter „Belege“ (nicht verbucht).')
+      router.refresh()
+    } catch (e) {
+      setFehler(fehlerText(e, 'Der Beleg wurde nicht entfernt'))
+    } finally {
+      setLaeuft(false)
+    }
+  }
 
   async function senden(fd: FormData, erfolg: string) {
     setFehler(null)
@@ -72,7 +113,7 @@ export default function BelegAnhang({ transaktionId, bezeichnung, belege, offene
   }
 
   return (
-    <span className="relative inline-block text-left">
+    <span ref={huelle} className="relative inline-block text-left">
       <button type="button" onClick={() => setOffen(o => !o)} aria-expanded={offen} aria-controls={`${id}-feld`}
         title={belege.length ? `${belegAnzahlText(belege.length)} – ${bezeichnung}` : `Beleg anhängen – ${bezeichnung}`}
         className={`inline-flex items-center gap-1 text-xs rounded-md px-1.5 py-1 hover:bg-s112-bg ${belege.length ? 'text-s112-blue-700 font-medium' : 'text-s112-tertiary'}`}>
@@ -86,7 +127,27 @@ export default function BelegAnhang({ transaktionId, bezeichnung, belege, offene
             <ul className="space-y-1">
               {belege.map(b => (
                 <li key={b.id}>
-                  <a href={belegDateiPfad(b.id)} target="_blank" rel="noopener noreferrer" className="text-s112-blue-700 hover:underline break-all">{b.dateiname}</a>
+                  <span className="flex items-start justify-between gap-2">
+                    <a href={belegDateiPfad(b.id)} target="_blank" rel="noopener noreferrer" className="text-s112-blue-700 hover:underline break-all">{b.dateiname}</a>
+                    {darfAnhaengen && entfernen !== b.id && (
+                      <button type="button" disabled={laeuft} onClick={() => { setEntfernen(b.id); setGrund(''); setFehler(null) }}
+                        className="shrink-0 text-s112-text-2 hover:text-s112-err-fg underline disabled:opacity-50">Entfernen</button>
+                    )}
+                  </span>
+                  {entfernen === b.id && (
+                    <span className="block mt-1.5 space-y-1.5 border border-s112-border rounded-lg p-2">
+                      <label htmlFor={`${id}-grund`} className="block font-medium text-s112-text-2">Grund für das Entfernen <span className="text-s112-err">*</span></label>
+                      <textarea required id={`${id}-grund`} value={grund} onChange={e => setGrund(e.target.value)} rows={2} autoFocus disabled={laeuft} maxLength={400}
+                        placeholder="z. B. falscher Beleg angehängt" className="input w-full py-1.5 text-xs" />
+                      <span className="block text-s112-muted">Der Beleg bleibt erhalten und liegt danach wieder unter „Belege“ (nicht verbucht).</span>
+                      <span className="flex justify-end gap-2">
+                        <button type="button" disabled={laeuft} onClick={() => { setEntfernen(null); setFehler(null) }} className="text-s112-text-2 hover:text-s112-text px-1">Abbrechen</button>
+                        <button type="button" disabled={laeuft} onClick={() => loesen(b.id)} className="border border-s112-err/40 text-s112-err-fg px-2.5 py-1 rounded-lg font-medium disabled:opacity-50">
+                          {laeuft ? 'Entfernt …' : 'Beleg entfernen'}
+                        </button>
+                      </span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -116,7 +177,7 @@ export default function BelegAnhang({ transaktionId, bezeichnung, belege, offene
                   </button>
                 </div>
               )}
-              <p className="text-s112-muted">Ein angehängter Beleg bleibt als Nachweis an der Buchung und lässt sich nicht mehr entfernen.</p>
+              <p className="text-s112-muted">Entfernen lässt sich ein Beleg, solange der Monat der Buchung nicht abgeschlossen ist – danach bleibt er als Nachweis an der Buchung.</p>
             </div>
           )}
           {fehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-2 py-1.5">{fehler}</div>}

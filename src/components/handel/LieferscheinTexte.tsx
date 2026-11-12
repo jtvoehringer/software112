@@ -6,8 +6,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
-import { zeigeErfolg } from '@/lib/ui/erfolg'
-import { zielNachSpeichern } from '@/lib/navigation/zurueckBrowser'
+import { hierBleiben } from '@/lib/navigation/zurueckBrowser'
 import { NOTIZ_MAX, RECHNUNGSTEXT_MAX, notizFehler, rechnungstextFehler } from '@/lib/verkauf/rechnungstext'
 
 export default function LieferscheinTexte({ notiz, rechnungstext, darfSchreiben, textAenderbar, speichern }: {
@@ -38,9 +37,9 @@ export default function LieferscheinTexte({ notiz, rechnungstext, darfSchreiben,
       try {
         const r = await speichern(fd)
         if (r && r.error) { setFehler(r.error); return }
-        zeigeErfolg('Texte gespeichert.')
-        // UAT 12.11.2026 (KAN-416): nach dem Speichern zurück zur vorigen Übersicht (Verkaufsliste), nicht im Formular bleiben
-        router.push(zielNachSpeichern('/weinhandel/verkauf'))
+        // KAN-416 (Entscheidung Jörgen 12.11.2026): Die Regel aus KAN-334 bleibt – Bearbeiten auf einer Detailseite führt
+        // nicht weg. Bestätigung „Gespeichert.“ über den gemeinsamen Weg (hierBleiben), danach frische Serverdaten.
+        router.replace(hierBleiben(), { scroll: false })
         router.refresh()
       } catch (err) {
         setFehler(fehlerText(err, 'Die Texte wurden nicht gespeichert'))

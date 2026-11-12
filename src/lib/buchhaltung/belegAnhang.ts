@@ -3,9 +3,11 @@
 // Ein Beleg (ea_belege) gehört über ea_transaktion_id zu einer E&A-Buchung; eine Buchung kann mehrere Belege haben.
 // Wege: (1) Datei direkt beim Erfassen der Buchung, (2) Datei nachträglich an eine bestehende Buchung, (3) ein per
 // Belegscan erfasster, noch nicht verbuchter Beleg wird einer bestehenden Buchung zugeordnet (statt eine zweite Buchung
-// zu erzeugen). Ein angehängter Beleg hat den Status „verbucht“ und ist damit unveränderlich (Trigger
-// a_ea_abschluss_schutz, § 132 BAO) – er lässt sich nicht mehr entfernen oder umhängen. Das Anhängen selbst ändert die
-// Buchung nicht und geht deshalb auch in abgeschlossenen Monaten.
+// zu erzeugen). Ein angehängter Beleg hat den Status „verbucht“ und ist direkt unveränderlich (Trigger
+// a_ea_abschluss_schutz, § 132 BAO). Entfernen (UAT 12.11.2026) = von der Buchung lösen über s112_ea_beleg_loesen:
+// mit Grund, nur solange der Zeitraum der Buchung offen ist; der Beleg liegt danach wieder bei den nicht verbuchten
+// Belegen (dort verwerfen oder neu zuordnen). Das Anhängen selbst ändert die Buchung nicht und geht deshalb auch in
+// abgeschlossenen Monaten.
 // Isomorph, ohne '@/'-Importe (node:test) – gemeinsam für Formular, Server Action und Route.
 
 export const BELEG_BUCKET = 'ea-belege'
@@ -43,6 +45,20 @@ export function belegDateienFehler(dateien: BelegDatei[]): string | null {
 export function belegPfad(tenantId: string, dateiname: string, zeitstempel: number, nr = 0): string {
   const sicher = dateiname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'beleg'
   return `${tenantId}/${zeitstempel}-${nr}-${sicher}`
+}
+
+export const BELEG_LOESEN_GRUND_MIN = 10
+
+/** Grund für das Entfernen eines Belegs von der Buchung; null = in Ordnung (dieselbe Regel prüft die Datenbank) */
+export function belegLoesenGrundFehler(grund: unknown): string | null {
+  const t = typeof grund === 'string' ? grund.trim() : ''
+  if (t.length < BELEG_LOESEN_GRUND_MIN) return `Bitte einen Grund für das Entfernen angeben (mindestens ${BELEG_LOESEN_GRUND_MIN} Zeichen).`
+  return t.length > 400 ? 'Der Grund darf höchstens 400 Zeichen lang sein.' : null
+}
+
+/** Adresse zum Lösen eines Belegs von seiner Buchung */
+export function belegLoesenPfad(belegId: string): string {
+  return `/api/buchhaltung/belege/${belegId}/loesen`
 }
 
 /** Beschriftung der Büroklammer */

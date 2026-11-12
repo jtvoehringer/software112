@@ -95,3 +95,44 @@ test('KAN-415: Hochladebox bricht ihren Text um (nicht das whitespace-nowrap der
   assert.ok(box, 'Box nicht gefunden')
   for (const klasse of ['whitespace-normal', 'wrap-break-word', 'text-left', 'w-80', 'max-w-[90vw]']) assert.ok(box.includes(klasse), klasse)
 })
+
+// UAT 12.11.2026: Belege müssen sich wieder entfernen lassen (laut Plan: solange der Monat offen ist), und die Box muss
+// sich bei einem Klick daneben schließen.
+describe('KAN-415: Beleg entfernen und Box schließen', nurMitHooks, () => {
+  test('Grund Pflicht (mindestens 10 Zeichen), Adresse der Route', async () => {
+    const { belegLoesenGrundFehler, belegLoesenPfad } = await laden('lib/buchhaltung/belegAnhang.ts')
+    assert.equal(belegLoesenGrundFehler('falscher Beleg angehängt'), null)
+    for (const g of ['', '  kurz  ', null, undefined, 5]) assert.ok(belegLoesenGrundFehler(g)?.includes('mindestens 10 Zeichen'), String(g))
+    assert.ok(belegLoesenGrundFehler('x'.repeat(401))?.includes('höchstens 400'))
+    assert.equal(belegLoesenPfad('abc'), '/api/buchhaltung/belege/abc/loesen')
+  })
+  test('Route: Zwei-Faktor, Betrieb der Seite, Schreibsperre, Schreibrecht E&A (Mitgliedschaft), dann nur die RPC', () => {
+    const r = quelle('src/app/api/buchhaltung/belege/[id]/loesen/route.ts')
+    const i = t => { const n = r.indexOf(t); assert.ok(n >= 0, t); return n }
+    assert.ok(i('await pruefeZweiFaktor()') < i("seitenBetriebKonflikt(tenantId, 'error')"))
+    assert.ok(i('seitenBetriebKonflikt(') < i('schreibSperreKonflikt(membership)'))
+    assert.ok(i('schreibSperreKonflikt(membership)') < i("canWrite(membership, 'ea')"))
+    assert.ok(i("canWrite(membership, 'ea')") < i("'s112_ea_beleg_loesen'"))
+    assert.ok(i('belegLoesenGrundFehler(body.grund)') < i("'s112_ea_beleg_loesen'"))
+    assert.ok(!/\.from\('ea_belege'\)|\.update\(|\.delete\(|storage/.test(r), 'kein direkter Zugriff auf ea_belege bzw. die Datei')
+  })
+  test('Box: „Entfernen“ je Beleg mit Grund, Eingabe erst nach Erfolg geleert, Ladezustand mit finally', () => {
+    const k = quelle('src/components/buchhaltung/BelegAnhang.tsx')
+    assert.ok(k.includes('{darfAnhaengen && entfernen !== b.id && ('))
+    assert.ok(k.includes('fetch(belegLoesenPfad(belegId)'))
+    const f = k.slice(k.indexOf('async function loesen('), k.indexOf('async function senden('))
+    assert.ok(f.indexOf('if (!res.ok) {') < f.indexOf("setGrund('')"))
+    assert.match(f, /\} finally \{\n\s+setLaeuft\(false\)/)
+    assert.ok(!k.includes('lässt sich nicht mehr entfernen'))
+  })
+  test('Box schließt bei Klick daneben und mit Esc – nicht während ein Vorgang läuft', () => {
+    const k = quelle('src/components/buchhaltung/BelegAnhang.tsx')
+    assert.ok(k.includes("document.addEventListener('mousedown', beiKlick)") && k.includes("document.addEventListener('keydown', beiTaste)"))
+    assert.ok(k.includes("document.removeEventListener('mousedown', beiKlick)") && k.includes("document.removeEventListener('keydown', beiTaste)"))
+    assert.ok(k.includes('!huelle.current.contains(e.target)) setOffen(false)'))
+    assert.ok(k.includes("if (e.key === 'Escape' && !laeuft) setOffen(false)"))
+    assert.ok(k.includes('<span ref={huelle} className="relative inline-block text-left">'))
+    // Hooks stehen vor dem frühen Ausstieg
+    assert.ok(k.indexOf('useEffect(() => {') < k.indexOf('if (belege.length === 0 && !darfAnhaengen) return null'))
+  })
+})
