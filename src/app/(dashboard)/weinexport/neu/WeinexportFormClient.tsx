@@ -7,14 +7,20 @@ import { Trash2 } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog
 import { heuteWien } from '@/lib/datum/wien'
-import { INCOTERMS, TRANSPORTARTEN as TRANSPORT, EXPORT_EINHEITEN, EXPORT_MAX } from '@/lib/export/auftragEingabe'
+import { INCOTERMS, TRANSPORTARTEN as TRANSPORT, EXPORT_EINHEITEN, EXPORT_MAX, exportauftragFehler } from '@/lib/export/auftragEingabe'
+import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { fehlerText } from '@/lib/fehler'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 
-interface Props { kontakte: R[]; firmen: R[]; fuellungen: R[]; tenantId: string }
+/** KAN-429: vorhandener Auftrag (Entwurf oder Bestätigt) – das Formular speichert dann per PUT statt neu anzulegen */
+export type ExportBearbeiten = { id: string; referenz: string | null; auftrag: R; positionen: R[] }
+interface Props { kontakte: R[]; firmen: R[]; fuellungen: R[]; tenantId: string; bearbeiten?: ExportBearbeiten }
 
-export default function WeinexportFormClient({ kontakte, firmen, fuellungen, tenantId }: Props) {
+const alsText = (v: unknown) => (v === null || v === undefined ? '' : String(v))
+
+export default function WeinexportFormClient({ kontakte, firmen, fuellungen, tenantId, bearbeiten }: Props) {
+  const alt = bearbeiten?.auftrag ?? null
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [fehler, setFehler] = useState<string|null>(null)
@@ -22,22 +28,25 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   const [angelegtId, setAngelegtId] = useState<string|null>(null)
 
   // Kopfdaten
-  const [empfaengerTyp, setEmpfaengerTyp] = useState<'kontakt'|'firma'>('firma')
-  const [kontaktId, setKontaktId]   = useState('')
-  const [firmaId, setFirmaId]       = useState('')
-  const [datum, setDatum]           = useState(heuteWien())
-  const [lieferdatum, setLieferdatum] = useState('')
-  const [incoterms, setIncoterms]   = useState('EXW')
-  const [transportArt, setTransportArt] = useState('LKW')
-  const [destLand, setDestLand]     = useState('')
-  const [destStadt, setDestStadt]   = useState('')
-  const [eori, setEori]             = useState('')
-  const [versicherung, setVersicherung] = useState('')
-  const [verpackung, setVerpackung] = useState('')   // KAN-414: Kartons/Palette in kg
-  const [notizen, setNotizen]       = useState('')
+  const [empfaengerTyp, setEmpfaengerTyp] = useState<'kontakt'|'firma'>(alt?.kontakt_id && !alt?.firma_id ? 'kontakt' : 'firma')
+  const [kontaktId, setKontaktId]   = useState(alsText(alt?.kontakt_id))
+  const [firmaId, setFirmaId]       = useState(alsText(alt?.firma_id))
+  const [datum, setDatum]           = useState(alsText(alt?.datum).slice(0, 10) || heuteWien())
+  const [lieferdatum, setLieferdatum] = useState(alsText(alt?.lieferdatum).slice(0, 10))
+  const [incoterms, setIncoterms]   = useState(alsText(alt?.incoterms) || 'EXW')
+  const [transportArt, setTransportArt] = useState(alsText(alt?.transport_art) || 'LKW')
+  const [destLand, setDestLand]     = useState(alsText(alt?.destination_land))
+  const [destStadt, setDestStadt]   = useState(alsText(alt?.destination_stadt))
+  const [eori, setEori]             = useState(alsText(alt?.eori_kunde))
+  const [versicherung, setVersicherung] = useState(alsText(alt?.versicherungswert))
+  const [verpackung, setVerpackung] = useState(alsText(alt?.verpackung_kg))   // KAN-414: Kartons/Palette in kg
+  const [notizen, setNotizen]       = useState(alsText(alt?.notizen))
 
   // Positionen
-  const [positionen, setPositionen] = useState<R[]>([])
+  const [positionen, setPositionen] = useState<R[]>(() => (bearbeiten?.positionen ?? []).map(p => ({
+    fullung_id: alsText(p.fullung_id), beschreibung: alsText(p.beschreibung), menge: alsText(p.menge), einheit: alsText(p.einheit) || 'Fl',
+    preis_eur: alsText(p.preis_eur), taric_code: alsText(p.taric_code) || '2204.21',
+  })))
 
   function addPosition() {
     setPositionen(p => [...p, { fullung_id: '', beschreibung: '', menge: '', einheit: 'Fl', preis_eur: '', taric_code: '2204.21' }])
@@ -51,29 +60,46 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true); setFehler(null)
+    setFehler(null)
+    const body = {
+      tenant_id: tenantId,
+      kontakt_id: empfaengerTyp === 'kontakt' ? kontaktId || null : null,
+      firma_id:   empfaengerTyp === 'firma'   ? firmaId   || null : null,
+      datum, lieferdatum: lieferdatum || null,
+      incoterms, transport_art: transportArt,
+      destination_land: destLand, destination_stadt: destStadt,
+      eori_kunde: eori || null,
+      versicherungswert: versicherung ? parseFloat(versicherung) : null,
+      verpackung_kg: verpackung ? parseFloat(verpackung) : null,
+      notizen: notizen || null,
+      positionen,
+    }
+    // KAN-429: dieselbe Prüfung wie Route und Datenbank – u. a. jede Position mit Menge über 0
+    const eingabeFehler = exportauftragFehler(body)
+    if (eingabeFehler) { setFehler(eingabeFehler); return }
+    setSaving(true)
     try {
-      const res = await fetch('/api/weinexport', {
-        method: 'POST',
+      const res = await fetch(bearbeiten ? `/api/weinexport/${bearbeiten.id}` : '/api/weinexport', {
+        method: bearbeiten ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          kontakt_id: empfaengerTyp === 'kontakt' ? kontaktId || null : null,
-          firma_id:   empfaengerTyp === 'firma'   ? firmaId   || null : null,
-          datum, lieferdatum: lieferdatum || null,
-          incoterms, transport_art: transportArt,
-          destination_land: destLand, destination_stadt: destStadt,
-          eori_kunde: eori || null,
-          versicherungswert: versicherung ? parseFloat(versicherung) : null,
-          verpackung_kg: verpackung ? parseFloat(verpackung) : null,
-          notizen: notizen || null,
-          positionen,
-        }),
+        body: JSON.stringify(body),
       })
-      const data = await res.json()
-      if (!res.ok) { setFehler(data.fehler ?? 'Fehler'); setAngelegtId(data.id ?? null); setSaving(false); return }
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setFehler(data.fehler ?? 'Der Exportauftrag wurde nicht gespeichert.'); setAngelegtId(data.id ?? null); return }
+      if (bearbeiten) {
+        zeigeErfolg(Number(data.dokumente_zurueck) > 0
+          ? `Exportauftrag gespeichert. ${data.dokumente_zurueck === 1 ? 'Ein ausgestelltes Dokument steht' : `${data.dokumente_zurueck} ausgestellte Dokumente stehen`} wieder auf „Ausstehend“ – bitte neu ausstellen.`
+          : 'Exportauftrag gespeichert.')
+        router.push(`/weinexport/${bearbeiten.id}`)
+        router.refresh()
+        return
+      }
       router.push(`/weinexport/${data.id}`)
-    } catch (err) { setFehler(fehlerText(err)); setSaving(false) }
+    } catch (err) {
+      setFehler(fehlerText(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const gesamtEUR = positionen.reduce((s, p) => s + (parseFloat(p.menge)||0) * (parseFloat(p.preis_eur)||0), 0)
@@ -83,10 +109,12 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
         <Link href="/weinexport" className="hover:text-s112-blue-700 transition-colors">Weinexport</Link>
         <span>/</span>
-        <span className="text-s112-text-1 font-medium">Neuer Exportauftrag</span>
+        {bearbeiten && <><Link href={`/weinexport/${bearbeiten.id}`} className="hover:text-s112-blue-700 transition-colors">{bearbeiten.referenz ?? 'Exportauftrag'}</Link><span>/</span></>}
+        <span className="text-s112-text-1 font-medium">{bearbeiten ? 'Bearbeiten' : 'Neuer Exportauftrag'}</span>
       </div>
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-semibold text-s112-text">Neuer Exportauftrag</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-s112-text">{bearbeiten ? `Exportauftrag ${bearbeiten.referenz ?? ''} bearbeiten` : 'Neuer Exportauftrag'}</h1>
+        {bearbeiten && <p className="text-sm text-s112-muted mt-1">Bearbeiten geht, solange der Auftrag Entwurf oder Bestätigt ist. Schon ausgestellte Dokumente stehen nach dem Speichern wieder auf „Ausstehend“.</p>}
       </div>
 
       <form data-ungespeichert onSubmit={handleSubmit} className="space-y-6">
@@ -246,13 +274,13 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 
-        {fehler && <p className="text-s112-err-fg text-sm">{fehler}{angelegtId && <> <Link href={`/weinexport/${angelegtId}`} className="underline">Zum angelegten Auftrag</Link></>}</p>}
+        {fehler && <p role="alert" className="text-s112-err-fg text-sm">{fehler}{angelegtId && <> <Link href={`/weinexport/${angelegtId}`} className="underline">Zum angelegten Auftrag</Link></>}</p>}
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
             className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
-            {saving ? 'Speichern…' : 'Exportauftrag anlegen'}
+            {saving ? 'Speichern…' : bearbeiten ? 'Änderungen speichern' : 'Exportauftrag anlegen'}
           </button>
-          <AbbrechenKnopf standard="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
+          <AbbrechenKnopf standard={bearbeiten ? `/weinexport/${bearbeiten.id}` : '/weinexport'} className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
             Abbrechen
           </AbbrechenKnopf>{/* KAN-333: zurück, woher man kam */}
         </div>

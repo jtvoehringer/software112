@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
 import type { SendungsGewicht } from '@/lib/export/gewicht'
 import Link from '@/components/ui/Link'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import { exportBearbeitbar } from '@/lib/export/auftragEingabe'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import EmcsPanel from './EmcsPanel'
@@ -111,7 +113,12 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           </h1>
           <p className="text-sm text-s112-muted mt-0.5">{importeur}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          {/* KAN-429: Bearbeiten in Entwurf und Bestätigt; ab Versendet gesperrt (auch in der Datenbank) */}
+          {darfSchreiben && exportBearbeitbar({ status, storniert_am: auftrag.storniert_am }) && (
+            <Link href={`/weinexport/${auftrag.id}/bearbeiten`}
+              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm text-s112-text-1 hover:bg-s112-bg">Bearbeiten</Link>
+          )}
           <select value={status} onChange={e => updateStatus(e.target.value)} disabled={saving || !!auftrag.storniert_am}
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
             {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
@@ -122,6 +129,9 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           {fehler && <span role="alert" className="text-xs text-s112-err">{fehler}</span>}
         </div>
       </div>
+      {darfSchreiben && !auftrag.storniert_am && !exportBearbeitbar({ status, storniert_am: auftrag.storniert_am }) && (
+        <GesperrtHinweis grund="Exportauftrag versendet – zum Bearbeiten von Kopfdaten und Positionen den Status auf „Bestätigt“ zurückstellen" erlaubt={['Status', 'EMCS-Angaben', 'Verpackung', 'Dokumente']} />
+      )}
 
       <div className="grid grid-cols-3 gap-6">
         {/* Linke Spalte: Auftragsdaten + Positionen */}
