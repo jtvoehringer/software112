@@ -1302,6 +1302,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_auftrag_liefern(p_tenant_id uuid, p_auftrag_id uuid, p_verkaufsposten_id uuid, p_positionen jsonb)'),   -- KAN-418 Teil 2
     ('mandant',       '-US', true , 's112_auftrag_lieferung_zuruecknehmen(p_tenant_id uuid, p_verkaufsposten_id uuid)'),   -- KAN-418 Teil 2: Abbruchweg
     ('mandant',       '-US', true , 's112_auftrag_abschliessen(p_tenant_id uuid, p_auftrag_id uuid)'),   -- KAN-418 Teil 2
+    ('mandant',       '-US', true , 's112_auftrag_ab_vermerken(p_tenant_id uuid, p_auftrag_id uuid, p_an text)'),   -- KAN-418 Teil 3: Versandvermerk der Auftragsbestätigung
     ('intern',        '--S', false, 's112_auftrag_status_setzen(p_auftrag_id uuid)'),   -- KAN-418 Teil 2
     ('intern',        '--S', false, 's112_auftrag_lieferung_zurueck_intern(p_verkaufsposten_id uuid, p_grund text)'),   -- KAN-418 Teil 2
     ('trigger',       '--S', false, 's112_auftrag_lieferung_storno()'),   -- KAN-418 Teil 2: Storno des Verkaufs nimmt die Lieferung zurück
