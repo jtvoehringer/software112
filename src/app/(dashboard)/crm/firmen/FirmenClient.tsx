@@ -6,6 +6,8 @@ import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from 
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import ImportFilter from '@/components/crm/ImportFilter'
+import type { ImportZaehler } from '@/lib/crm/importBezeichnung'
 import LandOptionen from '@/components/crm/LandOptionen'
 import { createFirma, updateFirma, deleteFirma, setzeFirmaAktiv, pruefeFirmaDublette } from '../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
@@ -460,7 +462,7 @@ function FirmaKarte({
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function FirmenClient({
-  firmen, kontakteMap, rabattgruppen, writeOk, filter, gesamt, zaehler,
+  firmen, kontakteMap, rabattgruppen, writeOk, filter, gesamt, zaehler, importe = [],
 }: {
   firmen: FirmaRow[]
   kontakteMap: Record<string, KontaktKurz[]>
@@ -469,6 +471,8 @@ export default function FirmenClient({
   filter: ListenFilter
   gesamt: number
   zaehler: Zaehler
+  /** KAN-426: vorhandene Import-Bezeichnungen mit Anzahl (Filter „Import“) */
+  importe?: ImportZaehler[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -553,9 +557,15 @@ export default function FirmenClient({
         <div className="ml-auto flex items-center gap-2">
           {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/firmen (KAN-54);
               der Knopf zeigt Fehler und Hinweise der Route (X-Warnungen) statt sie als Datei zu speichern */}
+          <ImportFilter importe={importe} wert={filter.imp} onChange={imp => setzeFilter({ imp })} />
           {writeOk && (
-            <CsvExportKnopf href="/api/export/firmen" label="CSV" ariaLabel="Firmen als CSV exportieren"
-              hinweis="Alle aktiven Firmen als CSV für Excel (Semikolon, UTF-8)" />
+            <CsvExportKnopf href={`/api/export/firmen${filter.imp ? `?import=${encodeURIComponent(filter.imp)}` : ''}`} label="CSV" ariaLabel="Firmen als CSV exportieren"
+              hinweis={filter.imp ? `Aktive Firmen des Imports „${filter.imp}“ als CSV für Excel` : 'Alle aktiven Firmen als CSV für Excel (Semikolon, UTF-8)'} />
+          )}
+          {writeOk && (
+            <Link href="/crm/import?typ=firmen" className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg">
+              Importieren
+            </Link>
           )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}

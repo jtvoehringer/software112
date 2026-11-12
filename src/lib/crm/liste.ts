@@ -31,7 +31,7 @@ export function bereinigterText(roh: unknown): string | null {
 // fehlte eines (bis 02.10.2026: email_weitere, skonto_pct, skonto_tage,
 // betrieb_nr), setzte Speichern es auf leer bzw. den Standardwert zurück.
 // Geprüft in scripts/tests/crm-bearbeiten-datenverlust.test.mjs.
-export const KONTAKT_SPALTEN = 'id, accountnummer, vorname, nachname, segment, firma_id, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, betrieb_nr, newsletter, newsletter_bestaetigt, stammkunde, aktiv, anonymisiert_am, notizen, erstellt_am, is_lead, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle, titel, titel_nachgestellt'
+export const KONTAKT_SPALTEN = 'id, accountnummer, vorname, nachname, segment, firma_id, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, betrieb_nr, newsletter, newsletter_bestaetigt, stammkunde, aktiv, anonymisiert_am, notizen, erstellt_am, import_quelle, importiert_am, is_lead, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle, titel, titel_nachgestellt'
 
 /** Zeile aus KONTAKT_SPALTEN (+ firmen:firma_id(name…)) → KontaktRow-Felder */
 export function kontaktAusZeile(k: R) {
@@ -71,9 +71,14 @@ export function kontaktAusZeile(k: R) {
     quelle:                (k.quelle as string | null) ?? null,
     aktiv:                 (k.aktiv as boolean | null) ?? true,
     anonymisiert_am:       (k.anonymisiert_am as string | null) ?? null,   // KAN-425: Personendaten gelöscht
+    import_quelle:         (k.import_quelle as string | null) ?? null,   // KAN-426: Bezeichnung des Imports
+    importiert_am:         (k.importiert_am as string | null) ?? null,
     erstellt_am:           k.erstellt_am as string,
   }
 }
+
+// @ts-expect-error TS5097 – node:test lädt ohne Bundler, deshalb mit Endung
+import { importFilterAus } from './importBezeichnung.ts'
 
 export type ListenFilter = {
   q: string
@@ -87,6 +92,8 @@ export type ListenFilter = {
   inaktiv: boolean
   /** nur Kontakte: '' = alle Quellen, QUELLE_OHNE = ohne Quelle, sonst kontakte.quelle (?quelle=…) */
   quelle: string
+  /** KAN-426: '' = alle, sonst die Bezeichnung eines Imports (import_quelle; ?import=…) – Kontakte und Firmen */
+  imp: string
   n: number                // Anzahl Zeilen (Schritte à LISTE_SCHRITT)
 }
 
@@ -105,6 +112,7 @@ export function filterAusParams(sp: Record<string, string | string[] | undefined
     sort: art === 'firma' ? 'name' : (s('sort') === 'vorname' ? 'vorname' : 'nachname'),
     inaktiv: s('inaktiv') === '1',
     quelle: art === 'kontakt' ? s('quelle').trim().slice(0, QUELLE_MAX) : '',
+    imp: importFilterAus(s('import')),
     n,
   }
 }
@@ -120,6 +128,7 @@ export function paramsAusFilter(f: Partial<ListenFilter>): string {
   if (f.sort && f.sort === 'vorname') p.set('sort', 'vorname')
   if (f.inaktiv) p.set('inaktiv', '1')
   if (f.quelle) p.set('quelle', f.quelle)
+  if (f.imp) p.set('import', f.imp)
   if (f.n && f.n > LISTE_SCHRITT) p.set('n', String(f.n))
   const s = p.toString()
   return s ? `?${s}` : ''
@@ -182,6 +191,7 @@ export async function ladeKontakteSeite(client: any, tenantId: string | null, f:
   if (f.segment !== 'alle') q = q.eq('segment', f.segment)
   if (f.quelle === QUELLE_OHNE) q = q.is('quelle', null)
   else if (f.quelle) q = q.eq('quelle', f.quelle)
+  if (f.imp) q = q.eq('import_quelle', f.imp)
   if (f.buchstabe !== 'Alle') q = q.ilike(f.sort === 'vorname' ? 'vorname' : 'nachname', `${f.buchstabe}%`)
   if (f.lead === 'lead') q = q.eq('is_lead', true)
   if (f.lead === 'kunde') q = q.eq('is_lead', false)
@@ -228,6 +238,7 @@ export async function ladeFirmenSeite(client: any, tenantId: string | null, f: L
   if (f.lead === 'kunde') q = q.eq('is_lead', false)
   if (f.kunde) q = q.eq('ist_kunde', true)
   if (f.lieferant) q = q.eq('ist_lieferant', true)
+  if (f.imp) q = q.eq('import_quelle', f.imp)
   for (const filter of suchFilter(FIRMA_SUCHSPALTEN, f.q)) q = q.or(filter)
   const { data, count, error } = await q.order('name').order('id').range(0, f.n - 1)
   if (error) throw new AktionsFehler(error.message)

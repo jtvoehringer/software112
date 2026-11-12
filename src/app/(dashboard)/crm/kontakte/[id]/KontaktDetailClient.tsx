@@ -810,6 +810,14 @@ export default function KontaktDetailClient({
                 <Link href={`/crm/kontakte?quelle=${encodeURIComponent(kontakt.quelle)}`} className="text-s112-text-1 hover:text-s112-blue-700 hover:underline" title="Alle Kontakte mit dieser Quelle">{kontakt.quelle}</Link>
               </div>
             )}
+            {kontakt.import_quelle && (
+              <div className="flex items-baseline gap-2 text-sm">
+                <span className="text-xs text-s112-muted w-16 shrink-0">Import</span>
+                <Link href={`/crm/kontakte?import=${encodeURIComponent(kontakt.import_quelle)}`} className="text-s112-text-1 hover:text-s112-blue-700 hover:underline" title="Alle Kontakte dieses Imports">
+                  {kontakt.import_quelle}{kontakt.importiert_am ? ` · ${new Date(kontakt.importiert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })}` : ''}
+                </Link>
+              </div>
+            )}
             {kontakt.notizen && (
               <p className="text-xs text-s112-text-2 italic pt-1 border-t border-s112-border/60">{kontakt.notizen}</p>
             )}

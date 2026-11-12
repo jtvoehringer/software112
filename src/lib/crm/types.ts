@@ -232,6 +232,9 @@ export type KontaktRow = {
   aktiv: boolean
   /** KAN-425: Personendaten gelöscht (DSGVO) – die Zeile bleibt wegen der Belege und ist unveränderlich */
   anonymisiert_am?: string | null
+  /** KAN-426: Bezeichnung des Imports, aus dem der Kontakt stammt, und Zeitpunkt */
+  import_quelle?: string | null
+  importiert_am?: string | null
   erstellt_am: string
 }
 

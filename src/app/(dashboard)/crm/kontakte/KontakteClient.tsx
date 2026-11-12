@@ -6,6 +6,8 @@ import { paramsAusFilter, LISTE_SCHRITT, POSITION_MAX, QUELLE_MAX, QUELLE_OHNE, 
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import ImportFilter from '@/components/crm/ImportFilter'
+import type { ImportZaehler } from '@/lib/crm/importBezeichnung'
 import LandOptionen from '@/components/crm/LandOptionen'
 import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, setzeKontaktAktiv, createAktivitaet, createPipelineEintrag } from '../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
@@ -683,6 +685,7 @@ export type { AktivitaetRow, PipelineRow }
 export default function KontakteClient({
   kontakte, firmen, rabattgruppen, aktivitaetenMap, pipelineMap, writeOk, filter, gesamt, zaehler,
   quellenZaehler = { quellen: [], ohne: 0 },
+  importe = [],
 }: {
   kontakte: KontaktRow[]
   firmen?: FirmaOption[]
@@ -698,6 +701,8 @@ export default function KontakteClient({
   zaehler: Zaehler
   /** verwendete Quellen mit Anzahl und Kontakte ohne Quelle (02.10.2026) */
   quellenZaehler?: QuellenZaehler
+  /** KAN-426: vorhandene Import-Bezeichnungen mit Anzahl (Filter „Import“) */
+  importe?: ImportZaehler[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -793,9 +798,15 @@ export default function KontakteClient({
         <div className="ml-auto flex items-center gap-2">
           {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/kontakte (KAN-54);
               der Knopf zeigt Fehler und Hinweise der Route (X-Warnungen) statt sie als Datei zu speichern */}
+          <ImportFilter importe={importe} wert={filter.imp} onChange={imp => setzeFilter({ imp })} />
           {writeOk && (
-            <CsvExportKnopf href="/api/export/kontakte" label="CSV" ariaLabel="Kontakte als CSV exportieren"
-              hinweis="Alle aktiven Kontakte als CSV für Excel (Semikolon, UTF-8)" />
+            <CsvExportKnopf href={`/api/export/kontakte${filter.imp ? `?import=${encodeURIComponent(filter.imp)}` : ''}`} label="CSV" ariaLabel="Kontakte als CSV exportieren"
+              hinweis={filter.imp ? `Aktive Kontakte des Imports „${filter.imp}“ als CSV für Excel` : 'Alle aktiven Kontakte als CSV für Excel (Semikolon, UTF-8)'} />
+          )}
+          {writeOk && (
+            <Link href="/crm/import?typ=kontakte" className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg">
+              Importieren
+            </Link>
           )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}

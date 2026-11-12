@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { alle, inBloecken } from '@/lib/supabase/alle'
+import { zaehleImporte } from '@/lib/crm/importBezeichnung'
 import { filterAusParams, ladeFirmenSeite, ladeZaehler } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -27,12 +28,22 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
+  const importeAbfrage = (() => {
+    if (!tenantId) return Promise.resolve({ data: [] as { import_quelle?: unknown }[], error: null })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q = (supabase.from('firmen') as any).select('id, import_quelle').eq('tenant_id', tenantId).not('import_quelle', 'is', null)
+    if (!filter.inaktiv) q = q.eq('aktiv', true)
+    return alle(q.order('id'))
+  })()
   // Serverseitig gefiltert und seitenweise (17.9.2026, lib/crm/liste.ts);
   // Ansprechpersonen nur für die geladenen Firmen.
-  const [{ rows: fRaw, gesamt }, zaehler] = await Promise.all([
+  const [{ rows: fRaw, gesamt }, zaehler, impRes] = await Promise.all([
     ladeFirmenSeite(supabase, tenantId, filter),
     ladeZaehler(supabase, tenantId, 'firma'),
+    // KAN-426: vorhandene Import-Bezeichnungen für den Filter „Import“ (inaktive nur bei ?inaktiv=1, wie die Liste)
+    importeAbfrage,
   ])
+  const importe = zaehleImporte((geladen(impRes, 'Importe der Firmen') ?? []) as { import_quelle?: unknown }[])
   const ids = fRaw.map(f => f.id as string)
   // inBloecken: bis zu 1.000 Firmen – 1.000 IDs in einer URL scheitern (ab ≈ 350), die Ansprechpersonen blieben leer.
   // Eine Firma liegt immer ganz in einem Block, die Reihenfolge je Firma bleibt.
@@ -105,7 +116,7 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
         <span className="text-sm text-s112-muted">{zaehler.gesamt} Firmen</span>
       </div>
 
-      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} rabattgruppen={rabattgruppen} writeOk={writeOk} filter={filter} gesamt={gesamt} zaehler={zaehler} />
+      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} rabattgruppen={rabattgruppen} writeOk={writeOk} filter={filter} gesamt={gesamt} zaehler={zaehler} importe={importe} />
     </div>
   )
 }
