@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/musterhof-reset",
       "schedule": "35 3 * * *"
+    },
+    {
+      "path": "/api/cron/smoke-test",
+      "schedule": "50 3 * * *"
     }
   ]
 }
