@@ -92,3 +92,28 @@ describe('KAN-416: Wege und Absicherung', () => {
     assert.match(sql, /REVOKE EXECUTE ON FUNCTION public\.s112_rechnungstext_schutz\(\) FROM PUBLIC, anon, authenticated;/)
   })
 })
+
+// UAT 12.11.2026 (Abnahme 4 und 6 nicht bestanden): Der Text stand nur im Mail-PDF. In der Druckansicht der Rechnung
+// fehlte er – die Zeile dafür lag in der Kopfkarte, die im Druck ausgeblendet ist (no-print).
+describe('KAN-416: Text auf Rechnung in den Druckansichten', () => {
+  const verkauf = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/page.tsx')
+  const rechnung = quelle('src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx')
+  test('Rechnung eines Lieferscheins: Text unter den Positionen, nicht in der ausgeblendeten Kopfkarte', () => {
+    const positionen = verkauf.slice(verkauf.indexOf('{/* Positionen-Tabelle'), verkauf.indexOf('{/* ── RECHNUNG-FOOTER'))
+    assert.ok(positionen.includes('{isRechnung && rechnungstexteFuerBeleg([{ lieferscheinnummer: posten.lieferscheinnummer ?? null, rechnungstext: posten.rechnungstext ?? null }]).map('))
+    // der Absatz ist weder nur am Bildschirm noch nur im Druck sichtbar
+    const absatz = positionen.split('\n').find(z => z.includes('whitespace-pre-line'))
+    assert.ok(absatz && !/no-print|print:hidden|print-only|hidden print:block/.test(absatz), absatz)
+    const kopf = verkauf.slice(verkauf.indexOf('<div className="card p-5 no-print">'), verkauf.indexOf('{/* Positionen-Tabelle'))
+    assert.ok(!kopf.includes('hidden print:block'), 'tote Druckzeile in der ausgeblendeten Kopfkarte')
+  })
+  test('Rechnungsseite (auch Sammelrechnung): lädt den Text je Lieferschein und druckt ihn, nicht beim Stornobeleg', () => {
+    assert.ok(rechnung.includes("'id, lieferscheinnummer, datum, rechnungstext')}"))
+    assert.ok(rechnung.includes('{!storno && rechnungstexteFuerBeleg(r.lieferscheine as'))
+  })
+  test('nach „Texte speichern“ zurück zur vorigen Übersicht', () => {
+    const k = quelle('src/components/handel/LieferscheinTexte.tsx')
+    assert.ok(k.includes("router.push(zielNachSpeichern('/weinhandel/verkauf'))"))
+    assert.ok(k.indexOf('if (r && r.error) { setFehler(r.error); return }') < k.indexOf('router.push(zielNachSpeichern('))
+  })
+})

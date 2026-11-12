@@ -11,6 +11,7 @@ import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
 import { alsBeleg, istStornobeleg, lieferscheineSelect, STORNO_FELDER } from '@/lib/verkauf/rechnungen'
 import { rechnungSummen } from '@/lib/verkauf/rechnungDruck'
+import { rechnungstexteFuerBeleg } from '@/lib/verkauf/rechnungstext'
 import { canWrite } from '@/lib/auth/roles'
 import RechnungVersandPanel from '../../verkauf/[id]/RechnungVersandPanel'
 
@@ -40,7 +41,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
         kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen!firma_id(id, name, email, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
-        ${lieferscheineSelect('id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz, fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum)')}`)
+        ${lieferscheineSelect('id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz, fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum)', 'id, lieferscheinnummer, datum, rechnungstext')}`)
       .eq('id', id).eq('tenant_id', tenantId).maybeSingle(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any)
@@ -192,6 +193,10 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
           {summen.ust.map(u => <p key={u.satz} className="text-s112-text-2">MwSt {u.satz}%: {fmtEur(u.betrag)}</p>)}
           <p className="text-base font-semibold text-s112-text-1">{storno ? 'Stornobetrag' : 'Rechnungsbetrag'}: {fmtEur(summen.brutto)}</p>
         </div>
+        {/* KAN-416 (UAT 12.11.2026): Texte auf Rechnung der Lieferscheine – bei mehreren mit „Lieferschein LS-…:“ davor */}
+        {!storno && rechnungstexteFuerBeleg(r.lieferscheine as { lieferscheinnummer?: string | null; rechnungstext?: string | null }[]).map((t, i) => (
+          <p key={i} className="mt-3 text-sm text-s112-text whitespace-pre-line break-inside-avoid">{t}</p>
+        ))}
         {r.notizen && <p className="mt-4 text-sm text-s112-muted italic">{storno ? `Grund: ${r.notizen}` : r.notizen}</p>}
 
         {/* Zahlung (nicht beim Stornobeleg) */}
