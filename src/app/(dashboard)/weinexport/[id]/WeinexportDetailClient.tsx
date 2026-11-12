@@ -16,6 +16,7 @@ import {
   importeurName, type ExportPositionZeile, type ExportauftragErgebnis,
 } from '@/lib/behoerden/exportauftrag'
 import { farbeLabel } from '@/lib/export/grunddaten'
+import { EXPORT_DOKUMENTE, hatDruckansicht } from '@/lib/export/dokumente'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const STATUS_COLOR: Record<string,string> = {
@@ -162,6 +163,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
               <div><dt className="text-xs text-s112-muted">UID Importeur</dt><dd className="font-mono text-xs">{auftrag.kunde_uid ?? '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Versanddatum</dt><dd>{tag(auftrag.versanddatum)}</dd></div>
               <div className="col-span-2"><dt className="text-xs text-s112-muted">Zahlungsbedingungen</dt><dd>{auftrag.zahlungsbedingungen ?? '–'}</dd></div>
+              {auftrag.mustersendung === true && <div className="col-span-2"><dt className="text-xs text-s112-muted">Mustersendung</dt><dd>Ja – Vermerk „ohne Handelswert“ auf Packliste und Rechnung</dd></div>}
               <div><dt className="text-xs text-s112-muted">Incoterms</dt><dd>{auftrag.incoterms ?? '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Datum</dt><dd>{auftrag.datum ? new Date(auftrag.datum).toLocaleDateString('de-AT') : '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Lieferdatum</dt><dd>{auftrag.lieferdatum ? new Date(auftrag.lieferdatum).toLocaleDateString('de-AT') : '–'}</dd></div>
@@ -304,9 +306,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                       {Object.entries(DOK_STATUS_LABEL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
-                  {(dok.dokument_art === 'v1v2' || dok.dokument_art === 'eur1' ||
-                    dok.dokument_art === 'cmr' || dok.dokument_art === 'lieferschein' ||
-                    dok.dokument_art === 'rechnung' || dok.dokument_art === 'certificate_of_origin') && (
+                  {hatDruckansicht(dok.dokument_art) && (
                     <a href={`/api/weinexport/${auftrag.id}/dokument/${dok.dokument_art}`}
                       target="_blank" rel="noopener noreferrer"
                       title="Druckansicht öffnen (im Browser drucken oder als PDF speichern)"
@@ -323,9 +323,9 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
               <p className="text-[11px] text-s112-muted mb-2">Weiteres Dokument</p>
               <div className="flex gap-1">
                 <select id="add-dok-select" className="flex-1 border border-s112-border rounded-sm px-1.5 py-1 text-[11px] focus:outline-hidden">
-                  {Object.entries(DOK_LABEL)
-                    .filter(([v]) => !dokumente.some(d => d.dokument_art === v))
-                    .map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                  {EXPORT_DOKUMENTE
+                    .filter(d => d.waehlbar && !dokumente.some(x => x.dokument_art === d.art))
+                    .map(d => <option key={d.art} value={d.art}>{d.label}</option>)}
                 </select>
                 <button onClick={async () => {
                   const sel = (document.getElementById('add-dok-select') as HTMLSelectElement)?.value

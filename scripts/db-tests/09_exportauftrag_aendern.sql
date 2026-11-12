@@ -48,7 +48,8 @@ BEGIN
   VALUES (v_auf, 'S112TEST alt', 0, 'Fl', 0, 0);
   INSERT INTO public.export_dokumente (exportauftrag_id, dokument_art, status, ausgestellt_am) VALUES (v_auf, 'eur1', 'ausgestellt', pg_temp.s112_heute()), (v_auf, 'rechnung', 'ausstehend', NULL);
   v_kopf := jsonb_build_object('datum', pg_temp.s112_heute(), 'incoterms', 'DAP', 'transport_art', 'LKW', 'destination_land', 'DE', 'destination_stadt', ' München ', 'verpackung_kg', 40,
-    'versanddatum', pg_temp.s112_heute(), 'zahlungsbedingungen', ' S112TEST 30 Tage netto ', 'kunde_uid', ' de 123456789 ');   -- KAN-432
+    'versanddatum', pg_temp.s112_heute(), 'zahlungsbedingungen', ' S112TEST 30 Tage netto ', 'kunde_uid', ' de 123456789 ',   -- KAN-432
+    'mustersendung', true);   -- KAN-433
   v_ok := jsonb_build_array(jsonb_build_object('fullung_id', v_f, 'beschreibung', 'S112TEST A', 'menge', 60, 'einheit', 'Fl', 'preis_eur', 9.5, 'flaschen_je_karton', '6'),
                             jsonb_build_object('beschreibung', 'S112TEST B', 'menge', '2', 'einheit', 'HL', 'preis_eur', ''));
 
@@ -103,6 +104,9 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('grunddaten_kopf',
     (SELECT concat_ws('/', (versanddatum = pg_temp.s112_heute())::text, zahlungsbedingungen, kunde_uid) FROM public.exportauftraege WHERE id = v_auf),
     'true/S112TEST 30 Tage netto/DE123456789');
+  -- KAN-433: Mustersendung über die RPC gesetzt
+  v_erg := v_erg || pg_temp.s112_erwarte('mustersendung_gesetzt',
+    (SELECT mustersendung::text FROM public.exportauftraege WHERE id = v_auf), 'true');
   v_erg := v_erg || pg_temp.s112_erwarte('grunddaten_karton',
     (SELECT string_agg(coalesce(flaschen_je_karton::text, '-'), ',' ORDER BY sort_order) FROM public.exportauftrag_positionen WHERE exportauftrag_id = v_auf), '6,-');
   PERFORM pg_temp.s112_als(v_bw);
@@ -134,6 +138,9 @@ BEGIN
   -- KAN-432: die neuen Spalten stehen nicht in der Positivliste – ab „Versendet“ gesperrt
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_grunddaten_gesperrt',
     pg_temp.s112_versuch(format('UPDATE public.exportauftraege SET versanddatum = pg_temp.s112_heute() - 1, kunde_uid = %L WHERE id = %L', 'DE999', v_auf)), 'T');
+  -- KAN-433: auch die Mustersendung steht nicht in der Positivliste
+  v_erg := v_erg || pg_temp.s112_erwarte('direkt_mustersendung_gesperrt',
+    pg_temp.s112_versuch(format('UPDATE public.exportauftraege SET mustersendung = false WHERE id = %L', v_auf)), 'T');
   PERFORM pg_temp.s112_als_postgres();
   SELECT id INTO v_pos FROM public.exportauftrag_positionen WHERE exportauftrag_id = v_auf ORDER BY sort_order LIMIT 1;
   PERFORM pg_temp.s112_als(v_bw);
@@ -162,5 +169,5 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rechte',
     has_function_privilege('anon', 'public.s112_exportauftrag_aendern(uuid, uuid, jsonb, jsonb)', 'EXECUTE'), false);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 34);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 36);
 END $test$;

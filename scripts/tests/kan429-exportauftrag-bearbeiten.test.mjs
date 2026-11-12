@@ -66,6 +66,7 @@ describe('KAN-429: Daten für die RPC', () => {
       kontakt_id: null, firma_id: F, datum: '2026-11-12', lieferdatum: null, incoterms: 'DAP', transport_art: 'LKW', destination_land: 'DE',
       destination_stadt: 'München', eori_kunde: null, versicherungswert: 5400, verpackung_kg: 80, notizen: null,
       versanddatum: null, zahlungsbedingungen: null, kunde_uid: null,   // KAN-432: Grunddaten für die Dokumente
+      mustersendung: false,   // KAN-433
     })
     assert.equal(exportKopf({}, null).versicherungswert, null)
   })

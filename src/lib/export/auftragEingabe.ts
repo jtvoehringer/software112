@@ -109,6 +109,8 @@ export function exportKopf(body: Body, destinationLand: string | null): Record<s
     versanddatum: text(body.versanddatum) || null,
     zahlungsbedingungen: text(body.zahlungsbedingungen) || null,
     kunde_uid: uidBereinigt(body.kunde_uid) || null,
+    // KAN-433: Mustersendung (Vermerk auf Packliste und Rechnung)
+    mustersendung: body.mustersendung === true || body.mustersendung === 'true',
   }
 }
 

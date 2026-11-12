@@ -26,17 +26,14 @@ import {
   type GrunddatenEingabe, type GrunddatenHinweis, type GrunddatenPosition, type GrunddatenSummen, type Lieferfall,
 } from '../export/grunddaten'
 import { exportBearbeitbar } from '../export/auftragEingabe'
+import { EXPORT_DOKUMENT_ARTEN, EXPORT_DOKUMENT_LABEL } from '../export/dokumente'
 
 export const EXPORT_STATUS_LABEL: Record<string, string> = {
   entwurf: 'Entwurf', bestaetigt: 'Bestätigt', versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
 }
 
-export const EXPORT_DOK_LABEL: Record<string, string> = {
-  v1v2: 'V1/V2 Begleitdokument', eur1: 'EUR.1 Ursprungszeugnis',
-  cmr: 'CMR Frachtbrief', certificate_of_origin: 'Certificate of Origin',
-  phytosanitaer: 'Phytosanitäres Zertifikat', lieferschein: 'Lieferschein',
-  rechnung: 'Exportrechnung',
-}
+/** KAN-433: eine Liste der Dokumentarten in src/lib/export/dokumente.ts */
+export const EXPORT_DOK_LABEL: Record<string, string> = EXPORT_DOKUMENT_LABEL
 
 export const EXPORT_DOK_STATUS_LABEL: Record<string, string> = {
   ausstehend: 'Ausstehend', beantragt: 'Beantragt',
@@ -340,8 +337,8 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
 // ── Laden: Auftragsliste ─────────────────────────────────────────────────────
 
 /** Dokumentarten in fester Spaltenreihenfolge der Liste */
-export const EXPORT_DOK_ARTEN = ['v1v2', 'eur1', 'cmr', 'certificate_of_origin', 'phytosanitaer', 'lieferschein', 'rechnung'] as const
-export type ExportDokArt = typeof EXPORT_DOK_ARTEN[number]
+export const EXPORT_DOK_ARTEN: readonly string[] = EXPORT_DOKUMENT_ARTEN   // KAN-433: + Packliste, Health Certificate
+export type ExportDokArt = string
 
 export type ExportauftragListenZeile = {
   id: string

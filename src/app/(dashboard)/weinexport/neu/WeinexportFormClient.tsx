@@ -48,6 +48,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   // KAN-432: Grunddaten für die Dokumente
   const [versanddatum, setVersanddatum] = useState(alsText(alt?.versanddatum).slice(0, 10))
   const [kundeUid, setKundeUid]     = useState(alsText(alt?.kunde_uid))
+  const [mustersendung, setMustersendung] = useState(alt?.mustersendung === true)   // KAN-433
   const [zahlung, setZahlung]       = useState(alt ? alsText(alt?.zahlungsbedingungen) : zahlungsbedingungenVorschlag(vorgaben?.zahlungszielTage ?? null))
 
   /** Kunde gewählt: UID (Firma) und Zahlungsbedingungen vorschlagen – eine eigene Eingabe bleibt stehen */
@@ -95,6 +96,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
       versanddatum: versanddatum || null,
       zahlungsbedingungen: zahlung.trim() || null,
       kunde_uid: kundeUid.trim() || null,
+      mustersendung,
       positionen,
     }
     // KAN-429: dieselbe Prüfung wie Route und Datenbank – u. a. jede Position mit Menge über 0
@@ -312,6 +314,17 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
               Gesamt: EUR {fmtNum(gesamtEUR, 2)}
             </div>
           )}
+        </div>
+
+        {/* KAN-433: Mustersendung */}
+        <div className="bg-white rounded-xl border border-s112-border p-6">
+          <label className="flex items-start gap-3 text-sm text-s112-text">
+            <input type="checkbox" checked={mustersendung} onChange={e => setMustersendung(e.target.checked)} className="mt-0.5 h-4 w-4 accent-s112-teal" />
+            <span>
+              <span className="font-medium">Mustersendung</span>
+              <span className="block text-xs text-s112-muted mt-0.5">Zum Beispiel für Messen oder Verkostungen. Packliste und Rechnung tragen dann den Vermerk „Mustersendung – ohne Handelswert“.</span>
+            </span>
+          </label>
         </div>
 
         {/* Notizen */}

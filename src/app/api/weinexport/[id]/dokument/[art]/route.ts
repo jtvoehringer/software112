@@ -11,6 +11,9 @@ import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { modulKonflikt } from '@/lib/auth/modul'
 import { kgText, sendungsGewicht } from '@/lib/export/gewicht'   // KAN-414: Netto-/Bruttogewicht aus Füllung und Verpackung
 import { eurText, gesamtWert, positionsWert } from '@/lib/export/exportWerte'   // Sweep 77: kaufmännisch, Gesamt = Σ Zeilen
+import { ladeExportauftrag } from '@/lib/behoerden/exportauftrag'   // KAN-433: abgeleitete Angaben je Position (KAN-432)
+import { MUSTERSENDUNG_VERMERK, farbeGroesse, kartonAufschluesselung, kartonNummern, kartonText, kartonsGesamt, warenbeschreibung, zahlDe } from '@/lib/export/dokumente'
+import { fehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
 const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
@@ -40,7 +43,11 @@ function css() {
     .stamp{border:2px solid #ccc;padding:3mm;min-height:20mm;margin-top:4mm;font-size:8pt;color:#999}
     .sign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8mm;margin-top:8mm}
     .sign-box{border-top:1px solid #333;padding-top:2mm;font-size:8pt;text-align:center}
-    @media print{body{padding:0}@page{margin:15mm}}
+    .wb{font-size:8.5pt;color:#555;margin-top:.5mm}
+    .hinweis-leiste{border:1px solid #E0B252;background:#FFF7E0;color:#6B4E00;padding:3mm 4mm;margin-bottom:6mm;border-radius:3px;font-size:9pt}
+    .hinweis-leiste ul{margin:1mm 0 0 5mm}
+    .muster{border:2px solid #333;padding:2mm 4mm;margin-bottom:4mm;font-size:10pt;font-weight:bold;text-align:center}
+    @media print{body{padding:0}@page{margin:15mm}.hinweis-leiste{display:none}}
     ${DRUCKLEISTE_CSS}
   </style>`
 }
@@ -74,7 +81,7 @@ export async function GET(
       .select('*, kontakte(titel,vorname,nachname,titel_nachgestellt,email), firmen(name,email)')
       .eq('id', auftragId).eq('tenant_id', tenantId).single(),
     (supabase.from('exportauftrag_positionen') as any)
-      .select('*, fuellungen(bezeichnung,flaschengroesse_ml,leergewicht_g)').eq('exportauftrag_id', auftragId).order('sort_order'),
+      .select('*, fuellungen(bezeichnung,flaschengroesse_ml,leergewicht_g)').eq('exportauftrag_id', auftragId).order('sort_order').order('id'),
     (admin.from('tenant_einstellungen') as any)
       .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_uid,rechnung_iban,rechnung_bic')   // Sweep 20.9.2026: betrieb_land/rechnung_bank_iban gab es nicht – Abfrage brach
       .eq('tenant_id', tenantId).maybeSingle(),
@@ -98,6 +105,25 @@ export async function GET(
   const mitVerpackung = gew.verpackungKg > 0 ? ' (inkl. Verpackung)' : ''
   const verpackungText = gew.verpackungKg > 0 ? ' (inkl. Verpackung ' + kgText(gew.verpackungKg) + ' kg)' : ''
   const verpackungTextEn = gew.verpackungKg > 0 ? ' (Brutto inkl. Verpackung / gross incl. packaging ' + kgText(gew.verpackungKg) + ' kg)' : ''
+
+  // KAN-433: abgeleitete Angaben je Position (Liter, Kartons, Alkohol, Prüfnummer, Farbe …) aus derselben Ladefunktion
+  // wie Detailseite und CSV – gleiche Reihenfolge (sort_order, id). Fehlende Werte bleiben leer („–“), nie geschätzt.
+  let erg: Awaited<ReturnType<typeof ladeExportauftrag>>
+  try {
+    erg = await ladeExportauftrag(supabase, tenantId, { id: auftragId })
+  } catch (err) {
+    return NextResponse.json({ fehler: 'Exportauftrag konnte nicht geladen werden: ' + fehlerText(err) }, { status: 500 })
+  }
+  const dz = erg && erg.zeilen.length === pos.length ? erg.zeilen : []
+  /** zweite Zeile unter der Bezeichnung: Jahrgang · Farbe · Flaschengröße · alc. % vol · Prüfnr. · Flaschen/Kartons · Liter */
+  const wb = (i: number) => { const text = dz[i] ? warenbeschreibung(dz[i]) : ''; return text ? `<div class="wb">${e(text)}</div>` : '' }
+  const fehlt = [...(erg?.grunddaten.hinweise.map(h => h.text) ?? []), ...(gew.hinweis ? [gew.hinweis] : [])]
+  // nur am Bildschirm (nicht im Druck); ohne Link – das Dokument läuft in einer eigenen Sandbox (KAN-138)
+  const hinweisLeiste = fehlt.length === 0 ? '' : `<div class="hinweis-leiste"><strong>Für dieses Dokument fehlt noch:</strong>
+    <ul>${fehlt.slice(0, 8).map(text => `<li>${e(text)}</li>`).join('')}${fehlt.length > 8 ? `<li>… und ${e(fehlt.length - 8)} weitere</li>` : ''}</ul>
+    <div style="margin-top:1mm">Eintragen über die Liste „Für die Dokumente fehlt noch …“ am Exportauftrag. Fehlende Angaben stehen im Dokument als „–“.</div></div>`
+  const leiste = druckleiste() + hinweisLeiste
+  const muster = a.mustersendung ? `<div class="muster">${e(MUSTERSENDUNG_VERMERK)}</div>` : ''
 
   // KAN-138: jede Interpolation aus DB-/Benutzerdaten läuft über e() (escHtml) bzw.
   // escHtmlMehrzeilig – nur css() und header(b) liefern bewusst fertiges HTML.
@@ -152,7 +178,7 @@ export async function GET(
 
     // ── EUR.1 Ursprungszeugnis ────────────────────────────────────────────────
     case 'eur1':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>EUR.1 – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>EUR.1 – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
         ${header(b)}
         <h1>WARENVERKEHRSBESCHEINIGUNG EUR.1</h1>
         <p class="subtitle">Movement Certificate – Used in preferential trade</p>
@@ -188,7 +214,7 @@ export async function GET(
         <h2>7. Warenbeschreibung / 8. Rohmasse (kg) / 9. Wert</h2>
         <table><thead><tr><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>TARIC</th><th>Rohmasse kg</th><th>Wert EUR</th></tr></thead>
         <tbody>${pos.map((p, i) => `<tr>
-          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}</td>
+          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${wb(i)}</td>
           <td style="text-align:right">${e(p.menge)}</td><td>${e(p.einheit)}</td>
           <td style="font-family:monospace">${e(p.taric_code)}</td>
           <td style="text-align:right">${e(kg(gew.positionen[i]?.bruttoKg))}</td>
@@ -209,7 +235,7 @@ export async function GET(
 
     // ── CMR Frachtbrief ──────────────────────────────────────────────────────
     case 'cmr':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>CMR – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>CMR – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
         ${header(b)}
         <h1>INTERNATIONALER FRACHTBRIEF / CMR</h1>
         <p class="subtitle">Convention relative au contrat de transport international de marchandises par route</p>
@@ -242,8 +268,8 @@ export async function GET(
         <h2>6. Warenbeschreibung</h2>
         <table><thead><tr><th>Bezeichnung der Güter</th><th>Anzahl Pakete</th><th>Menge</th><th>Einheit</th><th>Bruttomasse</th></tr></thead>
         <tbody>${pos.map((p, i) => `<tr>
-          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}</td>
-          <td style="text-align:right">–</td>
+          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${wb(i)}</td>
+          <td style="text-align:right">${e(dz[i]?.kartons ?? '–')}</td>
           <td style="text-align:right">${e(p.menge)}</td>
           <td>${e(p.einheit)}</td>
           <td style="text-align:right">${e(kgMit(gew.positionen[i]?.bruttoKg))}</td>
@@ -265,7 +291,7 @@ export async function GET(
 
     // ── Certificate of Origin ────────────────────────────────────────────────
     case 'certificate_of_origin':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificate of Origin – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificate of Origin – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
         ${header(b)}
         <h1>CERTIFICATE OF ORIGIN</h1>
         <p class="subtitle">Handelsursprungszeugnis / Certificat d'origine</p>
@@ -292,8 +318,8 @@ export async function GET(
         </div>
         <h2>Description of Goods / Warenbeschreibung</h2>
         <table><thead><tr><th>Description</th><th>Quantity</th><th>Unit</th><th>HS Code</th><th>Value EUR</th></tr></thead>
-        <tbody>${pos.map(p => `<tr>
-          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')} (Austrian Wine)</td>
+        <tbody>${pos.map((p, i) => `<tr>
+          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')} (Austrian Wine)${wb(i)}</td>
           <td style="text-align:right">${e(p.menge)}</td><td>${e(p.einheit)}</td>
           <td style="font-family:monospace">${e(p.taric_code ?? '2204')}</td>
           <td style="text-align:right">${e(eurText(positionsWert(p)))}</td>
@@ -316,7 +342,7 @@ export async function GET(
 
     // ── Lieferschein ─────────────────────────────────────────────────────────
     case 'lieferschein':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lieferschein – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lieferschein – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
         ${header(b)}
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
           <h1 style="text-align:left;margin:0">LIEFERSCHEIN<br/><span style="font-size:10pt;font-weight:normal;color:#666">DELIVERY NOTE</span></h1>
@@ -348,7 +374,7 @@ export async function GET(
         </thead><tbody>
         ${pos.map((p,i) => `<tr>
           <td style="text-align:center">${i+1}</td>
-          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${p.fuellungen?.flaschengroesse_ml ? ` (${e(p.fuellungen.flaschengroesse_ml)}ml)` : ''}</td>
+          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${wb(i) || (p.fuellungen?.flaschengroesse_ml ? ` (${e(p.fuellungen.flaschengroesse_ml)}ml)` : '')}</td>
           <td style="text-align:right;font-weight:bold">${e(p.menge)}</td>
           <td>${e(p.einheit)}</td>
           <td style="text-align:right">${e(kg(gew.positionen[i]?.nettoKg))}</td>
@@ -368,7 +394,7 @@ export async function GET(
 
     // ── Exportrechnung ────────────────────────────────────────────────────────
     case 'rechnung':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Exportrechnung – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Exportrechnung – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
         ${header(b)}
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
           <h1 style="text-align:left;margin:0">EXPORTRECHNUNG<br/><span style="font-size:10pt;font-weight:normal;color:#666">COMMERCIAL INVOICE</span></h1>
@@ -402,7 +428,7 @@ export async function GET(
         </thead><tbody>
         ${pos.map((p,i) => `<tr>
           <td style="text-align:center">${i+1}</td>
-          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${p.fuellungen?.flaschengroesse_ml ? ` (${e(p.fuellungen.flaschengroesse_ml)}ml)` : ''}</td>
+          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${wb(i) || (p.fuellungen?.flaschengroesse_ml ? ` (${e(p.fuellungen.flaschengroesse_ml)}ml)` : '')}</td>
           <td style="text-align:right">${e(p.menge)}</td>
           <td>${e(p.einheit)}</td>
           <td style="font-family:monospace;font-size:9pt">${e(p.taric_code)}</td>
@@ -414,6 +440,7 @@ export async function GET(
           <td style="text-align:right">${e(eurText(gesamtEUR))}</td>
         </tr>
         </tbody></table>
+        ${muster}
         <div class="box" style="margin-top:4mm;font-size:9pt">
           <strong>Lieferbedingungen / Delivery Terms:</strong> ${e(a.incoterms ?? '–')} ·
           <strong>Zahlungsbedingungen / Payment Terms:</strong> ${e(a.zahlungsbedingungen ?? '–')} · 
@@ -430,6 +457,76 @@ export async function GET(
         </div>
       </body></html>`
       break
+
+    // ── Packliste (KAN-433, Muster: ÖWM-Leitfaden „Begleitdokumente für den Weinexport“) ────────────────────────────────
+    case 'packliste': {
+      const nummern = kartonNummern(dz)
+      const kartons = kartonsGesamt(dz)
+      const summen = erg?.grunddaten.summen
+      const aufschluesselung = kartonAufschluesselung(dz)
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Packliste – ${e(a.referenz)}</title>${css()}</head><body>${leiste}
+        ${header(b)}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
+          <h1 style="text-align:left;margin:0">PACKLISTE<br/><span style="font-size:10pt;font-weight:normal;color:#666">PACKING LIST</span></h1>
+          <div style="text-align:right">
+            <div style="font-size:9pt;color:#666">Rechnung / Invoice No.</div>
+            <div style="font-size:14pt;font-weight:bold">${e(a.referenz ?? '–')}</div>
+            <div style="font-size:9pt;color:#666">Datum / Date: ${e(fmt(a.datum))}</div>
+          </div>
+        </div>
+        ${muster}
+        <div class="grid2">
+          <div class="box">
+            <div class="label">Absender / Shipper</div>
+            <div class="value">${e(b.betrieb_name ?? '–')}</div>
+            <div style="font-size:9pt">${e(b.betrieb_strasse ?? '')}, ${e(b.betrieb_plz ?? '')} ${e(b.betrieb_ort ?? '')}, Österreich / Austria</div>
+          </div>
+          <div class="box">
+            <div class="label">Empfänger / Consignee</div>
+            <div class="value">${e(importeur)}</div>
+            <div style="font-size:9pt">${e([a.destination_stadt, landAnzeige(a.destination_land)].filter(Boolean).join(', '))}</div>
+          </div>
+        </div>
+        <div class="grid3">
+          <div class="box"><div class="label">Versanddatum / Shipped on</div><div class="value">${e(fmt(a.versanddatum))}</div></div>
+          <div class="box"><div class="label">Lieferbedingung / Delivery Term</div><div class="value">${e(a.incoterms ?? '–')}</div></div>
+          <div class="box"><div class="label">Transport</div><div class="value">${e(a.transport_art ?? '–')}</div></div>
+        </div>
+        <table style="margin-top:4mm"><thead>
+          <tr><th>Karton-Nr. / Box No.</th><th>Pos.</th><th>Wein / Wine</th><th>Jahrgang / Vintage</th><th>Farbe / Größe<br/>Colour / Size</th><th>Alk. % vol</th><th>Flaschen / Bottles</th><th>Liter</th><th>Brutto kg / Gross</th></tr>
+        </thead><tbody>
+        ${pos.map((p, i) => `<tr>
+          <td style="text-align:center;font-family:monospace">${e(kartonText(nummern[i] ?? null))}</td>
+          <td style="text-align:center">${e(String(i + 1).padStart(3, '0'))}</td>
+          <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}${dz[i]?.pruefnummer ? `<div class="wb">Prüfnr. ${e(dz[i].pruefnummer)}</div>` : ''}</td>
+          <td style="text-align:center">${e(dz[i]?.jahrgang ?? '–')}</td>
+          <td>${e(dz[i] ? farbeGroesse(dz[i]) : '–')}</td>
+          <td style="text-align:right">${e(zahlDe(dz[i]?.alkohol, 1))}</td>
+          <td style="text-align:right">${e(zahlDe(dz[i]?.flaschen))}</td>
+          <td style="text-align:right">${e(zahlDe(dz[i]?.liter, 3))}</td>
+          <td style="text-align:right">${e(kg(gew.positionen[i]?.bruttoKg))}</td>
+        </tr>`).join('')}
+        <tr class="total">
+          <td colspan="6" style="text-align:right">Gesamt / Total${e(verpackungTextEn)}</td>
+          <td style="text-align:right">${e(zahlDe(summen?.flaschen))}</td>
+          <td style="text-align:right">${e(zahlDe(summen?.liter, 3))}</td>
+          <td style="text-align:right">${e(kg(gew.bruttoKg))}</td>
+        </tr>
+        </tbody></table>
+        <div class="box" style="margin-top:4mm;font-size:10pt;line-height:1.6">
+          <div><strong>Kartons gesamt / Total boxes:</strong> ${e(kartons === null ? '–' : String(kartons))}${aufschluesselung ? ` – ${e(aufschluesselung)}` : ''}</div>
+          <div><strong>Liter gesamt / Liters total:</strong> ${e(zahlDe(summen?.literWeiss, 3))} l weiß / white (inkl. Süßwein / incl. sweet wines) · ${e(zahlDe(summen?.literRot, 3))} l rot / red${summen && summen.literOhneFarbe > 0 ? ` · ${e(zahlDe(summen.literOhneFarbe, 3))} l ohne Farbangabe` : ''}</div>
+          <div><strong>Ursprungsland / Country of Origin:</strong> Österreich / Austria</div>
+        </div>
+        ${auftrag.notizen ? `<div class="box" style="margin-top:4mm"><div class="label">Bemerkungen / Remarks</div><div style="font-size:10pt">${escHtmlMehrzeilig(a.notizen)}</div></div>` : ''}
+        <div class="sign" style="margin-top:12mm">
+          <div class="sign-box">Ausgestellt von / Issued by</div>
+          <div class="sign-box">Ort, Datum / Place, Date</div>
+          <div class="sign-box">Unterschrift / Signature</div>
+        </div>
+      </body></html>`
+      break
+    }
 
     default:
       return NextResponse.json({ fehler: `Unbekannter Dokumenttyp: ${art}` }, { status: 400 })
