@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
+import { IMPORT_BEZEICHNUNG_MAX, importBezeichnungAus, importBezeichnungFehler, istCrmImportTyp } from '@/lib/crm/importBezeichnung'
 import { Upload } from 'lucide-react'
 import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
 import { exportCSV } from '@/lib/utils/csv'
@@ -132,6 +133,8 @@ const ebLabelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 // CSV lesen: parseCsv aus lib/import/csvLesen.ts (seit KAN-42 gemeinsam mit dem Eröffnungsbestand-Import)
 
 const ALLE_TYPEN = Object.keys(TYP_LABEL) as ImportTyp[]
+// KAN-426: im CRM nur Kontakte und Firmen (lib/crm/importBezeichnung)
+const CRM_TYPEN = ALLE_TYPEN.filter(t => istCrmImportTyp(t))
 
 // Vorbelegung des Herkunftstexts; muss mit HERKUNFT_DEFAULT in api/import/route.ts
 // übereinstimmen (dort Fallback, falls der Client nichts mitschickt).
@@ -149,13 +152,21 @@ export default function ImportClient({
   initialTyp,
   ebOk = false,
   ebErr,
+  modus = 'verwaltung',
+  bezeichnungen = [],
 }: {
   gebinde?: R[]
   initialTyp?: string
   ebOk?: boolean
   ebErr?: string
+  /** KAN-426: 'crm' = Import im CRM – nur Kontakte und Firmen, Bezeichnung des Imports Pflicht und nicht vorbelegt */
+  modus?: 'verwaltung' | 'crm'
+  /** früher verwendete Import-Bezeichnungen (Vorschläge im CRM-Import) */
+  bezeichnungen?: string[]
 }) {
-  const startTyp = (ALLE_TYPEN as string[]).includes(initialTyp ?? '') ? (initialTyp as ImportTyp) : 'kontakte'
+  const imCrm = modus === 'crm'
+  const typen = imCrm ? CRM_TYPEN : ALLE_TYPEN
+  const startTyp = (typen as string[]).includes(initialTyp ?? '') ? (initialTyp as ImportTyp) : 'kontakte'
   const [typ, setTyp]               = useState<ImportTyp>(startTyp)
   const [, setCsvText]              = useState('')
   const [parsed, setParsed]         = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null)
@@ -169,7 +180,8 @@ export default function ImportClient({
   // import_quelle/importiert_am (Migration 192), damit Import-Datensätze später
   // filter- und gesammelt bereinigbar sind. Pro Import anpassbar, z.B. auf den
   // Namen des Altsystems.
-  const [herkunft, setHerkunft]     = useState(HERKUNFT_DEFAULT)
+  const [herkunft, setHerkunft]     = useState(imCrm ? '' : HERKUNFT_DEFAULT)
+  const [herkunftFehler, setHerkunftFehler] = useState<string | null>(null)
   const [importing, setImporting]   = useState(false)
   const [result, setResult]         = useState<{
     ok: number; fehler: number; details: string[]
@@ -211,6 +223,11 @@ export default function ImportClient({
 
   async function startImport() {
     if (!parsed) return
+    // KAN-426: im CRM ist die Bezeichnung Pflicht – vor dem ersten Block prüfen (die Route prüft dasselbe)
+    const bezFehler = imCrm ? importBezeichnungFehler(herkunft) : null
+    setHerkunftFehler(bezFehler)
+    if (bezFehler) { document.getElementById('import-herkunft')?.focus(); return }
+    const herkunftText = imCrm ? importBezeichnungAus(herkunft) : (herkunft.trim() || HERKUNFT_DEFAULT)
     setImporting(true); setResult(null); setErrorMsg(null)
     const gesamt = parsed.rows.length
     const summe = { ok: 0, fehler: 0, details: [] as string[], warnungen: [] as string[], duplikate: [] as { zeile: number; name: string; email: string | null; grund: string }[] }
@@ -221,7 +238,7 @@ export default function ImportClient({
         const res = await fetch('/api/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ typ, rows: block, mapping, istLead, herkunft: herkunft.trim() || HERKUNFT_DEFAULT, zeilenOffset: start }),
+          body: JSON.stringify({ typ, rows: block, mapping, istLead, herkunft: herkunftText, zeilenOffset: start, crm: imCrm }),
         })
         const data = await res.json()
         // Bei 401/403/500 liefert die API nur { fehler: '<Text>' } ohne ok/details -
@@ -253,19 +270,19 @@ export default function ImportClient({
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <span>Administration</span>
+        <span>{imCrm ? 'CRM' : 'Administration'}</span>
         <span>/</span>
-        <span className="text-s112-text-1 font-medium">Datenimport</span>
+        <span className="text-s112-text-1 font-medium">{imCrm ? 'Import' : 'Datenimport'}</span>
       </div>
-      <AbbrechenKnopf standard="/dashboard" className="mb-2 inline-flex items-center gap-1.5 text-sm text-s112-text-2 hover:text-s112-blue-700 transition-colors">← Zurück</AbbrechenKnopf>{/* KAN-333 */}
+      <AbbrechenKnopf standard={imCrm ? '/crm/kontakte' : '/dashboard'} className="mb-2 inline-flex items-center gap-1.5 text-sm text-s112-text-2 hover:text-s112-blue-700 transition-colors">← Zurück</AbbrechenKnopf>{/* KAN-333 */}
       <h1 className="text-2xl font-semibold text-s112-text mb-2 flex items-center gap-2">
-        <Upload className="w-6 h-6" /> Datenimport
+        <Upload className="w-6 h-6" /> {imCrm ? 'Kontakte und Firmen importieren' : 'Datenimport'}
       </h1>
       <p className="text-sm text-s112-muted mb-6">CSV-Datei importieren – Semikolon oder Komma als Trennzeichen</p>
 
       {/* Typ-Wahl */}
       <div className="flex flex-wrap gap-3 mb-6">
-        {(Object.keys(TYP_LABEL) as ImportTyp[]).map(t => (
+        {typen.map(t => (
           <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null); setErrorMsg(null) }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
               typ === t ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'
@@ -276,17 +293,31 @@ export default function ImportClient({
       </div>
 
       <div className="bg-white rounded-xl border border-s112-border p-4 mb-5 flex flex-wrap items-center gap-4">
-        <label htmlFor="import-herkunft" className="text-sm font-medium text-s112-text-1">Herkunft:</label>
+        <label htmlFor="import-herkunft" className="text-sm font-medium text-s112-text-1">{imCrm ? 'Bezeichnung des Imports *' : 'Herkunft:'}</label>
         <input
           id="import-herkunft"
           type="text"
           value={herkunft}
-          onChange={e => setHerkunft(e.target.value)}
-          maxLength={120}
-          placeholder={HERKUNFT_DEFAULT}
+          onChange={e => { setHerkunft(e.target.value); if (herkunftFehler) setHerkunftFehler(null) }}
+          maxLength={IMPORT_BEZEICHNUNG_MAX}
+          required={imCrm}
+          list={imCrm && bezeichnungen.length > 0 ? 'import-bezeichnungen' : undefined}
+          aria-invalid={herkunftFehler ? true : undefined}
+          aria-describedby={herkunftFehler ? 'import-herkunft-fehler' : undefined}
+          placeholder={imCrm ? 'z. B. Messe Seoul 2026' : HERKUNFT_DEFAULT}
           className="flex-1 min-w-[16rem] border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal"
         />
-        <span className="text-xs text-s112-muted basis-full">
+        {imCrm && bezeichnungen.length > 0 && (
+          <datalist id="import-bezeichnungen">{bezeichnungen.map(b => <option key={b} value={b} />)}</datalist>
+        )}
+        {herkunftFehler && <p id="import-herkunft-fehler" role="alert" className="basis-full text-xs text-s112-err-fg">{herkunftFehler}</p>}
+        {imCrm && (
+          <span className="text-xs text-s112-muted basis-full">
+            Pflichtfeld. Steht an jedem importierten Kontakt bzw. jeder Firma; in den Listen lässt sich danach filtern („Import“).
+            Für einen Nachtrag dieselbe Bezeichnung wählen.
+          </span>
+        )}
+        <span className={`text-xs text-s112-muted basis-full${imCrm ? ' hidden' : ''}`}>
           Wird an jedem importierten Datensatz hinterlegt (im Notizen-Feld vorangestellt und als Import-Kennzeichen gespeichert),
           damit sich Import-Daten später von manuell angelegten unterscheiden lassen. Bei Bedarf anpassen, z.&nbsp;B. auf den Namen des Altsystems.
         </span>

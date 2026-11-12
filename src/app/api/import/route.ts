@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { importBezeichnungAus, importBezeichnungFehler, istCrmImportTyp } from '@/lib/crm/importBezeichnung'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
@@ -155,7 +156,7 @@ export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   try {
-    const { typ, rows, mapping, istLead, herkunft, zeilenOffset } = await req.json() as {
+    const { typ, rows, mapping, istLead, herkunft, zeilenOffset, crm } = await req.json() as {
       typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
       rows: R[]
       mapping: Record<string, string>
@@ -163,6 +164,14 @@ export async function POST(req: NextRequest) {
       herkunft?: string
       /** Zeilenversatz des Blocks (0-basiert) für die Zeilennummern in den Meldungen */
       zeilenOffset?: number
+      /** KAN-426: Import aus dem CRM – nur Kontakte/Firmen, Bezeichnung Pflicht */
+      crm?: boolean
+    }
+    // KAN-426: Der CRM-Import kennt nur Kontakte und Firmen und verlangt eine Bezeichnung (keine Vorbelegung)
+    if (crm === true) {
+      if (!istCrmImportTyp(typ)) return NextResponse.json({ fehler: 'Im CRM lassen sich nur Kontakte und Firmen importieren.' }, { status: 400 })
+      const bezFehler = importBezeichnungFehler(herkunft)
+      if (bezFehler) return NextResponse.json({ fehler: bezFehler }, { status: 400 })
     }
     const zeilenBasis = 2 + (Number.isFinite(zeilenOffset) && (zeilenOffset ?? 0) > 0 ? Number(zeilenOffset) : 0)
     // Kunden und Leads werden laut Rückmeldung (1.9.2026) bewusst aus getrennten
@@ -180,7 +189,8 @@ export async function POST(req: NextRequest) {
     //    kein Notizen-Feld haben.
     // Der Text kommt aus dem Import-Dialog (dort vorbelegt und anpassbar, z.B.
     // auf den Namen des Altsystems); leer/fehlend -> Default.
-    const importQuelle = (typeof herkunft === 'string' && herkunft.trim()) ? herkunft.trim().slice(0, 120) : HERKUNFT_DEFAULT
+    const importQuelle = crm === true ? importBezeichnungAus(herkunft)
+      : (typeof herkunft === 'string' && herkunft.trim()) ? herkunft.trim().slice(0, 120) : HERKUNFT_DEFAULT
     const importiertAm = new Date()
     const importDatumDe = importiertAm.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Vienna' })
     const herkunftZeile = `${importQuelle} – importiert am ${importDatumDe}`
@@ -207,6 +217,10 @@ export async function POST(req: NextRequest) {
     // faelschlichen 403 fuehrte).
     if (!canWrite(activeMembership))
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
+    // KAN-426: Kontakte und Firmen wie die RLS der Tabellen – Schreibrecht CRM (vorher reichte irgendein Schreibrecht;
+    // die Datenbank lehnte dann jede Zeile einzeln ab)
+    if (istCrmImportTyp(typ) && !canWrite(activeMembership, 'crm'))
+      return NextResponse.json({ fehler: 'Keine Berechtigung: Kontakte und Firmen importieren Betriebs-Manager und Mitarbeiter mit Modulrecht CRM.' }, { status: 403 })
 
     let ok = 0
     const details: string[] = []

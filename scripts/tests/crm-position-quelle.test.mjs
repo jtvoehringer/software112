@@ -82,7 +82,7 @@ describe('Seiten, Formular und Actions', () => {
   const actions = quelle('src/app/(dashboard)/crm/actions.ts')
 
   test('Kontaktliste zählt Quellen ohne RPC (nur Spalte quelle, Betrieb, aktiv wie die Liste, alle())', () => {
-    assert.match(page, /select\('id, quelle'\)\.eq\('tenant_id', tenantId\)/)
+    assert.match(page, /select\('id, quelle, import_quelle'\)\.eq\('tenant_id', tenantId\)/)   // KAN-426: dieselbe Abfrage zählt auch die Importe
     assert.match(page, /if \(!filter\.inaktiv\) q = q\.eq\('aktiv', true\)/)
     assert.match(page, /return alle\(q\.order\('id'\)\)/)
     assert.match(page, /quellenZaehler=\{quellenZaehler\}/)
