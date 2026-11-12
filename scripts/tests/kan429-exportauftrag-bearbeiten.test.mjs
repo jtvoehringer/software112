@@ -114,7 +114,8 @@ describe('KAN-429: Route, Seite und Formular', () => {
   })
   test('Detailseite: „Bearbeiten“ nur bearbeitbar und mit Schreibrecht, sonst Sperrhinweis', () => {
     const c = quelle('src/app/(dashboard)/weinexport/[id]/WeinexportDetailClient.tsx')
-    assert.ok(c.includes('{darfSchreiben && exportBearbeitbar({ status, storniert_am: auftrag.storniert_am }) && ('))
+    // KAN-436 E1: bearbeitbar auch nur ohne Rechnung und ohne ausgebuchtes Muster
+    assert.ok(c.includes('{darfSchreiben && exportBearbeitbar({ status, storniert_am: auftrag.storniert_am, verkaufsposten_id: auftrag.verkaufsposten_id, muster_ausgebucht_am: auftrag.muster_ausgebucht_am }) && ('))
     assert.ok(c.includes('href={`/weinexport/${auftrag.id}/bearbeiten`}'))
     assert.ok(c.includes('<GesperrtHinweis grund="Exportauftrag versendet'))
   })

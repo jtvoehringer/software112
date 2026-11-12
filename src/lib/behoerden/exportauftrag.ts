@@ -337,7 +337,7 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
   if (auftrag.storniert_am) warnungen.push(`Der Exportauftrag ist storniert${auftrag.storno_grund ? ` (${auftrag.storno_grund})` : ''}.`)   // KAN-150 F2
   const gewicht = sendungsGewicht(posRes.data.map(x => ({ menge: x.menge, einheit: x.einheit, flaschen_je_karton: x.flaschen_je_karton, fuellung: x.fuellungen ?? null })), auftrag.verpackung_kg)
   if (gewicht.hinweis) warnungen.push(gewicht.hinweis)
-  const bearbeitbar = exportBearbeitbar(auftrag as { status?: string | null; storniert_am?: string | null })
+  const bearbeitbar = exportBearbeitbar(auftrag as { status?: string | null; storniert_am?: string | null; verkaufsposten_id?: string | null; muster_ausgebucht_am?: string | null })
   const grunddaten = {
     lieferfall: lieferfall(auftrag),
     positionen: gdPositionen,

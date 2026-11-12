@@ -1471,6 +1471,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_rechnung_positionen_periodensperre()'),   -- KAN-355: Beträge der Positionen einer gesperrten Rechnung
     ('mandant',       '-US', true , 's112_ea_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2
     ('mandant',       '-US', true , 's112_ea_beleg_loesen(p_tenant_id uuid, p_beleg_id uuid, p_grund text)'),   -- KAN-415: Beleg von der Buchung lösen (offener Zeitraum)
+    ('mandant',       '-US', true , 's112_export_muster_buchen(p_tenant_id uuid, p_auftrag_id uuid, p_datum date, p_zurueck boolean)'),   -- KAN-436 E1: Mustersendung aus- bzw. zurückbuchen
+    ('trigger',       '--S', false, 's112_export_rechnung_schutz()'),   -- KAN-436 E1: Verknüpfung Exportauftrag–Verkauf, Storno-Sperre
+    ('trigger',       '--S', false, 's112_export_rechnung_storno()'),   -- KAN-436 E1: Storno des Verkaufs gibt den Exportauftrag frei
     ('mandant',       '-US', true , 's112_exportauftrag_aendern(p_tenant_id uuid, p_auftrag_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-429: Exportauftrag bearbeiten (Entwurf/Bestätigt)
     ('trigger',       '--S', false, 's112_ea_storno_schutz()'),                -- KAN-149 D2: E/A, Zahlungen, Umbuchungen
     ('intern',        '--S', false, 's112_ea_zeitraum_sperrgrund(p_tenant_id uuid, p_datum date)'),   -- KAN-149 D3 (Hilfsfunktion ohne Zugriffsprüfung)

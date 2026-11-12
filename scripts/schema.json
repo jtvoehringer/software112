@@ -763,7 +763,9 @@
 "mustersendung",
 "fracht_eur",
 "versicherung_eur",
-"ursprungserklaerung"
+"ursprungserklaerung",
+"verkaufsposten_id",
+"muster_ausgebucht_am"
 ],
 "exportauftrag_positionen": [
 "id",
@@ -2126,7 +2128,10 @@
 "rechnung_spaeter",
 "rechnungstext",
 "email_conversation_id",
-"email_betreff"
+"email_betreff",
+"steuerfall",
+"kunde_uid",
+"lieferland"
 ],
 "verkauf_ki_begriffe": [
 "id",

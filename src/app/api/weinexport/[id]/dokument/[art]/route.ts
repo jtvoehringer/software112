@@ -127,6 +127,18 @@ export async function GET(
     <ul>${fehlt.slice(0, 8).map(text => `<li>${e(text)}</li>`).join('')}${fehlt.length > 8 ? `<li>… und ${e(fehlt.length - 8)} weitere</li>` : ''}</ul>
     <div style="margin-top:1mm">Eintragen über die Liste „Für die Dokumente fehlt noch …“ am Exportauftrag. Fehlende Angaben stehen im Dokument als „–“.</div></div>`
   const leiste = druckleiste() + hinweisLeiste
+  // KAN-436 E1 (Entscheidung 2A): Mit Rechnung aus der Fakturierung trägt die Handelsrechnung deren Nummer und Datum;
+  // die Exportnummer bleibt als Auftragsreferenz. Ohne Rechnung wie bisher die Exportnummer.
+  let rechnungNr: string | null = null
+  let rechnungDatum: string | null = null
+  if (a.verkaufsposten_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: vk, error: vkErr } = await (supabase.from('verkaufsposten') as any)
+      .select('rechnungsnummer, datum').eq('id', a.verkaufsposten_id).eq('tenant_id', tenantId).maybeSingle()
+    if (vkErr) return NextResponse.json({ fehler: 'Die Rechnung zum Exportauftrag konnte nicht geladen werden: ' + vkErr.message }, { status: 500 })
+    rechnungNr = (vk as R | null)?.rechnungsnummer ?? null
+    rechnungDatum = (vk as R | null)?.datum ?? null
+  }
   const muster = a.mustersendung ? `<div class="muster">${e(MUSTERSENDUNG_VERMERK)}</div>` : ''
 
   // KAN-138: jede Interpolation aus DB-/Benutzerdaten läuft über e() (escHtml) bzw.
@@ -418,8 +430,9 @@ export async function GET(
           <h1 style="text-align:left;margin:0">${e(proforma ? 'PROFORMA-RECHNUNG' : 'EXPORTRECHNUNG')}<br/><span style="font-size:10pt;font-weight:normal;color:#666">${e(proforma ? 'PROFORMA INVOICE' : 'COMMERCIAL INVOICE')}</span></h1>
           <div style="text-align:right">
             <div style="font-size:9pt;color:#666">${e(proforma ? 'Proforma-Nr. / Proforma No.' : 'Rechnungs-Nr. / Invoice No.')}</div>
-            <div style="font-size:14pt;font-weight:bold">${e(a.referenz ?? '–')}</div>
-            <div style="font-size:9pt;color:#666">Datum / Date: ${e(fmt(a.datum))}</div>
+            <div style="font-size:14pt;font-weight:bold">${e((proforma ? null : rechnungNr) ?? a.referenz ?? '–')}</div>
+            <div style="font-size:9pt;color:#666">Datum / Date: ${e(fmt((proforma ? null : rechnungDatum) ?? a.datum))}</div>
+            ${!proforma && rechnungNr ? `<div style="font-size:9pt;color:#666">Exportauftrag / Export order: ${e(a.referenz ?? '–')}</div>` : ''}
           </div>
         </div>
         ${proforma ? `<div class="muster">${e(PROFORMA_VERMERK)}</div>` : ''}

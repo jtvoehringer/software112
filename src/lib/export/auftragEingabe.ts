@@ -90,8 +90,9 @@ export function exportMenge(wert: unknown): number | null {
 /** KAN-429: Status, in denen sich ein Exportauftrag bearbeiten lässt – ab „Versendet“ sperren App und Datenbank */
 export const EXPORT_BEARBEITBAR_STATUS: readonly string[] = ['entwurf', 'bestaetigt']
 
-export function exportBearbeitbar(a: { status?: string | null; storniert_am?: string | null }): boolean {
-  return !a.storniert_am && EXPORT_BEARBEITBAR_STATUS.includes(a.status ?? 'entwurf')
+export function exportBearbeitbar(a: { status?: string | null; storniert_am?: string | null; verkaufsposten_id?: string | null; muster_ausgebucht_am?: string | null }): boolean {
+  // KAN-436 E1: mit Rechnung bzw. ausgebuchtem Muster ist der Auftrag wie ab „Versendet“ gesperrt
+  return !a.storniert_am && !a.verkaufsposten_id && !a.muster_ausgebucht_am && EXPORT_BEARBEITBAR_STATUS.includes(a.status ?? 'entwurf')
 }
 
 /** Kopfdaten für s112_exportauftrag_aendern aus dem geprüften Body (Land schon als ISO-Code) */

@@ -260,6 +260,7 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
     .eq('tenant_id', tenantId)
     .eq('export_dokumente.dokument_art', 'rechnung')
     .eq('export_dokumente.status', 'ausgestellt')
+    .is('verkaufsposten_id', null)   // KAN-436 E1: mit Rechnung aus der Fakturierung steht der Export schon als Rechnung im Journal
     .gte('datum', p.von)
     .lte('datum', p.bis)
     .order('datum').order('id'))

@@ -112,6 +112,7 @@
   {"n":"exportauftraege_firma_id_fkey","t":"exportauftraege","s":["firma_id"],"z":"firmen"},
   {"n":"exportauftraege_kontakt_id_fkey","t":"exportauftraege","s":["kontakt_id"],"z":"kontakte"},
   {"n":"exportauftraege_tenant_id_fkey","t":"exportauftraege","s":["tenant_id"],"z":"tenants"},
+  {"n":"exportauftraege_verkaufsposten_fkey","t":"exportauftraege","s":["verkaufsposten_id"],"z":"verkaufsposten"},
   {"n":"exportauftrag_positionen_exportauftrag_id_fkey","t":"exportauftrag_positionen","s":["exportauftrag_id"],"z":"exportauftraege"},
   {"n":"exportauftrag_positionen_fullung_id_fkey","t":"exportauftrag_positionen","s":["fullung_id"],"z":"fuellungen"},
   {"n":"firmen_land_fkey","t":"firmen","s":["land"],"z":"kat_land"},
