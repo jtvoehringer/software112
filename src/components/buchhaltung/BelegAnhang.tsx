@@ -81,7 +81,7 @@ export default function BelegAnhang({ transaktionId, bezeichnung, belege, offene
         <span className="sr-only">{belege.length ? belegAnzahlText(belege.length) : 'Beleg anhängen'}</span>
       </button>
       {offen && (
-        <div id={`${id}-feld`} className="absolute right-0 z-20 mt-1 w-80 max-w-[90vw] rounded-xl border border-s112-border bg-white p-3 shadow-lg space-y-3 text-xs text-s112-text">
+        <div id={`${id}-feld`} className="absolute right-0 z-20 mt-1 w-80 max-w-[90vw] rounded-xl border border-s112-border bg-white p-3 shadow-lg space-y-3 text-xs text-s112-text text-left whitespace-normal wrap-break-word">
           {belege.length > 0 ? (
             <ul className="space-y-1">
               {belege.map(b => (

@@ -86,3 +86,12 @@ describe('KAN-415: Wege und Absicherung', () => {
     assert.match(k, /if \(!res\.ok\)/)
   })
 })
+
+// UAT 12.11.2026 (Nebenbefund): Die Box steht in einer Tabellenzelle ohne Zeilenumbruch – Hinweis und Fehlermeldung
+// liefen rechts über den Rand hinaus. Die Box setzt den Umbruch selbst zurück.
+test('KAN-415: Hochladebox bricht ihren Text um (nicht das whitespace-nowrap der Tabellenzelle)', () => {
+  const k = quelle('src/components/buchhaltung/BelegAnhang.tsx')
+  const box = k.split('\n').find(z => z.includes('id={`${id}-feld`}'))
+  assert.ok(box, 'Box nicht gefunden')
+  for (const klasse of ['whitespace-normal', 'wrap-break-word', 'text-left', 'w-80', 'max-w-[90vw]']) assert.ok(box.includes(klasse), klasse)
+})
