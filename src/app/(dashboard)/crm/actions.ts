@@ -21,6 +21,11 @@ import { titelAusFormular, titelNachgestelltAusFormular } from '@/lib/crm/titel'
 import { lieferadresseAus, lieferadresseFehler } from '@/lib/crm/lieferadressen'
 import { schnellAnlagePruefen, schnellTreffer, type SchnellPartnerEingabe, type SchnellTreffer } from '@/lib/crm/schnellAnlage'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
+import { DOKUMENT_BUCKET, personendatenErgebnisAus, personendatenGrundFehler } from '@/lib/crm/personendaten'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { ladeNewsletterBetriebNachId } from '@/lib/newsletter/betrieb'
+import { deleteContact } from '@/lib/brevo/api'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -290,6 +295,72 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
 
 export async function deleteKontakt(id: string): Promise<LoeschErgebnis> {
   return crmLoeschen('kontakte', id, r => [r.vorname, r.nachname].filter(Boolean).join(' ') || 'Kontakt')
+}
+
+// ── Personendaten löschen (DSGVO Art. 17, KAN-425 Teil 1) ─────────────────────
+// Die RPC s112_kontakt_personendaten_loeschen löscht bzw. anonymisiert in einer Transaktion (Regeln: lib/crm/personendaten).
+// Danach – die Löschung steht schon – räumt die Action auf, was außerhalb der Datenbank liegt: Dokumente im Speicher und
+// den Kontakt im Brevo-Konto des Betriebs. Scheitert davon etwas, wird es gemeldet (Ereignis + Hinweis), nicht verschwiegen.
+
+export async function kontaktPersonendatenLoeschen(id: string, grund: string): Promise<{ error?: string; art?: 'geloescht' | 'anonymisiert'; hinweis?: string }> {
+  try {
+    const grundFehler = personendatenGrundFehler(grund)
+    if (grundFehler) return { error: grundFehler }
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await crmSchreibTenant()
+
+    // E-Mail-Adressen vor dem Löschen merken – für Brevo
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: kRaw, error: kErr } = await (supabase.from('kontakte') as any)
+      .select('id, email, email_weitere, anonymisiert_am').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    if (kErr) return { error: dbFehlerText(kErr, 'Der Kontakt konnte nicht geladen werden') }
+    const k = kRaw as AR | null
+    if (!k) return { error: 'Kontakt nicht gefunden – bitte die Seite neu laden.' }
+    if (k.anonymisiert_am) return { error: 'Die Personendaten dieses Kontakts wurden bereits gelöscht.' }
+    const adressen = [...new Set([k.email, ...((k.email_weitere as string[] | null) ?? [])].filter((a): a is string => typeof a === 'string' && a.includes('@')))]
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ergRaw, error } = await (supabase.rpc as any)('s112_kontakt_personendaten_loeschen', {
+      p_tenant_id: tenantId, p_kontakt_id: id, p_grund: grund.trim(),
+    })
+    if (error) return { error: dbFehlerText(error, 'Die Personendaten konnten nicht gelöscht werden') }
+    const erg = personendatenErgebnisAus(ergRaw)
+    if (!erg) return { error: 'Unerwartete Antwort der Datenbank – bitte die Seite neu laden und den Kontakt prüfen.' }
+
+    const offen: string[] = []
+    // Dokumente der gelöschten Aktivitäten: Zeilen sind weg, die Dateien entfernt der Service-Client (Pfad aus der RPC,
+    // nur innerhalb des eigenen Betriebs)
+    const dateien = erg.dateien.filter(p => p.startsWith(`${tenantId}/`))
+    if (dateien.length > 0 || dateien.length !== erg.dateien.length) {
+      const admin = createSupabaseAdminClient()
+      const { error: sErr } = dateien.length > 0 ? await admin.storage.from(DOKUMENT_BUCKET).remove(dateien) : { error: null }
+      if (sErr || dateien.length !== erg.dateien.length) {
+        offen.push(`${erg.dateien.length} Dokument(e) im Speicher`)
+        await ereignisMelden({ art: 'db', quelle: 'crm/personendaten-loeschen', meldung: `Dokumente nicht entfernt (Betrieb ${tenantId}): ${sErr?.message ?? 'Pfad außerhalb des Betriebs'}` })
+      }
+    }
+    // Brevo-Konto des Betriebs (nur mit eigenem Schlüssel)
+    if (adressen.length > 0) {
+      try {
+        const betrieb = await ladeNewsletterBetriebNachId(tenantId)
+        if (betrieb?.zugang) for (const a of adressen) await deleteContact(a, betrieb.zugang)
+      } catch (e) {
+        offen.push('der Kontakt im Newsletter-Konto (Brevo)')
+        await ereignisMelden({ art: 'db', quelle: 'crm/personendaten-loeschen', meldung: `Brevo-Löschung fehlgeschlagen (Betrieb ${tenantId}): ${e instanceof Error ? e.message : String(e)}` })
+      }
+    }
+
+    absenderIndexVerwerfen(tenantId)
+    revalidatePath('/crm/kontakte')
+    revalidatePath('/crm/kontakte/[id]', 'page')
+    revalidatePath('/crm')
+    return {
+      art: erg.art,
+      hinweis: offen.length > 0 ? `In software:112 sind die Personendaten gelöscht. Nicht entfernt werden konnte: ${offen.join(' und ')} – bitte dort von Hand löschen.` : undefined,
+    }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
 }
 
 // ── Kontakt → Firma umwandeln (Rückmeldung 2.9.2026) ──────────────────────────
