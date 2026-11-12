@@ -120,6 +120,8 @@ const NAV: NavGroup[] = [
       { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1, keywords: 'trauben most wein einkauf zukauf' },
       // KAN-118 / UAT 23.10.2026 (Testfall 4.20): die Liste der Produktionen (mit Storno) war nur über Umwege erreichbar
       { href: '/kellerbuch/produktion',      label: 'Produktion',     phase: 1, keywords: 'produktion spritzer perlweinspritzer weinmischgetränk perlwein schaumwein sekt petnat storno verarbeitung' },
+      // KAN-413 (UAT 12.11.2026): eigener Punkt statt Knopf in der Übersicht
+      { href: '/kellerbuch/sammelbehandlung', label: 'Sammelmaßnahmen', phase: 1, keywords: 'sammelmaßnahme mehrere gebinde schwefeln behandlung bulk kellerbehandlung' },
       { href: '/kellerbuch/kellerplan',      label: 'Kellerplan',     phase: 1, keywords: 'grundriss' },
       { href: '/dac',                        label: 'Prüfnummer',     phase: 1, keywords: 'dac antrag staatliche prüfnummer' },
       // KAN-40 E1: Bewegungsjournal (nur lesen) mit Journal-Konsistenz

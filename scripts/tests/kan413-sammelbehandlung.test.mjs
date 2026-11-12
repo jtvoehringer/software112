@@ -93,7 +93,15 @@ describe('KAN-413: Server Action, Seite und Migration', () => {
     assert.match(cl, /sammelZeilen\(/)
     assert.match(cl, /sammelFehler\(/)
     assert.match(quelle('src/app/(dashboard)/kellerbuch/sammelbehandlung/page.tsx'), /Sammelmaßnahme/)
-    assert.match(quelle('src/app/(dashboard)/kellerbuch/page.tsx'), /\/kellerbuch\/sammelbehandlung/)
+    // UAT 12.11.2026: eigener Menüpunkt zwischen Produktion und Kellerplan statt Knopf in der Gebinde-Übersicht
+    const nav = quelle('src/lib/navigation/index.ts')
+    const p = nav.indexOf("href: '/kellerbuch/produktion'"), s = nav.indexOf("href: '/kellerbuch/sammelbehandlung', label: 'Sammelmaßnahmen'"), k = nav.indexOf("href: '/kellerbuch/kellerplan'")
+    assert.ok(p >= 0 && s > p && k > s, `Reihenfolge Produktion ${p} · Sammelmaßnahmen ${s} · Kellerplan ${k}`)
+    assert.doesNotMatch(quelle('src/app/(dashboard)/kellerbuch/page.tsx'), /\/kellerbuch\/sammelbehandlung/)
+    // nach dem Speichern zurück in die Gebinde-Übersicht; Storno-Formular in der Zelle (nicht schwebend im Scrollbereich)
+    assert.match(cl, /if \(r\.hinweis\) router\.refresh\(\)\n\s+else router\.push\('\/kellerbuch'\)/)
+    assert.match(cl, /<StornoButton mitText label="Ganze Sammelmaßnahme stornieren"/)
+    assert.doesNotMatch(cl, /<StornoButton schwebend/)
   })
   test('Migration: Spalte mit Index, INVOKER-RPC mit Zugriffsprüfung und ohne EXECUTE für anon', () => {
     const dir = new URL('../../supabase/migrations/', import.meta.url)
