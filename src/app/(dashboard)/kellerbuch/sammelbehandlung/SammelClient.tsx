@@ -106,7 +106,10 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
         setMenge('')
         setStoffMenge('')
         setNotizen('')
-        router.refresh()
+        // KAN-413 (UAT 12.11.2026): nach dem Speichern zurück in die Gebinde-Übersicht des Kellerbuchs. Gibt es einen
+        // Hinweis zur gespeicherten Maßnahme, bleibt die Seite stehen, damit er gelesen werden kann.
+        if (r.hinweis) router.refresh()
+        else router.push('/kellerbuch')
       } catch (err) {
         setFehler(fehlerText(err, 'Die Sammelmaßnahme wurde nicht gespeichert'))
       }
@@ -302,9 +305,10 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
                         {s.anzahl} Gebinde{s.storniert > 0 && !ganzStorniert ? `, davon ${s.storniert} storniert` : ''}
                         <span className="block text-xs text-s112-muted">{s.gebinde.slice(0, 8).join(', ')}{s.gebinde.length > 8 ? ' …' : ''}</span>
                       </td>
-                      <td className="py-2 text-right">
+                      {/* no-underline: das Formular in der Zelle bleibt lesbar; Mindestbreite für das Storno-Formular */}
+                      <td className="py-2 text-right min-w-[290px] no-underline">
                         {writeOk && !ganzStorniert && (
-                          <StornoButton schwebend label="Ganze Sammelmaßnahme stornieren"
+                          <StornoButton mitText label="Ganze Sammelmaßnahme stornieren"
                             hinweis="Alle noch nicht stornierten Behandlungen dieser Sammelmaßnahme werden storniert, der verwendete Stoff geht zurück ins Stoffkonto."
                             action={async (grund) => { await storniereSammelbehandlung(s.id, grund) }}
                             danach={() => { zeigeErfolg('Sammelmaßnahme storniert.'); router.refresh() }} />
