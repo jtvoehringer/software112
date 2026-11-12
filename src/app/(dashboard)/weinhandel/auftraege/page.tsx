@@ -28,7 +28,7 @@ export default async function AuftraegePage({ searchParams }: { searchParams: Pr
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q = (supabase.from('auftraege') as any)
-    .select('id, nummer, datum, status, reserviert_bis, kontakt_id, firma_id, storniert_am, erstellt_am')
+    .select('id, nummer, datum, status, reserviert_bis, kontakt_id, firma_id, storniert_am, ab_versendet_am, erstellt_am')
     .eq('tenant_id', tenantId).eq('art', 'auftrag')
   if (!mitErledigten) q = q.in('status', ['offen', 'teilgeliefert'])
   const auftraege = (geladen(await alle(q.order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })), 'Aufträge') ?? []) as R[]
@@ -105,7 +105,11 @@ export default async function AuftraegePage({ searchParams }: { searchParams: Pr
                   <td className={`px-4 py-3 tabular-nums whitespace-nowrap ${abgelaufen ? 'text-s112-err-fg font-medium' : ''}`}>
                     {tag(a.reserviert_bis)}{abgelaufen ? ' · abgelaufen' : ''}
                   </td>
-                  <td className="px-4 py-3">{AUFTRAG_STATUS_LABEL[a.status as AuftragStatus] ?? a.status}</td>
+                  <td className="px-4 py-3">
+                    {AUFTRAG_STATUS_LABEL[a.status as AuftragStatus] ?? a.status}
+                    {/* KAN-418 Teil 3: Auftragsbestätigung an den Kunden gesendet */}
+                    {a.ab_versendet_am && <span className="block text-xs text-s112-muted">bestätigt</span>}
+                  </td>
                 </tr>
               )
             })}

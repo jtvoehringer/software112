@@ -101,6 +101,21 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('kontakt_mit_auftrag_bleibt',
     pg_temp.s112_versuch(format('DELETE FROM public.kontakte WHERE id = %L', v_k)) IN ('T', 'E23503'), true);
 
+  -- KAN-418 Teil 3: Versandvermerk der Auftragsbestätigung – nur über die RPC, mit Schreibrecht Warenwirtschaft
+  v_erg := v_erg || pg_temp.s112_erwarte('ab_adresse_ungueltig',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_auftrag_ab_vermerken(%L::uuid, %L::uuid, %L)', v_b, v_auf, 'keine-adresse')), ':', 1), '23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('ab_vermerkt',
+    pg_temp.s112_fehlertext(format('SELECT public.s112_auftrag_ab_vermerken(%L::uuid, %L::uuid, %L)', v_b, v_auf, ' kunde@example.org ')), 'ok');
+  PERFORM pg_temp.s112_als(v_bx);
+  v_erg := v_erg || pg_temp.s112_erwarte('ab_ohne_warenwirtschaft',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_auftrag_ab_vermerken(%L::uuid, %L::uuid, %L)', v_b, v_auf, 'kunde@example.org')), ':', 1), '42501');
+  PERFORM pg_temp.s112_als((v_a ->> 'm_ta')::uuid);
+  v_erg := v_erg || pg_temp.s112_erwarte('ab_fremder_betrieb',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_auftrag_ab_vermerken(%L::uuid, %L::uuid, %L)', v_b, v_auf, 'kunde@example.org')), ':', 1), '42501');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('ab_vermerk_steht',
+    (SELECT ab_versendet_an || '/' || (ab_versendet_am IS NOT NULL)::text FROM public.auftraege WHERE id = v_auf), 'kunde@example.org/true');
+
   -- ── 4. Sichtbarkeit ─────────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('leser_sieht',
@@ -119,6 +134,8 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_auftrag_stornieren(%L::uuid, %L::uuid, %L)', v_b, v_auf, 'kurz')), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('storno_ok',
     pg_temp.s112_fehlertext(format('SELECT public.s112_auftrag_stornieren(%L::uuid, %L::uuid, %L)', v_b, v_auf, 'S112TEST Kunde hat abgesagt')), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('ab_storniert_abgelehnt',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_auftrag_ab_vermerken(%L::uuid, %L::uuid, %L)', v_b, v_auf, 'kunde@example.org')), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('storniert_unveraenderlich',
     pg_temp.s112_versuch(format('UPDATE public.auftraege SET notizen = %L WHERE id = %L', 'S112TEST', v_auf)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('nach_storno_verkaufbar',
@@ -129,5 +146,5 @@ BEGIN
     has_function_privilege('anon', 'public.s112_auftrag_anlegen(uuid, jsonb, jsonb)', 'EXECUTE')
     OR has_function_privilege('authenticated', 'public.s112_fuellung_reserviert(uuid)', 'EXECUTE'), false);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 28);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 34);
 END $test$;

@@ -10,6 +10,8 @@ import { heuteWien } from '@/lib/datum/wien'
 import { fmtNum } from '@/lib/format'
 import { AUFTRAG_STATUS_LABEL, RESERVIERT_STATUS, reservierungAbgelaufen, type AuftragStatus } from '@/lib/auftrag/regeln'
 import AuftragAktionen from './AuftragAktionen'
+import AuftragsbestaetigungPanel from './AuftragsbestaetigungPanel'
+import { abMoeglich } from '@/lib/auftrag/bestaetigung'
 
 export const metadata: Metadata = { title: 'Auftrag' }
 export const dynamic = 'force-dynamic'
@@ -27,7 +29,7 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const a = geladen(await (supabase.from('auftraege') as any)
-    .select('id, nummer, datum, status, reserviert_bis, notizen, kontakt_id, firma_id, storniert_am, storno_grund, abgeschlossen_am, erstellt_am')
+    .select('id, nummer, datum, status, reserviert_bis, notizen, kontakt_id, firma_id, storniert_am, storno_grund, abgeschlossen_am, ab_versendet_am, ab_versendet_an, erstellt_am')
     .eq('id', id).eq('tenant_id', tenantId).maybeSingle(), 'Auftrag') as R | null
   if (!a) notFound()
 
@@ -35,9 +37,9 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('auftrag_positionen') as any).select('id, fuellung_id, name, menge, geliefert').eq('tenant_id', tenantId).eq('auftrag_id', id).order('erstellt_am').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    a.kontakt_id ? (supabase.from('kontakte') as any).select('id, vorname, nachname').eq('id', a.kontakt_id).eq('tenant_id', tenantId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    a.kontakt_id ? (supabase.from('kontakte') as any).select('id, vorname, nachname, email').eq('id', a.kontakt_id).eq('tenant_id', tenantId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    a.firma_id ? (supabase.from('firmen') as any).select('id, name').eq('id', a.firma_id).eq('tenant_id', tenantId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    a.firma_id ? (supabase.from('firmen') as any).select('id, name, email').eq('id', a.firma_id).eq('tenant_id', tenantId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     // KAN-418 Teil 2: Lieferungen – auch zurückgenommene (Storno des Verkaufs), gekennzeichnet
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('auftrag_lieferungen') as any).select('id, verkaufsposten_id, menge, erstellt_am, zurueckgenommen_am')
@@ -94,6 +96,15 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
           </div>
         )}
       </div>
+
+      {/* KAN-418 Teil 3: Auftragsbestätigung (PDF für alle mit Lesezugriff, Senden mit Schreibrecht) – nicht bei Storno */}
+      {abMoeglich(a as { status: string; storniert_am: string | null }) && (
+        <AuftragsbestaetigungPanel id={a.id} nummer={a.nummer} darfSenden={darfSchreiben}
+          defaultEmail={String((firma?.email ?? kontakt?.email ?? '') || '')}
+          gesendetText={a.ab_versendet_am
+            ? `Gesendet am ${new Date(a.ab_versendet_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })}${a.ab_versendet_an ? ` an ${a.ab_versendet_an}` : ''}.`
+            : null} />
+      )}
 
       {abgelaufen && (
         <div role="status" className="bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-xl px-4 py-3">

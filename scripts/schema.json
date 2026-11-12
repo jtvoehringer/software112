@@ -56,7 +56,9 @@
 "storniert_von",
 "storno_grund",
 "abgeschlossen_am",
-"abgeschlossen_von"
+"abgeschlossen_von",
+"ab_versendet_am",
+"ab_versendet_an"
 ],
 "auftrag_lieferungen": [
 "id",
