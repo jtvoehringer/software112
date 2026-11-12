@@ -8,7 +8,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { modulKonflikt } from '@/lib/auth/modul'
-import { exportauftragFehler, verpackungWert } from '@/lib/export/auftragEingabe'
+import { exportauftragFehler, exportKopf, exportPositionen, verpackungWert } from '@/lib/export/auftragEingabe'
 import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -52,6 +52,9 @@ export async function POST(req: NextRequest) {
     const eingabeFehler = exportauftragFehler(body)
     if (eingabeFehler) return NextResponse.json({ fehler: eingabeFehler }, { status: 400 })
 
+    const kopfNeu = exportKopf(body, destinationLand)   // KAN-432: bereinigte Werte der neuen Felder
+    const posNeu = exportPositionen(body)
+
     // Referenznummer generieren
     const { data: refData, error: refDataErr } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })
     if (refDataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(refDataErr)}` }, { status: 500 })
@@ -72,6 +75,10 @@ export async function POST(req: NextRequest) {
       versicherungswert: body.versicherungswert,
       verpackung_kg:     verpackungWert(body.verpackung_kg),   // KAN-414: Kartons/Palette für die Bruttomasse
       notizen:           body.notizen,
+      // KAN-432: Grunddaten für die Dokumente (geprüft in exportauftragFehler)
+      versanddatum:        kopfNeu.versanddatum,
+      zahlungsbedingungen: kopfNeu.zahlungsbedingungen,
+      kunde_uid:           kopfNeu.kunde_uid,
       status:            'entwurf',
     }).select().single()
 
@@ -88,6 +95,7 @@ export async function POST(req: NextRequest) {
         einheit:       p.einheit ?? 'Fl',
         preis_eur:     parseFloat(p.preis_eur) || 0,
         taric_code:    p.taric_code ?? '2204.21',
+        flaschen_je_karton: posNeu[i]?.flaschen_je_karton ?? null,   // KAN-432
         sort_order:    i,
       }))
       // KAN-246: vorher nur protokolliert – der Auftrag stand ohne Positionen da, die Antwort war ok

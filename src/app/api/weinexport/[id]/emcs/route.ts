@@ -105,7 +105,7 @@ ${positionen.map((p: R, i: number) => `        <BodyRecordUniqueReference>${i + 
         <ExciseProductCode>W200</ExciseProductCode>
         <CnCode>${x(p.taric_code?.replace('.','') ?? '22042100')}</CnCode>
         <Quantity>${x(p.menge ?? 0)}</Quantity>
-        <GrossWeight>${kgText(positionsGewicht({ menge: p.menge, einheit: p.einheit, fuellung: p.fuellungen ?? null }).bruttoKg)}</GrossWeight>
+        <GrossWeight>${kgText(positionsGewicht({ menge: p.menge, einheit: p.einheit, flaschen_je_karton: p.flaschen_je_karton, fuellung: p.fuellungen ?? null }).bruttoKg)}</GrossWeight>
         <Description>${x(p.beschreibung ?? p.fuellungen?.bezeichnung)}</Description>`).join('\n')}
       </BodyEAD>
     </EAD>

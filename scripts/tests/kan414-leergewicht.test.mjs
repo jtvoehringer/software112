@@ -91,7 +91,8 @@ describe('KAN-414: Gewicht der Sendung', nurMitHooks, () => {
     assert.deepEqual([voll.bruttoKg, voll.hinweis, voll.ohneLeergewicht], [825.5, null, []])
   })
   test('Auftrag lädt Name, Jahrgang und id der Füllung und verlinkt sie im Hinweis', () => {
-    assert.ok(quelle('src/lib/behoerden/exportauftrag.ts').includes('fuellungen(id,name,jahrgang,bezeichnung,flaschengroesse_ml,leergewicht_g)'))
+    // KAN-432: die Füllung liefert jetzt auch Rebsorte, Weinart, Prüfnummer, Charge und Antrag – Name, Jahrgang und id bleiben
+    assert.ok(quelle('src/lib/behoerden/exportauftrag.ts').includes('fuellungen(id,name,jahrgang,bezeichnung,flaschengroesse_ml,leergewicht_g,'))
     const c = quelle('src/app/(dashboard)/weinexport/[id]/WeinexportDetailClient.tsx')
     assert.ok(c.includes('gewicht.ohneLeergewicht.filter(o => o.id).map'))
     assert.ok(c.includes('href={`/weinhandel/fuellungen/${o.id}/edit`}'))
@@ -136,7 +137,7 @@ describe('KAN-414: Dokumente, Routen, Migration', () => {
   })
   test('e-AD-Datei rechnet über positionsGewicht (mit Einheit), nicht mehr Menge × 1,25', () => {
     const m = quelle('src/app/api/weinexport/[id]/emcs/route.ts')
-    assert.match(m, /<GrossWeight>\$\{kgText\(positionsGewicht\(\{ menge: p\.menge, einheit: p\.einheit, fuellung: p\.fuellungen \?\? null \}\)\.bruttoKg\)\}<\/GrossWeight>/)
+    assert.match(m, /<GrossWeight>\$\{kgText\(positionsGewicht\(\{ menge: p\.menge, einheit: p\.einheit, flaschen_je_karton: p\.flaschen_je_karton, fuellung: p\.fuellungen \?\? null \}\)\.bruttoKg\)\}<\/GrossWeight>/)
     assert.doesNotMatch(quelle('src/lib/export/exportWerte.ts'), /1\.25/)
   })
   test('Füllung: Feld im Anlegen und Bearbeiten, Speichern über die RPC mit Grund', () => {

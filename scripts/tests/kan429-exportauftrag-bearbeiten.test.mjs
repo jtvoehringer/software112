@@ -65,13 +65,14 @@ describe('KAN-429: Daten für die RPC', () => {
       destination_land: 'Deutschland', destination_stadt: ' München ', eori_kunde: '', versicherungswert: '5400', verpackung_kg: 80, notizen: '' }, 'DE'), {
       kontakt_id: null, firma_id: F, datum: '2026-11-12', lieferdatum: null, incoterms: 'DAP', transport_art: 'LKW', destination_land: 'DE',
       destination_stadt: 'München', eori_kunde: null, versicherungswert: 5400, verpackung_kg: 80, notizen: null,
+      versanddatum: null, zahlungsbedingungen: null, kunde_uid: null,   // KAN-432: Grunddaten für die Dokumente
     })
     assert.equal(exportKopf({}, null).versicherungswert, null)
   })
   test('Positionen: Menge und Preis als Zahl, Vorgaben für Einheit und TARIC, keine fremden Felder', () => {
     assert.deepEqual(exportPositionen({ positionen: [pos({ menge: '2.5', preis_eur: '' }), { beschreibung: ' frei ', menge: 3, id: 'x', exportauftrag_id: 'y', tenant_id: 'z' }] }), [
-      { fullung_id: F, beschreibung: 'Riesling', menge: 2.5, einheit: 'Fl', preis_eur: 0, taric_code: '2204.21' },
-      { fullung_id: null, beschreibung: 'frei', menge: 3, einheit: 'Fl', preis_eur: 0, taric_code: '2204.21' },
+      { fullung_id: F, beschreibung: 'Riesling', menge: 2.5, einheit: 'Fl', preis_eur: 0, taric_code: '2204.21', flaschen_je_karton: null },   // KAN-432
+      { fullung_id: null, beschreibung: 'frei', menge: 3, einheit: 'Fl', preis_eur: 0, taric_code: '2204.21', flaschen_je_karton: null },
     ])
     assert.deepEqual(exportPositionen({}), [])
   })

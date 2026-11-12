@@ -417,6 +417,24 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
               <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
               <input aria-label="UID-Nummer" name="betrieb_uid" defaultValue={daten.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
+            {/* KAN-432: Angaben für den Weinexport */}
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">EORI-Nummer</label>
+              <input aria-label="EORI-Nummer" name="betrieb_eori" maxLength={30} defaultValue={daten.betrieb_eori ?? ''} className={inputCls()} placeholder="ATEOS1000012345" />
+              <p className="text-xs text-s112-muted mt-1">Nur für die Ausfuhr in Länder außerhalb der EU nötig (vergibt der Zoll).</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Flaschen je Karton (Export)</label>
+              <input aria-label="Flaschen je Karton (Export)" name="export_flaschen_je_karton" type="number" step="1" min="1" max="60" required
+                defaultValue={daten.export_flaschen_je_karton} className={inputCls()} style={{ maxWidth: '180px' }} />
+              <p className="text-xs text-s112-muted mt-1">Vorschlag für neue Positionen im Exportauftrag; je Position änderbar.</p>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="inline-flex items-start gap-2 text-sm text-s112-text-1">
+                <input type="checkbox" name="kleiner_weinerzeuger" defaultChecked={daten.kleiner_weinerzeuger} className="mt-0.5" />
+                <span>Kleiner Weinerzeuger <span className="text-s112-muted">(im Durchschnitt unter 1.000 hl Wein je Weinwirtschaftsjahr – für das Begleitdokument beim Versand in andere EU-Länder)</span></span>
+              </label>
+            </div>
             {/* KAN-261: Betriebsart nur Anzeige, Betriebsnummer nur für Weinproduzenten Pflicht */}
             <BetriebsnummerFeld betriebsart={daten.betriebsart} betriebsnummer={daten.betrieb_betriebsnummer}
               waehlbar={false} inputClassName={inputCls()} />

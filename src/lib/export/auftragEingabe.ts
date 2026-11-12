@@ -12,6 +12,9 @@ export const EXPORT_EINHEITEN = ['Fl', 'Kiste', 'HL'] as const
 /** Längengrenzen der Datenbank (varchar(n)) */
 export const EXPORT_MAX = { eori: 30, stadt: 100, taric: 20 } as const
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { ZAHLUNGSBEDINGUNGEN_MAX, flaschenJeKarton, kartonFehler, kundeUidFehler, uidBereinigt } from './grunddaten.ts'
+
 type Body = Record<string, unknown>
 
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
@@ -42,11 +45,19 @@ export function exportauftragFehler(body: Body): string | null {
   if (text(body.destination_stadt).length > EXPORT_MAX.stadt) return `Die Destination Stadt darf höchstens ${EXPORT_MAX.stadt} Zeichen haben.`
   const vf = verpackungFehler(body.verpackung_kg)
   if (vf) return vf
+  // KAN-432: Grunddaten für die Dokumente
+  const versand = text(body.versanddatum)
+  if (versand && !/^\d{4}-\d{2}-\d{2}$/.test(versand)) return 'Bitte das Versanddatum als Datum angeben.'
+  if (text(body.zahlungsbedingungen).length > ZAHLUNGSBEDINGUNGEN_MAX) return `Die Zahlungsbedingungen dürfen höchstens ${ZAHLUNGSBEDINGUNGEN_MAX} Zeichen haben.`
+  const uidFehler = kundeUidFehler(body.kunde_uid)
+  if (uidFehler) return uidFehler
   const positionen = Array.isArray(body.positionen) ? (body.positionen as Body[]) : []
   for (const [i, p] of positionen.entries()) {
     const einheit = text(p?.einheit)
     if (einheit && !(EXPORT_EINHEITEN as readonly string[]).includes(einheit)) return `Position ${i + 1}: unbekannte Einheit „${einheit}“.`
     if (text(p?.taric_code).length > EXPORT_MAX.taric) return `Position ${i + 1}: der TARIC-Code darf höchstens ${EXPORT_MAX.taric} Zeichen haben.`
+    const kf = kartonFehler(p?.flaschen_je_karton)   // KAN-432
+    if (kf) return `Position ${i + 1}: ${kf}`
   }
   // KAN-429 (UAT 12.11.2026, EX-0005 mit 0 Flaschen): jede Position braucht eine Menge über 0 und eine Füllung bzw.
   // Bezeichnung – dieselbe Regel prüft die Datenbank beim Bearbeiten (s112_exportauftrag_aendern)
@@ -94,6 +105,10 @@ export function exportKopf(body: Body, destinationLand: string | null): Record<s
     versicherungswert: zahl(body.versicherungswert),
     verpackung_kg: verpackungWert(body.verpackung_kg),
     notizen: text(body.notizen) || null,
+    // KAN-432
+    versanddatum: text(body.versanddatum) || null,
+    zahlungsbedingungen: text(body.zahlungsbedingungen) || null,
+    kunde_uid: uidBereinigt(body.kunde_uid) || null,
   }
 }
 
@@ -107,5 +122,6 @@ export function exportPositionen(body: Body): Record<string, unknown>[] {
     einheit: text(p?.einheit) || 'Fl',
     preis_eur: exportMenge(p?.preis_eur) ?? 0,
     taric_code: text(p?.taric_code) || '2204.21',
+    flaschen_je_karton: flaschenJeKarton(p?.flaschen_je_karton),   // KAN-432
   }))
 }
