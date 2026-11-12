@@ -118,3 +118,45 @@ describe('KAN-413: Server Action, Seite und Migration', () => {
     assert.doesNotMatch(sql, /SECURITY DEFINER/)
   })
 })
+
+// UAT 12.11.2026 (Nebenbefund): Bei „Gärtemperatur“ fehlte die Einheit °C. Ein Messwert wird nicht nach Litern
+// aufgeteilt – jedes Gebinde bekommt denselben Wert.
+describe('KAN-413: Messwert in °C', nurMitHooks, () => {
+  test('Einheiten wie bei der Einzelbehandlung, samt °C', async () => {
+    const { SAMMEL_EINHEITEN, istMesswertEinheit } = await m()
+    assert.deepEqual([...SAMMEL_EINHEITEN], ['kg', 'g', 'L', 'mL', 'mg', '°C', '-'])
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx').includes("const EINHEITEN = ['kg', 'g', 'L', 'mL', 'mg', '°C', '-']"))
+    assert.equal(istMesswertEinheit('°C'), true)
+    for (const e of ['g', 'kg', '-', '', null, undefined]) assert.equal(istMesswertEinheit(e), false, String(e))
+  })
+  test('°C: derselbe Wert je Gebinde, unabhängig von den Litern; Stoff weiter nach Litern', async () => {
+    const { sammelZeilen, sammelModusFuer } = await m()
+    assert.equal(sammelModusFuer('°C', 'gesamt'), 'gleich')
+    assert.equal(sammelModusFuer('°C', 'dosis'), 'gleich')
+    assert.equal(sammelModusFuer('g', 'dosis'), 'dosis')
+    assert.equal(sammelModusFuer('g', 'gleich'), 'gesamt')   // „gleich“ nie für Stoffmengen
+    const z = sammelZeilen({ chargen: chargen(1000, 500, 250), modus: 'gleich', menge: 18.5, stoffGesamt: 35 })
+    assert.deepEqual(z.map(x => x.menge), [18.5, 18.5, 18.5])
+    assert.deepEqual(z.map(x => x.stoffMenge), [20, 10, 5])
+  })
+  test('Prüfung: °C nur als Wert je Gebinde und über 0; Stoffmengen nie als „gleich“', async () => {
+    const { sammelFehler } = await m()
+    const ok = { chargen: chargen(1000, 500), modus: 'gleich', menge: 18, einheit: '°C', stoffId: null, stoffGesamt: null }
+    assert.equal(sammelFehler(ok), null)
+    assert.match(sammelFehler({ ...ok, modus: 'gesamt' }), /Temperatur gilt je Gebinde/)
+    assert.match(sammelFehler({ ...ok, einheit: 'g' }), /nur für Messwerte/)
+    assert.match(sammelFehler({ ...ok, menge: null }), /Temperatur angeben/)
+    assert.match(sammelFehler({ ...ok, menge: 0 }), /über 0 °C/)
+    assert.match(sammelFehler({ ...ok, menge: -4 }), /Einzelbehandlung/)
+    // ein sehr kleiner Wert ist bei °C kein „Anteil von 0“
+    assert.equal(sammelFehler({ ...ok, menge: 0.5, chargen: chargen(100000, 1) }), null)
+  })
+  test('Formular: bei °C ein Feld „Temperatur“, keine Wahl Gesamtmenge/Dosis; Liste zeigt den Wert je Gebinde', () => {
+    const cl = quelle('src/app/(dashboard)/kellerbuch/sammelbehandlung/SammelClient.tsx')
+    assert.ok(cl.includes('const EINHEITEN: readonly string[] = SAMMEL_EINHEITEN'))
+    assert.ok(cl.includes('const modus = sammelModusFuer(einheit, modusWahl)'))
+    assert.ok(cl.includes("{einheit !== '-' && !messwert && ("))
+    assert.ok(cl.includes('Temperatur ({einheit}) – gilt für jedes gewählte Gebinde'))
+    assert.ok(cl.includes('fmtNum(s.menge / (s.anzahl - s.storniert), 1)'))
+  })
+})

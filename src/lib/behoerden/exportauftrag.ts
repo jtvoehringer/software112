@@ -218,7 +218,7 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
     // exportauftrag_positionen/export_dokumente haben keine tenant_id – sie hängen am
     // mandantengefilterten Auftrag (RLS über den Auftrag); ohne Auftrag wird unten nichts ausgegeben
     alle<R>((supabase.from('exportauftrag_positionen') as any)
-      .select('id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order, fuellungen(bezeichnung,flaschengroesse_ml,leergewicht_g)')
+      .select('id, beschreibung, menge, einheit, preis_eur, taric_code, sort_order, fuellungen(id,name,jahrgang,bezeichnung,flaschengroesse_ml,leergewicht_g)')
       .eq('exportauftrag_id', p.id)
       .order('sort_order')
       .order('id')),

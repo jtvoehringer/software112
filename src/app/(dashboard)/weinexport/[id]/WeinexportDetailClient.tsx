@@ -155,7 +155,18 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
               <div><dt className="text-xs text-s112-muted">Versicherungswert</dt><dd>{auftrag.versicherungswert ? `EUR ${fmtNum(parseFloat(auftrag.versicherungswert), 2)}` : '–'}</dd></div>
             </dl>
             {gewicht.hinweis && (
-              <div role="alert" className="mt-4 bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-lg px-3 py-2">{gewicht.hinweis}</div>
+              <div role="alert" className="mt-4 bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-lg px-3 py-2">
+                {gewicht.hinweis}
+                {/* UAT 12.11.2026 (KAN-414): direkt zur Füllung, bei der das Leergewicht fehlt */}
+                {gewicht.ohneLeergewicht.some(o => o.id) && (
+                  <span className="block mt-1">
+                    Leergewicht eintragen:{' '}
+                    {gewicht.ohneLeergewicht.filter(o => o.id).map((o, i) => (
+                      <span key={o.id}>{i > 0 ? ', ' : ''}<Link href={`/weinhandel/fuellungen/${o.id}/edit`} className="underline font-medium">{o.name}</Link></span>
+                    ))}
+                  </span>
+                )}
+              </div>
             )}
             {auftrag.notizen && (
               <div className="mt-4 p-3 bg-s112-bg rounded-lg text-sm text-s112-text-1">

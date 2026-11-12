@@ -93,3 +93,19 @@ describe('KAN-338: Baustein, Einbindung und Wächter', () => {
     assert.match(JSON.parse(quelle('package.json')).scripts.prebuild, /node scripts\/check-meldungen\.js/)
   })
 })
+
+// KAN-413 (UAT 12.11.2026, Nebenbefund): Der rote Storno-Knopf mit Text (StornoButton mitText, bg-s112-err-bg) galt als
+// Fehlerkasten – nach dem Speichern einer Sammelmaßnahme erschien „Es gibt eine Fehlermeldung außer Sicht“.
+describe('KAN-413: Bedienelemente sind keine Meldung', nurMitHooks, () => {
+  test('roter Knopf und roter Link zählen nicht, der rote Kasten daneben schon', async () => {
+    const { meldungsArt } = await laden('lib/ui/meldungen.ts')
+    const knopf = 'inline-flex items-center gap-1.5 text-xs font-medium text-s112-err-fg bg-s112-err-bg hover:bg-s112-err/20 border border-s112-err/30 px-2.5 py-1.5 rounded-lg transition-colors'
+    assert.equal(meldungsArt({ tag: 'BUTTON', className: knopf, role: null, text: 'Ganze Sammelmaßnahme stornieren' }), null)
+    assert.equal(meldungsArt({ tag: 'A', className: 'bg-s112-err-bg text-s112-err-fg px-3 py-2', role: null, text: 'Offene Posten ansehen' }), null)
+    assert.equal(meldungsArt({ tag: 'DIV', className: 'bg-s112-err-bg border text-sm text-s112-err-fg rounded-lg px-3 py-2', role: 'alert', text: 'Bitte einen Behandlungstyp wählen.' }), 'fehler')
+    assert.equal(meldungsArt({ tag: 'DIV', className: 'bg-s112-err-bg px-3 py-2', role: null, text: 'Speichern fehlgeschlagen' }), 'fehler')
+  })
+  test('der Knopf des StornoButton trägt genau diese Klassen', () => {
+    assert.ok(quelle('src/components/StornoButton.tsx').includes("'inline-flex items-center gap-1.5 text-xs font-medium text-s112-err-fg bg-s112-err-bg hover:bg-s112-err/20 border border-s112-err/30 px-2.5 py-1.5 rounded-lg transition-colors'"))
+  })
+})
