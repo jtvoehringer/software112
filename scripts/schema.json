@@ -54,7 +54,21 @@
 "aktualisiert_am",
 "storniert_am",
 "storniert_von",
-"storno_grund"
+"storno_grund",
+"abgeschlossen_am",
+"abgeschlossen_von"
+],
+"auftrag_lieferungen": [
+"id",
+"tenant_id",
+"auftrag_id",
+"auftrag_position_id",
+"verkaufsposten_id",
+"menge",
+"erstellt_am",
+"erstellt_von",
+"zurueckgenommen_am",
+"zurueck_grund"
 ],
 "auftrag_positionen": [
 "id",

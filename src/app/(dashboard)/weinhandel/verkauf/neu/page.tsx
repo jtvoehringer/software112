@@ -6,6 +6,8 @@ import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData, lieferadressenDesKunden } from '../actions'
+import { ladeAuftragFuerLieferung } from '../../auftraege/actions'
+import { auftragAusSuche } from '@/lib/auftrag/lieferung'
 import LieferadresseWahl, { LIEFER_LEER, lieferFormFelder, type LieferWahl } from './LieferadresseWahl'
 import type { Lieferadresse } from '@/lib/crm/lieferadressen'
 import { Check, Sparkles } from 'lucide-react'
@@ -126,6 +128,9 @@ interface Position {
   sonstige_artikel_id?:    string
   /** KAN-411: Wortlaut des Kunden aus „Bestellung erkennen“ – beim Speichern wird dazu die gewählte Füllung gelernt */
   ki_begriff?:             string
+  /** KAN-418 Teil 2: Position liefert diese Auftragsposition – höchstens die offene Menge */
+  auftrag_position_id?:    string
+  auftrag_offen?:          number
 }
 
 const FLASCHEN_LABEL: Record<number, string> = {
@@ -269,6 +274,10 @@ export default function NeuerVerkaufPage() {
   const [kiLaeuft,        setKiLaeuft]        = useState(false)
   const [kiFehler,        setKiFehler]        = useState<string | null>(null)
   const [kiVorschlag,     setKiVorschlag]     = useState<KiVorschlag | null>(null)
+  // KAN-418 Teil 2: Lieferung aus einem Auftrag (?auftrag=<id>) – Kunde und offene Mengen vorbelegt
+  const [auftrag,         setAuftrag]         = useState<{ id: string; nummer: string } | null>(null)
+  const [auftragHinweis,  setAuftragHinweis]  = useState<string | null>(null)
+  const auftragGeholt = useRef(false)
   // Konditionen des gewählten Kunden – auch für später hinzugefügte Positionen (KAN-156)
   const [kundenRabatt,    setKundenRabatt]    = useState<KundenKonditionen>(OHNE_KUNDENRABATT)
   const [skontoAktiv,     setSkontoAktiv]     = useState(false)
@@ -365,10 +374,55 @@ export default function NeuerVerkaufPage() {
     return () => { aktiv = false }
   }, [loading])
 
+  // KAN-418 Teil 2: nach dem Laden der Stammdaten Auftrag holen – erst die Positionen, dann der Kunde (dessen Rabatt
+  // legt sich auf die vorbelegten Positionen)
+  useEffect(() => {
+    if (loading) return
+    const auftragId = auftragAusSuche(window.location.search)
+    if (!auftragId || auftragGeholt.current) return
+    // nur einmal vorbelegen (auch bei doppeltem Effekt-Lauf) – spätere Änderungen der Stammdaten überschreiben nichts
+    auftragGeholt.current = true
+    async function holen() {
+      try {
+        const r = await ladeAuftragFuerLieferung(auftragId)
+        if ('error' in r) { setAuftragHinweis(r.error); return }
+        if (r.positionen.length === 0) { setAuftragHinweis(`Am Auftrag ${r.nummer} ist nichts mehr offen.`); return }
+        setAuftrag({ id: r.id, nummer: r.nummer })
+        setPositionen(r.positionen.map(p => {
+          const f = fuellungen.find(x => x.id === p.fuellung_id)
+          return {
+            ...newEmptyPosition(),
+            fuellung_id: p.fuellung_id,
+            name: f ? [f.name, f.jahrgang, f.flaschengroesse_ml ? FLASCHEN_LABEL[f.flaschengroesse_ml] : null].filter(Boolean).join(' · ') : p.name,
+            preis_brutto: f?.vk_preis_brutto != null ? String(f.vk_preis_brutto) : '',
+            menge: String(p.offen),
+            ust_satz: String(ustStandard),
+            auftrag_position_id: p.position_id,
+            auftrag_offen: p.offen,
+          }
+        }))
+        const res = await fetch('/api/crm/suche?' + new URLSearchParams({ art: 'kunde', ids: r.kunde }))
+        const d = await res.json()
+        const t = res.ok ? ((d.treffer ?? []) as PartnerTreffer[]).find(x => x.id === r.kunde) : undefined
+        if (t) kundeWaehlen(r.kunde, t)
+        else setAuftragHinweis('Der Kunde des Auftrags konnte nicht geladen werden – bitte im Formular wählen.')
+      } catch (e) {
+        setAuftragHinweis(fehlerText(e, 'Der Auftrag konnte nicht geladen werden'))
+      }
+    }
+    void holen()
+  }, [loading, fuellungen, ustStandard])
+
   function updatePos(idx: number, patch: Partial<Position>) {
     setPositionen(prev => {
       const next = [...prev]
       next[idx] = { ...next[idx], ...patch }
+      // KAN-418 Teil 2: andere Füllung bzw. anderer Typ → die Position liefert nicht mehr die Auftragsposition
+      if (prev[idx].auftrag_position_id && (patch.fuellung_id !== undefined || patch.typ !== undefined)
+          && (next[idx].typ !== 'flasche' || next[idx].fuellung_id !== prev[idx].fuellung_id)) {
+        next[idx].auftrag_position_id = undefined
+        next[idx].auftrag_offen = undefined
+      }
 
       if (patch.fuellung_id) {
         const f = fuellungen.find(x => x.id === patch.fuellung_id)
@@ -475,11 +529,23 @@ export default function NeuerVerkaufPage() {
       trauben_herkunft_code:   p.trauben_herkunft_code   || null,
       trauben_gesundheit:      p.trauben_gesundheit       || 'G',
       sonstige_artikel_id:     p.typ === 'sonstiges' ? (p.sonstige_artikel_id || null) : null,
+      auftrag_position_id:     auftrag && p.typ === 'flasche' ? (p.auftrag_position_id || null) : null,   // KAN-418 Teil 2
     }))
 
     if (!kontaktId && !firmaId) {
       setError('Bitte einen Kunden auswählen.')
       return
+    }
+    if (auftrag) {   // KAN-418 Teil 2: je Auftragsposition höchstens die offene Menge
+      const zuViel = positionen.find(p => p.auftrag_position_id && (!Number.isInteger(Number(p.menge)) || Number(p.menge) > (p.auftrag_offen ?? 0)))
+      if (zuViel) {
+        setError(`„${zuViel.name}“: Am Auftrag ${auftrag.nummer} sind nur noch ${zuViel.auftrag_offen} Flaschen offen. Eine Mehrmenge bitte als eigene Position erfassen.`)
+        return
+      }
+      if (!positionen.some(p => p.auftrag_position_id)) {
+        setError(`Diese Lieferung enthält keine Position des Auftrags ${auftrag.nummer} mehr – bitte die Seite über „Liefern“ am Auftrag neu öffnen.`)
+        return
+      }
     }
     if (posForServer.some(p => !p.name || p.menge <= 0)) {
       setError('Alle Positionen benötigen einen Namen und eine Menge > 0.')
@@ -501,6 +567,7 @@ export default function NeuerVerkaufPage() {
     formData.set('zh_kontakt_id',    zhKontaktId)
     formData.set('notizen',          notizen)
     formData.set('rechnungstext',    rechnungstext)
+    if (auftrag) formData.set('auftrag_id', auftrag.id)   // KAN-418 Teil 2
     {   // KAN-411 Teil 2: Begriffe des Kunden mit der gewählten Füllung – der Server lernt daraus
       const gelernt = positionen.filter(p => p.typ === 'flasche' && p.fuellung_id && p.ki_begriff).map(p => ({ begriff: p.ki_begriff, fuellung_id: p.fuellung_id }))
       if (gelernt.length) formData.set('ki_begriffe_json', JSON.stringify(gelernt))
@@ -589,6 +656,16 @@ export default function NeuerVerkaufPage() {
       </nav>
 
       <h1 className="text-xl font-semibold text-s112-text">Neuer Verkauf</h1>
+
+      {auftrag && (
+        <div role="status" className="bg-s112-bg border border-s112-border text-sm text-s112-text-2 rounded-xl px-4 py-3">
+          Lieferung zu Auftrag <Link href={`/weinhandel/auftraege/${auftrag.id}`} className="font-medium text-s112-blue-700 hover:underline">{auftrag.nummer}</Link>:
+          Vorbelegt sind die offenen Mengen – für eine Teillieferung die Menge kürzen. Was nicht geliefert wird, bleibt reserviert. Preise und Rabatte gelten wie bei jedem Verkauf.
+        </div>
+      )}
+      {auftragHinweis && (
+        <div role="alert" className="bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-xl px-4 py-3">{auftragHinweis}</div>
+      )}
 
       {error && (
         <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
@@ -742,6 +819,9 @@ export default function NeuerVerkaufPage() {
                         </option>
                       ))}
                     </select>
+                    {pos.auftrag_position_id && (
+                      <p className="text-xs text-s112-muted mt-1">Position des Auftrags {auftrag?.nummer} · noch {pos.auftrag_offen} Flaschen offen (für dich reserviert)</p>
+                    )}
                   </div>
                 )}
 

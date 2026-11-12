@@ -128,7 +128,7 @@ DECLARE
   -- Tabellen, die anon derzeit gar nicht lesen darf (kein SELECT-Grant) – erlaubt, aber als Liste festgehalten
   c_anon_ohne_grant constant text[] := ARRAY['benutzer_dashboard', 'bestandsprotokoll', 'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'fuellung_bewegungen', 'meldung_abgaben',
     'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping',
-    'kellerbuch_buchungen', 'kellerbuch_abschluesse', 'charge_herkunft', 'pruefnummer_ereignisse', 'pruefnummer_chargen', 'charge_umstufungen', 'keller_verarbeitungen', 'keller_zugangskorrekturen', 'auftraege', 'auftrag_positionen', 'fuellung_etikettierungen', 'kellermittel', 'kellermittel_buchungen', 'reifemessungen', 'sonstige_artikel_bewegungen', 'lieferadressen', 'ernte_gst_abgeschlossen', 'verkauf_ki_begriffe',
+    'kellerbuch_buchungen', 'kellerbuch_abschluesse', 'charge_herkunft', 'pruefnummer_ereignisse', 'pruefnummer_chargen', 'charge_umstufungen', 'keller_verarbeitungen', 'keller_zugangskorrekturen', 'auftraege', 'auftrag_positionen', 'auftrag_lieferungen', 'fuellung_etikettierungen', 'kellermittel', 'kellermittel_buchungen', 'reifemessungen', 'sonstige_artikel_bewegungen', 'lieferadressen', 'ernte_gst_abgeschlossen', 'verkauf_ki_begriffe',
     'elabel_zutaten', 'elabels', 'elabel_umleitungen', 'produktionen', 'produktion_eingaenge', 'rechnungen', 'psm_uebermittlungen', 'lohnversektungen'];   -- KAN-167, KAN-37 B, KAN-39, KAN-40, KAN-192, KAN-97, KAN-99, KAN-82, KAN-216: REVOKE ALL … FROM anon
   -- Varianten-Zeilen (Tabelle:boolesche Spalte) – je Betrieb M und B einmal true, einmal false
   c_varianten constant text[] := ARRAY['kontakte:is_lead', 'firmen:is_lead', 'behaelter:gemeinsam'];

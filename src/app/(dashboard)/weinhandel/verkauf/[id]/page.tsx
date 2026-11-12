@@ -133,6 +133,13 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .order('id'),
   ])
   const postenRaw = geladen(postenRawRes, 'Verkäufe')
+  // KAN-418 Teil 2: Lieferung zu einem Auftrag (auch zurückgenommen – der Bezug bleibt sichtbar)
+  // alle-ausnahme: Lieferzeilen eines einzelnen Verkaufs – höchstens die Positionen eines Auftrags
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const auftragBezug = (geladen(await (supabase.from('auftrag_lieferungen') as any)
+    .select('auftrag_id, auftrag:auftraege!auftrag_id(id, nummer)')
+    .eq('verkaufsposten_id', id).eq('tenant_id', tenantId ?? '').order('id').limit(1), 'Auftrag') ?? []) as R[]
+  const auftragZuVerkauf = (auftragBezug[0]?.auftrag ?? null) as { id: string; nummer: string } | null
   const zahlungenRaw = geladen(zahlungenRawRes, 'Zahlungen')
   const tbRaw = geladen(tbRawRes, 'Transportbescheinigungen')
   const stornierteRechnungen = (geladen(stornierteRechnungenRes, 'Stornierte Rechnungen') ?? []) as R[]
@@ -511,6 +518,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <p className="text-sm text-s112-muted mt-0.5">
               {new Date(posten.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               {posten.lieferscheinnummer && <> · Lieferschein <span className="font-mono">{posten.lieferscheinnummer}</span></>}
+              {auftragZuVerkauf && <> · zu Auftrag <Link href={`/weinhandel/auftraege/${auftragZuVerkauf.id}`} className="font-mono text-s112-blue-700 hover:underline">{auftragZuVerkauf.nummer}</Link></>}
             </p>
           </div>
           {hasTank && (

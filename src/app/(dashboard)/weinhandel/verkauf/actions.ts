@@ -33,6 +33,7 @@ import {
   type BestandsBuchung,
 } from '@/lib/verkauf/bestand'
 import { heuteWien } from '@/lib/datum/wien'
+import { auftragIdAus, gleicherKunde, lieferFehler, lieferPositionenAus, LIEFERBAR_STATUS, type AuftragZeile } from '@/lib/auftrag/lieferung'
 import { rund } from '@/lib/zahl/runden'
 import { notizFehler, rechnungstextAenderbar, rechnungstextFehler, textOderNull } from '@/lib/verkauf/rechnungstext'
 import { emailBezugWerte } from '@/lib/verkauf/ausMail'
@@ -88,6 +89,8 @@ const POSITIONS_TYPEN = ['flasche', 'tank', 'sonstiges', 'trauben'] as const
 interface PositionInput {
   typ:               typeof POSITIONS_TYPEN[number]
   fuellung_id:       string | null
+  /** KAN-418 Teil 2: Position liefert diese Auftragsposition (nur Flaschen) */
+  auftrag_position_id?: string | null
   weinausbau_id:     string | null
   // KAN-35: Tankverkauf nur noch aus Kellerbuch-Chargen – gesetzte Werte werden abgelehnt
   // (Felder bleiben nur, damit ältere Formulare/Aufrufer eine klare Meldung bekommen)
@@ -413,6 +416,31 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     if (f) throw new AktionsFehler(f)
   }
 
+  // KAN-418 Teil 2: Lieferung aus einem Auftrag – eigener Betrieb, lieferbar, derselbe Kunde, je Position höchstens die
+  // offene Menge (die Datenbank prüft unter Sperre erneut, s112_auftrag_liefern)
+  const auftragId = auftragIdAus(formData.get('auftrag_id'))
+  const lieferPos = auftragId ? lieferPositionenAus(positionen) : []
+  let auftragNummer = ''
+  if (auftragId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: aufRaw, error: aufErr } = await (supabase.from('auftraege') as any)
+      .select('id, nummer, status, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).maybeSingle()
+    if (aufErr) throw new AktionsFehler(dbFehlerText(aufErr, 'Der Auftrag konnte nicht geladen werden'))
+    const auf = aufRaw as AR | null
+    if (!auf) return { error: 'Auftrag nicht gefunden – bitte die Seite neu laden.' }
+    auftragNummer = String(auf.nummer ?? '')
+    if (!LIEFERBAR_STATUS.includes(String(auf.status))) return { error: `Der Auftrag ${auftragNummer} lässt sich nicht mehr liefern.` }
+    if (!gleicherKunde(auf as { kontakt_id: string | null; firma_id: string | null }, kontaktId, firmaId)) {
+      return { error: `Der Kunde dieses Verkaufs ist nicht der Kunde des Auftrags ${auftragNummer}.` }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: zeilen, error: zErr } = await alle<AR>((supabase.from('auftrag_positionen') as any)
+      .select('id, fuellung_id, name, menge, geliefert').eq('tenant_id', tenantId).eq('auftrag_id', auftragId).order('id'))
+    if (zErr) throw new AktionsFehler(dbFehlerText(zErr, 'Die Positionen des Auftrags konnten nicht geladen werden'))
+    const lf = lieferFehler(lieferPos, (zeilen ?? []) as unknown as AuftragZeile[])
+    if (lf) return { error: lf }
+  }
+
   // ── Prüfung VOR dem ersten Schreibzugriff (auch vor der Rechnungsnummer –
   //    eine Ablehnung hinterlässt so keine Lücke im Nummernkreis)
   const { literJeCharge, stueckJeFuellung, mostgewichtJePosition, leseJePosition } = await pruefePositionen(supabase, membership, positionen, datum)
@@ -425,6 +453,27 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
   // Abbuchung angelegt wird (keine Lücke im Nummernkreis bei einer Ablehnung, KAN-35)
   const postenId = randomUUID()
 
+  // KAN-418 Teil 2: Lieferung am Auftrag vermerken, BEVOR der Bestand gebucht wird – damit sinkt die Reservierung um
+  // genau diese Flaschen und der Verkauf darf sie abbuchen. Kommt der Verkauf danach nicht zustande, wird der Vermerk
+  // zurückgenommen (ein angelegter Beleg wird storniert – das nimmt die Lieferung in der Datenbank zurück).
+  let lieferungVermerkt = false
+  const lieferungZurueck = async (): Promise<string | null> => {
+    if (!lieferungVermerkt) return null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: zErr } = await (supabase.rpc as any)('s112_auftrag_lieferung_zuruecknehmen', { p_tenant_id: tenantId, p_verkaufsposten_id: postenId })
+    if (zErr) return dbFehlerText(zErr, 'Rücknahme fehlgeschlagen')
+    lieferungVermerkt = false
+    return null
+  }
+  if (auftragId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: lErr } = await (supabase.rpc as any)('s112_auftrag_liefern', {
+      p_tenant_id: tenantId, p_auftrag_id: auftragId, p_verkaufsposten_id: postenId, p_positionen: lieferPos,
+    })
+    if (lErr) return { error: dbFehlerText(lErr, 'Die Lieferung konnte nicht am Auftrag vermerkt werden') }
+    lieferungVermerkt = true
+  }
+
   // ── 1. Bestand abbuchen – alles oder nichts (vor Rechnungsnummer und Beleg; eine
   //    gleichzeitige Buchung wird per Vergleichen und Setzen erkannt, dann nichts geändert)
   let abbuchungen: BestandsBuchung[]
@@ -432,7 +481,9 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     abbuchungen = await bestandBuchenAllesOderNichts(supabase, tenantId, alsAbgang(literJeCharge), alsAbgang(stueckJeFuellung),
       { postenId, datum })
   } catch (e) {
-    throw new AktionsFehler(`Der Verkauf wurde nicht gespeichert: ${fehlerText(e).replace(/[.\s]+$/, '')}.`)
+    const lz = await lieferungZurueck()   // KAN-418 Teil 2
+    throw new AktionsFehler(`Der Verkauf wurde nicht gespeichert: ${fehlerText(e).replace(/[.\s]+$/, '')}.`
+      + (lz ? ` Achtung: Die Lieferung am Auftrag ${auftragNummer} konnte nicht zurückgenommen werden (${lz.replace(/[.\s]+$/, '')}) – bitte den Auftrag prüfen und den Support kontaktieren.` : ''))
   }
 
   // KAN-21: Die Rechnungsnummer vergibt die Datenbank beim Insert (Trigger a_rechnungsnummer, lückenlos) – sie steht erst
@@ -454,6 +505,11 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
     teile.push(rueckFehler.length
       ? `Achtung: Der bereits abgebuchte Bestand konnte nicht zurückgesetzt werden (${rueckFehler.join(' · ')}) – bitte Bestand prüfen und Support kontaktieren`
       : 'Der Bestand ist unverändert')
+    // KAN-418 Teil 2: ohne Beleg die vermerkte Lieferung zurücknehmen (mit Beleg erledigt das dessen Storno)
+    if (!postenStornieren) {
+      const lz = await lieferungZurueck()
+      if (lz) teile.push(`Achtung: Die Lieferung am Auftrag ${auftragNummer} konnte nicht zurückgenommen werden (${lz.replace(/[.\s]+$/, '')}) – bitte den Auftrag prüfen und den Support kontaktieren`)
+    }
     throw new AktionsFehler(`${teile.join('. ')}.`)
   }
 
@@ -622,6 +678,10 @@ export async function createVerkauf(formData: FormData): Promise<{ id: string } 
   revalidatePath('/kellerbuch')
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
+  if (auftragId) {   // KAN-418 Teil 2
+    revalidatePath('/weinhandel/auftraege')
+    revalidatePath('/weinhandel/auftraege/[id]', 'page')
+  }
 
   return { id: postenId }
 }
