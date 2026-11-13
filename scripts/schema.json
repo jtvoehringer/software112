@@ -794,7 +794,8 @@
 "muster_ausgebucht_am",
 "ausfuhr_mrn",
 "ausfuhr_anmeldung_datum",
-"abschluss_ohne_nachweis"
+"abschluss_ohne_nachweis",
+"laender_belege"
 ],
 "exportauftrag_positionen": [
 "id",

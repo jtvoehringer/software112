@@ -28,6 +28,7 @@ import {
 import { exportBearbeitbar } from '../export/auftragEingabe'
 import { EXPORT_DOKUMENT_ARTEN, EXPORT_DOKUMENT_LABEL } from '../export/dokumente'
 import { befreiung, rechnungHinweise, rechnungsSumme } from '../export/rechnungTexte'
+import { belegnummernText } from '../export/belegnummern'
 
 export const EXPORT_STATUS_LABEL: Record<string, string> = {
   entwurf: 'Entwurf', bestaetigt: 'Bestätigt', versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
@@ -387,6 +388,8 @@ export type ExportauftragListenZeile = {
   arcNummer: string | null
   emcsStatus: string | null
   emcsDatum: string | null
+  /** KAN-437: länderspezifische Belegnummern als eine Zeile („COLA: …; Prior Notice: …“), null = keine */
+  belegnummern: string | null
   /** KAN-150 F2: Storno (null = gültig) */
   storniertAm: string | null
   storniertVon: string | null
@@ -419,6 +422,7 @@ export const SPALTEN_EXPORTAUFTRAEGE: CsvSpalte<ExportauftragListenZeile>[] = [
   { kopf: 'EMCS ARC-Nummer', typ: 'code', wert: z => z.arcNummer },
   { kopf: 'EMCS-Status', typ: 'text', wert: z => z.emcsStatus },
   { kopf: 'EMCS-Datum', typ: 'datum', wert: z => z.emcsDatum },
+  { kopf: 'Belegnummern', typ: 'text', wert: z => z.belegnummern },
   { kopf: 'Storniert am', typ: 'zeitpunkt', wert: z => z.storniertAm },
   { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
 ]
@@ -461,6 +465,7 @@ export function exportListenZeile(a: R, positionen: readonly R[], dokumente: rea
     arcNummer: textOderNull(a.emcs_arc_nummer),
     emcsStatus: emcs ? (EMCS_STATUS_LABEL[emcs] ?? emcs) : 'nicht eingereicht',
     emcsDatum: textOderNull(a.emcs_datum),
+    belegnummern: belegnummernText(a.laender_belege) || null,
     storniertAm: textOderNull(a.storniert_am),
     storniertVon: textOderNull(a.storniert_von_name),
     stornoGrund: textOderNull(a.storno_grund),
@@ -471,7 +476,7 @@ export function exportListenZeile(a: R, positionen: readonly R[], dokumente: rea
 export async function ladeExportauftraege(supabase: Client, tenantId: string): Promise<{ zeilen: ExportauftragListenZeile[]; warnungen: string[] }> {
   // storno-sichtbar: Liste und CSV zeigen stornierte Aufträge gekennzeichnet (KAN-150 F2)
   const auftraegeRes = await alle<R>((supabase.from('exportauftraege') as any)
-    .select('id, referenz, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, taric_code, ursprungsland, versicherungswert, status, emcs_arc_nummer, emcs_status, emcs_datum, created_at, partner_daten, storniert_am, storniert_von_name, storno_grund, kontakte(vorname, nachname), firmen(name)')
+    .select('id, referenz, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, taric_code, ursprungsland, versicherungswert, status, emcs_arc_nummer, emcs_status, emcs_datum, created_at, partner_daten, storniert_am, storniert_von_name, storno_grund, laender_belege, kontakte(vorname, nachname), firmen(name)')
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .order('created_at', { ascending: false })

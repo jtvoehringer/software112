@@ -12,6 +12,9 @@
 -- @ziel: Ausfuhranmeldung (MRN, Datum) gesperrt; die Begründung setzt nur der Statuswechsel.
 -- @mutation ohne_nachweispruefung: „Abgeschlossen“ auch ohne Nachweis und ohne Begründung | rot: abschluss_ohne_nachweis
 -- @mutation ohne_nachweis_schutz: Trigger a_nachweis_schutz entfernt | rot: nachweis_zukunft|nachweis_gesperrt_.*
+-- @ziel: KAN-437 Teil 3: Die länderspezifischen Belegnummern (laender_belege, Liste mit höchstens 20 Einträgen) bleiben
+-- @ziel: mit Rechnung und ab „Versendet“ änderbar und sind nach „Abgeschlossen“ gesperrt.
+-- @mutation belege_nach_abschluss: der Schutz kennt die Belegnummern nicht | rot: belege_gesperrt
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 06 (Stand 13.11.2026, KAN-440). Alles zurückgerollt.
 
@@ -22,6 +25,7 @@ DECLARE
   c_fn    constant regprocedure := 'public.s112_exportauftrag_status_setzen(uuid, uuid, text, text)'::regprocedure;
   c_nw    constant text := 'INSERT INTO public.export_nachweise (tenant_id, exportauftrag_id, art, datum, datei_pfad, dateiname) VALUES (%L, %L, %L, %L, %L, %L)';
   c_mrn   constant text := 'UPDATE public.exportauftraege SET ausfuhr_mrn = %L, ausfuhr_anmeldung_datum = %L WHERE id = %L';
+  c_bel   constant text := 'UPDATE public.exportauftraege SET laender_belege = %L::jsonb WHERE id = %L';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;
@@ -71,6 +75,10 @@ BEGIN
       $a$IF p_status = 'abgeschlossen' AND NOT coalesce(v_a.mustersendung, false)$a$, $a$IF p_status = 'nie' AND NOT coalesce(v_a.mustersendung, false)$a$);
   END $d$$m$);
   PERFORM pg_temp.s112_mutiere('ohne_nachweis_schutz', $m$DROP TRIGGER a_nachweis_schutz ON public.export_nachweise$m$);
+  PERFORM pg_temp.s112_mutiere('belege_nach_abschluss', $m$DO $d$ BEGIN
+    EXECUTE replace(pg_get_functiondef('public.s112_export_workflow_schutz()'::regprocedure),
+      $a$NEW.laender_belege IS DISTINCT FROM OLD.laender_belege$a$, $a$false$a$);
+  END $d$$m$);
   PERFORM pg_temp.s112_mutiere('ohne_rollenpruefung', $m$DO $d$ BEGIN
     EXECUTE replace(pg_get_functiondef('public.s112_exportauftrag_status_setzen(uuid, uuid, text, text)'::regprocedure),
       $a$IF v_uid IS NOT NULL AND NOT EXISTS ($a$, $a$IF v_uid IS NULL AND NOT EXISTS ($a$);
@@ -151,6 +159,13 @@ BEGIN
     pg_temp.s112_versuch(format(c_mrn, '26AT100000ABCDEFG1', v_heute, v_auf)), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('mrn_format',
     split_part(pg_temp.s112_fehlertext(format(c_mrn, 'zu kurz', v_heute, v_auf)), ':', 1), '23514');
+  -- KAN-437 Teil 3: Belegnummern – mit Rechnung und ab „Versendet“ änderbar; nur als Liste, höchstens 20 Einträge
+  v_erg := v_erg || pg_temp.s112_erwarte('belege',
+    pg_temp.s112_versuch(format(c_bel, '[{"bezeichnung": "COLA", "nummer": "S112TEST-1"}, {"bezeichnung": "Prior Notice", "nummer": "S112TEST-2"}]', v_auf)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('belege_keine_liste',
+    split_part(pg_temp.s112_fehlertext(format(c_bel, '{"bezeichnung": "COLA"}', v_auf)), ':', 1), '23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('belege_zu_viele',
+    split_part(pg_temp.s112_fehlertext(format(c_bel, (SELECT jsonb_agg(jsonb_build_object('bezeichnung', 'S112TEST', 'nummer', n)) FROM generate_series(1, 21) n)::text, v_auf)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_abschluss_grund',
     pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET abschluss_ohne_nachweis = %L WHERE id = %L', 'S112TEST direkt gesetzt', v_auf)) LIKE '42501:%nur über den Statuswechsel%', true);
 
@@ -188,6 +203,8 @@ BEGIN
     pg_temp.s112_fehlertext(format('DELETE FROM public.export_nachweise WHERE exportauftrag_id = %L', v_auf)) LIKE '42501:%abgeschlossen%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('nachweis_gesperrt_anlegen',
     pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'sonstiger', v_heute, v_b || '/' || v_auf || '/s112test-3.pdf', 'S112TEST.pdf')) LIKE '42501:%abgeschlossen%', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('belege_gesperrt',
+    pg_temp.s112_fehlertext(format(c_bel, '[{"bezeichnung": "COLA", "nummer": "S112TEST-3"}]', v_auf)) LIKE '42501:%abgeschlossen%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('mrn_gesperrt',
     pg_temp.s112_fehlertext(format(c_mrn, '26AT100000ABCDEFG2', v_heute, v_auf)) LIKE '42501:%abgeschlossen%', true);
 
@@ -251,6 +268,6 @@ BEGIN
       has_table_privilege('authenticated', 'public.export_nachweise', 'UPDATE')::text),
     'false/true/false/false/false/false');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 51);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 55);
 END
 $test$;

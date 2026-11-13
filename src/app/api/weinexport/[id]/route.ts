@@ -11,6 +11,7 @@ import { dbFehlerText } from '@/lib/fehler'
 import { istExportStatus } from '@/lib/export/workflow'
 import { ausfuhranmeldungFehler, mrnBereinigt } from '@/lib/export/nachweise'
 import { heuteWien } from '@/lib/datum/wien'
+import { belegnummernAus, belegnummernFehler } from '@/lib/export/belegnummern'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -20,7 +21,8 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 // aktiv usw. werden nie aus dem Request-Body übernommen.
 // KAN-414: dazu das Verpackungsgewicht (Kartons, Palette) – steht oft erst beim Kommissionieren fest
 // KAN-440 Teil 2: dazu MRN und Datum der Ausfuhranmeldung (stehen oft erst beim Versand fest; ab „Abgeschlossen“ gesperrt)
-const AENDERBAR = ['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum'] as const
+// KAN-437 Teil 3: dazu die länderspezifischen Belegnummern (COLA, Prior Notice …; ebenfalls bis „Abgeschlossen“)
+const AENDERBAR = ['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum', 'laender_belege'] as const
 const EMCS_STATUS = ['draft', 'submitted', 'accepted', 'cancelled']
 // ARC (Administrative Reference Code) besteht nur aus Buchstaben und Ziffern (21 Zeichen);
 // die Einschränkung hält den Wert außerdem sicher für das e-AD-XML unter /emcs.
@@ -106,6 +108,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (af) return fehler(af, 400)
     if ('ausfuhr_mrn' in b) update.ausfuhr_mrn = mrnBereinigt(mrn) || null
     if ('ausfuhr_anmeldung_datum' in b) update.ausfuhr_anmeldung_datum = datum
+  }
+  if ('laender_belege' in b) {
+    const bf = belegnummernFehler(b.laender_belege)
+    if (bf) return fehler(bf, 400)
+    update.laender_belege = belegnummernAus(b.laender_belege)   // nur Bezeichnung und Nummer, getrimmt – nichts sonst aus dem Body
   }
   if (Object.keys(update).length === 0) return fehler('Keine Änderungen übergeben', 400)
 
