@@ -402,7 +402,10 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
             </div>
             {dokFehler && <p role="alert" className="mt-2 text-xs text-s112-err">{dokFehler}</p>}
           </div>
-          <EmcsPanel auftragId={auftrag.id} initialArc={auftrag.emcs_arc_nummer ?? ''} initialStatus={auftrag.emcs_status ?? ''} />
+          <EmcsPanel auftragId={auftrag.id} initialArc={auftrag.emcs_arc_nummer ?? ''} initialStatus={auftrag.emcs_status ?? ''}
+            initialVerfahren={auftrag.verbrauchsteuer_verfahren ?? ''} initialMvv={auftrag.mvv_code ?? ''}
+            initialBegleitdokument={auftrag.begleitdokument_nr ?? ''} initialEmpfaengerNr={auftrag.empfaenger_verbrauchsteuernr ?? ''}
+            aenderbar={darfSchreiben && status !== 'abgeschlossen' && !auftrag.storniert_am} />
         </div>
       </div>
     </div>

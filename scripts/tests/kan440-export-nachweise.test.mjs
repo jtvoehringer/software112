@@ -158,7 +158,7 @@ describe('KAN-440: Routen, Seiten, Migration', () => {
   })
   test('PATCH: MRN und Datum der Ausfuhranmeldung in der Positivliste, geprüft und bereinigt', () => {
     const r = quelle('src/app/api/weinexport/[id]/route.ts')
-    assert.match(r, /const AENDERBAR = \['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum', 'laender_belege'\] as const/)   // KAN-437: + Belegnummern
+    assert.match(r, /const AENDERBAR = \['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum', 'laender_belege',\n  'verbrauchsteuer_verfahren', 'mvv_code', 'begleitdokument_nr', 'empfaenger_verbrauchsteuernr'\] as const/)   // KAN-437: + Belegnummern
     assert.match(r, /const af = ausfuhranmeldungFehler\(\{ mrn, datum \}, heuteWien\(\)\)\s+if \(af\) return fehler\(af, 400\)/)
     assert.match(r, /update\.ausfuhr_mrn = mrnBereinigt\(mrn\) \|\| null/)
   })

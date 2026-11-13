@@ -15,6 +15,9 @@
 -- @ziel: KAN-437 Teil 3: Die länderspezifischen Belegnummern (laender_belege, Liste mit höchstens 20 Einträgen) bleiben
 -- @ziel: mit Rechnung und ab „Versendet“ änderbar und sind nach „Abgeschlossen“ gesperrt.
 -- @mutation belege_nach_abschluss: der Schutz kennt die Belegnummern nicht | rot: belege_gesperrt
+-- @ziel: KAN-435 D2: Verbrauchsteuerverfahren, MVV-Code, Nummer des Begleitdokuments und Verbrauchsteuernummer des
+-- @ziel: Empfängers bleiben mit Rechnung und ab „Versendet“ änderbar und sind nach „Abgeschlossen“ gesperrt.
+-- @mutation verbrauchsteuer_nach_abschluss: der Schutz kennt die Verbrauchsteuer-Angaben nicht | rot: verbrauchsteuer_gesperrt
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 06 (Stand 13.11.2026, KAN-440). Alles zurückgerollt.
 
@@ -26,6 +29,7 @@ DECLARE
   c_nw    constant text := 'INSERT INTO public.export_nachweise (tenant_id, exportauftrag_id, art, datum, datei_pfad, dateiname) VALUES (%L, %L, %L, %L, %L, %L)';
   c_mrn   constant text := 'UPDATE public.exportauftraege SET ausfuhr_mrn = %L, ausfuhr_anmeldung_datum = %L WHERE id = %L';
   c_bel   constant text := 'UPDATE public.exportauftraege SET laender_belege = %L::jsonb WHERE id = %L';
+  c_vst   constant text := 'UPDATE public.exportauftraege SET verbrauchsteuer_verfahren = %L, mvv_code = %L, begleitdokument_nr = %L, empfaenger_verbrauchsteuernr = %L WHERE id = %L';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;
@@ -75,6 +79,10 @@ BEGIN
       $a$IF p_status = 'abgeschlossen' AND NOT coalesce(v_a.mustersendung, false)$a$, $a$IF p_status = 'nie' AND NOT coalesce(v_a.mustersendung, false)$a$);
   END $d$$m$);
   PERFORM pg_temp.s112_mutiere('ohne_nachweis_schutz', $m$DROP TRIGGER a_nachweis_schutz ON public.export_nachweise$m$);
+  PERFORM pg_temp.s112_mutiere('verbrauchsteuer_nach_abschluss', $m$DO $d$ BEGIN
+    EXECUTE replace(pg_get_functiondef('public.s112_export_workflow_schutz()'::regprocedure),
+      $a$IF OLD.status = 'abgeschlossen' AND (NEW.verbrauchsteuer_verfahren IS DISTINCT FROM$a$, $a$IF false AND (NEW.verbrauchsteuer_verfahren IS DISTINCT FROM$a$);
+  END $d$$m$);
   PERFORM pg_temp.s112_mutiere('belege_nach_abschluss', $m$DO $d$ BEGIN
     EXECUTE replace(pg_get_functiondef('public.s112_export_workflow_schutz()'::regprocedure),
       $a$NEW.laender_belege IS DISTINCT FROM OLD.laender_belege$a$, $a$false$a$);
@@ -166,6 +174,13 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format(c_bel, '{"bezeichnung": "COLA"}', v_auf)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('belege_zu_viele',
     split_part(pg_temp.s112_fehlertext(format(c_bel, (SELECT jsonb_agg(jsonb_build_object('bezeichnung', 'S112TEST', 'nummer', n)) FROM generate_series(1, 21) n)::text, v_auf)), ':', 1), '23514');
+  -- KAN-435 D2: Verbrauchsteuer-Angaben – mit Rechnung und ab „Versendet“ änderbar; Verfahren nur aus der Liste, Längen begrenzt
+  v_erg := v_erg || pg_temp.s112_erwarte('verbrauchsteuer',
+    pg_temp.s112_versuch(format(c_vst, 'aussetzung', 'S112TEST-MVV-1', 'S112TEST-BD-1', 'DE00000000001', v_auf)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('verbrauchsteuer_verfahren_falsch',
+    split_part(pg_temp.s112_fehlertext(format(c_vst, 'irgendwas', NULL, NULL, NULL, v_auf)), ':', 1), '23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('verbrauchsteuer_zu_lang',
+    split_part(pg_temp.s112_fehlertext(format(c_vst, 'freier_verkehr', repeat('X', 41), NULL, NULL, v_auf)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_abschluss_grund',
     pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET abschluss_ohne_nachweis = %L WHERE id = %L', 'S112TEST direkt gesetzt', v_auf)) LIKE '42501:%nur über den Statuswechsel%', true);
 
@@ -205,6 +220,8 @@ BEGIN
     pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'sonstiger', v_heute, v_b || '/' || v_auf || '/s112test-3.pdf', 'S112TEST.pdf')) LIKE '42501:%abgeschlossen%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('belege_gesperrt',
     pg_temp.s112_fehlertext(format(c_bel, '[{"bezeichnung": "COLA", "nummer": "S112TEST-3"}]', v_auf)) LIKE '42501:%abgeschlossen%', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('verbrauchsteuer_gesperrt',
+    pg_temp.s112_fehlertext(format(c_vst, 'freier_verkehr', 'S112TEST-MVV-2', 'S112TEST-BD-2', 'DE00000000002', v_auf)) LIKE '42501:%abgeschlossen%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('mrn_gesperrt',
     pg_temp.s112_fehlertext(format(c_mrn, '26AT100000ABCDEFG2', v_heute, v_auf)) LIKE '42501:%abgeschlossen%', true);
 
@@ -268,6 +285,6 @@ BEGIN
       has_table_privilege('authenticated', 'public.export_nachweise', 'UPDATE')::text),
     'false/true/false/false/false/false');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 55);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 59);
 END
 $test$;

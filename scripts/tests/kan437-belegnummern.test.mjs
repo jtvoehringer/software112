@@ -50,7 +50,7 @@ describe('KAN-437: Belegnummern – Eingabe', () => {
 describe('KAN-437: Belegnummern – Verdrahtung und Migration', () => {
   test('PATCH: in der Positivliste, geprüft, nur die bereinigte Liste wird geschrieben', () => {
     const r = quelle('src/app/api/weinexport/[id]/route.ts')
-    assert.match(r, /'ausfuhr_mrn', 'ausfuhr_anmeldung_datum', 'laender_belege'\] as const/)
+    assert.match(r, /'ausfuhr_mrn', 'ausfuhr_anmeldung_datum', 'laender_belege',\n/)   // KAN-435 D2: danach die Verbrauchsteuer-Felder
     assert.match(r, /const bf = belegnummernFehler\(b\.laender_belege\)\s+if \(bf\) return fehler\(bf, 400\)\s+update\.laender_belege = belegnummernAus\(b\.laender_belege\)/)
   })
   test('Kasten: nur Drittland, änderbar bis „Abgeschlossen“; Laden mit try/finally, Antwort ausgewertet', () => {
@@ -65,7 +65,7 @@ describe('KAN-437: Belegnummern – Verdrahtung und Migration', () => {
     const e = quelle('src/lib/behoerden/exportauftrag.ts')
     assert.match(e, /\{ kopf: 'EMCS-Datum', typ: 'datum', wert: z => z\.emcsDatum \},\s+\{ kopf: 'Belegnummern', typ: 'text', wert: z => z\.belegnummern \},\s+\{ kopf: 'Storniert am'/)
     assert.match(e, /belegnummern: belegnummernText\(a\.laender_belege\) \|\| null,/)
-    assert.match(e, /storno_grund, laender_belege, kontakte\(vorname, nachname\), firmen\(name\)'\)/)
+    assert.match(e, /storno_grund, laender_belege, verbrauchsteuer_verfahren, mvv_code, begleitdokument_nr, kontakte\(vorname, nachname\), firmen\(name\)'\)/)
   })
   test('Migration: Spalte mit Grenzen, in der Positivliste der Sperre, nach „Abgeschlossen“ gesperrt', () => {
     const m = migration('kan437b_export_belegnummern')

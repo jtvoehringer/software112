@@ -17,6 +17,7 @@ import { AktionsFehler } from '@/lib/fehler'
 import { ladeExportauftrag, importeurName, type ExportPositionZeile } from './exportauftrag'
 import { textOderNull, type R } from './verkehr-hilfen'
 import { knZiffern } from '../export/grunddaten'
+import { vstVerfahrenLabel } from '../export/verbrauchsteuer'
 
 /** Kopfzeile von Druckansicht und Hinweis in der Hilfe */
 export const DATENBLATT_VERMERK = 'Kein amtliches Dokument – Daten zum Erfassen in EMCS'
@@ -49,14 +50,20 @@ export type DatenblattKopf = {
   versenderName: string | null
   versenderAnschrift: string | null
   versenderUid: string | null
+  /** KAN-435 D2: Verbrauchsteuernummer (ATV/SEED) des Betriebs */
+  versenderVerbrauchsteuernr: string | null
   empfaengerName: string | null
   empfaengerOrt: string | null
   empfaengerLand: string | null
   empfaengerUid: string | null
+  empfaengerVerbrauchsteuernr: string | null
   lieferfall: string | null
+  verfahren: string | null
   verkehrszweigCode: string | null
   verkehrszweigText: string | null
   arc: string | null
+  mvvCode: string | null
+  begleitdokumentNr: string | null
   ausfuhrMrn: string | null
 }
 
@@ -81,14 +88,19 @@ export const SPALTEN_EMCS_DATENBLATT: CsvSpalte<DatenblattZeile>[] = [
   { kopf: 'Versender', typ: 'text', wert: z => z.versenderName },
   { kopf: 'Anschrift Versender', typ: 'text', wert: z => z.versenderAnschrift },
   { kopf: 'UID Versender', typ: 'code', wert: z => z.versenderUid },
+  { kopf: 'Verbrauchsteuernummer Versender', typ: 'code', wert: z => z.versenderVerbrauchsteuernr },
   { kopf: 'Empfänger', typ: 'text', wert: z => z.empfaengerName },
   { kopf: 'Bestimmungsort', typ: 'text', wert: z => z.empfaengerOrt },
   { kopf: 'Bestimmungsland', typ: 'text', wert: z => z.empfaengerLand },
   { kopf: 'UID Empfänger', typ: 'code', wert: z => z.empfaengerUid },
+  { kopf: 'Verbrauchsteuernummer Empfänger', typ: 'code', wert: z => z.empfaengerVerbrauchsteuernr },
   { kopf: 'Lieferfall', typ: 'text', wert: z => z.lieferfall },
+  { kopf: 'Verbrauchsteuerverfahren', typ: 'text', wert: z => z.verfahren },
   { kopf: 'Verkehrszweig (Code)', typ: 'code', wert: z => z.verkehrszweigCode },
   { kopf: 'Verkehrszweig', typ: 'text', wert: z => z.verkehrszweigText },
   { kopf: 'ARC', typ: 'code', wert: z => z.arc },
+  { kopf: 'MVV-Code', typ: 'code', wert: z => z.mvvCode },
+  { kopf: 'Begleitdokument-Nr.', typ: 'code', wert: z => z.begleitdokumentNr },
   { kopf: 'MRN Ausfuhranmeldung', typ: 'code', wert: z => z.ausfuhrMrn },
   { kopf: 'Pos.', typ: 'ganzzahl', wert: z => z.position },
   { kopf: 'Produktcode (Vorschlag – in EMCS prüfen)', typ: 'code', wert: z => z.produktcode },
@@ -112,14 +124,19 @@ export function datenblattKopf(auftrag: R, betrieb: R, lieferfallLabel: string |
     versenderName: textOderNull(betrieb.betrieb_name),
     versenderAnschrift: anschrift || null,
     versenderUid: textOderNull(betrieb.betrieb_uid),
+    versenderVerbrauchsteuernr: textOderNull(betrieb.betrieb_verbrauchsteuernr),
     empfaengerName: importeurName(auftrag),
     empfaengerOrt: textOderNull(auftrag.destination_stadt),
     empfaengerLand: textOderNull(auftrag.destination_land),
     empfaengerUid: textOderNull(auftrag.kunde_uid),
+    empfaengerVerbrauchsteuernr: textOderNull(auftrag.empfaenger_verbrauchsteuernr),
     lieferfall: lieferfallLabel,
+    verfahren: vstVerfahrenLabel(auftrag.verbrauchsteuer_verfahren) || null,
     verkehrszweigCode: vz?.code ?? null,
     verkehrszweigText: vz?.text ?? textOderNull(auftrag.transport_art),
     arc: textOderNull(auftrag.emcs_arc_nummer),
+    mvvCode: textOderNull(auftrag.mvv_code),
+    begleitdokumentNr: textOderNull(auftrag.begleitdokument_nr),
     ausfuhrMrn: textOderNull(auftrag.ausfuhr_mrn),
   }
 }
@@ -166,7 +183,7 @@ export async function ladeEmcsDatenblatt(supabase: Client, tenantId: string, p: 
   const erg = await ladeExportauftrag(supabase, tenantId, p)
   if (!erg) return null
   const { data: betrieb, error } = await (supabase.from('tenant_einstellungen') as any)
-    .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid')
+    .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, betrieb_verbrauchsteuernr')
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (error) throw new AktionsFehler(`Laden fehlgeschlagen (tenant_einstellungen): ${error.message}`)
@@ -176,6 +193,11 @@ export async function ladeEmcsDatenblatt(supabase: Client, tenantId: string, p: 
   const fehlt = erg.grunddaten.hinweise.map(h => h.text)
   if (erg.gewicht.hinweis) fehlt.push(erg.gewicht.hinweis)
   if (!kopf.versanddatum) fehlt.push('Versanddatum fehlt.')
+  // KAN-435 D2: die Nummern braucht EMCS bei Beförderungen in andere Mitgliedstaaten
+  if (erg.grunddaten.lieferfall.gebiet === 'eu') {
+    if (!kopf.versenderVerbrauchsteuernr) fehlt.push('Verbrauchsteuernummer des Betriebs fehlt (Betrieb › Einstellungen).')
+    if (!kopf.empfaengerVerbrauchsteuernr) fehlt.push('Verbrauchsteuernummer des Empfängers fehlt (Kasten „Verbrauchsteuer und Begleitdokument“ am Auftrag).')
+  }
   if (!kopf.verkehrszweigCode) fehlt.push('Transportart fehlt bzw. lässt sich keinem Verkehrszweig zuordnen.')
   zeilen.forEach(z => { if (!z.produktcode) fehlt.push(`Pos. ${z.position}: kein Produktcode-Vorschlag (KN-Code fehlt oder ist kein Wein in Behältnissen) – in EMCS selbst wählen.`) })
   return {

@@ -440,6 +440,12 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
               <input aria-label="Bewilligung Ermächtigter Ausführer" name="betrieb_ea_bewilligung" maxLength={40} defaultValue={daten.betrieb_ea_bewilligung ?? ''} className={inputCls()} placeholder="AT/…" />
               <p className="text-xs text-s112-muted mt-1">Bewilligungsnummer des Zollamts – für die Ursprungserklärung über 6.000 € (z. B. Südkorea).</p>
             </div>
+            {/* KAN-435 D2: Verbrauchsteuernummer des Betriebs für das EMCS-Datenblatt */}
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Verbrauchsteuernummer (ATV/SEED)</label>
+              <input aria-label="Verbrauchsteuernummer (ATV/SEED)" name="betrieb_verbrauchsteuernr" maxLength={26} defaultValue={daten.betrieb_verbrauchsteuernr ?? ''} className={inputCls()} placeholder="AT…" />
+              <p className="text-xs text-s112-muted mt-1">Nummer des Zollamts für Beförderungen verbrauchsteuerpflichtiger Waren – erscheint im EMCS-Datenblatt des Exportauftrags. Leer lassen, wenn du keine hast.</p>
+            </div>
             <div className="sm:col-span-2">
               <label className="inline-flex items-start gap-2 text-sm text-s112-text-1">
                 <input type="checkbox" name="kleiner_weinerzeuger" defaultChecked={daten.kleiner_weinerzeuger} className="mt-0.5" />
