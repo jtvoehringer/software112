@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
+import { profilClient, psmNachtragen } from '@/lib/auth/profilClient'
+import { canRead } from '@/lib/auth/lesebereiche'
 import { ladeErnteSperren, MASSNAHME_ERNTE_GRUND } from '@/lib/behandlungen/ernteSperre'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
@@ -25,7 +27,8 @@ type AR = Record<string, any>
 
 export default async function BehandlungEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
+  // KAN-456: ohne Lesebereich „betriebsmittel“ (Profil „Extern“) kommen die Mittel aus den Funktionen ohne Preis
+  const supabase = profilClient(await createSupabaseServerClient(), await getCurrentMembership())
   const role = await getCurrentUserRole()
 
   if (!canWrite(role, 'rieden')) redirect('/behandlungen')
@@ -96,7 +99,9 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
-  const rawB = geladen(rawBRes, 'Maßnahmen')
+  // KAN-456: eingebettetes Mittel fehlt ohne Lesebereich „betriebsmittel“ – Wartezeit aus der Funktion ohne Preis
+  const geladenB = geladen(rawBRes, 'Maßnahmen')
+  const rawB = geladenB ? (await psmNachtragen(supabase, membership, [geladenB as AR]))[0] : geladenB
   const rawPsm = geladen(rawPsmRes, 'Pflanzenschutzmittel')
   const rawDuenger = geladen(rawDuengerRes, 'Düngemittel')
   const rawKostenarten = geladen(rawKostenartenRes, 'Kostenarten')
@@ -235,11 +240,11 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     // storno-sichtbar: nur zur Anzeige; stornierte Mittel der Mischung bleiben außen vor
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const andere = geladen(await (supabase.from('behandlungen') as any)
-      .select('id, psm:psm_id(name)')
+      .select('id, psm_id, psm:psm_id(name)')
       .eq('tenant_id', tenantId).eq('tankmischung_id', b0.tankmischung_id).neq('id', id).is('storniert_am', null)
       .order('id')
       .limit(50), 'Tankmischung')   // alle-ausnahme: Mittel einer einzigen Tankmischung (höchstens sechs)
-    mischung = ((andere ?? []) as AR[]).map(a => (a.psm?.name as string | undefined) ?? 'Mittel')
+    mischung = (await psmNachtragen(supabase, membership, (andere ?? []) as AR[])).map(a => (a.psm?.name as string | undefined) ?? 'Mittel')
   }
 
   return (
@@ -262,7 +267,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       <BehandlungEditForm
         behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus}
         kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}
-        flaecheHa={flaecheHa} betriebsmittel={betriebsmittel} kostenModul={await hatModul('modul_controlling')}
+        flaecheHa={flaecheHa} betriebsmittel={betriebsmittel} kostenModul={(await hatModul('modul_controlling')) && canRead(membership, 'controlling')}
         weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} startWGs={startWGs} startGSTs={startGSTs}
         {...await anwendungKontext(supabase, tenantId)}
       />

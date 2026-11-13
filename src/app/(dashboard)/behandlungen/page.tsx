@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { psmNachtragen } from '@/lib/auth/profilClient'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { BarChart3 } from 'lucide-react'
@@ -94,7 +95,8 @@ export default async function BehandlungenPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('tenant_einstellungen') as any).select('psm_erfassungsfrist_h')).maybeSingle(),
   ])
-  const rawB = geladen(rawBRes, 'Maßnahmen')
+  // KAN-456: eingebettetes Mittel fehlt ohne Lesebereich „betriebsmittel“ – Name und Wartezeit aus der Funktion ohne Preis
+  const rawB = await psmNachtragen(supabase, membership, (geladen(rawBRes, 'Maßnahmen') ?? []) as AR[])
   const rawKosten = geladen(rawKostenRes, 'Kosteneinträge')
   const rawEinst = geladen(rawEinstRes, 'Einstellungen')
   const psmFristH = fristAus((rawEinst as AR | null)?.psm_erfassungsfrist_h)

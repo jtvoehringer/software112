@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle, bloecke } from '@/lib/supabase/alle'
 import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { profilClient } from '@/lib/auth/profilClient'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { hatModul } from '@/lib/auth/modul'
@@ -468,7 +469,7 @@ async function ladePsmFrist(supabase: any, tenantId: string): Promise<number> {
 }
 
 export async function createBehandlung(formData: FormData) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = profilClient(await createSupabaseServerClient(), await getCurrentMembership())   // KAN-456: Mittel ohne Preis für „Extern“
   const tenantId = await getTenantId()
 
   // Weingarten-IDs (ganze Rieden) und Grundstück-IDs (einzelne GST) aus Checkboxen
@@ -644,7 +645,7 @@ export async function createBehandlung(formData: FormData) {
 }
 
 export async function updateBehandlung(id: string, formData: FormData) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = profilClient(await createSupabaseServerClient(), await getCurrentMembership())   // KAN-456: Mittel ohne Preis für „Extern“
   const tenantId = await getTenantId()
 
   const datum          = formData.get('datum') as string
@@ -807,7 +808,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
 // angelegter Kosteneintrag geht mit (nur mit Modul Controlling – ohne Modul sperrt die DB kosteneintraege).
 // Endgültig löschen nur stornierte Maßnahmen über s112_storniert_loeschen (Grund im Änderungsprotokoll).
 export async function stornoBehandlung(id: string, grund: string) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = profilClient(await createSupabaseServerClient(), await getCurrentMembership())   // KAN-456: Mittel ohne Preis für „Extern“
   const tenantId = await getTenantId()
   const f = stornoGrundFehler(grund)
   if (f) throw new AktionsFehler(f)
@@ -835,7 +836,7 @@ export async function stornoBehandlung(id: string, grund: string) {
  * alle oder keines (z. B. bei der Sperre nach der Lese, KAN-169). Kosteneinträge gehen mit wie bei stornoBehandlung.
  */
 export async function stornoTankmischung(tankmischungId: string, grund: string) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = profilClient(await createSupabaseServerClient(), await getCurrentMembership())   // KAN-456: Mittel ohne Preis für „Extern“
   const tenantId = await getTenantId()
   const f = stornoGrundFehler(grund)
   if (f) throw new AktionsFehler(f)
@@ -861,7 +862,7 @@ export async function stornoTankmischung(tankmischungId: string, grund: string) 
 }
 
 export async function loescheBehandlung(id: string, grund: string) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = profilClient(await createSupabaseServerClient(), await getCurrentMembership())   // KAN-456: Mittel ohne Preis für „Extern“
   const tenantId = await getTenantId()
   const f = stornoGrundFehler(grund)
   if (f) throw new AktionsFehler(f.replace('den Storno', 'das endgültige Löschen'))

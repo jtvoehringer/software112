@@ -71,7 +71,11 @@ describe('KAN-454: Migration, Liste und DB-Test nennen dieselben Policies', () =
   test('die VALUES-Liste der Migration ist die Ausgabe von lesebereich-sql.js', () => {
     const m = /FOR r IN SELECT \* FROM \(VALUES\n([\s\S]*?)\n {2}\) AS t\(tabelle, bereich, art, eltern, spalte\) LOOP/.exec(M)
     assert.ok(m, 'VALUES-Liste in der Migration')
-    assert.equal(m[1], werteSql(LISTE))
+    // Spätere Migrationen haben einzelne Tabellen in einen anderen Bereich verschoben – kan412b enthält den Stand davor:
+    //   morgenberichte: ki → verwaltung (kan412d_extern_mittel, KAN-456: der Bericht fasst alle Bereiche zusammen)
+    const damals = { ...LISTE, tabellen: { ...LISTE.tabellen, morgenberichte: 'ki' } }
+    assert.equal(m[1], werteSql(damals))
+    assert.equal(LISTE.tabellen.morgenberichte, 'verwaltung')
   })
   test('die Soll-Liste des DB-Tests 02 ist die Ausgabe von lesebereich-sql.js', () => {
     assert.deepEqual(feld('c_soll'), sollListe(LISTE))

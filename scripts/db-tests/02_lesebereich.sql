@@ -28,7 +28,7 @@ DECLARE
     'keller_zugangskorrekturen=keller', 'kellerbuch_abschluesse=keller', 'kellerbuch_buchungen=keller', 'kellermittel=keller', 'kellermittel_buchungen=keller', 'kellerplaene=keller',
     'kellerplan_positionen=keller', 'kontakt_firmen=crm', 'kontakt_praeferenzen=crm', 'kontakte=crm', 'konten=ea', 'konto_umbuchungen=ea',
     'kostenarten=controlling', 'kosteneintraege=controlling', 'kosteneintrag_behaelter=controlling', 'kosteneintrag_weingaerten=controlling', 'kostenstellen=controlling', 'lagen=rieden',
-    'lesen=lese', 'lieferadressen=verkauf', 'lohnversektungen=keller', 'meldung_abgaben=verwaltung', 'morgenberichte=ki', 'pflanzenschutzmittel=betriebsmittel',
+    'lesen=lese', 'lieferadressen=verkauf', 'lohnversektungen=keller', 'meldung_abgaben=verwaltung', 'morgenberichte=verwaltung', 'pflanzenschutzmittel=betriebsmittel',
     'pipeline_eintraege=crm', 'pipeline_verlauf=crm', 'pressung_behaelter=lese', 'pressung_weingaerten=lese', 'pressungen=lese', 'produktion_eingaenge=keller',
     'produktionen=keller', 'pruefnummer_chargen=keller', 'pruefnummer_ereignisse=keller', 'pruefnummernantraege=keller', 'psm_lager_bewegungen=betriebsmittel', 'psm_uebermittlungen=betriebsmittel',
     'rabattgruppen=verkauf', 'rechnungen=verkauf', 'reifemessungen=rieden', 'saetze_massnahmen=controlling', 'sonstige_artikel=lager', 'sonstige_artikel_bewegungen=lager',

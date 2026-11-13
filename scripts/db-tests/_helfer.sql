@@ -1423,6 +1423,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 's112_lesegesperrte_tenants(p_bereich text)'),   -- KAN-412: Betriebe, in denen ein Lesebereich wegen des Profils gesperrt ist
     ('rls_hilfe',     '-US', false, 's112_darf_lesen(p_tenant_id uuid, p_bereich text)'),   -- KAN-412: Leseprüfung je Betrieb (nur Profil)
     ('intern',        '--S', false, 's112_pruefe_lesen(p_tenant_id uuid, p_bereich text)'),   -- KAN-455: Leseprüfung für SECURITY-DEFINER-Funktionen (42501, HINT lesebereich)
+    ('mandant',       '-US', false, 's112_psm_ohne_preis(p_tenant_id uuid)'),            -- KAN-456: Mittelauswahl ohne Preis (Profil „Extern“), nur lesend
+    ('mandant',       '-US', false, 's112_duengemittel_ohne_preis(p_tenant_id uuid)'),
+    ('mandant',       '-US', false, 's112_betriebsmittel_ohne_preis(p_tenant_id uuid)'),
     ('mandant_eigen', '-US', false, 's112_mandant_mitglieder(p_tenant_id uuid)'),
     ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),

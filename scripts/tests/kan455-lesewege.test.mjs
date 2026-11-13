@@ -40,9 +40,11 @@ describe('KAN-455: Leseprüfung in den Funktionen', () => {
   const plpgsql = werte(0)
   const sql = werte(1)
   test('Migration und DB-Test 07 nennen dieselben Funktionen mit demselben Bereich', () => {
-    const erwartet = [...plpgsql, ...sql, 's112_stammdaten_bezuege=*', 'ki_readonly_query=ki'].sort()
+    // dazu seit KAN-456 (kan412d_extern_mittel) die drei Funktionen „Mittel ohne Preis“ mit dem Bereich massnahmen
+    const erwartet = [...plpgsql, ...sql, 's112_stammdaten_bezuege=*', 'ki_readonly_query=ki',
+      's112_psm_ohne_preis=massnahmen', 's112_duengemittel_ohne_preis=massnahmen', 's112_betriebsmittel_ohne_preis=massnahmen'].sort()
     assert.deepEqual(feld('c_soll'), erwartet)
-    assert.equal(erwartet.length, 27)
+    assert.equal(erwartet.length, 30)
   })
   test('jeder Bereich ist ein Lesebereich der Liste – nie „allgemein“', () => {
     for (const e of [...plpgsql, ...sql]) {
