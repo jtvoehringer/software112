@@ -741,6 +741,18 @@
 "erstellt_am",
 "erstellt_von"
 ],
+"export_registrierungen": [
+"id",
+"tenant_id",
+"art",
+"bezeichnung",
+"nummer",
+"gueltig_bis",
+"zusatz",
+"notiz",
+"erstellt_am",
+"aktualisiert_am"
+],
 "exportauftraege": [
 "id",
 "tenant_id",

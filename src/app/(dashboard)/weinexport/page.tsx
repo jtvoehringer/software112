@@ -57,6 +57,8 @@ export default async function WeinexportPage() {
         <div className="flex items-start gap-2">
           <span className="self-center"><DruckFormatKnopf klein /></span>
           <CsvExportKnopf href={csvPfad('exportauftraege')} className="self-center" />
+          {/* KAN-437: Registrierungen des Betriebs (FDA, GACC, MFDS …) mit Ablaufdatum */}
+          <Link href="/weinexport/registrierungen" className="border border-s112-border rounded-xl px-4 py-2 text-sm text-s112-text-1 hover:bg-s112-bg">Registrierungen</Link>
           <Link href="/weinexport/neu"
             className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             + Neuer Auftrag

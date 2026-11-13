@@ -921,6 +921,8 @@ BEGIN
       v_erg := NULL;
     END IF;
     v_w := v_w || jsonb_build_object('verkaufsposten_id', gen_random_uuid(), 'menge', 1, 'zurueckgenommen_am', NULL);
+  ELSIF p_tab = 'export_registrierungen' THEN   -- KAN-437: CHECK Art (und Bezeichnung bei „sonstige“)
+    v_w := v_w || jsonb_build_object('art', 'fda', 'nummer', 'S112TEST-' || left(gen_random_uuid()::text, 8), 'bezeichnung', NULL);
   ELSIF p_tab = 'export_nachweise' THEN   -- KAN-440: CHECK Ablagepfad <betrieb>/<auftrag>/…, Art
     IF NOT coalesce(p_werte, '{}'::jsonb) ? 'exportauftrag_id' THEN
       v_w := v_w || jsonb_build_object('exportauftrag_id', pg_temp.s112_beispiel('exportauftraege', p_tenant, p_persona,
@@ -1078,6 +1080,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('auftrag_lieferungen',           '-',                                      '-',                                      '-'),   -- KAN-418 Teil 2: nur über s112_auftrag_liefern und den Storno-Trigger   -- KAN-418: Positionen – nur über s112_auftrag_anlegen
     ('verkauf_ki_begriffe',           'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),   -- KAN-411: gelernte Begriffe aus Bestell-Mails
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
+    ('export_registrierungen',        'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),   -- KAN-437: Export-Registrierungen des Betriebs
     ('export_nachweise',              'SA,TA,W*{warenwirtschaft}',              '-',                                      'SA,TA,W*{warenwirtschaft}'),   -- KAN-440: Nachweise anlegen/entfernen, nie ändern
     ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('exportauftraege',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
@@ -1259,7 +1262,7 @@ BEGIN
     WHEN 'paketmodul_tabellen' THEN ARRAY[
       'assistent_aktionen', 'assistent_korrekturen', 'assistent_nachrichten', 'assistent_unterhaltungen',
       'buchhaltung_export_protokoll', 'buchhaltung_kontenmapping', 'ea_anlagen', 'ea_belege', 'ea_dauerauftraege',
-      'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'export_dokumente', 'export_nachweise', 'exportauftraege',
+      'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'export_dokumente', 'export_nachweise', 'export_registrierungen', 'exportauftraege',
       'exportauftrag_positionen', 'konten', 'konto_umbuchungen', 'kostenarten', 'kosteneintraege',
       'kosteneintrag_behaelter', 'kosteneintrag_weingaerten', 'kostenstellen', 'sumup_checkouts', 'sumup_terminals']
     WHEN 'tid_ohne_fk' THEN ARRAY['bestandsprotokoll', 'system_ereignisse']

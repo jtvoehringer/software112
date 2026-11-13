@@ -10,6 +10,8 @@ import Link from '@/components/ui/Link'
 import WeinexportDetailClient from './WeinexportDetailClient'
 import ExportNachweisPanel from './ExportNachweisPanel'
 import ExportLaenderhinweise from './ExportLaenderhinweise'
+import { ladeExportRegistrierungen } from '@/lib/export/registrierungenLaden'
+import { registrierungHinweise } from '@/lib/export/registrierungen'
 import { landAnzeige } from '@/lib/katalog/laender'
 import { ladeExportNachweise } from '@/lib/export/nachweisLaden'
 import { nachweisFrist } from '@/lib/export/nachweise'
@@ -78,6 +80,10 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
     rechnungsdatum: vk?.datum ?? null, gebiet,
   }, heute)
   const darfSchreiben = !!membership && canWrite(membership, 'warenwirtschaft')
+  // KAN-437 Teil 2: fehlt eine für das Zielland verlangte Registrierung des Betriebs, ist sie abgelaufen oder läuft sie ab?
+  const regHinweise = gebiet === 'drittland' && !a.storniert_am
+    ? registrierungHinweise(a.destination_land, await ladeExportRegistrierungen(supabase, tenantId), heute)
+    : []
   // KAN-150 F2 (Frage 8): Entwurf ohne ausgestelltes Dokument und ohne ARC direkt löschbar (nur Betriebsleitung)
   const entwurfLoeschbar = a.status === 'entwurf' && !a.emcs_arc_nummer && canAdmin(membership?.role ?? null)
     && !ergebnis.dokumente.some(d => d.status === 'ausgestellt')
@@ -99,7 +105,7 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
       {gebiet === 'drittland' && !a.storniert_am && (
         <div className="px-8 max-w-5xl mx-auto">
           <ExportLaenderhinweise land={typeof a.destination_land === 'string' ? a.destination_land : null}
-            landName={landAnzeige(a.destination_land) || 'dieses Land'} />
+            landName={landAnzeige(a.destination_land) || 'dieses Land'} registrierungen={regHinweise} />
         </div>
       )}
       {/* KAN-440 Teil 2: Nachweis – im Inland ohne Bedeutung, bei stornierten Aufträgen nur, wenn schon etwas abgelegt ist */}
