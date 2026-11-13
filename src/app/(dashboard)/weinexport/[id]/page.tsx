@@ -9,6 +9,8 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import WeinexportDetailClient from './WeinexportDetailClient'
 import ExportNachweisPanel from './ExportNachweisPanel'
+import ExportLaenderhinweise from './ExportLaenderhinweise'
+import { landAnzeige } from '@/lib/katalog/laender'
 import { ladeExportNachweise } from '@/lib/export/nachweisLaden'
 import { nachweisFrist } from '@/lib/export/nachweise'
 import { lieferfall } from '@/lib/export/grunddaten'
@@ -93,6 +95,13 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
         dokumente={ergebnis.dokumente}
         csvHref={csvPfad('exportauftrag', { id, referenz: a.referenz })}
       />
+      {/* KAN-437 Teil 1: Was verlangt das Zielland? Nur für Drittländer (EU: die Hinweise oben und der Nachweis-Kasten) */}
+      {gebiet === 'drittland' && !a.storniert_am && (
+        <div className="px-8 max-w-5xl mx-auto">
+          <ExportLaenderhinweise land={typeof a.destination_land === 'string' ? a.destination_land : null}
+            landName={landAnzeige(a.destination_land) || 'dieses Land'} />
+        </div>
+      )}
       {/* KAN-440 Teil 2: Nachweis – im Inland ohne Bedeutung, bei stornierten Aufträgen nur, wenn schon etwas abgelegt ist */}
       {gebiet !== 'inland' && (!a.storniert_am || nachweise.length > 0) && (
         <div className="px-8 max-w-5xl mx-auto">
