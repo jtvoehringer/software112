@@ -70,8 +70,24 @@ Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich`
 - **Gemeinschaften:** Wer einen Partnerbetrieb nur über einen Betrieb erreicht, in dem der Bereich für ihn gesperrt ist, sieht auch die Daten des Partners nicht.
 - **Nach `allgemein` verschoben** (gegenüber dem ersten Entwurf): `elabel_zutaten` (globaler Katalog ohne Betrieb) und `svs_parameter` (globale Beitragssätze ohne Betrieb) – beide enthalten keine Betriebsdaten.
 - **Wirkung heute:** keine. Noch hat niemand ein Profil und die App vergibt keines (R5); für Mitglieder ohne Profil ist die Menge der gesperrten Betriebe leer.
-- **Nicht erfasst:** Schreiben (regeln die Schreibmodule), Service-Role und SECURITY-DEFINER-Funktionen – Lesewege an den Policies vorbei schließt R3 (KAN-455).
+- **Nicht erfasst:** Schreiben (regeln die Schreibmodule), Service-Role und SECURITY-DEFINER-Funktionen – siehe nächster Abschnitt (R3, KAN-455).
 - **Neue Tabelle:** Bereich in `scripts/lesebereiche.json` eintragen (ohne `tenant_id` zusätzlich unter `kinder`) und die Policy `lesebereich` in derselben Migration anlegen. DB-Test 02 prüft jede Tabelle im Katalog und liest als „Extern“ und „Vertrieb“ gegen einen Mitarbeiter ohne Profil.
+
+## Lesewege an den Policies vorbei (R3, KAN-455)
+
+**Datenbank (Migration `kan412c_lesewege`):**
+
+| Weg | Lösung |
+| --- | --- |
+| Lesende Funktionen mit SECURITY DEFINER | Leseprüfung am Anfang: `berechne_ea_uva` (ea), `journal_konsistenz` (keller), `s112_stammdaten_bezuege` (Bereich der Tabelle), `ki_readonly_query` (ki) → Fehler 42501 mit HINT `lesebereich`; `crm_dubletten`, `crm_filterwerte`, `crm_zaehler`, `lade_crmgemeinschaft` (crm), `lade_behaelter`, `lade_kellergemeinschaft` (keller) → 0 Zeilen |
+| Schreibende Funktionen, die ein Profil über sein Schreibmodul erreicht | „Extern“ (Modul Rieden): Erntemeldung/AMA und Pressung (lese), Einkauf, Storno und Übermittlung von Mitteln (betriebsmittel), Storno des Traubenverkaufs samt Rechnung (verkauf). „Vertrieb“ (Modul Warenwirtschaft): Schwund und Journal-Abgleich (keller) |
+| KI-Abfrage | Bereich `ki` („Extern“ gesperrt); die Abfrage selbst läuft als Rolle `ki_abfrage` unter den Policies – „Vertrieb“ bekommt aus gesperrten Tabellen 0 Zeilen |
+| Storage | Sperr-Policy `lesebereich` auf `storage.objects`: `analysen` = keller, `ea-belege` = ea, `export-nachweise` = verkauf, `aktivitaet-dokumente` = crm, `fuellung-bilder` und `etiketten` = lager, `dokumente` = betrieb; `mandant-logos` bleibt öffentlich |
+
+- **Bewusst offen:** `pruefe_ea_zeitraum_offen` (liefert nur „offen/gesperrt“ samt Grund; der Verkauf braucht es), die Rechte-Helfer und die Nummernkreise.
+- **Neue Funktion** mit `p_tenant_id` und SECURITY DEFINER: nach der Zugriffsprüfung `PERFORM public.s112_pruefe_lesen(p_tenant_id, '<bereich>');`, wenn sie Daten eines Bereichs liefert oder ein Profil sie über sein Schreibmodul erreicht – und in DB-Test 07 einstufen (`c_soll` bzw. `c_frei`); ohne Einstufung ist der Test rot.
+- **Grenze des Tests:** Die sechs SQL-Funktionen mit eigener Mitgliedsprüfung lassen die Sitzung „postgres“ durch und sind im Testrahmen nur statisch geprüft (die Bedingung steht im Zweig der Mitgliedschaft).
+- **Noch offen in R3:** Wege der App über die Service-Role (API-Routen, Postfach, Morgenbericht, Benachrichtigungen), globale Suche, Behördenmeldungen und Datenexporte – PR 2 und 3.
 
 ## Stand der Umsetzung
 
@@ -79,6 +95,6 @@ Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich`
 | --- | --- | --- |
 | R1 | Profil an der Mitgliedschaft, Funktionen, diese Liste – ohne Wirkung (erledigt) | KAN-412 |
 | R2 | Sperr-Policies auf allen Tabellen, DB-Test-Matrix (umgesetzt) | KAN-454 |
-| R3 | Funktionen, KI, Suche, Exporte, Dateien | KAN-455 |
+| R3 | Funktionen, KI, Suche, Exporte, Dateien (Datenbank umgesetzt; App-Wege offen) | KAN-455 |
 | R4 | Navigation, Seiten, Dashboard | KAN-456 |
 | R5 | Vergabe in der Benutzerverwaltung, E2E, Freigabe | KAN-457 |

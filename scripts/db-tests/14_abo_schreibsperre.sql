@@ -493,7 +493,7 @@ BEGIN
   SELECT count(*) INTO v_n
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public' AND p.proname = ANY (c_abo_rpcs)
-     AND p.prosrc !~ '(pruefe_tenant_zugriff\s*\([^;]*\);|IF NOT v_darf THEN RAISE EXCEPTION ''Keine Berechtigung''; END IF;)\s*PERFORM public\.s112_pruefe_abo_schreibsperre\(p_tenant_id\);';
+     AND p.prosrc !~ '(pruefe_tenant_zugriff\s*\([^;]*\);|IF NOT v_darf THEN RAISE EXCEPTION ''Keine Berechtigung''; END IF;)\s*(PERFORM public\.s112_pruefe_lesen\([^;]*;[^\n]*\s*)?PERFORM public\.s112_pruefe_abo_schreibsperre\(p_tenant_id\);';   -- KAN-455: dazwischen darf nur die Leseprüfung je Profil stehen (auch eine Zugriffsprüfung)
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_katalog_nach_zugriffspruefung', v_n, 0::bigint);
   -- Interne Helfer sind für Benutzer nicht ausführbar (sonst ließe sich der Abo-Stand fremder Betriebe abfragen)
   v_erg := v_erg || pg_temp.s112_erwarte('rechte_abo_gesperrt_intern',
