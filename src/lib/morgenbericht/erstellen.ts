@@ -20,6 +20,7 @@ import { pruefeBetrieb, sortiere, zaehle } from './pruefungen'
 import { fasseZusammen, fallbackText } from './ki'
 import { berichtDatum, wetterDeadline } from './zeitplan'
 import { AktionsFehler } from '@/lib/fehler'
+import { LESEBEREICHE } from '@/lib/auth/lesebereiche'
 
 export type Morgenbericht = {
   id: string
@@ -45,7 +46,7 @@ export type ErstellOptionen = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function ctxFuerBetrieb(client: any, tenantId: string, tenantName: string | null, heute = new Date()): Ctx {
   return {
-    supabase: client, tenantId, tenantName, userId: null, role: 'system_admin', heute, heuteStr: toDateStr(heute),
+    supabase: client, tenantId, tenantName, userId: null, role: 'system_admin', lesbar: [...LESEBEREICHE], heute, heuteStr: toDateStr(heute),
     q: (table: string) => (client.from(table) as any),
     tf: (query: any) => query.eq('tenant_id', tenantId), // eslint-disable-line @typescript-eslint/no-explicit-any
   }

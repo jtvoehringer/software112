@@ -40,7 +40,7 @@ export default async function UebersichtPage({ searchParams }: { searchParams: P
   const gruss = stunde < 11 ? 'Guten Morgen' : stunde < 17 ? 'Guten Tag' : 'Guten Abend'
 
   const mitSchnellaktionen = schnellaktionenFuer(ctx).length > 0
-  const kontext = { modulEa: einst.modulEa, schnellaktionen: mitSchnellaktionen, modulWeingarten: einst.modulWeingarten }
+  const kontext = { modulEa: einst.modulEa, schnellaktionen: mitSchnellaktionen, modulWeingarten: einst.modulWeingarten, lesbar: ctx.lesbar }
   const widgets = sichtbareWidgets(eigenesLayout ?? STANDARD_LAYOUT, kontext)
   const d = await ladeWidgetDaten(ctx, einst, benoetigteQuellen(widgets))
   const props: WidgetProps = { ctx, einst, d, mitSchnellaktionen }

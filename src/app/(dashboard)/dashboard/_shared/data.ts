@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import { wienJetzt, lokalerTag, tageSeit, tageZwischen } from '@/lib/datum/wien'
 import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
+import { lesbareBereiche, type Lesebereich } from '@/lib/auth/lesebereiche'
 import type { Charge, Frist, FristStatus } from './types'
 import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
 import { afaBuchungsStatus } from '@/lib/ea/anlagen'
@@ -39,6 +40,8 @@ export type Ctx = {
   tenantName: string | null
   userId: string | null
   role: UserRole
+  /** lesbareBereiche(membership) (KAN-456): Widgets und Schnellzugriffe nur für diese Bereiche */
+  lesbar: Lesebereich[]
   heute: Date
   heuteStr: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +76,7 @@ export async function getCtx(): Promise<Ctx> {
   const heute = wienJetzt()
   const q = (table: string) => (supabase.from(table) as any)
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query // eslint-disable-line @typescript-eslint/no-explicit-any
-  return { supabase, tenantId, tenantName, userId: user?.id ?? null, role: membership?.role ?? null, heute, heuteStr: toDateStr(heute), q, tf }
+  return { supabase, tenantId, tenantName, userId: user?.id ?? null, role: membership?.role ?? null, lesbar: lesbareBereiche(membership), heute, heuteStr: toDateStr(heute), q, tf }
 }
 
 // ── Verkauf ──────────────────────────────────────────────────────────────────
