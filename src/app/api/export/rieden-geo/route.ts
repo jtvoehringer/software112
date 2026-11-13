@@ -5,6 +5,7 @@ import { alle } from '@/lib/supabase/alle'
 import { buildGpx, buildKml, buildGeoJson, type RiedPunkt } from '@/lib/geo/rieden'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { heuteWien } from '@/lib/datum/wien'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -20,6 +21,8 @@ export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'rieden')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

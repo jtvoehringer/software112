@@ -11,6 +11,7 @@ import { flaschengroesseText } from '@/lib/export/datenexporte'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { elabelUrl } from '@/lib/elabel/oeffentlich'
 import { appBasisUrl } from '@/lib/qr'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,8 @@ export async function GET() {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'lager')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehlerAntwort(401, 'Kein Betrieb')
   if (!(await darfDatenexport(membership)))

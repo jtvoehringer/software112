@@ -6,6 +6,7 @@ import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
 import { heuteWien } from '@/lib/datum/wien'
 import { ladeJournal } from '@/lib/journal/laden'
 import { SPALTEN_JOURNAL, journalFilter } from '@/lib/journal/journal'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,8 @@ export async function GET(request: Request) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'keller')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) return fehlerAntwort(401, 'Kein Betrieb')
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()

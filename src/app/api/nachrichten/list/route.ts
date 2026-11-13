@@ -9,6 +9,7 @@ import { ladeAbsenderIndex, absenderStatus } from '@/lib/crm/absender'
 import { spiegleNebenbei } from '@/lib/email/spiegel'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { M365TokenFehler, NEU_VERBINDEN_TEXT, istNeuVerbinden } from '@/lib/m365/tokenFehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 // after()-Spiegelung (bis 12 s) muss in die Laufzeit passen
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

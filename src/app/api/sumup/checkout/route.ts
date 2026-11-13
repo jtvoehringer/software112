@@ -9,6 +9,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 // POST /api/sumup/checkout
 // Erstellt einen SumUp Checkout für einen Verkaufsposten.
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
   if (zweiFaktor) return zweiFaktor
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) {
     return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 })
   }
@@ -136,6 +139,8 @@ export async function GET(req: NextRequest) {
   if (zweiFaktor) return zweiFaktor
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) {
     return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 })
   }

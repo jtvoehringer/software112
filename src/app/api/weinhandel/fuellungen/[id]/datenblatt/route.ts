@@ -7,6 +7,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { ladeDatenblatt } from '@/lib/handel/datenblattLaden'
 import { renderDatenblattPdf } from '@/lib/pdf/datenblattPdf'
 import { datenblattDateiname } from '@/lib/handel/datenblatt'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,6 +18,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'lager')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
   const { id } = await params
   if (!UUID_RE.test(id)) return NextResponse.json({ fehler: 'Ungültige Füllung' }, { status: 400 })

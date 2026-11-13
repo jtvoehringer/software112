@@ -3,6 +3,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,6 +17,8 @@ export async function GET(req: NextRequest) {
   if (zweiFaktor) return zweiFaktor
   try {
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

@@ -8,6 +8,7 @@ import { gstDerRiedJeLese, leseOrtSchluessel, riedLeseVerteilen, verfuegbarJeLes
 import { leseTitel } from '@/lib/wein/lesen'
 import { zahlWert } from '@/lib/format'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,8 @@ export async function GET() {
   if (zweiFaktor) return zweiFaktor
   try {
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
 

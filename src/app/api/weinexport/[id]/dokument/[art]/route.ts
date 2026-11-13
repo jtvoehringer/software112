@@ -16,6 +16,7 @@ import { ALTES_MUSTER_HINWEIS, MUSTERSENDUNG_VERMERK, farbeGroesse, kartonAufsch
 import { fehlerText } from '@/lib/fehler'
 import { lieferfall } from '@/lib/export/grunddaten'
 import { PROFORMA_VERMERK, befreiung, rechnungsSumme, ursprungserklaerung } from '@/lib/export/rechnungTexte'   // KAN-434
+import { leseKonflikt } from '@/lib/api/lesebereich'
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
 const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
@@ -76,6 +77,8 @@ export async function GET(
   const admin    = createSupabaseAdminClient()
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

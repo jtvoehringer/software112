@@ -8,6 +8,7 @@ import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
 import { ladePsmUebermittlungsStand } from '@/lib/uebermittlung/psm/laden'
 import { CSV_DATEI_ADAPTER } from '@/lib/uebermittlung/psm/csvDatei'
 import { auswahlFuerExport, entfallenHinweis, zeilenEinesLaufs } from '@/lib/uebermittlung/psm/stand'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,8 @@ export async function POST() {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'betriebsmittel')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehlerAntwort(401, 'Kein Betrieb')
   const konflikt = await seitenBetriebKonflikt(tenantId)
@@ -64,6 +67,8 @@ export async function GET(request: Request) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'betriebsmittel')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehlerAntwort(401, 'Kein Betrieb')
   if (!canWrite(membership, 'rieden')) return fehlerAntwort(403, 'Kein Schreibrecht für Pflanzenschutz-Aufzeichnungen')

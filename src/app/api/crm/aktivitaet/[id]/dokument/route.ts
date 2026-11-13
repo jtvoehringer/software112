@@ -5,6 +5,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { dbFehlerText } from '@/lib/fehler'
 import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 // POST /api/crm/aktivitaet/[id]/dokument – Datei hochladen
 export async function POST(
@@ -20,6 +21,8 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
@@ -87,6 +90,8 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
 

@@ -24,6 +24,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -46,6 +47,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!authUser) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt

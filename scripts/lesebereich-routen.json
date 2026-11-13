@@ -1,0 +1,151 @@
+{
+  "hinweis": "KAN-455: Lesebereich je API-Route (src/app/api/<pfad>/route.ts). Wert = Bereich bzw. Liste von Bereichen (alle nötig) – der Handler ruft leseKonflikt(membership, …) aus src/lib/api/lesebereich.ts auf – oder { \"ausnahme\": \"<Grund ≥ 15 Zeichen>\" }. scripts/check-lesebereich-routen.js prüft jede Route (prebuild).",
+  "routen": {
+    "assistent/chat": [
+      "ki",
+      "keller"
+    ],
+    "auth/m365": "crm",
+    "auth/m365/callback": {
+      "ausnahme": "OAuth-Rückkehr von Microsoft – den Start prüft /api/auth/m365"
+    },
+    "auth/m365/user": "crm",
+    "auth/m365/user/callback": {
+      "ausnahme": "OAuth-Rückkehr von Microsoft – den Start prüft /api/auth/m365/user"
+    },
+    "auth/me": {
+      "ausnahme": "nur eigene Anmeldung und Rolle – Bereich allgemein"
+    },
+    "behandlungen/uebermittlung": "betriebsmittel",
+    "benachrichtigungen": {
+      "ausnahme": "eigene Benachrichtigungen – Bereich allgemein; Inhalte je Bereich filtert PR 3"
+    },
+    "besuchsplanung": "crm",
+    "betrieb/aktiv": {
+      "ausnahme": "aktiver Betrieb der Sitzung – Bereich allgemein"
+    },
+    "buchhaltung/belege": "ea",
+    "buchhaltung/belege/[id]/datei": "ea",
+    "buchhaltung/belege/[id]/loesen": "ea",
+    "buchhaltung/belege/anhang": "ea",
+    "crm/aktivitaet/[id]/dokument": "crm",
+    "crm/aktivitaet/[id]/dokument/[dok_id]": "crm",
+    "crm/outlook-frei": "crm",
+    "crm/outlook-kalender": "crm",
+    "crm/outlook-termin": "crm",
+    "crm/suche": "crm",
+    "cron/ea-dauerauftraege": {
+      "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
+    },
+    "cron/morgenbericht": {
+      "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
+    },
+    "cron/musterhof-reset": {
+      "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
+    },
+    "cron/smoke-test": {
+      "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
+    },
+    "cron/taeglich": {
+      "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
+    },
+    "csp-bericht": {
+      "ausnahme": "CSP-Bericht des Browsers – läuft ohne Benutzersitzung"
+    },
+    "dashboard/hinweise": {
+      "ausnahme": "blendet eigene Hinweise aus – Bereich allgemein"
+    },
+    "email/poll": "crm",
+    "email/send": "crm",
+    "email/spiegel": {
+      "ausnahme": "nur Cron mit Secret bzw. Plattform-Admin – ein Profil gibt es nur für Mitarbeiter"
+    },
+    "email/unified": "crm",
+    "export/bmd": "ea",
+    "export/datenblaetter": "lager",
+    "export/firmen": "crm",
+    "export/journal": "keller",
+    "export/kontakte": "crm",
+    "export/lager": "lager",
+    "export/rieden-geo": "rieden",
+    "export/verkauf": "verkauf",
+    "global-search": {
+      "ausnahme": "liest nur mit dem Benutzer-Client – die Policies filtern die Treffer je Lesebereich"
+    },
+    "health": {
+      "ausnahme": "Verfügbarkeitsprüfung – läuft ohne Benutzersitzung"
+    },
+    "import": {
+      "ausnahme": "schreibender Import mit Schreibrecht je Typ über den Benutzer-Client – die Policies gelten"
+    },
+    "ki-abfrage": "ki",
+    "kostenrechnung": "controlling",
+    "m365/send": "crm",
+    "m365/subscribe": "crm",
+    "m365/webhook": {
+      "ausnahme": "Webhook von Microsoft mit clientState – läuft ohne Benutzersitzung"
+    },
+    "me/active-tenant": {
+      "ausnahme": "Wechsel des aktiven Betriebs – Bereich allgemein"
+    },
+    "nachrichten/anhang": "crm",
+    "nachrichten/conversation": "crm",
+    "nachrichten/delete": "crm",
+    "nachrichten/disconnect": "crm",
+    "nachrichten/folders": "crm",
+    "nachrichten/lead-vorschlag": "crm",
+    "nachrichten/list": "crm",
+    "nachrichten/message": "crm",
+    "nachrichten/monitored": "crm",
+    "nachrichten/move": "crm",
+    "nachrichten/spiegeln": "crm",
+    "profil": {
+      "ausnahme": "eigenes Profil – Bereich allgemein"
+    },
+    "release-notes": {
+      "ausnahme": "globale Release-Notes – Bereich allgemein"
+    },
+    "reports/fuellung-bv": "verkauf",
+    "reports/umsatz": "verkauf",
+    "reports/umsatz-detail": "verkauf",
+    "reports/verkaufsstatistik": "verkauf",
+    "reports/weinbuecher": "keller",
+    "stripe/webhook": {
+      "ausnahme": "Webhook von Stripe mit Signatur – läuft ohne Benutzersitzung"
+    },
+    "sumup/checkout": "verkauf",
+    "sumup/webhook": {
+      "ausnahme": "Webhook von SumUp mit Signatur – läuft ohne Benutzersitzung"
+    },
+    "support/anfragen": {
+      "ausnahme": "eigene Support-Anfragen – Bereich allgemein"
+    },
+    "support/anfragen/[key]": {
+      "ausnahme": "eigene Support-Anfragen – Bereich allgemein"
+    },
+    "support/rueckruf": {
+      "ausnahme": "eigene Support-Anfragen – Bereich allgemein"
+    },
+    "system/ereignis": {
+      "ausnahme": "meldet Fehler des eigenen Browsers – Bereich allgemein"
+    },
+    "verkauf-stammdaten": "verkauf",
+    "visitkarte": "crm",
+    "weinexport": "verkauf",
+    "weinexport/[id]": "verkauf",
+    "weinexport/[id]/dokument": "verkauf",
+    "weinexport/[id]/dokument/[art]": "verkauf",
+    "weinexport/[id]/nachweis": "verkauf",
+    "weinexport/[id]/nachweis/[nid]": "verkauf",
+    "weinhandel/angebote/[id]/pdf": "verkauf",
+    "weinhandel/angebote/[id]/send": "verkauf",
+    "weinhandel/auftraege/[id]/pdf": "verkauf",
+    "weinhandel/auftraege/[id]/send": "verkauf",
+    "weinhandel/fuellungen/[id]/bilder": "lager",
+    "weinhandel/fuellungen/[id]/datenblatt": "lager",
+    "weinhandel/rechnungen/[id]/send": "verkauf",
+    "weinhandel/verkauf/[id]/send": "verkauf",
+    "weinhandel/verkauf/bestellung-erkennen": "verkauf",
+    "zukauf-stammdaten": "lager"
+  }
+}

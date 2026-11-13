@@ -16,6 +16,7 @@ import { dbFehlerText } from '@/lib/fehler'
 import { heuteWien } from '@/lib/datum/wien'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { NACHWEIS_BUCKET, nachweisDateiFehler, nachweisEingabeFehler, nachweisPfad } from '@/lib/export/nachweise'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!UUID.test(id)) return fehler('Ungültiger Exportauftrag', 400)
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehler('Nicht autorisiert', 401)
   const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?

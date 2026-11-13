@@ -19,6 +19,7 @@ import { belegPerMailSenden } from '@/lib/email/belegVersand'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { wienTag } from '@/lib/datum/wien'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!authUser) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
   const konflikt = await seitenBetriebKonflikt(membership.tenantId, 'error')
   if (konflikt) return konflikt

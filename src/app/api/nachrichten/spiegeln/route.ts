@@ -5,6 +5,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { spiegleMailboxen } from '@/lib/email/spiegel'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 // „Jetzt spiegeln“ (Nachrichten › Einstellungen, 18.9.2026): E-Mails des eigenen
 // Postfachs (und der geteilten Mailbox) seit dem letzten Stand als Aktivitäten
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt

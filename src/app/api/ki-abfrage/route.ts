@@ -7,6 +7,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { sperrAntwortKoerper } from '@/lib/abo/regeln'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -275,6 +276,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createSupabaseServerClient()
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'ki')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
     const gesperrt = await schreibSperreKonflikt(membership, 'ki')   // KAN-5: Nur-Lesen-Modus – KI gesperrt (Kosten)

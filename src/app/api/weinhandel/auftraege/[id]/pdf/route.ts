@@ -9,6 +9,7 @@ import { ladeAuftragsbestaetigung } from '@/lib/auftrag/bestaetigungLaden'
 import { abDateiname } from '@/lib/auftrag/bestaetigung'
 import { renderAuftragsbestaetigungPdf } from '@/lib/pdf/auftragsbestaetigungPdf'
 import { fehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
 
   const geladen = await ladeAuftragsbestaetigung(supabase, membership.tenantId, id)

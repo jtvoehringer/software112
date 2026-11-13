@@ -7,6 +7,7 @@ import { ladeAbsenderIndex, absenderStatus, findeNamensgleiche, type AbsenderSta
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperre } from '@/lib/auth/sperren'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -23,6 +24,8 @@ export async function GET(req: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

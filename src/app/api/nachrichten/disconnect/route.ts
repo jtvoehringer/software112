@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 export const dynamic = 'force-dynamic'
 
 // schreibsperre-ausnahme: entfernt nur die eigenen gespeicherten Postfach-Zugangsdaten – muss aus Datenschutzgründen immer möglich sein
@@ -15,6 +16,8 @@ export async function POST() {
     if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
 
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

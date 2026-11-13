@@ -7,6 +7,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { csvDateiname } from '@/lib/csv'
 import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
 import { verkaufCsv } from '@/lib/export/datenexporte'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,8 @@ export async function GET() {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehlerAntwort(401, 'Kein Betrieb')
   if (!(await darfDatenexport(membership)))

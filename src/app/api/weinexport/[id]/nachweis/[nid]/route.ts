@@ -14,6 +14,7 @@ import { modulKonflikt } from '@/lib/auth/modul'
 import { dbFehlerText } from '@/lib/fehler'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { NACHWEIS_BUCKET } from '@/lib/export/nachweise'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -35,6 +36,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!UUID.test(id) || !UUID.test(nid)) return fehler('Ungültiger Nachweis', 400)
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehler('Nicht angemeldet', 401)
 
@@ -59,6 +62,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!UUID.test(id) || !UUID.test(nid)) return fehler('Ungültiger Nachweis', 400)
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehler('Nicht autorisiert', 401)
   const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
