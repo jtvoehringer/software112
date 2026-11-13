@@ -12,6 +12,7 @@ import { AktionsFehler, dbFehlerText, erwarteteDbAblehnung, fehlerText, LESE_WAE
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { istStornoDatumAblehnung, stornoDatumFehler } from '@/lib/storno/datum'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
+import { GUTSCHRIFT_GRUND_MIN } from '@/lib/verkauf/gutschrift'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
 import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
 import { alle } from '@/lib/supabase/alle'
@@ -1053,6 +1054,54 @@ export async function rechnungStornieren(
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath('/buchhaltung')
+}
+
+// KAN-419 G1: Gutschrift zur Rechnung (RPC s112_gutschrift_anlegen) – einzelne Positionen bis zur Restmenge und/oder ein
+// freier Bruttobetrag. Preise, Restmengen, Obergrenze und Zeitraum prüft die Datenbank; ihre erwartbaren Ablehnungen
+// kommen als { error } mit dem Feld zurück (HINT storno_datum/periodensperre → Datum, gutschrift_menge → Positionen,
+// gutschrift_betrag → Betrag).
+export async function gutschriftAusstellen(
+  rechnungId: string,
+  e: { datum: string; grund: string; positionen: { position_id: string; menge: number }[]; betrag: number; betragText?: string | null },
+): Promise<{ gutschriftId: string } | { error: string; feld?: 'datum' | 'grund' | 'positionen' | 'betrag' }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!UUID.test(String(rechnungId))) return { error: 'Rechnung nicht gefunden.' }
+  const df = stornoDatumFehler(e?.datum, { heute: heuteWien() })
+  if (df) return { error: df.replace(/Storno-Datum/g, 'Datum der Gutschrift'), feld: 'datum' }
+  const grund = typeof e.grund === 'string' ? e.grund.trim() : ''
+  if (grund.length < GUTSCHRIFT_GRUND_MIN) return { error: `Bitte einen Grund für die Gutschrift angeben (mindestens ${GUTSCHRIFT_GRUND_MIN} Zeichen).`, feld: 'grund' }
+  const positionen = Array.isArray(e.positionen) ? e.positionen : []
+  if (positionen.length > 150 || positionen.some(p => !UUID.test(String(p?.position_id)) || !Number.isFinite(p?.menge) || p.menge <= 0)) {
+    return { error: 'Die Positionen der Gutschrift sind ungültig.', feld: 'positionen' }
+  }
+  const betrag = Number.isFinite(e.betrag) ? rund(e.betrag, 2) : Number.NaN
+  if (!Number.isFinite(betrag) || betrag < 0) return { error: 'Der Betrag der Gutschrift ist ungültig.', feld: 'betrag' }
+  if (positionen.length === 0 && betrag === 0) return { error: 'Bitte mindestens eine Position oder einen Betrag angeben.', feld: 'positionen' }
+
+  const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
+  const { data, error } = await rpc('s112_gutschrift_anlegen', {
+    p_tenant_id: tenantId, p_rechnung_id: rechnungId, p_datum: e.datum, p_grund: grund,
+    p_positionen: positionen.map(p => ({ position_id: p.position_id, menge: String(rund(p.menge, 4)) })),
+    p_betrag: betrag > 0 ? betrag : null, p_betrag_text: typeof e.betragText === 'string' && e.betragText.trim() ? e.betragText.trim() : null,
+  })
+  if (error) {
+    if (erwarteteDbAblehnung(error)) {
+      const meldung = dbFehlerText(error, 'Die Gutschrift konnte nicht ausgestellt werden')
+      const hint = (error as { hint?: unknown }).hint
+      if (istStornoDatumAblehnung(hint)) return { error: meldung, feld: 'datum' }
+      if (hint === 'gutschrift_menge') return { error: meldung, feld: 'positionen' }
+      if (hint === 'gutschrift_betrag') return { error: meldung, feld: 'betrag' }
+      return { error: meldung }
+    }
+    throw new AktionsFehler(dbFehlerText(error, 'Die Gutschrift konnte nicht ausgestellt werden'))
+  }
+  revalidatePath(`/weinhandel/rechnungen/${rechnungId}`)
+  revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/weinhandel/offene-posten')
+  revalidatePath('/buchhaltung')
+  return { gutschriftId: String(data) }
 }
 
 // KAN-356: Verkauf samt Rechnung stornieren – eine Transaktion (RPC s112_verkauf_samt_rechnung_stornieren): Rechnung

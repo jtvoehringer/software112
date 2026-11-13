@@ -115,7 +115,9 @@ export function zmLieferscheinIds(rechnungen: readonly R[], originale: ReadonlyM
  * die sich die Stornobelege des Zeitraums beziehen (id → Rechnung mit storno_positionen); `verkaeufe` = Steuerfall und
  * UID der Lieferscheine aus den Momentaufnahmen (zmLieferscheinIds).
  */
-export function zmBelege(rechnungen: readonly R[], originale: ReadonlyMap<string, R>, verkaeufe: ReadonlyMap<string, ZmVerkauf>, warnungen: string[]): Beleg[] {
+export function zmBelege(rechnungen: readonly R[], originale: ReadonlyMap<string, R>, verkaeufe: ReadonlyMap<string, ZmVerkauf>, warnungen: string[],
+  /** KAN-419: Steuerfall und UID der Lieferscheine je berichtigter Rechnung (Schlüssel: Rechnungs-ID) */
+  gutschriftFaelle: ReadonlyMap<string, readonly ZmVerkauf[]> = new Map()): Beleg[] {
   const aus: Beleg[] = []
   const gemischt = (was: string) => warnungen.push(`${was}: enthält Lieferscheine mit und ohne innergemeinschaftliche Lieferung – bitte von Hand aufteilen.`)
   for (const r of rechnungen) {
@@ -128,6 +130,13 @@ export function zmBelege(rechnungen: readonly R[], originale: ReadonlyMap<string
       const f = steuerfallDerMomentaufnahme(pos, verkaeufe)
       if (f.gemischt) gemischt(`Stornobeleg ${nummer}`)
       if (f.igl) aus.push({ uid: f.uid, betrag: -wert(pos), nummer })
+      continue
+    }
+    // KAN-419: Gutschrift – Steuerfall der berichtigten Rechnung, Betrag der Gutschrift negativ im Zeitraum ihres Datums
+    if (r.art === 'gutschrift') {
+      const f = einordnen(gutschriftFaelle.get(String(r.gutschrift_zu_id ?? '')) ?? [])
+      if (f.gemischt) gemischt(`Gutschrift ${nummer}`)
+      if (f.igl) aus.push({ uid: f.uid, betrag: -wert((r.gutschrift_positionen ?? []) as R[]), nummer })
       continue
     }
     if (r.storniert === true) {
@@ -172,6 +181,7 @@ export async function ladeZm(supabase: any, tenantId: string, p: ZmParameter): P
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rechnungen, error } = await alle<R>((supabase.from('rechnungen') as any)
     .select(`id, datum, rechnungsnummer, art, aktiv, storniert, storniert_durch_id, storno_von_id, storno_positionen,
+      gutschrift_zu_id, gutschrift_positionen,
       lieferscheine:verkaufsposten!rechnung_id(steuerfall, kunde_uid, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct))`)
     .eq('tenant_id', tenantId)
     .gte('datum', von)
@@ -199,8 +209,22 @@ export async function ladeZm(supabase: any, tenantId: string, p: ZmParameter): P
   if (vk.error) throw new AktionsFehler(`Laden fehlgeschlagen (Lieferscheine der stornierten Rechnungen): ${vk.error.message}`)
   const verkaeufe = new Map<string, ZmVerkauf>(vk.data.map(v => [String(v.id), { steuerfall: v.steuerfall ?? null, kunde_uid: v.kunde_uid ?? null }]))
 
+  // KAN-419: Gutschriften des Zeitraums – Steuerfall und UID aus den Lieferscheinen der berichtigten Rechnung
+  const gutschriftZu = [...new Set(rechnungen.filter(r => r.art === 'gutschrift' && r.gutschrift_zu_id).map(r => String(r.gutschrift_zu_id)))]
+  // storno-sichtbar: Lieferscheine einer Rechnung mit Gutschrift – sie lässt sich nicht mehr stornieren, ihre Lieferscheine hängen an ihr
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gl = await inBloecken<R>(gutschriftZu, b => alle<R>((supabase.from('verkaufsposten') as any)
+    .select('id, rechnung_id, steuerfall, kunde_uid')
+    .eq('tenant_id', tenantId).in('rechnung_id', b).order('id')))
+  if (gl.error) throw new AktionsFehler(`Laden fehlgeschlagen (Lieferscheine der Rechnungen mit Gutschrift): ${gl.error.message}`)
+  const gutschriftFaelle = new Map<string, ZmVerkauf[]>()
+  for (const l of gl.data) {
+    const k = String(l.rechnung_id)
+    gutschriftFaelle.set(k, [...(gutschriftFaelle.get(k) ?? []), { steuerfall: l.steuerfall ?? null, kunde_uid: l.kunde_uid ?? null }])
+  }
+
   const warnungen: string[] = []
-  const zeilen = zmZeilen(zmBelege(rechnungen, originale, verkaeufe, warnungen), p, warnungen)
+  const zeilen = zmZeilen(zmBelege(rechnungen, originale, verkaeufe, warnungen, gutschriftFaelle), p, warnungen)
   if (zeilen.length === 0) {
     warnungen.push(`In ${zmZeitraumLabel(p.jahr, p.zeitraum)} gibt es keine Rechnung mit innergemeinschaftlicher Lieferung – gezählt werden Rechnungen aus dem Exportauftrag an EU-Kunden mit UID.`)
   }

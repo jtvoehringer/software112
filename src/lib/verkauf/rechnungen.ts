@@ -37,6 +37,7 @@ export function positionenDerRechnung(r: R): R[] {
 export const STORNO_FELDER =
   'art, storniert_durch_id, storno_von:storno_von_id(id, rechnungsnummer, datum, storno_positionen), storniert_durch:storniert_durch_id(id, rechnungsnummer, datum), ' +
   // KAN-419: die Gutschrift trägt ihre Zeilen selbst und nennt die berichtigte Rechnung
+  // (dieselbe Form wie storno_von – Einbettung über die Spalte = die verwiesene Zeile)
   'gutschrift_zu_id, gutschrift_positionen, gutschrift_zu:gutschrift_zu_id(id, rechnungsnummer, datum)'
 
 /** KAN-379: Stornobeleg (Gegenbuchung zu einer Rechnung)? */

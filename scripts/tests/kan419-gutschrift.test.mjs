@@ -165,3 +165,74 @@ describe('KAN-419: Migration und DB-Test', () => {
     assert.match(quelle('scripts/db-tests/14_abo_schreibsperre.sql'), /'s112_gutschrift_anlegen', format\('SELECT public\.s112_gutschrift_anlegen\(/)
   })
 })
+
+describe('KAN-419: BMD, Zusammenfassende Meldung, Journal, Suche', () => {
+  test('BMD-Kopf: Gutschrift als eigener Beleg mit Verweis auf die Rechnung', async () => {
+    const bmd = await import('../../src/lib/buchhaltung/bmd.ts')
+    assert.deepEqual(bmd.bmdRechnungKopf({ art: 'gutschrift', rechnungsnummer: 'GS-2026-0001', gutschrift_zu: { rechnungsnummer: 'RE-2026-0042' } }, 'Vinothek Am Eck'),
+      { belegnr: 'GS-2026-0001', extbelegnr: 'RE-2026-0042', text: 'Vinothek Am Eck Gutschrift GS-2026-0001 zu RE RE-2026-0042', gutschrift: true })
+  })
+  test('BMD-Steuerfall: Zeile über ihren Lieferschein, freie Zeile über die Rechnung – nur wenn dort einheitlich', async () => {
+    const bmd = await import('../../src/lib/buchhaltung/bmd.ts')
+    const beleg = alsBeleg({ art: 'gutschrift', aktiv: true, gutschrift_zu_id: 'r1', gutschrift_positionen: [
+      { name: 'Kiste', menge: 2, preis_brutto: 10, lieferschein_id: 'ls1' },
+      { name: 'Preisnachlass', menge: 1, preis_brutto: 5, lieferschein_id: null, frei: true },
+    ] })
+    assert.deepEqual(bmd.momentaufnahmeLieferscheinIds([beleg]), ['ls1'])
+    assert.deepEqual(bmd.gutschriftRechnungIds([beleg, { art: 'rechnung', id: 'x' }, beleg]), ['r1'])
+    const einheitlich = new Map([['ls1', 'igl'], ...bmd.rechnungFaelle([{ rechnung_id: 'r1', steuerfall: 'igl' }, { rechnung_id: 'r1', steuerfall: 'igl' }])])
+    assert.deepEqual(bmd.positionenMitSteuerfall(beleg, einheitlich).map(x => [x.pos.name, x.pos.menge, x.verkaufSteuerfall]),
+      [['Kiste', -2, 'igl'], ['Preisnachlass', -1, 'igl']])
+    const gemischt = new Map([['ls1', 'igl'], ...bmd.rechnungFaelle([{ rechnung_id: 'r1', steuerfall: 'igl' }, { rechnung_id: 'r1', steuerfall: null }])])
+    assert.deepEqual(bmd.positionenMitSteuerfall(beleg, gemischt).map(x => x.verkaufSteuerfall), ['igl', null])
+    assert.equal(bmd.rechnungFallSchluessel('r1'), 'rechnung:r1')
+    const r = quelle('src/app/api/export/bmd/route.ts')
+    assert.match(r, /inBloecken<R>\(gutschriftRechnungIds\(posten\), b => alle<R>\(/)
+    assert.match(r, /if \(gl\.error\) throw new AktionsFehler\(/)
+  })
+  test('Zusammenfassende Meldung: Gutschrift negativ mit dem Steuerfall der berichtigten Rechnung', () => {
+    const z = quelle('src/lib/behoerden/zm.ts')
+    assert.match(z, /if \(r\.art === 'gutschrift'\) \{\n\s+const f = einordnen\(gutschriftFaelle\.get\(String\(r\.gutschrift_zu_id \?\? ''\)\) \?\? \[\]\)/)
+    assert.match(z, /if \(f\.igl\) aus\.push\(\{ uid: f\.uid, betrag: -wert\(\(r\.gutschrift_positionen \?\? \[\]\) as R\[\]\), nummer \}\)/)
+    assert.match(z, /zmBelege\(rechnungen, originale, verkaeufe, warnungen, gutschriftFaelle\)/)
+    assert.match(z, /if \(gl\.error\) throw new AktionsFehler\(/)
+  })
+  test('Rechnungsausgangsjournal: Spalte „Gutschrift zu“, Grund der Gutschrift; Suche nennt die Belegart', () => {
+    const j = quelle('src/lib/behoerden/rechnungsausgang.ts')
+    assert.match(j, /\{ kopf: 'Gutschrift zu', typ: 'code', wert: z => z\.gutschriftZu \},/)
+    assert.match(j, /gutschriftZu: p\.art === 'gutschrift' \? text\(p\.gutschrift_zu\?\.rechnungsnummer\) : null,/)
+    assert.match(quelle('src/app/api/global-search/route.ts'), /r\.art === 'gutschrift' \? 'Gutschrift' : r\.art === 'storno' \? 'Stornobeleg' : 'Rechnung'/)
+  })
+  test('die gemeinsame Feldliste bettet die berichtigte Rechnung wie den Stornobeleg ein – ohne Verschachtelung', () => {
+    assert.match(STORNO_FELDER, /gutschrift_zu:gutschrift_zu_id\(id, rechnungsnummer, datum\)$/)
+  })
+})
+
+describe('KAN-419: Server Action und Oberfläche', () => {
+  test('Server Action: Eingaben geprüft, RPC, Ablehnungen der Datenbank am richtigen Feld', () => {
+    const a = quelle('src/app/(dashboard)/weinhandel/verkauf/actions.ts')
+    const fn = a.slice(a.indexOf('export async function gutschriftAusstellen('), a.indexOf('// KAN-356: Verkauf samt Rechnung stornieren'))
+    assert.match(fn, /const tenantId = await getTenantId\(\)/)
+    assert.match(fn, /rpc\('s112_gutschrift_anlegen', \{/)
+    assert.match(fn, /if \(istStornoDatumAblehnung\(hint\)\) return \{ error: meldung, feld: 'datum' \}/)
+    assert.match(fn, /if \(hint === 'gutschrift_menge'\) return \{ error: meldung, feld: 'positionen' \}/)
+    assert.match(fn, /if \(hint === 'gutschrift_betrag'\) return \{ error: meldung, feld: 'betrag' \}/)
+    assert.doesNotMatch(fn, /preis/i, 'Preise kommen nie aus dem Aufruf')
+  })
+  test('Formular: dieselbe Prüfung wie der Server, Rückfrage vor dem Buchen, Ladezustand im finally, Fehler am Feld', () => {
+    const p = quelle('src/app/(dashboard)/weinhandel/rechnungen/[id]/GutschriftPanel.tsx')
+    assert.match(p, /const f = gutschriftEingabeFehler\(e, \{ rechnungDatum, heute, positionen, gutschriften \}\)\n\s+if \(f\) \{ setFehler\(f\); return \}/)
+    assert.match(p, /if \(!\(await rueckfrage\(\{/)
+    assert.match(p, /\} finally \{\n\s+setSaving\(false\)/)
+    assert.match(p, /aria-describedby=\{fehler\?\.feld === 'datum' \? 'gs-fehler-datum' : undefined\}/)
+    assert.doesNotMatch(p, /text-white|confirm\(/)
+  })
+  test('Rechnungsseite: Gutschrift als Beleg mit Zusatz „Rechnungskorrektur zu Rechnung“, Panel nur an gültigen Rechnungen', () => {
+    const s = quelle('src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx')
+    assert.match(s, /\{gutschrift\n\s+\? <h1 className="text-3xl font-semibold">GUTSCHRIFT<\/h1>/)
+    assert.match(s, /\{!gutschrift && <>\n\s+\{!storno && <div className="mt-8/, 'kein Zahlungsteil auf der Gutschrift')
+    assert.match(s, /Rechnungskorrektur zu Rechnung \{original\.rechnungsnummer\} vom \{d\(original\.datum\)\}/)
+    assert.match(s, /\{!gegenbeleg && !r\.storniert && r\.verkaufsposten_ids\.length > 0 && \(\n\s+<GutschriftPanel /)
+    assert.match(s, /\.eq\('tenant_id', tenantId\)\.eq\('gutschrift_zu_id', id\)\.eq\('art', 'gutschrift'\)\.eq\('aktiv', true\)/)
+  })
+})

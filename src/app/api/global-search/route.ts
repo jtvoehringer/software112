@@ -130,8 +130,8 @@ export async function GET(req: NextRequest) {
     results.push({
       id:         r.id,
       kategorie:  'verkauf',
-      titel:      `${r.art === 'storno' ? 'Stornobeleg' : 'Rechnung'} ${r.rechnungsnummer}`,   // KAN-379
-      untertitel: [r.datum ? new Date(r.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null, r.art === 'storno' ? null : r.storniert ? 'storniert' : r.bezahlt ? 'bezahlt' : 'offen'].filter(Boolean).join(' · '),
+      titel:      `${r.art === 'gutschrift' ? 'Gutschrift' : r.art === 'storno' ? 'Stornobeleg' : 'Rechnung'} ${r.rechnungsnummer}`,   // KAN-379, KAN-419
+      untertitel: [r.datum ? new Date(r.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null, r.art === 'storno' || r.art === 'gutschrift' ? null : r.storniert ? 'storniert' : r.bezahlt ? 'bezahlt' : 'offen'].filter(Boolean).join(' · '),
       href:       `/weinhandel/rechnungen/${r.id}`,
     })
   })

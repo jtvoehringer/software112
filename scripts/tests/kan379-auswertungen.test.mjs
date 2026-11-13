@@ -125,7 +125,7 @@ describe('KAN-379: Rechnungsjournal', () => {
     assert.equal(rj.zaehltInJournalSumme(o), true)
     assert.equal(rj.zaehltInJournalSumme(rj.rechnungsjournalZeile(B.alsBeleg(altfall)).zeile), false)
     const koepfe = rj.SPALTEN_RECHNUNGSJOURNAL.map(c => c.kopf)
-    assert.deepEqual(koepfe.slice(koepfe.indexOf('Storno-Grund'), koepfe.indexOf('Bezahlt')), ['Storno-Grund', 'Storniert durch', 'Storno zu'])
+    assert.deepEqual(koepfe.slice(koepfe.indexOf('Storno-Grund'), koepfe.indexOf('Bezahlt')), ['Storno-Grund', 'Storniert durch', 'Storno zu', 'Gutschrift zu'])   // KAN-419: neue Spalte nach „Storno zu“
   })
   test('ladeRechnungsjournal: Stornobeleg mit eigener Nummer, Hinweise zu Stornobeleg und Altfall', async () => {
     const db = datenbank({ rechnungen: [original, beleg, altfall, normal], exportauftraege: [] })

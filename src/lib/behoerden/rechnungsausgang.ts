@@ -67,6 +67,8 @@ export type RechnungsjournalZeile = {
   storniertDurch: string | null
   /** KAN-379: Stornobeleg → Nummer der stornierten Rechnung */
   stornoZu: string | null
+  /** KAN-419: Nummer der Rechnung, die eine Gutschrift berichtigt (sonst null) */
+  gutschriftZu: string | null
   bezahlt: boolean
   /** verkaufsposten.bezahlt_am (timestamptz) */
   bezahltAm: string | null
@@ -99,6 +101,7 @@ export const SPALTEN_RECHNUNGSJOURNAL: CsvSpalte<RechnungsjournalZeile>[] = [
   { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
   { kopf: 'Storniert durch', typ: 'code', wert: z => z.storniertDurch },
   { kopf: 'Storno zu', typ: 'code', wert: z => z.stornoZu },
+  { kopf: 'Gutschrift zu', typ: 'code', wert: z => z.gutschriftZu },
   { kopf: 'Bezahlt', typ: 'janein', wert: z => z.bezahlt },
   { kopf: 'Bezahlt am', typ: 'datum', wert: z => z.bezahltAm },
 ]
@@ -155,9 +158,10 @@ export function rechnungsjournalZeile(p: R): { zeile: RechnungsjournalZeile; son
       storniert: !!p.storniert,
       storniertAm: p.storniert ? text(p.storniert_am) : null,
       storniertVon: p.storniert ? text(p.storniert_von_name) : null,
-      stornoGrund: p.storniert ? text(p.storno_grund) : istStornobeleg(p) ? text(p.notizen) : null,
+      stornoGrund: p.storniert ? text(p.storno_grund) : istStornobeleg(p) || p.art === 'gutschrift' ? text(p.notizen) : null,   // Gutschrift: ihr Grund
       storniertDurch: p.storniert ? text(p.storniert_durch?.rechnungsnummer) : null,
       stornoZu: istStornobeleg(p) ? text(p.storno_von?.rechnungsnummer) : null,
+      gutschriftZu: p.art === 'gutschrift' ? text(p.gutschrift_zu?.rechnungsnummer) : null,
       bezahlt: !!p.bezahlt,
       bezahltAm: p.bezahlt ? text(p.bezahlt_am) : null,
       quelle: p.quelle === 'export' ? 'export' : 'rechnung',
