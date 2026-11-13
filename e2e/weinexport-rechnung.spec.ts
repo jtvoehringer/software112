@@ -71,12 +71,15 @@ test.describe('Weinexport: Rechnung aus dem Exportauftrag (schreibend)', () => {
     await expect(page.getByRole('button', { name: /^Rechnung stellen/ })).toHaveCount(0)
 
     // Bestätigen (Statuswechsel per PATCH), danach rechnet der Server den Stand neu
-    const status = page.locator('select', { has: page.locator('option[value="bestaetigt"]') }).first()
+    // KAN-440: Statuswechsel in geprüften Schritten – im Entwurf gibt es nur „Bestätigen“
     await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/weinexport/') && r.request().method() === 'PATCH' && r.ok(), { timeout: 20_000 }),
-      status.selectOption('bestaetigt'),
+      page.getByRole('button', { name: 'Bestätigen', exact: true }).click(),
     ])
     await page.goto(auftrag)
+    // ohne Rechnung ist „Als versendet markieren“ gesperrt und nennt den Grund
+    await expect(page.getByRole('button', { name: 'Als versendet markieren' })).toBeDisabled()
+    await expect(page.getByText('„Versendet“ geht erst, wenn die Rechnung gestellt ist.')).toBeVisible()
 
     // Rechnung stellen (mit Rückfrage)
     await page.getByRole('button', { name: /^Rechnung stellen/ }).click()

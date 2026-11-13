@@ -73,6 +73,7 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
         gewicht={ergebnis.gewicht}
         grunddaten={ergebnis.grunddaten}
         darfSchreiben={!!membership && canWrite(membership, 'warenwirtschaft') && !a.storniert_am}
+        betriebsleitung={canAdmin(membership?.role ?? null)}
         dokumente={ergebnis.dokumente}
         csvHref={csvPfad('exportauftrag', { id, referenz: a.referenz })}
       />
