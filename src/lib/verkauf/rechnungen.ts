@@ -35,11 +35,18 @@ export function positionenDerRechnung(r: R): R[] {
  * (storno_von_id(…) = verwiesene Zeile); mit Tabellen-Hinweis rechnungen!… wäre es auf derselben Tabelle die Gegenrichtung (Liste).
  */
 export const STORNO_FELDER =
-  'art, storniert_durch_id, storno_von:storno_von_id(id, rechnungsnummer, datum, storno_positionen), storniert_durch:storniert_durch_id(id, rechnungsnummer, datum)'
+  'art, storniert_durch_id, storno_von:storno_von_id(id, rechnungsnummer, datum, storno_positionen), storniert_durch:storniert_durch_id(id, rechnungsnummer, datum), ' +
+  // KAN-419: die Gutschrift trägt ihre Zeilen selbst und nennt die berichtigte Rechnung
+  'gutschrift_zu_id, gutschrift_positionen, gutschrift_zu:gutschrift_zu_id(id, rechnungsnummer, datum)'
 
 /** KAN-379: Stornobeleg (Gegenbuchung zu einer Rechnung)? */
 export function istStornobeleg(r: R): boolean {
   return r.art === 'storno'
+}
+
+/** KAN-419: Gutschrift (Teilberichtigung einer Rechnung mit eigenen Zeilen)? */
+export function istGutschrift(r: R): boolean {
+  return r.art === 'gutschrift'
 }
 
 /**
@@ -49,7 +56,7 @@ export function istStornobeleg(r: R): boolean {
  */
 export function zaehltMitBetrag(r: R): boolean {
   if (r.aktiv === false) return false
-  if (istStornobeleg(r)) return true
+  if (istStornobeleg(r) || istGutschrift(r)) return true   // KAN-419: die Gutschrift zählt negativ im Zeitraum ihres Datums
   return r.storniert !== true || !!r.storniert_durch_id
 }
 
@@ -64,6 +71,11 @@ export function alsBeleg<T extends R>(r: T): T & { verkauf_positionen: R[]; lief
     const original = ((r.storno_von?.storno_positionen ?? []) as R[])
     const verkauf_positionen = original.map(p => ({ ...p, menge: -(Number(p.menge) || 0) }))
     return { ...r, lieferscheine: [], verkauf_positionen, verkaufsposten_ids: [] }
+  }
+  // KAN-419: Gutschrift = ihre eigenen Zeilen (Momentaufnahme, positiv gespeichert) mit negativer Menge
+  if (istGutschrift(r)) {
+    const zeilen = (Array.isArray(r.gutschrift_positionen) ? r.gutschrift_positionen : []) as R[]
+    return { ...r, lieferscheine: [], verkauf_positionen: zeilen.map(p => ({ ...p, menge: -(Number(p.menge) || 0) })), verkaufsposten_ids: [] }
   }
   const lieferscheine = lieferscheineDerRechnung(r)
   // KAN-103: Eine stornierte Rechnung hat keine Lieferscheine mehr (die sind wieder „nicht berechnet“) – ihre Beträge
