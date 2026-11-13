@@ -1996,7 +1996,8 @@
 "role",
 "created_at",
 "aktiv",
-"schreibmodule"
+"schreibmodule",
+"profil"
 ],
 "tenants": [
 "id",
