@@ -138,5 +138,5 @@ export function paketLabel(stripePlan: string | null | undefined): string {
 }
 
 export function preisText(paket: Paket): string {
-  return `${paket.preisMonat} € / Monat`
+  return `${paket.preisMonat} € / Monat netto`   // KAN-450: Nettopreis, zuzüglich USt (ABO_PREIS_HINWEIS)
 }

@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { createOwnStripePortalSession, starteZahlungAction, wechslePaketAction, setzeBuchhaltungsartAction, type Buchhaltungsart } from './actions'
 import { PAKETE, preisText, type PaketKey } from '@/lib/pakete'
+import { ABO_PREIS_HINWEIS } from '@/lib/abo/steuer'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
 // damit wir zu unserem Geld kommen"): Selbstverwaltungsseite für Abo und
@@ -299,6 +300,8 @@ export default function AboClient({
               <p className="text-sm font-semibold text-s112-text mb-2">
                 {hatAbo ? 'Paket wechseln' : 'Paket wählen'}
               </p>
+              {/* KAN-450: Preise sind netto – die Umsatzsteuer weist Stripe im Checkout und auf der Rechnung aus */}
+              <p className="text-[12px] text-s112-muted mb-2" data-preis-hinweis>{ABO_PREIS_HINWEIS}</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {verfuegbarePakete.map(k => {
                   const p = PAKETE[k]

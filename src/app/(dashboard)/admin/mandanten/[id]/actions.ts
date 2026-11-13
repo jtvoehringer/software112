@@ -9,7 +9,8 @@ import { geheimSpeichern, geheimFeld } from '@/lib/email/geheimnis'
 import { isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { subdomainFehler } from '@/lib/tenant/subdomain'
-import { SANDBOX_TENANT_ID, paketEntscheidung } from '@/lib/abo/regeln'
+import { SANDBOX_TENANT_ID, paketEntscheidung, checkoutAboDaten } from '@/lib/abo/regeln'
+import { stripeSteuersatzId, checkoutSteuerOptionen, STEUERSATZ_FEHLT } from '@/lib/abo/steuer'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
 import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket, wendePaketAufSubmandantenAn } from '@/lib/pakete-server'
@@ -667,6 +668,9 @@ export async function createStripeCheckoutSession(tenantId: string, paket: strin
   if (!customerId) return { error: 'Zuerst Stripe Customer anlegen.' }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
+  // KAN-450: ohne hinterlegten Umsatzsteuersatz kein Checkout – nie netto abrechnen
+  const steuersatzId = stripeSteuersatzId()
+  if (!steuersatzId) return { error: STEUERSATZ_FEHLT }
 
   try {
     const session = await getStripe().checkout.sessions.create({
@@ -676,9 +680,9 @@ export async function createStripeCheckoutSession(tenantId: string, paket: strin
       success_url: `${baseUrl}/admin/mandanten/${tenantId}?stripe=success`,
       cancel_url:  `${baseUrl}/admin/mandanten/${tenantId}?stripe=cancelled`,
       metadata:    { tenant_id: tenantId },
-      subscription_data: {
-        metadata: { tenant_id: tenantId },
-      },
+      // KAN-450: dieselben Abo-Daten und Steuer-Optionen wie der Checkout des Betriebs (Steuersatz, UID-Abfrage)
+      subscription_data: checkoutAboDaten(tenantId, steuersatzId),
+      ...checkoutSteuerOptionen(),
     })
     return { url: session.url }
   } catch (err) {

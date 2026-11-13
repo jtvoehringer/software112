@@ -299,8 +299,10 @@ export function aboZuordnung(p: {
 // Freischaltung. Jeder Checkout (erstes Abo, Zahlung nachholen, Wiederabschluss nach Kündigung) verlangt
 // sofort die Zahlung – nie trial_period_days. Bis 10.11.2026 gab es 14 Tage einmal je Stripe-Kunde
 // (testphaseTage, KAN-5); laufende Altfälle mit 'trialing' wertet aboStandBerechnen() weiter aus.
-export function checkoutAboDaten(tenantId: string): { metadata: { tenant_id: string } } {
-  return { metadata: { tenant_id: tenantId } }
+// KAN-450: dazu der Umsatzsteuersatz am Abo (default_tax_rates) – er gilt für alle Positionen und Folgerechnungen.
+// Der Aufrufer bricht ab, wenn der Steuersatz fehlt (stripeSteuersatzId, lib/abo/steuer) – nie ohne Umsatzsteuer.
+export function checkoutAboDaten(tenantId: string, steuersatzId: string): { metadata: { tenant_id: string }; default_tax_rates: string[] } {
+  return { metadata: { tenant_id: tenantId }, default_tax_rates: [steuersatzId] }
 }
 
 /** /abo: Betrieb hat noch nie ein Paket gebucht (kein Abo, nicht gekündigt) – Hinweis zur Buchung statt Sperrtext. */

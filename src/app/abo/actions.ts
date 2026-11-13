@@ -18,6 +18,7 @@ import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { paketEntscheidung, paketwechselParameter, checkoutAboDaten } from '@/lib/abo/regeln'
+import { stripeSteuersatzId, checkoutSteuerOptionen, steuersatzNachziehen, STEUERSATZ_FEHLT } from '@/lib/abo/steuer'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { aboPositionAus, paketPosition, paketwechselVerbundFehler } from '@/lib/abo/verbund'
 import { buchenFehler, premiumPositionFuer, PREMIUM_ART } from '@/lib/abo/premiumStripe'
@@ -104,6 +105,9 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
   const paket: PaketKey = istPaketKey(paketWunsch) ? paketWunsch : 'standard'
   const priceId = paketPriceId(paket)
   if (!priceId) return { error: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt – bitte kontaktieren Sie uns.` }
+  // KAN-450: ohne hinterlegten Umsatzsteuersatz kein Checkout – nie netto abrechnen
+  const steuersatzId = stripeSteuersatzId()
+  if (!steuersatzId) return { error: STEUERSATZ_FEHLT }
   if (PAKETE[paket].module.modul_ea && !istBuchhaltungsart(buchhaltungsart)) {
     return { error: `Das Paket ${PAKETE[paket].label} enthält die E&A-Rechnung – bitte wählen Sie, ob Sie die E&A-Rechnung in software:112 führen oder Ihr Steuerberater die doppelte Buchhaltung (BMD) macht.` }
   }
@@ -144,7 +148,8 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
       success_url: `${baseUrl}/signup/willkommen`,
       cancel_url:  `${baseUrl}/abo`,
       metadata:    { tenant_id: membership.tenantId },
-      subscription_data: checkoutAboDaten(membership.tenantId),
+      subscription_data: checkoutAboDaten(membership.tenantId, steuersatzId),
+      ...checkoutSteuerOptionen(),   // KAN-450: UID abfragen, Rechnungsadresse, Kundendaten übernehmen
     })
     return { url: session.url }
   } catch (err) {
@@ -197,6 +202,9 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
     return { error: 'Für Ihren Betrieb existiert noch kein Abo – bitte zuerst „Zahlungsdaten hinterlegen" verwenden.' }
   }
   if (paketAusPlan(t.stripe_plan) === paket) return { error: 'Dieses Paket ist bereits aktiv.' }
+  // KAN-450: ohne hinterlegten Umsatzsteuersatz kein Paketwechsel (er löst eine Rechnung aus)
+  const steuersatzId = stripeSteuersatzId()
+  if (!steuersatzId) return { error: STEUERSATZ_FEHLT }
   // Migration 197: kommt E&A neu dazu, muss die Buchhaltungsart gewählt sein
   const altesPaket = paketAusPlan(t.stripe_plan)
   const eaNeu = PAKETE[paket].module.modul_ea && !(altesPaket && PAKETE[altesPaket].module.modul_ea)
@@ -217,6 +225,10 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
       // metadata nicht im Upgrade-Aufruf (pending_if_incomplete erlaubt sie nicht) – vorab eigens setzen
       await stripe.subscriptions.update(sub.id, { metadata: { ...(sub.metadata ?? {}), tenant_id: membership.tenantId } })
     }
+    // KAN-450: Abo aus der Zeit ohne Steuersatz nachziehen – eigens und vor dem Wechsel, damit schon dessen Rechnung
+    // die Umsatzsteuer ausweist (pending_if_incomplete erlaubt im Wechsel-Aufruf selbst keine weiteren Felder)
+    const nachziehen = steuersatzNachziehen(sub, steuersatzId)
+    if (nachziehen) await stripe.subscriptions.update(sub.id, nachziehen)
     // KAN-8: Upgrade sofort abrechnen und nur bei bezahlter Rechnung umstellen, Downgrade wie bisher
     const aktualisiert = await stripe.subscriptions.update(sub.id, {
       items: [{ id: item.id, price: priceId }],
@@ -332,9 +344,14 @@ export async function premiumSupportBuchenAction() {
     aktivUnbefristet: k.stand.status === 'aktiv' && !k.stand.bis,
   })
   if (fehler) return { error: fehler }
+  // KAN-450: ohne hinterlegten Umsatzsteuersatz keine Buchung (sie löst eine anteilige Rechnung aus)
+  const steuersatzId = stripeSteuersatzId()
+  if (!steuersatzId) return { error: STEUERSATZ_FEHLT }
   try {
     const stripe = getStripe()
     const sub = await stripe.subscriptions.retrieve(k.t.stripe_subscription_id)
+    const nachziehen = steuersatzNachziehen(sub, steuersatzId)
+    if (nachziehen) await stripe.subscriptions.update(sub.id, nachziehen)
     const vorhanden = premiumPositionFuer(sub.items.data.map(i => aboPositionAus(i as unknown as R)), k.membership.tenantId, preisId)
     if (!vorhanden) {
       await stripe.subscriptions.update(sub.id, {
