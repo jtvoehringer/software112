@@ -85,7 +85,7 @@ test.describe('Weinexport: Rechnung aus dem Exportauftrag (schreibend)', () => {
     await expect(page.getByText(/Zum Exportauftrag gibt es eine Rechnung/)).toBeVisible()   // Sperrhinweis
     await expect(page.getByRole('link', { name: 'Bearbeiten', exact: true })).toHaveCount(0)
 
-    expect(await bestandLaut(page, fuellungId), 'Bestand nach „Rechnung stellen“').toBe(vorher - 1)
+    await expect.poll(() => bestandLaut(page, fuellungId), { message: 'Bestand nach „Rechnung stellen“', timeout: 30_000, intervals: [1_000, 3_000, 5_000] }).toBe(vorher - 1)
 
     // Die Rechnung trägt Steuerfall und Exportauftrag; der Verkauf lässt sich stornieren
     await page.goto(auftrag)
@@ -96,9 +96,9 @@ test.describe('Weinexport: Rechnung aus dem Exportauftrag (schreibend)', () => {
     await page.getByRole('button', { name: 'Verkauf stornieren' }).first().click()
     await page.getByLabel(/Grund des Stornos/).fill('E2E-Test: Rechnung zum Exportauftrag zurück')
     await page.getByRole('button', { name: 'Verkauf stornieren' }).last().click()
-    await expect(page.getByText(/storniert/i).first()).toBeVisible({ timeout: 30_000 })
-
-    expect(await bestandLaut(page, fuellungId), 'Bestand nach dem Storno').toBe(vorher)
+    // Das Wort „storniert“ steht schon im Dialog – deshalb auf den Bestand selbst warten, bis die Rückbuchung durch ist
+    // (erster Lauf gegen Staging, 12.11.2026: Abfrage 949 statt 950, die Rückbuchung kam Sekunden später)
+    await expect.poll(() => bestandLaut(page, fuellungId), { message: 'Bestand nach dem Storno', timeout: 60_000, intervals: [2_000, 3_000, 5_000] }).toBe(vorher)
 
     // Der Exportauftrag ist wieder frei: Rechnung stellen und Bearbeiten sind wieder möglich
     await page.goto(auftrag)
