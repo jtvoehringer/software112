@@ -257,8 +257,9 @@ describe('Stripe-Webhook: Zuordnung von Ereignissen zum Betrieb (aboZuordnung)',
 
   // KAN-402 (Vertrag v3, NV 4.1): keine Testphase mehr – auch nicht beim ersten Abo eines neuen Stripe-Kunden
   test('Regression KAN-402: neues Abo ohne Testphase', () => {
-    const d = r.checkoutAboDaten('t-1')
-    assert.deepEqual(d, { metadata: { tenant_id: 't-1' } })
+    const d = r.checkoutAboDaten('t-1', 'txr_test')
+    // KAN-450: dazu der Umsatzsteuersatz am Abo
+    assert.deepEqual(d, { metadata: { tenant_id: 't-1' }, default_tax_rates: ['txr_test'] })
     assert.ok(!('trial_period_days' in d) && !('trial_end' in d), 'kein Testzeitraum im Checkout')
     assert.equal(r.testphaseTage, undefined, 'testphaseTage ist entfernt')
   })
@@ -416,7 +417,7 @@ describe('Stripe-Webhook: Abgleich mit Fake-Admin-Client (aboEreignisAbgleichen)
     assert.match(route, /status: 500/)
     const abo = readFileSync(path.join(ROOT, 'src', 'app', 'abo', 'actions.ts'), 'utf8')
     // KAN-402: Checkout ohne Testphase – Abo-Daten nur über checkoutAboDaten, nirgends ein Testzeitraum
-    assert.match(abo, /subscription_data: checkoutAboDaten\(membership\.tenantId\)/)
+    assert.match(abo, /subscription_data: checkoutAboDaten\(membership\.tenantId, steuersatzId\)/)   // KAN-450: mit Steuersatz
     assert.doesNotMatch(abo, /trial_period_days|trial_end|TRIAL_TAGE|testphaseTage/, 'keine Testphase mehr (KAN-402)')
     assert.doesNotMatch(readFileSync(path.join(ROOT, 'src', 'lib', 'stripe', 'client.ts'), 'utf8'), /TRIAL_TAGE/)
   })

@@ -9,6 +9,8 @@ Preis-IDs stehen seit 11.11.2026 als `NEXT_PUBLIC_STRIPE_PRICE_BASIS/_STANDARD/_
 
 - Wer sich registriert, bekommt ein Test-Abo ohne echte Zahlung und wird trotzdem freigeschaltet.
 - Pakete ohne Preis-ID werden nicht angeboten (kein Fehler) – fehlt eine der drei Variablen, fehlt die Paketkarte.
+- **Umsatzsteuer (KAN-450, Schritt 2c):** Ohne die Variable `STRIPE_TAX_RATE_UST` brechen Checkout, Paketwechsel und
+  die Buchung des Premium-Supports mit einer Meldung ab – es wird nie ohne Umsatzsteuer abgerechnet.
 - `STRIPE_PRICE_PREMIUM_SUPPORT` (Schritt 2b) ist in Vercel noch nicht angelegt – der Knopf „Premium-Support buchen“
   bleibt ausgeblendet.
 - Bestehende Mandanten (Sandbox, Gebeshuber, …) laufen ohne Stripe weiter:
@@ -33,6 +35,35 @@ Preis-IDs stehen seit 11.11.2026 als `NEXT_PUBLIC_STRIPE_PRICE_BASIS/_STANDARD/_
 | software:112 Premium | 399,00 EUR | monatlich, wiederkehrend | `NEXT_PUBLIC_STRIPE_PRICE_PREMIUM` |
 
 Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) kopieren.
+
+### 2c. Umsatzsteuer: fester Steuersatz 20 % (KAN-450, Entscheidung Jörgen 13.11.2026)
+Die Preise in Schritt 2 und 2b sind **Nettopreise**. Die Umsatzsteuer kommt über einen festen Steuersatz dazu
+(kein Stripe Tax, solange alle Kunden österreichische Betriebe sind).
+
+- Stripe → Produktkatalog → **Steuersätze** → „Steuersatz hinzufügen“: Typ USt/VAT, Region Österreich, Satz **20 %**,
+  Steuer **exklusive** (wird auf den Preis aufgeschlagen), Anzeigename „USt“. Es entsteht eine ID `txr_…`.
+- ID → Vercel `STRIPE_TAX_RATE_UST` (serverseitig, kein `NEXT_PUBLIC_`), **je Umgebung aus demselben Stripe-Konto**
+  wie Schlüssel und Preise (Sandbox-ID zur Sandbox, Live-ID zum Live-Konto). Danach Redeploy.
+- Wirkung im Programm (`src/lib/abo/steuer.ts`): Der Checkout hinterlegt den Satz am Abo (`default_tax_rates`) – er gilt
+  für alle Positionen (Paket, Zusatzmandant, Premium-Support) und alle Folgerechnungen. Der Checkout verlangt die
+  Rechnungsadresse und fragt die **UID** des Kunden ab; sie steht dann auf jeder Rechnung.
+- Abos aus der Zeit davor haben keinen Steuersatz: Das Programm zieht ihn beim nächsten Paketwechsel bzw. bei der
+  Buchung des Premium-Supports nach. Bis dahin im Dashboard prüfen (Abonnement → „Abonnement aktualisieren“ →
+  Steuersatz „USt 20 %“) – sonst weist die nächste Rechnung keine Umsatzsteuer aus.
+- Gutschein „Early Mover“ (Abschnitt 8): Der Nachlass mindert den Nettobetrag, die Umsatzsteuer rechnet Stripe vom
+  verminderten Betrag.
+
+**Rechnung und Versand (einmal je Konto einstellen)**
+- **Rechnungsvorlage**: Stripe → Einstellungen → Unternehmen bzw. Rechnungen: Firmenname, Adresse und eigene **UID**
+  (Steuer-ID des Kontos, „auf Rechnungen anzeigen“), Fußzeile nach Bedarf.
+- **Kunden-E-Mails**: Stripe → Einstellungen → Abrechnung → Kunden-E-Mails: „Rechnungen und Belege bei erfolgreicher
+  Zahlung senden“ einschalten – sonst bekommt der Kunde keine Rechnung per E-Mail.
+- **Rechnungsverlauf** im Kundenportal: Stripe → Einstellungen → Abrechnung → Kundenportal: „Rechnungsverlauf“
+  aktivieren. Der Betrieb erreicht das Portal über „Abo & Zahlung“ → „Zahlungsdaten verwalten“; eine eigene
+  Rechnungsliste in software:112 gibt es nicht.
+
+**Prüfung im Testmodus:** Paket buchen → die Bezahlseite zeigt z. B. 399,00 € + 79,80 € USt = 478,80 € und das Feld
+für die UID; die Rechnung im Kundenportal weist 20 % USt und die UID aus.
 
 ### 3. Webhook – Stripe → Entwickler → Webhooks / Event-Ziele → „Ereignisziel erstellen"
 - Bereich „Ihr Konto", Zieltyp **Webhook-Endpoint**
@@ -130,8 +161,8 @@ nichts, er liest nur die Variablen. Eine Mischung aus Sandbox- und Live-Werten l
 1. Produkte und Preise wie in Schritt 2 und 2b (ohne Testzeitraum) – es entstehen **neue Preis-IDs**.
 2. Webhook wie in Schritt 3 (gleiche Adresse, gleiche fünf Ereignisse) – es entsteht ein **neues Signing Secret**.
 3. Mahnwesen wie in Schritt 3a (unpaid bzw. canceled, nicht „überfällig lassen“).
-4. Kontoeinstellungen prüfen: Kundenportal (Kündigen, Zahlungsart ändern), Rechnungsvorlage und Branding,
-   Steuereinstellungen, Zahlungsarten.
+4. Kontoeinstellungen prüfen: Kundenportal (Kündigen, Zahlungsart ändern, Rechnungsverlauf), Rechnungsvorlage mit
+   eigener UID und Branding, Kunden-E-Mails, Steuersatz „USt 20 %“ (Schritt 2c), Zahlungsarten.
 5. Gutschein „Early Mover“ wie in Abschnitt 8 (in der Sandbox seit 11.11.2026 vorhanden, im Live-Konto neu anlegen).
 
 **In Vercel (Production) gemeinsam ersetzen, danach Redeploy**
@@ -139,6 +170,7 @@ nichts, er liest nur die Variablen. Eine Mischung aus Sandbox- und Live-Werten l
 - `STRIPE_WEBHOOK_SECRET`
 - `NEXT_PUBLIC_STRIPE_PRICE_BASIS`, `NEXT_PUBLIC_STRIPE_PRICE_STANDARD`, `NEXT_PUBLIC_STRIPE_PRICE_PREMIUM`
 - `STRIPE_PRICE_PREMIUM_SUPPORT` (neu anlegen)
+- `STRIPE_TAX_RATE_UST` (Steuersatz im Live-Konto neu anlegen, Schritt 2c – die Sandbox-ID gilt dort nicht)
 - Kommentar „Stripe-Sandbox“ an den Preis-Variablen entfernen. Die Sandbox-Werte können für *Preview* bleiben.
 
 **In der Datenbank aufräumen**

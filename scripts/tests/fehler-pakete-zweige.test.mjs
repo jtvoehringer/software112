@@ -111,6 +111,6 @@ describe('Pakete: Stripe-Preis-IDs und Plan-Slugs', () => {
     assert.equal(paketLabel('premium'), `software:112 ${PAKETE.premium.label}`)
     assert.equal(paketLabel('ki_basic'), `software:112 ${PAKETE.standard.label}`)
     assert.equal(paketLabel(null), 'Kein Paket')
-    assert.equal(preisText(PAKETE.basis), `${PAKETE.basis.preisMonat} € / Monat`)
+    assert.equal(preisText(PAKETE.basis), `${PAKETE.basis.preisMonat} € / Monat netto`)   // KAN-450: Nettopreis gekennzeichnet
   })
 })

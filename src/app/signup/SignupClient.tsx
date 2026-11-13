@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { registrierenAction } from './actions'
 import RechtsLinks from '@/components/RechtsLinks'
 import { PAKETE, PAKET_REIHENFOLGE, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
+import { ABO_PREIS_HINWEIS } from '@/lib/abo/steuer'
 
 // Paketmodell Basis / Standard / Premium (2.9.2026), Definition in lib/pakete.ts.
 // Nur Pakete mit hinterlegter Stripe-Preis-ID werden angeboten.
@@ -107,6 +108,8 @@ export default function SignupClient() {
             {PAKET_OPTIONEN.length > 0 && (
               <div>
                 <span className="block text-sm font-medium text-s112-text-1 mb-1.5">Paket</span>
+                {/* KAN-450: Preise sind netto – die Umsatzsteuer weist Stripe im Checkout und auf der Rechnung aus */}
+                <p className="text-[12px] text-s112-muted mb-1.5" data-preis-hinweis>{ABO_PREIS_HINWEIS}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {PAKET_OPTIONEN.map(p => (
                     <button
