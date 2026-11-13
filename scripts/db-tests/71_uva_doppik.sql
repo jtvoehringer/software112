@@ -8,6 +8,9 @@
 -- @ziel: KAN-439: Umsätze zu 0 % mit gespeichertem Steuerfall stehen zusätzlich in bmgl_ausfuhr (Kz 011) bzw. bmgl_igl
 -- @ziel: (Kz 017) – E&A nach Zahlung, Doppik nach Rechnung; 0-%-Umsätze ohne Steuerfall nur in bmgl_0.
 -- @mutation ohne_steuerfall: der Steuerfall „ausfuhr“ wird nicht mehr erkannt | rot: ea_steuerfall
+-- @ziel: KAN-439 Nachtrag: Wird nur die Rechnung storniert (der Lieferschein ist danach wieder „nicht berechnet“), kommt
+-- @ziel: der Steuerfall des Storno-Paars aus der Momentaufnahme (lieferschein_id) – der Stornobeleg mindert Kz 017.
+-- @mutation steuerfall_ueber_rechnung: Steuerfall des Storno-Paars wieder über den Lieferschein an der Rechnung | rot: nur_rechnung_storniert
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 71 (Stand 08.10.2026, KAN-105). Alles zurückgerollt.
 
@@ -53,6 +56,9 @@ DECLARE
   v_ls5   uuid;
   v_ls6   uuid;
   v_ls7   uuid;
+  v_ls8   uuid;
+  v_re8   uuid;
+  v_vormonat date;
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
   v_t0 := clock_timestamp();
@@ -75,6 +81,12 @@ BEGIN
   PERFORM pg_temp.s112_mutiere('ohne_steuerfall',
     $m$SELECT pg_temp.t71_ersetze('public.berechne_ea_uva(uuid, smallint, text)'::regprocedure,
       $r$a\.sf='ausfuhr'$r$, $r$a.sf='keiner'$r$)$m$);
+
+  PERFORM pg_temp.s112_mutiere('steuerfall_ueber_rechnung',
+    $m$SELECT pg_temp.t71_ersetze('public.berechne_ea_uva(uuid, smallint, text)'::regprocedure,
+      $r$v\.id = \(x\.pos ->> 'lieferschein_id'\)::uuid$r$, $r$v.rechnung_id = o.id$r$);
+    SELECT pg_temp.t71_ersetze('public.berechne_ea_uva(uuid, smallint, text)'::regprocedure,
+      $r$v\.id = \(x\.pos ->> 'lieferschein_id'\)::uuid$r$, $r$v.rechnung_id = o.id$r$)$m$);
 
   -- Rechnungen im laufenden Monat: 10 × 12 € zu 20 % (netto 100), 3 × 11,30 € zu 13 % (netto 30),
   -- eine stornierte (24 € zu 20 %) und ein nicht berechneter Lieferschein (60 € zu 20 %) – beide zählen nicht
@@ -127,6 +139,19 @@ BEGIN
   -- KAN-439: nach Rechnung – 0 % gesamt 200, davon Ausfuhr 100 und ig. Lieferung 70 (ganze Rechnung)
   v_erg := v_erg || pg_temp.s112_erwarte('doppik_steuerfall', pg_temp.t71_steuerfall(v_b, v_jahr, v_zr), '200.00|100.00|70.00');
 
+  -- KAN-439 Nachtrag: ig. Lieferung (1 × 80 €) im Vormonat berechnet, heute NUR die Rechnung storniert – der Lieferschein
+  -- hängt danach nicht mehr an der Rechnung. Der Stornobeleg (heute) mindert trotzdem Kz 017: 0 % 200 − 80, ig. 70 − 80.
+  v_vormonat := (date_trunc('month', v_heute) - interval '1 day')::date;
+  INSERT INTO public.verkaufsposten (tenant_id, datum, rechnung_spaeter, steuerfall, kunde_uid, lieferland)
+  VALUES (v_b, v_vormonat, true, 'igl', 'DE123456789', 'DE') RETURNING id INTO v_ls8;
+  INSERT INTO public.verkauf_positionen (tenant_id, verkaufsposten_id, typ, name, menge, einheit, preis_brutto, ust_satz)
+  VALUES (v_b, v_ls8, 'sonstiges', 'S112TEST ig. Lieferung Vormonat', 1, 'Stk', 80, 0);
+  v_re8 := public.s112_rechnung_erstellen(v_b, ARRAY[v_ls8], v_vormonat, '[]'::jsonb, NULL);
+  PERFORM public.s112_rechnung_stornieren(v_b, v_re8, 'S112TEST nur die Rechnung storniert', v_heute);
+  v_erg := v_erg || pg_temp.s112_erwarte('lieferschein_wieder_offen',
+    (SELECT v.rechnung_id IS NULL FROM public.verkaufsposten v WHERE v.id = v_ls8), true);
+  v_erg := v_erg || pg_temp.s112_erwarte('nur_rechnung_storniert', pg_temp.t71_steuerfall(v_b, v_jahr, v_zr), '120.00|100.00|-10.00');
+
   -- ── 3. Als Mitarbeiter des Betriebs ja, fremder Betrieb nein ──────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('mitglied', pg_temp.t71_uva(v_b, v_jahr, v_zr), '40.00|100.00|5.20|20.00|20.00');
@@ -134,5 +159,5 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format('SELECT public.berechne_ea_uva(%L::uuid, %s::smallint, %L)', v_m, v_jahr, v_zr)), ':', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 6);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 8);
 END $test$;

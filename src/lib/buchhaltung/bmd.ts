@@ -107,6 +107,42 @@ export function steuerfall(ustSatz: number, kundenLand: string | null | undefine
   return istEuLand(land) ? 'ig' : 'export'
 }
 
+/**
+ * KAN-439: Einordnung mit dem am Verkauf gespeicherten Steuerfall (Rechnung aus dem Exportauftrag, KAN-436) –
+ * 'igl' → innergemeinschaftliche Lieferung, 'ausfuhr' → Ausfuhr, auch wenn der Käufer im Inland sitzt bzw. die Ware
+ * in ein anderes Land geht als das des Käufers. Ohne gespeicherten Steuerfall wie bisher nach dem Kundenland.
+ */
+export function steuerfallMitVerkauf(ustSatz: number, kundenLand: string | null | undefined, verkaufSteuerfall: string | null | undefined): Steuerfall {
+  if (ustSatz > 0) return 'inland'
+  if (verkaufSteuerfall === 'igl') return 'ig'
+  if (verkaufSteuerfall === 'ausfuhr') return 'export'
+  return steuerfall(ustSatz, kundenLand)
+}
+
+type Zeile = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** Lieferscheine, deren Steuerfall ein Beleg nur über die Momentaufnahme kennt (storniertes Original, Stornobeleg) */
+export function momentaufnahmeLieferscheinIds(belege: readonly Zeile[]): string[] {
+  const ids = new Set<string>()
+  for (const b of belege) {
+    if (((b.lieferscheine ?? []) as Zeile[]).length) continue
+    for (const p of (b.verkauf_positionen ?? []) as Zeile[]) if (p?.lieferschein_id) ids.add(String(p.lieferschein_id))
+  }
+  return [...ids]
+}
+
+/**
+ * Positionen eines Belegs (alsBeleg) samt dem Steuerfall ihres Verkaufs: laufende Rechnung über ihre Lieferscheine,
+ * stornierte Rechnung und Stornobeleg über die lieferschein_id der Momentaufnahme (`verkaeufe`: id → Steuerfall).
+ */
+export function positionenMitSteuerfall(beleg: Zeile, verkaeufe: ReadonlyMap<string, string | null>): { pos: Zeile; verkaufSteuerfall: string | null }[] {
+  const lieferscheine = (beleg.lieferscheine ?? []) as Zeile[]
+  if (lieferscheine.length) {
+    return lieferscheine.flatMap(l => ((l.verkauf_positionen ?? []) as Zeile[]).map(pos => ({ pos, verkaufSteuerfall: (l.steuerfall ?? null) as string | null })))
+  }
+  return ((beleg.verkauf_positionen ?? []) as Zeile[]).map(pos => ({ pos, verkaufSteuerfall: verkaeufe.get(String(pos?.lieferschein_id ?? '')) ?? null }))
+}
+
 /** Erlöskonto-Schlüssel für eine Verkaufsposition */
 export function erloesSchluessel(posTyp: string | null | undefined, istTraubenverkauf: boolean, ustSatz: number, fall: Steuerfall): string {
   if (fall === 'export') return 'erloes_export'

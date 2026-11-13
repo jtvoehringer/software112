@@ -66,18 +66,84 @@ describe('KAN-439: UVA – Kennzahlen 011 und 017', () => {
   })
 })
 
+describe('KAN-439 Teil 2: BMD-Übergabe mit dem gespeicherten Steuerfall', () => {
+  test('Steuerfall des Verkaufs geht vor dem Kundenland; mit Steuer bleibt es Inland; ohne Steuerfall wie bisher', async () => {
+    const { steuerfallMitVerkauf, steuerfall, erloesSchluessel } = await import('../../src/lib/buchhaltung/bmd.ts')
+    // Käufer im Inland, Ware geht in die USA bzw. nach Deutschland (bisher: 'steuerfrei')
+    assert.equal(steuerfallMitVerkauf(0, 'AT', 'ausfuhr'), 'export')
+    assert.equal(steuerfallMitVerkauf(0, 'AT', 'igl'), 'ig')
+    // Käufer in Deutschland, Ausfuhr in die Schweiz (bisher: 'ig')
+    assert.equal(steuerfallMitVerkauf(0, 'DE', 'ausfuhr'), 'export')
+    assert.equal(steuerfallMitVerkauf(20, 'US', 'ausfuhr'), 'inland')
+    for (const [satz, land] of [[0, 'AT'], [0, 'DE'], [0, 'US'], [0, null], [13, 'DE']]) {
+      assert.equal(steuerfallMitVerkauf(satz, land, null), steuerfall(satz, land))
+    }
+    assert.equal(erloesSchluessel('flasche', false, 0, steuerfallMitVerkauf(0, 'AT', 'ausfuhr')), 'erloes_export')
+    assert.equal(erloesSchluessel('flasche', false, 0, steuerfallMitVerkauf(0, 'AT', 'igl')), 'erloes_ig')
+  })
+  test('Positionen samt Steuerfall: laufende Rechnung über ihre Lieferscheine, Storno-Paar über die Momentaufnahme', async () => {
+    const { positionenMitSteuerfall, momentaufnahmeLieferscheinIds } = await import('../../src/lib/buchhaltung/bmd.ts')
+    const laufend = { lieferscheine: [{ id: 'l1', steuerfall: 'igl', verkauf_positionen: [{ name: 'a' }, { name: 'b' }] }, { id: 'l2', steuerfall: null, verkauf_positionen: [{ name: 'c' }] }], verkauf_positionen: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] }
+    const storno = { lieferscheine: [], verkauf_positionen: [{ name: 'x', lieferschein_id: 'l8' }, { name: 'y', lieferschein_id: 'l9' }, { name: 'z' }] }
+    assert.deepEqual(momentaufnahmeLieferscheinIds([laufend, storno, storno]), ['l8', 'l9'])
+    const vk = new Map([['l8', 'ausfuhr'], ['l9', null]])
+    assert.deepEqual(positionenMitSteuerfall(laufend, vk).map(x => [x.pos.name, x.verkaufSteuerfall]), [['a', 'igl'], ['b', 'igl'], ['c', null]])
+    assert.deepEqual(positionenMitSteuerfall(storno, vk).map(x => [x.pos.name, x.verkaufSteuerfall]), [['x', 'ausfuhr'], ['y', null], ['z', null]])
+  })
+  test('Route: Steuerfall am Lieferschein geladen, Storno-Paare in Blöcken nachgeladen, Fehler ausgewertet', () => {
+    const r = quelle('src/app/api/export/bmd/route.ts')
+    assert.match(r, /'id, lieferscheinnummer, datum, steuerfall'\)\}`\)/)
+    assert.match(r, /await inBloecken<R>\(momentaufnahmeLieferscheinIds\(posten\), b => alle<R>\(\(supabase\.from\('verkaufsposten'\) as any\)/)
+    assert.match(r, /\.select\('id, steuerfall'\)\.eq\('tenant_id', tenantId\)\.in\('id', b\)\.order\('id'\)\)\)/)
+    assert.match(r, /if \(vk\.error\) throw new AktionsFehler/)
+    assert.match(r, /for \(const \{ pos, verkaufSteuerfall \} of positionenMitSteuerfall\(p, verkaufFall\)\) \{/)
+    assert.match(r, /const fall = steuerfallMitVerkauf\(satz, land, verkaufSteuerfall\)/)
+  })
+})
+
+describe('KAN-439 Teil 2: Journal und UVA-Nachtrag (Migrationen)', () => {
+  test('Journal: Bestimmungsland des Verkaufs vor dem Land des Käufers – in der einen Funktion aller Verkaufswege', () => {
+    const m = migration('kan439b_journal_lieferland')
+    assert.match(m, /CREATE OR REPLACE FUNCTION public\.s112_journal_verkauf_stand\(p jsonb, vp jsonb\)/)
+    assert.match(m, /IF NULLIF\(btrim\(coalesce\(vp ->> 'lieferland', ''\)\), ''\) IS NOT NULL THEN\s+v_partner := v_partner \|\| jsonb_build_object\('land', upper\(btrim\(vp ->> 'lieferland'\)\)\);/)
+    assert.match(m, /SET search_path TO 'public'/)
+    assert.doesNotMatch(m, /SECURITY DEFINER/)
+  })
+  test('UVA: Steuerfall des Storno-Paars über die lieferschein_id der Momentaufnahme; Ankerstelle genau zweimal', () => {
+    const m = migration('kan439c_uva_steuerfall_momentaufnahme')
+    assert.match(m, /c_neu constant text := '\(SELECT v\.steuerfall FROM verkaufsposten v WHERE v\.id = \(x\.pos ->> ''lieferschein_id''\)::uuid AND v\.tenant_id = o\.tenant_id\)';/)
+    assert.match(m, /\/ length\(c_alt\) <> 2 THEN\s+RAISE EXCEPTION/)
+    assert.match(m, /EXECUTE replace\(v_def, c_alt, c_neu\);/)
+  })
+  test('Handbuch nennt BMD, Journal und das Storno nur der Rechnung', () => {
+    const h = quelle('src/app/(dashboard)/hilfe/handbuch/page.tsx')
+    assert.match(h, /Die BMD-Übergabe bucht diese Rechnungen mit dem gespeicherten Steuerfall/)
+    assert.match(h, /zählt ein Verkauf aus dem Exportauftrag nach dem Bestimmungsland als Verkauf im Inland oder ins Ausland/)
+    assert.match(h, /auch wenn nur die Rechnung storniert wurde und der Lieferschein offen bleibt/)
+  })
+})
+
 describe('KAN-439: Zusammenfassende Meldung', () => {
   const z = quelle('src/lib/behoerden/zm.ts')
   test('nur Rechnungen, deren Lieferscheine alle „igl“ sind; UID vom Verkauf', () => {
-    assert.match(z, /const igl = ls\.filter\(l => l\.steuerfall === 'igl'\)/)
-    assert.match(z, /igl: ls\.length > 0 && igl\.length === ls\.length, gemischt: igl\.length > 0 && igl\.length < ls\.length/)
-    assert.match(z, /uid: \(igl\[0\]\?\.kunde_uid as string \| null \| undefined\) \?\? null/)
+    assert.match(z, /const igl = faelle\.filter\(f => f\?\.steuerfall === 'igl'\)/)
+    assert.match(z, /igl: faelle\.length > 0 && igl\.length === faelle\.length, gemischt: igl\.length > 0 && igl\.length < faelle\.length, uid: igl\[0\]\?\.kunde_uid \?\? null/)
     assert.match(z, /bitte von Hand aufteilen/)
   })
   test('Storno wie in der UVA: Original zählt weiter, Stornobeleg negativ, Altfälle nicht', () => {
-    assert.match(z, /if \(r\.storniert === true\) \{[\s\S]{0,220}if \(r\.storniert_durch_id\) aus\.push\(\{ uid: f\.uid, betrag: wert\(\(r\.storno_positionen \?\? \[\]\) as R\[\]\), nummer \}\)/)
-    assert.match(z, /if \(f\.igl\) aus\.push\(\{ uid: f\.uid, betrag: -wert\(\(o\.storno_positionen \?\? \[\]\) as R\[\]\), nummer \}\)/)
+    assert.match(z, /if \(r\.storniert === true\) \{[\s\S]{0,200}if \(!r\.storniert_durch_id\) continue[\s\S]{0,260}if \(f\.igl\) aus\.push\(\{ uid: f\.uid, betrag: wert\(pos\), nummer \}\)/)
+    assert.match(z, /const pos = \(o\.storno_positionen \?\? \[\]\) as R\[\][\s\S]{0,200}if \(f\.igl\) aus\.push\(\{ uid: f\.uid, betrag: -wert\(pos\), nummer \}\)/)
     assert.match(z, /if \(r\.aktiv === false\) continue/)
+  })
+  // Nachtrag (13.11.2026): Wird nur die Rechnung storniert, ist der Lieferschein wieder „nicht berechnet“ und hängt
+  // nicht mehr an ihr – Steuerfall und UID des Storno-Paars kamen dann nicht mehr an, das Paar fehlte in der Meldung.
+  test('Steuerfall des Storno-Paars aus der Momentaufnahme (lieferschein_id), nicht über die Lieferscheine an der Rechnung', () => {
+    assert.match(z, /function steuerfallDerMomentaufnahme\(positionen: readonly R\[\], verkaeufe: ReadonlyMap<string, ZmVerkauf>\): Einordnung \{\s+const ids = \[\.\.\.new Set\(positionen\.map\(p => String\(p\?\.lieferschein_id \?\? ''\)\)\.filter\(Boolean\)\)\]\s+return einordnen\(ids\.map\(id => verkaeufe\.get\(id\)\)\)/)
+    assert.equal(z.split('steuerfallDerMomentaufnahme(pos, verkaeufe)').length - 1, 2, 'Original und Stornobeleg')
+    assert.equal(z.split('steuerfallDer(r)').length - 1, 1, 'nur die laufende Rechnung liest ihre Lieferscheine')
+    // geladen in Blöcken, im eigenen Betrieb, auch stornierte Verkäufe
+    assert.match(z, /await inBloecken<R>\(zmLieferscheinIds\(rechnungen, originale\), b => alle<R>\(\(supabase\.from\('verkaufsposten'\) as any\)\s+\.select\('id, steuerfall, kunde_uid'\)\s+\.eq\('tenant_id', tenantId\)\.in\('id', b\)\.order\('id'\)\)\)/)
+    assert.match(z, /if \(vk\.error\) throw new AktionsFehler/)
   })
   test('Laden: Betrieb, Zeitraum nach Rechnungsdatum, vollständig und in fester Reihenfolge; Originale in Blöcken', () => {
     assert.match(z, /\.eq\('tenant_id', tenantId\)\s+\.gte\('datum', von\)\s+\.lte\('datum', bis\)\s+\.order\('datum'\)\.order\('id'\)\)/)

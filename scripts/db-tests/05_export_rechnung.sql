@@ -5,6 +5,9 @@
 -- @ziel: Leser, fremde Betriebe und Betriebe ohne Export-Modul nicht.
 -- @mutation ohne_schutz: Trigger zz_export_rechnung_schutz entfernt | rot: loesen_direkt
 -- @mutation ohne_storno_trigger: Trigger z_export_rechnung_storno entfernt | rot: storno_verkauf_loest
+-- @ziel: KAN-439: Das Kellerbuch-Journal bucht einen Verkauf mit Bestimmungsland (lieferland) nach diesem Land als
+-- @ziel: „im Inland“ bzw. „ins Ausland“; ohne Bestimmungsland entscheidet wie bisher das Land des Käufers.
+-- @mutation ohne_lieferland: s112_journal_verkauf_stand beachtet das Bestimmungsland nicht | rot: journal_lieferland_.*
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 05 (Stand 12.11.2026, KAN-436 E1). Alles zurückgerollt.
 
@@ -57,12 +60,33 @@ BEGIN
 
   PERFORM pg_temp.s112_mutiere('ohne_schutz', $m$DROP TRIGGER zz_export_rechnung_schutz ON public.exportauftraege$m$);
   PERFORM pg_temp.s112_mutiere('ohne_storno_trigger', $m$DROP TRIGGER z_export_rechnung_storno ON public.verkaufsposten$m$);
+  PERFORM pg_temp.s112_mutiere('ohne_lieferland', $m$DO $d$ BEGIN
+    EXECUTE replace(pg_get_functiondef('public.s112_journal_verkauf_stand(jsonb, jsonb)'::regprocedure), $a$vp ->> 'lieferland'$a$, $a$vp ->> 'kein_feld'$a$);
+  END $d$$m$);
 
   -- ── 1. Steuerfall am Verkauf ───────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('igl_nur_mit_uid',
     split_part(pg_temp.s112_fehlertext(format('UPDATE public.verkaufsposten SET steuerfall = %L, kunde_uid = NULL WHERE id = %L', 'igl', v_vp1)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('steuerfall_unbekannt',
     split_part(pg_temp.s112_fehlertext(format('UPDATE public.verkaufsposten SET steuerfall = %L WHERE id = %L', 'reverse', v_vp1)), ':', 1), '23514');
+
+  -- KAN-439: Journal – Inland/Ausland nach dem Bestimmungsland des Verkaufs, sonst nach dem Land des Käufers.
+  -- Käufer ohne Land (= Inland) mit Bestimmungsland US → Ausland; Käufer in Deutschland mit Bestimmungsland AT → Inland;
+  -- ohne Bestimmungsland wie bisher: Käufer in Deutschland → Ausland, Käufer ohne Land → Inland.
+  v_erg := v_erg || pg_temp.s112_erwarte('journal_lieferland_ausland',
+    (SELECT public.s112_journal_verkauf_stand(jsonb_build_object('typ', 'flasche', 'fuellung_id', v_f, 'menge', 6, 'name', 'S112TEST Export'),
+       to_jsonb(v))::text LIKE '%VK_FL_AU%' FROM public.verkaufsposten v WHERE v.id = v_vp1), true);
+  v_erg := v_erg || pg_temp.s112_erwarte('journal_lieferland_inland',
+    (SELECT public.s112_journal_verkauf_stand(jsonb_build_object('typ', 'flasche', 'fuellung_id', v_f, 'menge', 6, 'name', 'S112TEST Export'),
+       to_jsonb(v) || jsonb_build_object('lieferland', 'AT', 'partner_daten', jsonb_build_object('firma', jsonb_build_object('name', 'S112TEST Käufer', 'land', 'DE'))))::text LIKE '%VK_FL_AT%'
+     FROM public.verkaufsposten v WHERE v.id = v_vp1), true);
+  v_erg := v_erg || pg_temp.s112_erwarte('journal_ohne_lieferland',
+    (SELECT concat_ws('/',
+       public.s112_journal_verkauf_stand(jsonb_build_object('typ', 'flasche', 'fuellung_id', v_f, 'menge', 6, 'name', 'S112TEST Export'),
+         to_jsonb(v))::text LIKE '%VK_FL_AT%',
+       public.s112_journal_verkauf_stand(jsonb_build_object('typ', 'flasche', 'fuellung_id', v_f, 'menge', 6, 'name', 'S112TEST Export'),
+         to_jsonb(v) || jsonb_build_object('partner_daten', jsonb_build_object('firma', jsonb_build_object('name', 'S112TEST Käufer', 'land', 'DE'))))::text LIKE '%VK_FL_AU%')
+     FROM public.verkaufsposten v WHERE v.id = v_vp0), 't/t');
 
   -- ── 2. Verknüpfen: erst ab Bestätigt, nur mit Steuerfall, nur eigener Verkauf ─────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
@@ -180,6 +204,6 @@ BEGIN
       has_function_privilege('authenticated', 'public.s112_export_rechnung_storno()', 'EXECUTE')::text),
     'false/true/false/false');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 38);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 41);
 END
 $test$;

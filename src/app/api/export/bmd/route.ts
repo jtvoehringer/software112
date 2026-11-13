@@ -6,7 +6,7 @@ import { hatModul } from '@/lib/auth/modul'
 import { alle, bloecke, inBloecken } from '@/lib/supabase/alle'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import {
-  mappingAufloesen, steuerfall, erloesSchluessel, steuercodeFuer,
+  mappingAufloesen, steuerfall, steuerfallMitVerkauf, momentaufnahmeLieferscheinIds, positionenMitSteuerfall, erloesSchluessel, steuercodeFuer,
   bmdDatum, datumPlusTage, bmdCsv, bmdText, bmdRechnungKopf, personenkontenCsv,
   type Mapping, type BmdZeile, type PersonenkontoZeile,
 } from '@/lib/buchhaltung/bmd'
@@ -252,13 +252,21 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
       ${STORNO_FELDER},
       kontakt:kontakte!kontakt_id(id, vorname, nachname, land, zahlungsziel_tage, debitor_nr),
       firma:firmen!firma_id(id, name, land, zahlungsziel_tage, debitor_nr),
-      ${lieferscheineSelect('typ, name, preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz, traubenverkauf_id')}`)
+      ${lieferscheineSelect('typ, name, preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz, traubenverkauf_id', 'id, lieferscheinnummer, datum, steuerfall')}`)
     .eq('tenant_id', tenantId).eq('aktiv', true).or(STORNIERT_ZAEHLT)
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
   const { data: roh, error: rohErr } = await alle<R>(q.order('datum').order('id'))
   if (rohErr) throw new AktionsFehler(`Verkäufe konnten nicht geladen werden: ${rohErr.message}`)
   const posten = roh.filter(zaehltMitBetrag).map(alsBeleg)
+
+  // KAN-439: Steuerfall des Verkaufs (igl/ausfuhr aus dem Exportauftrag) – bei stornierten Rechnungen und Stornobelegen
+  // über die lieferschein_id der Momentaufnahme, weil der Lieferschein dann nicht mehr an der Rechnung hängen muss
+  // storno-sichtbar: auch stornierte Verkäufe – ihr Steuerfall gehört zur stornierten Rechnung und ihrem Stornobeleg
+  const vk = await inBloecken<R>(momentaufnahmeLieferscheinIds(posten), b => alle<R>((supabase.from('verkaufsposten') as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+    .select('id, steuerfall').eq('tenant_id', tenantId).in('id', b).order('id')))
+  if (vk.error) throw new AktionsFehler(`Steuerfall der stornierten Rechnungen konnte nicht geladen werden: ${vk.error.message}`)
+  const verkaufFall = new Map<string, string | null>(vk.data.map(v => [String(v.id), (v.steuerfall ?? null) as string | null]))
 
   for (const p of posten) {
     const firma = p.firma ?? null, kontakt = p.kontakt ?? null
@@ -270,12 +278,12 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
 
     // Positionen je Erlöskonto/Steuersatz zusammenfassen -> eine BMD-Zeile je Gruppe
     const gruppen = new Map<string, { schluessel: string; satz: number; fall: ReturnType<typeof steuerfall>; brutto: number }>()
-    for (const pos of (p.verkauf_positionen ?? []) as R[]) {
+    for (const { pos, verkaufSteuerfall } of positionenMitSteuerfall(p, verkaufFall)) {
       const brutto = (Number(pos.preis_brutto) || 0) * (Number(pos.menge) || 0)
         * (1 - (Number(pos.rabatt_pct) || 0) / 100) * (1 - (Number(pos.sonderrabatt_pct) || 0) / 100)
       if (!brutto) continue
       const satz = Number(pos.ust_satz) || 0
-      const fall = steuerfall(satz, land)
+      const fall = steuerfallMitVerkauf(satz, land, verkaufSteuerfall)
       const schluessel = erloesSchluessel(pos.typ, !!pos.traubenverkauf_id, satz, fall)
       const key = `${schluessel}|${satz}`
       const g = gruppen.get(key) ?? { schluessel, satz, fall, brutto: 0 }
