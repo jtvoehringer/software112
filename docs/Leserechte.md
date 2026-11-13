@@ -1,6 +1,6 @@
 # Leserechte je Profil (KAN-412)
 
-Stand 13.11.2026 – **Entwurf zur Abnahme** (Schritt R1). Quelle der Zuordnung: `scripts/lesebereiche.json`; der Wächter `scripts/check-lesebereiche.js` lässt keine Tabelle ohne Bereich zu.
+Stand 13.11.2026 – Zuordnung von Jörgen abgenommen (13.11.2026), Sperre in der Datenbank seit Schritt R2 (KAN-454). Quelle der Zuordnung: `scripts/lesebereiche.json`; der Wächter `scripts/check-lesebereiche.js` lässt keine Tabelle ohne Bereich zu.
 
 ## Worum es geht
 
@@ -17,16 +17,16 @@ Entscheidungen Jörgen 11.11. und 13.11.2026 (Jira KAN-412, Fragen 1–8 jeweils
 
 | Bereich | Inhalt | Vertrieb | Extern | Tabellen |
 | --- | --- | :-: | :-: | --- |
-| `allgemein` | Allgemeines (Profil, Betrieb, Kataloge, Benachrichtigungen) – jedes Mitglied | ja | ja | benachrichtigungen, benutzer_dashboard, kat_buchungsart, kat_erzeugnis, kat_farbe, kat_land, kat_qualitaetsstufe, katalog_mapping, module_flags, plattform_admins, profiles, rebsorten, release_notes, release_notes_gesehen, tenant_einstellungen, tenant_memberships, tenants, user_email_connections, wetter_stunden |
+| `allgemein` | Allgemeines (Profil, Betrieb, Kataloge, Benachrichtigungen) – jedes Mitglied | ja | ja | benachrichtigungen, benutzer_dashboard, elabel_zutaten, kat_buchungsart, kat_erzeugnis, kat_farbe, kat_land, kat_qualitaetsstufe, katalog_mapping, module_flags, plattform_admins, profiles, rebsorten, release_notes, release_notes_gesehen, svs_parameter, tenant_einstellungen, tenant_memberships, tenants, user_email_connections, wetter_stunden |
 | `rieden` | Rieden, Lagen, Grundstücke, Reifemessungen | – | ja | grundstuecke, lagen, reifemessungen, weinbaugebiete_custom, weingarten, weingarten_rebsorten |
 | `massnahmen` | Maßnahmen im Weingarten | – | ja | behandlung_grundstuecke, behandlungen |
 | `betriebsmittel` | Betriebsmittel, Pflanzenschutz- und Düngemittel samt Lager, Einkauf und Preisen | – | – | betriebsmittel, betriebsmittel_lager_bewegungen, duengemittel, duengemittel_lager_bewegungen, pflanzenschutzmittel, psm_lager_bewegungen, psm_uebermittlungen |
 | `lese` | Lese, Jahrgänge, Erntemeldung/AMA, Pressungen, Traubenverkauf | – | – | ama_erntemeldungen, ama_meldepositionen, ernte_gst_abgeschlossen, ernte_parzellen, lesen, pressung_behaelter, pressung_weingaerten, pressungen, traubenverkauf, weinjahrgaenge |
 | `keller` | Kellerbuch: Gebinde, Chargen, Kellerarbeiten, Analysen, Prüfnummern, Produktion | – | – | behaelter, charge_herkunft, charge_umstufungen, dac_antrag, keller_behandlungen, keller_behandlungstypen, keller_freigaben, keller_umzuege, keller_verarbeitungen, keller_zugangskorrekturen, kellerbuch_abschluesse, kellerbuch_buchungen, kellermittel, kellermittel_buchungen, kellerplaene, kellerplan_positionen, lohnversektungen, produktion_eingaenge, produktionen, pruefnummer_chargen, pruefnummer_ereignisse, pruefnummernantraege, v_behaelter_fuellstand, verschneidung_quellen, verschneidungen, weinanalysen, weinausbau, weinausbau_weingaerten |
-| `lager` | Füllungen und Warenlager (Flaschen, Artikel, E-Labels, Zukauf) | ja | – | elabel_umleitungen, elabel_zutaten, elabels, fuellung_bewegungen, fuellung_chargen, fuellung_etikettierungen, fuellungen, sonstige_artikel, sonstige_artikel_bewegungen, transportbescheinigungen, zukauf_posten |
+| `lager` | Füllungen und Warenlager (Flaschen, Artikel, E-Labels, Zukauf) | ja | – | elabel_umleitungen, elabels, fuellung_bewegungen, fuellung_chargen, fuellung_etikettierungen, fuellungen, sonstige_artikel, sonstige_artikel_bewegungen, transportbescheinigungen, zukauf_posten |
 | `verkauf` | Verkauf: Aufträge, Lieferscheine, Rechnungen, Zahlungen, Export | ja | – | auftraege, auftrag_lieferungen, auftrag_positionen, bestellung_positionen, bestellungen, export_dokumente, export_nachweise, export_registrierungen, exportauftraege, exportauftrag_positionen, lieferadressen, rabattgruppen, rechnungen, sumup_checkouts, sumup_terminals, sumup_transaktionen, verkauf_ki_begriffe, verkauf_positionen, verkaufsposten, zahlungen |
 | `crm` | CRM: Kontakte, Firmen, Aktivitäten, Pipeline | ja | – | aktivitaet_dokumente, aktivitaeten, crm_dubletten_ignoriert, crm_freigaben, datenschutz_consents, email_lead_ignoriert, firmen, kontakt_firmen, kontakt_praeferenzen, kontakte, pipeline_eintraege, pipeline_verlauf |
-| `ea` | E&A-Rechnung: Buchungen, Belege, Bank/Kassa, UVA, Anlagen | – | – | buchhaltung_export_protokoll, buchhaltung_kontenmapping, ea_anlagen, ea_belege, ea_dauerauftraege, ea_dauerauftrag_log, ea_kategorien, ea_monatsabschluss, ea_transaktionen, ea_uva, konten, konto_umbuchungen, svs_parameter |
+| `ea` | E&A-Rechnung: Buchungen, Belege, Bank/Kassa, UVA, Anlagen | – | – | buchhaltung_export_protokoll, buchhaltung_kontenmapping, ea_anlagen, ea_belege, ea_dauerauftraege, ea_dauerauftrag_log, ea_kategorien, ea_monatsabschluss, ea_transaktionen, ea_uva, konten, konto_umbuchungen |
 | `controlling` | Controlling und Kostenrechnung | ja | – | kostenarten, kosteneintraege, kosteneintrag_behaelter, kosteneintrag_weingaerten, kostenstellen, saetze_massnahmen, zeiterfassung |
 | `ki` | Assistent und Morgenbericht | ja | – | assistent_aktionen, assistent_korrekturen, assistent_nachrichten, assistent_unterhaltungen, morgenberichte |
 | `betrieb` | Betriebsweite Listen: Fristen, Checklisten | ja | – | checklisten, checklisten_punkte, fristen |
@@ -56,12 +56,29 @@ Die Datenbank sperrt ganze Zeilen, keine einzelnen Spalten. Wo etwas Verbotenes 
 
 **Empfehlung:** Betriebsmittel, Pflanzenschutz- und Düngemittel bleiben für Extern gesperrt; die Auswahlliste in der Maßnahme kommt über eine Funktion, die nur Name, Einheit und Zulassungsdaten liefert (R4). Bei den Grundstücken empfehle ich dasselbe Vorgehen (Funktion ohne Rechtsverhältnis und Einheitswert) – das ist sauberer als die Spalten in Kauf zu nehmen, kostet in R4 aber rund eine Stunde mehr.
 
+## So sperrt die Datenbank (R2, KAN-454)
+
+Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich` (nur SELECT, `TO authenticated`). Sie kommt in drei Formen, die `scripts/lesebereich-sql.js` aus der Liste ableitet:
+
+| Form | Tabellen | Bedingung |
+| --- | --- | --- |
+| Betrieb | 106 Tabellen mit `tenant_id` | der Betrieb der Zeile ist für den Benutzer im Bereich der Tabelle nicht gesperrt (`s112_lesegesperrte_tenants('<bereich>')`) |
+| Kind | 17 Tabellen ohne `tenant_id` (`kinder` in der Liste) | die Elternzeile ist sichtbar – sie trägt die Sperre |
+| Freigabe | `keller_freigaben`, `crm_freigaben` | keiner der beiden Betriebe der Freigabe ist gesperrt |
+
+- **Ohne Policy** bleiben der Bereich `allgemein` und die Sichten `charge_herkunft`, `v_behaelter_fuellstand` (security_invoker – es gelten die Policies der Tabellen darunter).
+- **Gemeinschaften:** Wer einen Partnerbetrieb nur über einen Betrieb erreicht, in dem der Bereich für ihn gesperrt ist, sieht auch die Daten des Partners nicht.
+- **Nach `allgemein` verschoben** (gegenüber dem ersten Entwurf): `elabel_zutaten` (globaler Katalog ohne Betrieb) und `svs_parameter` (globale Beitragssätze ohne Betrieb) – beide enthalten keine Betriebsdaten.
+- **Wirkung heute:** keine. Noch hat niemand ein Profil und die App vergibt keines (R5); für Mitglieder ohne Profil ist die Menge der gesperrten Betriebe leer.
+- **Nicht erfasst:** Schreiben (regeln die Schreibmodule), Service-Role und SECURITY-DEFINER-Funktionen – Lesewege an den Policies vorbei schließt R3 (KAN-455).
+- **Neue Tabelle:** Bereich in `scripts/lesebereiche.json` eintragen (ohne `tenant_id` zusätzlich unter `kinder`) und die Policy `lesebereich` in derselben Migration anlegen. DB-Test 02 prüft jede Tabelle im Katalog und liest als „Extern“ und „Vertrieb“ gegen einen Mitarbeiter ohne Profil.
+
 ## Stand der Umsetzung
 
 | Schritt | Inhalt | Ticket |
 | --- | --- | --- |
-| R1 | Profil an der Mitgliedschaft, Funktionen, diese Liste – ohne Wirkung | KAN-412 |
-| R2 | Sperr-Policies auf allen Tabellen, DB-Test-Matrix | KAN-454 |
+| R1 | Profil an der Mitgliedschaft, Funktionen, diese Liste – ohne Wirkung (erledigt) | KAN-412 |
+| R2 | Sperr-Policies auf allen Tabellen, DB-Test-Matrix (umgesetzt) | KAN-454 |
 | R3 | Funktionen, KI, Suche, Exporte, Dateien | KAN-455 |
 | R4 | Navigation, Seiten, Dashboard | KAN-456 |
 | R5 | Vergabe in der Benutzerverwaltung, E2E, Freigabe | KAN-457 |
