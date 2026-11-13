@@ -9,12 +9,22 @@
 // Rein (ohne Supabase und '@/'-Importe), damit node:test es ohne Bundler lädt.
 
 /** klein = Kachel (2 je Zeile am Handy, 4 am PC), mittel = halbe Breite am PC, breit = ganze Zeile */
+import type { Lesebereich } from '../auth/lesebereiche.ts'
+
 export type WidgetGroesse = 'klein' | 'mittel' | 'breit'
 
 /** Datenquellen der Übersicht – jede wird höchstens einmal geladen, auch wenn mehrere Widgets sie brauchen */
 export type WidgetQuelle =
   | 'keller' | 'flaschen' | 'offenePosten' | 'fristen' | 'checklisten'
   | 'weingarten' | 'finanzen' | 'morgenbericht' | 'aufgabenTermine' | 'umsatz'
+
+/** Lesebereich je Datenquelle (KAN-456): Ein Widget gibt es nur, wenn der Benutzer ALLE seine Quellen lesen darf –
+ *  Mitarbeiter mit Profil („Vertrieb“, „Extern“) bekommen so keine leeren oder halben Kacheln. Der Morgenbericht fasst
+ *  Befunde aller Bereiche zusammen und liegt deshalb im Bereich „verwaltung“ (keines der Profile). */
+export const QUELLEN_BEREICH: Record<WidgetQuelle, Lesebereich> = {
+  keller: 'keller', flaschen: 'lager', offenePosten: 'verkauf', fristen: 'betrieb', checklisten: 'betrieb',
+  weingarten: 'rieden', finanzen: 'ea', morgenbericht: 'verwaltung', aufgabenTermine: 'crm', umsatz: 'verkauf',
+}
 
 /** Was die Sichtbarkeit entscheidet (aus Rolle und Betriebseinstellungen) */
 export type WidgetKontext = {
@@ -24,6 +34,8 @@ export type WidgetKontext = {
   schnellaktionen: boolean
   /** Weingarten-Modul aktiv (tenant_einstellungen.modul_weingarten, KAN-389) – ohne Angabe aus */
   modulWeingarten?: boolean
+  /** lesbareBereiche(membership) (KAN-456) – ohne Angabe alle Bereiche (kein Profil) */
+  lesbar?: readonly Lesebereich[]
 }
 
 /** Herkunft eines Widgets – gliedert die weiteren Widgets im Fenster „Dashboard anpassen“ (KAN-389) */
@@ -94,6 +106,13 @@ function groesseFuer(def: WidgetDef, g: WidgetGroesse | undefined): WidgetGroess
 
 export type SichtbaresWidget = { def: WidgetDef; groesse: WidgetGroesse }
 
+/** Gibt es das Widget für diesen Benutzer? Eigene Regel (Modul, Schnellaktionen) und Leserecht auf alle Quellen */
+export function widgetVerfuegbar(def: WidgetDef, k: WidgetKontext): boolean {
+  if (def.sichtbar && !def.sichtbar(k)) return false
+  const lesbar = k.lesbar
+  return !lesbar || def.quellen.every(q => lesbar.includes(QUELLEN_BEREICH[q]))
+}
+
 /** Widgets eines Layouts in dessen Reihenfolge – unbekannte, doppelte und hier nicht sichtbare fallen weg */
 export function sichtbareWidgets(layout: readonly LayoutEintrag[], k: WidgetKontext): SichtbaresWidget[] {
   const out: SichtbaresWidget[] = []
@@ -102,7 +121,7 @@ export function sichtbareWidgets(layout: readonly LayoutEintrag[], k: WidgetKont
     const def = NACH_ID.get(e.id)
     if (!def || gesehen.has(def.id)) continue
     gesehen.add(def.id)
-    if (def.sichtbar && !def.sichtbar(k)) continue
+    if (!widgetVerfuegbar(def, k)) continue
     out.push({ def, groesse: groesseFuer(def, e.groesse) })
   }
   return out
@@ -161,7 +180,7 @@ export type EditorEintrag = { id: string; titel: string; bereich: WidgetBereich;
  *  Register-Reihenfolge – neue Widgets erscheinen so nie ungefragt. Nicht verfügbare, ausgeblendete fallen weg. */
 export function editorEintraege(layout: readonly LayoutEintrag[] | null, k: WidgetKontext): EditorEintrag[] {
   const zeile = (def: WidgetDef, an: boolean, g?: WidgetGroesse): EditorEintrag => ({
-    id: def.id, titel: def.titel, bereich: def.bereich, an, verfuegbar: !def.sichtbar || def.sichtbar(k), groesse: groesseFuer(def, g), groessen: erlaubteGroessen(def),
+    id: def.id, titel: def.titel, bereich: def.bereich, an, verfuegbar: widgetVerfuegbar(def, k), groesse: groesseFuer(def, g), groessen: erlaubteGroessen(def),
   })
   const out: EditorEintrag[] = []
   for (const e of layoutPruefen(layout ?? STANDARD_LAYOUT) ?? []) out.push(zeile(NACH_ID.get(e.id)!, true, e.groesse))

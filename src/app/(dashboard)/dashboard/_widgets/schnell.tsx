@@ -2,6 +2,7 @@ import Link from '@/components/ui/Link'
 import { Wine, ShoppingCart, Calendar, Wallet, FlaskConical, Grape, ArrowRightLeft, Sparkles } from 'lucide-react'
 import { canWrite } from '@/lib/auth/roles'
 import type { Ctx } from '../_shared/data'
+import { seitenBereich } from '@/lib/navigation/seitenBereich'
 import type { WidgetProps } from './typen'
 
 // KAN-387: Schnellaktionen (Handy) und Schnellzugriff als eigene Widgets
@@ -14,6 +15,7 @@ export function schnellaktionenFuer(ctx: Ctx) {
     { href: '/kellerbuch/umziehen?neu=1',    icon: ArrowRightLeft, label: 'Umziehen',      modul: 'kellerbuch' as const },
     { href: '/weinhandel/verkauf/neu',       icon: ShoppingCart,   label: 'Verkauf',       modul: 'warenwirtschaft' as const },
   ].filter(a => canWrite(ctx.role, a.modul))
+    .filter(a => ctx.lesbar.includes(seitenBereich(a.href)))   // KAN-456: nur lesbare Bereiche
 }
 
 export function SchnellaktionenWidget({ ctx }: WidgetProps) {
@@ -42,7 +44,8 @@ export function SchnellzugriffWidget({ ctx, mitSchnellaktionen }: WidgetProps) {
     { href: '/erntemeldung',               icon: Wine,         label: 'Lese / Pressung' },
     { href: '/behandlungen/neu',           icon: FlaskConical, label: 'Maßnahme erfassen' },
     ...(canWrite(ctx.role, 'kellerbuch') ? [{ href: '/kellerbuch/produktion/neu', icon: Sparkles, label: 'Produktion' }] : []),
-  ]
+  ].filter(item => ctx.lesbar.includes(seitenBereich(item.href)))   // KAN-456: nur lesbare Bereiche
+  if (schnellzugriff.length === 0) return null
   return (
     <div className={mitSchnellaktionen ? 'max-sm:hidden' : undefined}>
       <h2 className="text-xs font-semibold text-s112-muted uppercase tracking-wider mb-3">Schnellzugriff</h2>
