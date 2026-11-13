@@ -75,39 +75,73 @@ function wert(positionen: readonly R[]): number {
 
 type Beleg = { uid: string | null; betrag: number; nummer: string }
 
-/** Steuerfall und UID einer Rechnung aus ihren Lieferscheinen: 'igl' nur, wenn ALLE Lieferscheine igl sind */
-function steuerfallDer(r: R): { igl: boolean; gemischt: boolean; uid: string | null } {
-  const ls = (r.lieferscheine ?? []) as R[]
-  const igl = ls.filter(l => l.steuerfall === 'igl')
-  return { igl: ls.length > 0 && igl.length === ls.length, gemischt: igl.length > 0 && igl.length < ls.length, uid: (igl[0]?.kunde_uid as string | null | undefined) ?? null }
+/** Steuerfall und UID je Verkauf (Lieferschein) */
+export type ZmVerkauf = { steuerfall: string | null; kunde_uid: string | null }
+
+type Einordnung = { igl: boolean; gemischt: boolean; uid: string | null }
+
+function einordnen(faelle: readonly (ZmVerkauf | undefined)[]): Einordnung {
+  const igl = faelle.filter(f => f?.steuerfall === 'igl')
+  return { igl: faelle.length > 0 && igl.length === faelle.length, gemischt: igl.length > 0 && igl.length < faelle.length, uid: igl[0]?.kunde_uid ?? null }
+}
+
+/** Laufende Rechnung: Steuerfall aus ihren Lieferscheinen – 'igl' nur, wenn ALLE Lieferscheine igl sind */
+function steuerfallDer(r: R): Einordnung {
+  return einordnen(((r.lieferscheine ?? []) as R[]).map(l => ({ steuerfall: l.steuerfall ?? null, kunde_uid: l.kunde_uid ?? null })))
+}
+
+/**
+ * Stornierte Rechnung bzw. Stornobeleg: Steuerfall aus der Momentaufnahme. Sie nennt je Position den Lieferschein
+ * (`lieferschein_id`) – auch dann, wenn nur die Rechnung storniert wurde und der Lieferschein wieder „nicht berechnet“
+ * ist (dann hängt er nicht mehr an der Rechnung).
+ */
+function steuerfallDerMomentaufnahme(positionen: readonly R[], verkaeufe: ReadonlyMap<string, ZmVerkauf>): Einordnung {
+  const ids = [...new Set(positionen.map(p => String(p?.lieferschein_id ?? '')).filter(Boolean))]
+  return einordnen(ids.map(id => verkaeufe.get(id)))
+}
+
+/** Lieferscheine, deren Steuerfall für die Momentaufnahmen gebraucht wird (stornierte Originale und Stornobelege) */
+export function zmLieferscheinIds(rechnungen: readonly R[], originale: ReadonlyMap<string, R>): string[] {
+  const ids = new Set<string>()
+  for (const r of rechnungen) {
+    const quelle = r.art === 'storno' ? originale.get(String(r.storno_von_id ?? '')) : r.storniert === true ? r : null
+    for (const p of ((quelle?.storno_positionen ?? []) as R[])) if (p?.lieferschein_id) ids.add(String(p.lieferschein_id))
+  }
+  return [...ids]
 }
 
 /**
  * Belege der Meldung aus den Rechnungen des Zeitraums (ohne Datenbank – für Tests). `originale` = die Rechnungen, auf
- * die sich die Stornobelege des Zeitraums beziehen (id → Rechnung mit storno_positionen und lieferscheine).
+ * die sich die Stornobelege des Zeitraums beziehen (id → Rechnung mit storno_positionen); `verkaeufe` = Steuerfall und
+ * UID der Lieferscheine aus den Momentaufnahmen (zmLieferscheinIds).
  */
-export function zmBelege(rechnungen: readonly R[], originale: ReadonlyMap<string, R>, warnungen: string[]): Beleg[] {
+export function zmBelege(rechnungen: readonly R[], originale: ReadonlyMap<string, R>, verkaeufe: ReadonlyMap<string, ZmVerkauf>, warnungen: string[]): Beleg[] {
   const aus: Beleg[] = []
+  const gemischt = (was: string) => warnungen.push(`${was}: enthält Lieferscheine mit und ohne innergemeinschaftliche Lieferung – bitte von Hand aufteilen.`)
   for (const r of rechnungen) {
     if (r.aktiv === false) continue
     const nummer = String(r.rechnungsnummer ?? '')
     if (r.art === 'storno') {
       const o = originale.get(String(r.storno_von_id ?? ''))
       if (!o) continue
-      const f = steuerfallDer(o)
-      if (f.gemischt) warnungen.push(`Stornobeleg ${nummer}: Die Rechnung enthält Lieferscheine mit und ohne innergemeinschaftliche Lieferung – bitte von Hand aufteilen.`)
-      if (f.igl) aus.push({ uid: f.uid, betrag: -wert((o.storno_positionen ?? []) as R[]), nummer })
+      const pos = (o.storno_positionen ?? []) as R[]
+      const f = steuerfallDerMomentaufnahme(pos, verkaeufe)
+      if (f.gemischt) gemischt(`Stornobeleg ${nummer}`)
+      if (f.igl) aus.push({ uid: f.uid, betrag: -wert(pos), nummer })
+      continue
+    }
+    if (r.storniert === true) {
+      // KAN-379: mit Stornobeleg zählt das Original in seinem Zeitraum weiter; Altfälle ohne Stornobeleg nicht
+      if (!r.storniert_durch_id) continue
+      const pos = (r.storno_positionen ?? []) as R[]
+      const f = steuerfallDerMomentaufnahme(pos, verkaeufe)
+      if (f.gemischt) gemischt(`Rechnung ${nummer}`)
+      if (f.igl) aus.push({ uid: f.uid, betrag: wert(pos), nummer })
       continue
     }
     const f = steuerfallDer(r)
-    if (f.gemischt) warnungen.push(`Rechnung ${nummer}: enthält Lieferscheine mit und ohne innergemeinschaftliche Lieferung – bitte von Hand aufteilen.`)
-    if (!f.igl) continue
-    if (r.storniert === true) {
-      // KAN-379: mit Stornobeleg zählt das Original in seinem Zeitraum weiter; Altfälle ohne Stornobeleg nicht
-      if (r.storniert_durch_id) aus.push({ uid: f.uid, betrag: wert((r.storno_positionen ?? []) as R[]), nummer })
-      continue
-    }
-    aus.push({ uid: f.uid, betrag: wert(((r.lieferscheine ?? []) as R[]).flatMap(l => (l.verkauf_positionen ?? []) as R[])), nummer })
+    if (f.gemischt) gemischt(`Rechnung ${nummer}`)
+    if (f.igl) aus.push({ uid: f.uid, betrag: wert(((r.lieferscheine ?? []) as R[]).flatMap(l => (l.verkauf_positionen ?? []) as R[])), nummer })
   }
   return aus
 }
@@ -134,12 +168,11 @@ export function zmZeilen(belege: readonly Beleg[], p: ZmParameter, warnungen: st
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeZm(supabase: any, tenantId: string, p: ZmParameter): Promise<{ zeilen: ZmZeile[]; warnungen: string[]; summe: number; von: string; bis: string }> {
   const { von, bis } = zmZeitraum(p.jahr, p.zeitraum)
-  const FELDER = 'steuerfall, kunde_uid'
   // storno-sichtbar: stornierte Rechnungen mit Stornobeleg zählen in ihrem Zeitraum weiter (KAN-379)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rechnungen, error } = await alle<R>((supabase.from('rechnungen') as any)
     .select(`id, datum, rechnungsnummer, art, aktiv, storniert, storniert_durch_id, storno_von_id, storno_positionen,
-      lieferscheine:verkaufsposten!rechnung_id(${FELDER}, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct))`)
+      lieferscheine:verkaufsposten!rechnung_id(steuerfall, kunde_uid, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct))`)
     .eq('tenant_id', tenantId)
     .gte('datum', von)
     .lte('datum', bis)
@@ -151,12 +184,23 @@ export async function ladeZm(supabase: any, tenantId: string, p: ZmParameter): P
   // storno-sichtbar: gesucht sind genau die stornierten Originale der Stornobelege (Momentaufnahme der Positionen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orig = await inBloecken<R>(stornoVon, b => alle<R>((supabase.from('rechnungen') as any)
-    .select(`id, storno_positionen, lieferscheine:verkaufsposten!rechnung_id(${FELDER})`)
+    .select('id, storno_positionen')
     .eq('tenant_id', tenantId).in('id', b).order('id')))
   if (orig.error) throw new AktionsFehler(`Laden fehlgeschlagen (stornierte Rechnungen): ${orig.error.message}`)
+  const originale = new Map(orig.data.map(o => [String(o.id), o]))
+
+  // Steuerfall und UID der Lieferscheine aus den Momentaufnahmen – unabhängig davon, ob der Lieferschein noch an der
+  // Rechnung hängt (Storno nur der Rechnung) oder selbst storniert ist (Storno des Verkaufs)
+  // storno-sichtbar: auch stornierte Verkäufe – ihr Steuerfall gehört zur stornierten Rechnung
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vk = await inBloecken<R>(zmLieferscheinIds(rechnungen, originale), b => alle<R>((supabase.from('verkaufsposten') as any)
+    .select('id, steuerfall, kunde_uid')
+    .eq('tenant_id', tenantId).in('id', b).order('id')))
+  if (vk.error) throw new AktionsFehler(`Laden fehlgeschlagen (Lieferscheine der stornierten Rechnungen): ${vk.error.message}`)
+  const verkaeufe = new Map<string, ZmVerkauf>(vk.data.map(v => [String(v.id), { steuerfall: v.steuerfall ?? null, kunde_uid: v.kunde_uid ?? null }]))
 
   const warnungen: string[] = []
-  const zeilen = zmZeilen(zmBelege(rechnungen, new Map(orig.data.map(o => [String(o.id), o])), warnungen), p, warnungen)
+  const zeilen = zmZeilen(zmBelege(rechnungen, originale, verkaeufe, warnungen), p, warnungen)
   if (zeilen.length === 0) {
     warnungen.push(`In ${zmZeitraumLabel(p.jahr, p.zeitraum)} gibt es keine Rechnung mit innergemeinschaftlicher Lieferung – gezählt werden Rechnungen aus dem Exportauftrag an EU-Kunden mit UID.`)
   }
