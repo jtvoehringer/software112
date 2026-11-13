@@ -27,7 +27,8 @@ describe('KAN-195: Kosten in Maßnahmen nur mit Modul Controlling', () => {
     ['src/app/(dashboard)/behandlungen/[id]/edit/page.tsx', 'src/app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx'],
   ]) {
     test(`${path.basename(formular)}: Abschnitt „Kosten erfassen“ nur mit kostenModul`, () => {
-      assert.match(lies(seite), /kostenModul=\{await hatModul\('modul_controlling'\)\}/)
+      // KAN-456: zusätzlich nur mit Lesebereich „controlling“ (das Profil „Extern“ erfasst keine Kosten) – das Modul bleibt Bedingung
+      assert.match(lies(seite), /kostenModul=\{\(await hatModul\('modul_controlling'\)\) && canRead\(membership, 'controlling'\)\}/)
       assert.match(lies(formular), /className=\{kostenModul \? 'card space-y-3' : 'hidden'\}/)
     })
   }

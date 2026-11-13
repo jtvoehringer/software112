@@ -3,6 +3,8 @@ import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { preisEinheit, type LagerBuchung } from '@/lib/behandlungen/lagerVerbrauch'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { profilClient } from '@/lib/auth/profilClient'
+import { canRead } from '@/lib/auth/lesebereiche'
 import { hatModul } from '@/lib/auth/modul'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -51,7 +53,8 @@ export default async function NeueBehandlungPage() {
   const role = await getCurrentUserRole()
   if (!canWrite(role, 'rieden')) redirect('/behandlungen')
 
-  const supabase = await createSupabaseServerClient()
+  // KAN-456: ohne Lesebereich „betriebsmittel“ (Profil „Extern“) kommen die Mittel aus den Funktionen ohne Preis
+  const supabase = profilClient(await createSupabaseServerClient(), await getCurrentMembership())
 
   // Tenant + Bio-Status (steuert Warn-/Sperrlogik bei der Mittelwahl)
   // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen
@@ -180,7 +183,7 @@ export default async function NeueBehandlungPage() {
         kostenarten={kostenarten}
         saetzeMassnahmen={saetzeMassnahmen}
         betriebsmittel={betriebsmittel}
-        kostenModul={await hatModul('modul_controlling')}
+        kostenModul={(await hatModul('modul_controlling')) && canRead(membership, 'controlling')}
         {...await anwendungKontext(supabase, tenantId)}
       />
     </div>

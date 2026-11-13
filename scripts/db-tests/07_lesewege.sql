@@ -33,10 +33,11 @@ DECLARE
     'berechne_ea_uva=ea', 'crm_dubletten=crm', 'crm_filterwerte=crm', 'crm_zaehler=crm',
     'journal_abgleichen=keller', 'journal_konsistenz=keller', 'ki_readonly_query=ki', 'lade_behaelter=keller',
     'lade_crmgemeinschaft=crm', 'lade_kellergemeinschaft=keller', 's112_ama_einreichen=lese', 's112_ama_korrektur_anlegen=lese',
-    's112_ama_meldung_speichern=lese', 's112_ama_status_setzen=lese', 's112_betriebsmittel_einkauf=betriebsmittel', 's112_betriebsmittel_stornieren=betriebsmittel',
-    's112_lager_einkauf=betriebsmittel', 's112_lager_einkauf_stornieren=betriebsmittel', 's112_mostzeile_anlegen=lese', 's112_pressung_anlegen=lese',
-    's112_pressung_stornieren=lese', 's112_pressung_zeilen_stornieren=lese', 's112_psm_uebermittlung_protokollieren=betriebsmittel', 's112_schwund_minderung=keller',
-    's112_stammdaten_bezuege=*', 's112_verkauf_samt_rechnung_stornieren=verkauf', 'schwund_buchen=keller'];
+    's112_ama_meldung_speichern=lese', 's112_ama_status_setzen=lese', 's112_betriebsmittel_einkauf=betriebsmittel', 's112_betriebsmittel_ohne_preis=massnahmen',
+    's112_betriebsmittel_stornieren=betriebsmittel', 's112_duengemittel_ohne_preis=massnahmen', 's112_lager_einkauf=betriebsmittel', 's112_lager_einkauf_stornieren=betriebsmittel',
+    's112_mostzeile_anlegen=lese', 's112_pressung_anlegen=lese', 's112_pressung_stornieren=lese', 's112_pressung_zeilen_stornieren=lese',
+    's112_psm_ohne_preis=massnahmen', 's112_psm_uebermittlung_protokollieren=betriebsmittel', 's112_schwund_minderung=keller', 's112_stammdaten_bezuege=*',
+    's112_verkauf_samt_rechnung_stornieren=verkauf', 'schwund_buchen=keller'];
   -- ohne Lesebereich: Rechte-Helfer, Nummernkreise, Funktionen in Bereichen, die jedes Profil mit dem nötigen
   -- Schreibmodul auch lesen darf (Kellerbuch, Warenwirtschaft, CRM, E&A), und Funktionen nur für die Betriebsleitung
   c_frei  constant text[] := ARRAY[
@@ -195,6 +196,6 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('service_passiert', pg_temp.t07(format('SELECT public.s112_pruefe_lesen(%L, %L)', v_b, 'ea')), 'ok');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 68);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 71);
 END
 $test$;
