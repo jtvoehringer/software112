@@ -165,7 +165,9 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
 }
 
 // ── Formular (Neu / Bearbeiten) ───────────────────────────────────────────────
-function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet, onDone }: {
+function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet, onDone, rechtLesbar }: {
+  /** KAN-458: Leserecht auf grundstueck_recht (Bereich ea) – ohne es fehlt das Feld „Rechtsverhältnis“ */
+  rechtLesbar: boolean
   weingartenId: string
   gst?: GST
   customWeinbaugebiete: CustomWeinbaugebiet[]
@@ -426,8 +428,8 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
           <p className="text-xs text-s112-muted mt-1">Max. 3-stellig numerisch</p>
         </div>
 
-        {/* Rechtsverhältnis */}
-        <div>
+        {/* Rechtsverhältnis – KAN-458: nur mit Leserecht auf grundstueck_recht (Bereich ea); ohne Feld bleibt der gespeicherte Wert */}
+        {rechtLesbar && <div>
           <label className={labelCls}>Rechtsverhältnis</label>
           <select aria-label="Rechtsverhältnis" name="rechtsverhaeltnis" defaultValue={gst?.rechtsverhaeltnis ?? ''} className={inputCls}>
             <option value="">– bitte wählen –</option>
@@ -435,7 +437,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
             <option value="pacht">Pacht</option>
             <option value="nutzung">Nutzung</option>
           </select>
-        </div>
+        </div>}
 
         {/* Unterlagsrebe */}
         <div>
@@ -472,8 +474,10 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function GrundstueckePanel({
-  weingartenId, grundstuecke, massnahmenByGst = {}, customWeinbaugebiete = [], writeOk, adminOk,
+  weingartenId, grundstuecke, massnahmenByGst = {}, customWeinbaugebiete = [], writeOk, adminOk, rechtLesbar = true,
 }: {
+  /** KAN-458: Leserecht auf grundstueck_recht (Bereich ea); Standard true = wie bisher */
+  rechtLesbar?: boolean
   weingartenId: string
   grundstuecke: GST[]
   massnahmenByGst?: Record<string, MassnahmeHistorie[]>
@@ -600,7 +604,7 @@ export default function GrundstueckePanel({
 
       {writeOk && showForm && !editId && (
         <div className="mb-3">
-          <GSTForm weingartenId={weingartenId} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setShowForm(false)} />
+          <GSTForm rechtLesbar={rechtLesbar} weingartenId={weingartenId} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setShowForm(false)} />
         </div>
       )}
 
@@ -732,7 +736,7 @@ export default function GrundstueckePanel({
                     {writeOk && editId === g.id && (
                       <tr>
                         <td colSpan={10} className="px-2 py-2">
-                          <GSTForm weingartenId={weingartenId} gst={g} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setEditId(null)} />
+                          <GSTForm rechtLesbar={rechtLesbar} weingartenId={weingartenId} gst={g} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setEditId(null)} />
                         </td>
                       </tr>
                     )}

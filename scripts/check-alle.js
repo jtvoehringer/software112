@@ -40,7 +40,7 @@ const AUSNAHME = /alle-ausnahme\s*:\s*(.*)$/i
 /** Tabellen, die je Betrieb ohne Obergrenze wachsen (Stammdaten-Massenimporte, Bewegungen, Protokolle). */
 const GROSSE_TABELLEN = [
   'kontakte', 'firmen', 'aktivitaeten', 'aktivitaet_dokumente', 'pipeline_eintraege', 'datenschutz_consents',
-  'grundstuecke', 'behandlungen', 'behandlung_grundstuecke', 'psm_uebermittlungen',   // KAN-120: psm_uebermittlungen
+  'grundstuecke', 'grundstueck_recht', 'behandlungen', 'behandlung_grundstuecke', 'psm_uebermittlungen',   // KAN-120: psm_uebermittlungen
   'wetter_stunden', 'zeiterfassung',
   'verkaufsposten', 'verkauf_positionen', 'zahlungen', 'sumup_transaktionen', 'rechnungen',   // KAN-102: rechnungen
   'ea_transaktionen', 'ea_belege', 'konto_umbuchungen', 'fibu_buchungssaetze',

@@ -14,6 +14,8 @@ import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewic
 import { reifeFelderFehler, reifeZahl } from '@/lib/wein/reifemessung'
 import { wienHeute } from '@/lib/csv'
 import { rund } from '@/lib/zahl/runden'
+import { speichereGrundstueckRecht } from '@/lib/wein/grundstueckRecht'
+import { canRead } from '@/lib/auth/lesebereiche'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -39,6 +41,17 @@ async function requireWrite(): Promise<{ tenantId: string }> {
     throw new AktionsFehler('Keine Berechtigung: Diese Aktion ist Betriebs-Manager, Super-Admin oder Mitarbeiter mit Modulrecht vorbehalten.')
   }
   return { tenantId: membership.tenantId }
+}
+
+/**
+ * KAN-458: Das Rechtsverhältnis liegt in grundstueck_recht (Lesebereich ea). Gespeichert wird es nur, wenn das Formular
+ * das Feld mitschickt und der Benutzer den Bereich liest – sonst (Profil „Extern“) bleibt der gespeicherte Wert unberührt.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function rechtsverhaeltnisSpeichern(supabase: any, tenantId: string, grundstueckId: string, formData: FormData): Promise<void> {
+  if (!formData.has('rechtsverhaeltnis') || !canRead(await getCurrentMembership(), 'ea')) return
+  const fehler = await speichereGrundstueckRecht(supabase, tenantId, grundstueckId, { rechtsverhaeltnis: (formData.get('rechtsverhaeltnis') as string) || null })
+  if (fehler) throw new AktionsFehler(fehler)
 }
 
 async function requireAdmin(): Promise<{ tenantId: string }> {
@@ -318,7 +331,6 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
     ama_feldnummer:        (formData.get('ama_feldnummer') as string) || null,
     kg_bezeichnung:        (formData.get('kg_bezeichnung') as string) || null,
     boden:                 (formData.get('boden') as string) || null,
-    rechtsverhaeltnis:     (formData.get('rechtsverhaeltnis') as string) || null,
     unterlagsrebe:         (formData.get('unterlagsrebe') as string) || null,
     rebsorte:              (formData.get('rebsorte') as string) || null,
     pflanzjahr:            formData.get('pflanzjahr') ? Number(dezimal(formData.get('pflanzjahr'))) : null,
@@ -337,8 +349,10 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
     notizen:               (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('grundstuecke') as any).insert(payload)
+  const { data: neu, error } = await (supabase.from('grundstuecke') as any).insert(payload).select('id').maybeSingle()
   if (error) throw new AktionsFehler((error as AnyRecord).message)
+  if (!neu) throw new AktionsFehler(NICHT_GESPEICHERT)
+  await rechtsverhaeltnisSpeichern(supabase, tenantId, String((neu as AnyRecord).id), formData)
   revalidatePath('/weingarten')
 }
 
@@ -356,7 +370,6 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
     ama_feldnummer:        (formData.get('ama_feldnummer') as string) || null,
     kg_bezeichnung:        (formData.get('kg_bezeichnung') as string) || null,
     boden:                 (formData.get('boden') as string) || null,
-    rechtsverhaeltnis:     (formData.get('rechtsverhaeltnis') as string) || null,
     unterlagsrebe:         (formData.get('unterlagsrebe') as string) || null,
     rebsorte:              (formData.get('rebsorte') as string) || null,
     pflanzjahr:            formData.get('pflanzjahr') ? Number(dezimal(formData.get('pflanzjahr'))) : null,
@@ -375,6 +388,7 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   const { data: geaendert, error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AnyRecord).message)
   if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
+  await rechtsverhaeltnisSpeichern(supabase, tenantId, id, formData)
   revalidatePath('/weingarten')
   revalidatePath(`/weingarten/${weingartenId}`)
 }

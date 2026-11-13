@@ -17,6 +17,8 @@ import { verteileMassnahme, type WiGst } from '@/lib/wein/massnahmeAnteile'
 import ReifeMessungen from './ReifeMessungen'
 import type { ReifeMessung } from '@/lib/wein/reifemessung'
 import { wienHeute } from '@/lib/csv'
+import { RECHT_EINBETTUNG, mitRecht } from '@/lib/wein/grundstueckRecht'
+import { canRead } from '@/lib/auth/lesebereiche'
 
 export const metadata: Metadata = { title: 'Ried bearbeiten' }
 
@@ -57,11 +59,12 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let grundstueckeQuery = (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, nutzart, notizen, lse_stueckzahl, geometrie, aktiv, deaktiviert_am')
+    .select(`id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, nutzart, notizen, lse_stueckzahl, geometrie, aktiv, deaktiviert_am, ${RECHT_EINBETTUNG}`)
     .eq('weingarten_id', id)
   if (membership) grundstueckeQuery = grundstueckeQuery.eq('tenant_id', membership.tenantId)
   const rawG = geladen(await grundstueckeQuery.order('gst_nr'), 'Grundstücke')
-  const grundstuecke = (rawG ?? []) as GST[]
+  // KAN-458: Rechtsverhältnis liegt in grundstueck_recht (Lesebereich ea) – ohne Leserecht bleibt es leer
+  const grundstuecke = ((rawG ?? []) as Record<string, unknown>[]).map(mitRecht) as unknown as GST[]
 
   // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)
   const customWeinbaugebiete = await ladeCustomWeinbaugebiete()
@@ -218,6 +221,7 @@ export default async function WeingartenEditPage({ params }: Props) {
           customWeinbaugebiete={customWeinbaugebiete}
           writeOk={writeOk}
           adminOk={adminOk}
+          rechtLesbar={canRead(membership, 'ea')}
         />
       </div>
     </div>

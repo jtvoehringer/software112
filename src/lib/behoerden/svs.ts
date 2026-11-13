@@ -13,6 +13,7 @@ import { alle } from '@/lib/supabase/alle'
 import { ZURECHNUNG_LABEL, type Zurechnung } from '@/lib/svs/berechnung'
 import { betrag, istIsoDatum, text, zahl } from './buchhaltung-gemeinsam'
 import { AktionsFehler } from '@/lib/fehler'
+import { RECHT_EINBETTUNG, mitRecht } from '@/lib/wein/grundstueckRecht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -84,12 +85,12 @@ export function svsEinheitswertZeile(g: R): SvsEinheitswertZeile {
 export async function ladeSvsEinheitswerte(supabase: any, tenantId: string): Promise<{ zeilen: SvsEinheitswertZeile[]; warnungen: string[] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('grundstuecke') as any)
-    .select('id, gst_nr, katastralgemeinde, kg_bezeichnung, einlagezahl, flaeche_ha, flaeche_ha_kataster, nutzart, rechtsverhaeltnis, einheitswert, einheitswert_bescheid, einheitswert_quelle, svs_zurechnung, weingarten:weingarten!weingarten_id(name, ried)')
+    .select('id, gst_nr, katastralgemeinde, kg_bezeichnung, einlagezahl, flaeche_ha, flaeche_ha_kataster, nutzart, ' + RECHT_EINBETTUNG + ', weingarten:weingarten!weingarten_id(name, ried)')
     .eq('tenant_id', tenantId)
     .order('katastralgemeinde').order('gst_nr').order('id'))
   if (error) throw new AktionsFehler(`Laden fehlgeschlagen (grundstuecke): ${error.message}`)
 
-  const zeilen = data.map(svsEinheitswertZeile)
+  const zeilen = data.map(g => svsEinheitswertZeile(mitRecht(g)))   // KAN-458: Werte aus grundstueck_recht
   const warnungen: string[] = []
   const ohneWert = zeilen.filter(z => z.einheitswert === null && z.zurechnung !== 'keine').length
   if (ohneWert > 0) warnungen.push(`${ohneWert} ${ohneWert === 1 ? 'Grundstück hat' : 'Grundstücke haben'} noch keinen Einheitswert – die Beitragsgrundlage ist unvollständig.`)

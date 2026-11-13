@@ -24,7 +24,7 @@ DECLARE
     'ea_transaktionen=ea', 'ea_uva=ea', 'elabel_umleitungen=lager', 'elabels=lager', 'email_lead_ignoriert=crm', 'ernte_gst_abgeschlossen=lese',
     'ernte_parzellen=lese', 'export_dokumente=verkauf', 'export_nachweise=verkauf', 'export_registrierungen=verkauf', 'exportauftraege=verkauf', 'exportauftrag_positionen=verkauf',
     'firmen=crm', 'fristen=betrieb', 'fuellung_bewegungen=lager', 'fuellung_chargen=lager', 'fuellung_etikettierungen=lager', 'fuellungen=lager',
-    'grundstuecke=rieden', 'keller_behandlungen=keller', 'keller_behandlungstypen=keller', 'keller_freigaben=keller', 'keller_umzuege=keller', 'keller_verarbeitungen=keller',
+    'grundstueck_recht=ea', 'grundstuecke=rieden', 'keller_behandlungen=keller', 'keller_behandlungstypen=keller', 'keller_freigaben=keller', 'keller_umzuege=keller', 'keller_verarbeitungen=keller',
     'keller_zugangskorrekturen=keller', 'kellerbuch_abschluesse=keller', 'kellerbuch_buchungen=keller', 'kellermittel=keller', 'kellermittel_buchungen=keller', 'kellerplaene=keller',
     'kellerplan_positionen=keller', 'kontakt_firmen=crm', 'kontakt_praeferenzen=crm', 'kontakte=crm', 'konten=ea', 'konto_umbuchungen=ea',
     'kostenarten=controlling', 'kosteneintraege=controlling', 'kosteneintrag_behaelter=controlling', 'kosteneintrag_weingaerten=controlling', 'kostenstellen=controlling', 'lagen=rieden',
@@ -101,7 +101,7 @@ BEGIN
         AND NOT c.relname = ANY (c_allgemein)
         AND NOT EXISTS (SELECT 1 FROM unnest(c_soll) s WHERE split_part(s, '=', 1) = c.relname)), '');
   v_erg := v_erg || pg_temp.s112_erwarte('policies_gesamt',
-    (SELECT count(*) FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'lesebereich'), 125);
+    (SELECT count(*) FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'lesebereich'), 126);   -- +1 KAN-458 (grundstueck_recht)
 
   -- ── 2. Verhalten je Tabelle: Beispielzeile in B, Sicht des Mitarbeiters ohne Profil als Maßstab ───────────────
   FOR r IN SELECT * FROM pg_temp.s112_mandantentabellen() WHERE klasse IN ('T', 'K') ORDER BY tabelle LOOP

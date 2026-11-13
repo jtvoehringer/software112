@@ -517,7 +517,9 @@ describe('svs-einheitswerte – Format wie der Einheitswert-Import', () => {
   ]
 
   test('Zeilen, Hinweis ohne Einheitswert, Mandant', async () => {
-    const db = doppel({ grundstuecke: [...gst, { ...gst[0], id: 'f', tenant_id: FREMD }] })
+    // KAN-458: Rechtsverhältnis, Einheitswert und Zurechnung kommen aus grundstueck_recht (eingebettet als „recht“)
+    const mitRechtZeile = g => ({ ...g, recht: { rechtsverhaeltnis: g.rechtsverhaeltnis, einheitswert: g.einheitswert, einheitswert_bescheid: g.einheitswert_bescheid, einheitswert_quelle: g.einheitswert_quelle, svs_zurechnung: g.svs_zurechnung } })
+    const db = doppel({ grundstuecke: [...gst, { ...gst[0], id: 'f', tenant_id: FREMD }].map(mitRechtZeile) })
     const r = await svs.ladeSvsEinheitswerte(db, T)
     mandantGefiltert(db)
     assert.equal(r.zeilen.length, 2)

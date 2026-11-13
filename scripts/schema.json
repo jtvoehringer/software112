@@ -956,6 +956,18 @@
 "lohnversektung_id",
 "leergewicht_g"
 ],
+"grundstueck_recht": [
+"id",
+"tenant_id",
+"grundstueck_id",
+"rechtsverhaeltnis",
+"einheitswert",
+"einheitswert_bescheid",
+"einheitswert_quelle",
+"svs_zurechnung",
+"created_at",
+"updated_at"
+],
 "grundstuecke": [
 "id",
 "tenant_id",

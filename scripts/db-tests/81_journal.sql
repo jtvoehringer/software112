@@ -111,7 +111,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('anlegen_trigger_anzahl',
     (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
       WHERE c.relnamespace = 'public'::regnamespace AND t.tgname = 'z_protokoll_anlegen'
-        AND t.tgfoid = 'public.bestandsprotokoll_schreiben()'::regprocedure AND t.tgtype = 5 AND t.tgqual IS NULL AND t.tgnargs = 0), 37::bigint);
+        AND t.tgfoid = 'public.bestandsprotokoll_schreiben()'::regprocedure AND t.tgtype = 5 AND t.tgqual IS NULL AND t.tgnargs = 0), 38::bigint);   -- +1 KAN-458 (grundstueck_recht)
   v_erg := v_erg || pg_temp.s112_erwarte('kindtabellen_ohne_anlegen',
     (SELECT coalesce(string_agg(c.relname, ',' ORDER BY c.relname), '-') FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
       WHERE t.tgname = 'z_protokoll_anlegen'

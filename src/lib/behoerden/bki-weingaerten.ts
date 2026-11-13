@@ -28,6 +28,7 @@ import { herkunftKnotenTolerant } from '@/lib/herkunft'
 import { NUTZART_OPTIONS } from '@/lib/wein/nutzart'
 import { text, type R } from './kellerbuch-hilfen'
 import { AktionsFehler } from '@/lib/fehler'
+import { RECHT_EINBETTUNG, mitRecht } from '@/lib/wein/grundstueckRecht'
 
 const BUNDESLAND_GKZ: Record<string, string> = {
   1: 'Burgenland', 2: 'Kärnten', 3: 'Niederösterreich', 4: 'Oberösterreich', 5: 'Salzburg',
@@ -141,13 +142,14 @@ export async function ladeBkiWeingaerten(supabase: any, tenantId: string, p: { n
       .select('id, name, interne_bezeichnung, ama_feldnummer, flaeche_ha, trauben_herkunft_code, aktiv, lage:lage_id(amtliche_ried)')
       .eq('tenant_id', tenantId).order('name').order('id')),
     alle<R>((supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, nutzart, rechtsverhaeltnis, rebsorte, pflanzjahr, trauben_herkunft_code, aktiv, deaktiviert_am')
+      .select('id, weingarten_id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, nutzart, rebsorte, pflanzjahr, trauben_herkunft_code, aktiv, deaktiviert_am, ' + RECHT_EINBETTUNG)
       .eq('tenant_id', tenantId).order('gst_nr').order('id')),
   ])
   if (w.error) throw new AktionsFehler(`Rieden konnten nicht geladen werden: ${w.error.message}`)
   if (g.error) throw new AktionsFehler(`Grundstücke konnten nicht geladen werden: ${g.error.message}`)
   const rieden = p.nurAktiv ? w.data.filter(x => x.aktiv !== false) : w.data
-  const gsts = p.nurAktiv ? g.data.filter(x => x.aktiv !== false) : g.data
+  const alleGst = g.data.map(mitRecht) as R[]   // KAN-458: Rechtsverhältnis aus grundstueck_recht
+  const gsts = p.nurAktiv ? alleGst.filter(x => x.aktiv !== false) : alleGst
   return weingartenZeilen(rieden, gsts)
 }
 

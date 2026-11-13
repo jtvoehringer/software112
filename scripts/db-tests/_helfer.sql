@@ -871,6 +871,19 @@ BEGIN
     IF v_erg IS NOT NULL THEN
       RETURN v_erg;
     END IF;
+  ELSIF p_tab = 'grundstueck_recht' AND NOT (coalesce(p_werte, '{}'::jsonb) ? 'grundstueck_id') THEN
+    -- KAN-458: je Grundstück höchstens eine Zeile. Solange der Abgleich-Trigger a_recht_abgleich (bis kan458b) sie mit dem
+    -- Grundstück anlegt, ist das Beispiel diese Zeile eines neuen Grundstücks; ohne den Trigger wird sie hier angelegt.
+    v_erg := pg_temp.s112_beispiel('grundstuecke', p_tenant, p_persona);
+    IF EXISTS (SELECT 1 FROM public.grundstueck_recht gr WHERE gr.grundstueck_id = (v_erg ->> 'id')::uuid) THEN
+      IF coalesce(p_werte, '{}'::jsonb) <> '{}'::jsonb THEN
+        EXECUTE format('UPDATE public.grundstueck_recht gr SET (%s) = (SELECT %s FROM jsonb_populate_record(gr, $1)) WHERE gr.grundstueck_id = $2',
+          (SELECT string_agg(quote_ident(k), ', ') FROM jsonb_object_keys(p_werte) k), (SELECT string_agg(quote_ident(k), ', ') FROM jsonb_object_keys(p_werte) k))
+          USING p_werte, (v_erg ->> 'id')::uuid;
+      END IF;
+      RETURN (SELECT to_jsonb(gr.*) FROM public.grundstueck_recht gr WHERE gr.grundstueck_id = (v_erg ->> 'id')::uuid);
+    END IF;
+    RETURN pg_temp.s112_beispiel('grundstueck_recht', p_tenant, p_persona, coalesce(p_werte, '{}'::jsonb) || jsonb_build_object('grundstueck_id', v_erg ->> 'id'));
   ELSIF p_tab = 'tenant_memberships' THEN
     RETURN pg_temp.s112_zeile('tenant_memberships', p_tenant,
              jsonb_build_object('user_id', coalesce(p_werte ->> 'user_id', pg_temp.s112_benutzer(NULL, NULL)::text), 'role', 'leser')
@@ -1091,6 +1104,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('fuellung_chargen',              'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-145 B4
     ('fuellungen',                    'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-145 B4
     ('grundstuecke',                  'SA,TA,W*{rieden|ea}',                    'SA,TA,W*{rieden|ea}',                    'SA,TA{rieden|ea}'),
+    ('grundstueck_recht',             'SA,TA,W*{rieden|ea}',                    'SA,TA,W*{rieden|ea}',                    'SA,TA{rieden|ea}'),   -- KAN-458: Rechtsverhältnis/Einheitswert je Grundstück
     ('keller_behandlungen',           'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('keller_behandlungstypen',       'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('keller_freigaben',              '-',                                      '-',                                      '-'),
@@ -1244,7 +1258,7 @@ BEGIN
       'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge',
       'zahlungen', 'zukauf_posten',   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: ea_belege, ea_monatsabschluss, ea_uva
       -- KAN-150 F1a: Stammdaten (Löschen/TRUNCATE; Ändern von aktiv außer keller_behandlungstypen; kontakte/firmen bewusst nicht)
-      'weingarten', 'grundstuecke', 'pflanzenschutzmittel', 'duengemittel', 'ea_kategorien', 'ea_dauerauftraege',
+      'weingarten', 'grundstuecke', 'grundstueck_recht', 'pflanzenschutzmittel', 'duengemittel', 'ea_kategorien', 'ea_dauerauftraege',   -- KAN-458: + grundstueck_recht
       'keller_behandlungstypen',
       -- KAN-150 F2a: Anträge und Aufzeichnungen (Ändern, Löschen, TRUNCATE)
       'dac_antrag', 'weinanalysen', 'pruefnummernantraege', 'transportbescheinigungen', 'exportauftraege',
@@ -1300,6 +1314,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
+    ('trigger',       '--S', false, 's112_grundstueck_recht_abgleich()'),   -- KAN-458: alte Spalten von grundstuecke → grundstueck_recht (bis kan458b)
     ('trigger',       '--S', false, 's112_bienenschutz_bestaetigung()'),   -- KAN-325: Bienenschutz-Bestätigung (Zeitpunkt, Benutzer, Name)
     ('trigger',       '--S', false, 's112_lager_einkauf_schutz()'),   -- KAN-326: Einkauf mit Ausgabe nur über die RPCs
     ('trigger',       '--S', false, 's112_journal_trg_produktion()'),   -- KAN-118: Journal AB_VERAR/ZU_PROD
