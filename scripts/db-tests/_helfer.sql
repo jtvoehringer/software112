@@ -1472,6 +1472,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_ea_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2
     ('mandant',       '-US', true , 's112_ea_beleg_loesen(p_tenant_id uuid, p_beleg_id uuid, p_grund text)'),   -- KAN-415: Beleg von der Buchung lösen (offener Zeitraum)
     ('mandant',       '-US', true , 's112_export_muster_buchen(p_tenant_id uuid, p_auftrag_id uuid, p_datum date, p_zurueck boolean)'),   -- KAN-436 E1: Mustersendung aus- bzw. zurückbuchen
+    ('mandant',       '-US', true , 's112_exportauftrag_status_setzen(p_tenant_id uuid, p_auftrag_id uuid, p_status text, p_grund text)'),   -- KAN-440: Statuswechsel mit Prüfung
+    ('trigger',       '--S', false, 's112_export_workflow_schutz()'),   -- KAN-440: Status nie direkt
     ('trigger',       '--S', false, 's112_export_rechnung_schutz()'),   -- KAN-436 E1: Verknüpfung Exportauftrag–Verkauf, Storno-Sperre
     ('trigger',       '--S', false, 's112_export_rechnung_storno()'),   -- KAN-436 E1: Storno des Verkaufs gibt den Exportauftrag frei
     ('mandant',       '-US', true , 's112_exportauftrag_aendern(p_tenant_id uuid, p_auftrag_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-429: Exportauftrag bearbeiten (Entwurf/Bestätigt)

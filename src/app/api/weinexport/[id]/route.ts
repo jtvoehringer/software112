@@ -8,15 +8,16 @@ import { modulKonflikt } from '@/lib/auth/modul'
 import { exportauftragFehler, exportKopf, exportPositionen, verpackungFehler, verpackungWert } from '@/lib/export/auftragEingabe'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { dbFehlerText } from '@/lib/fehler'
+import { istExportStatus } from '@/lib/export/workflow'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // Whitelist gegen Mass Assignment: nur diese Felder dürfen per PATCH geändert werden –
-// status (Detailseite) und die EMCS-Daten (EmcsPanel). tenant_id, id, referenz, created_at,
+// status (Detailseite, seit KAN-440 nur über die RPC s112_exportauftrag_status_setzen, optional mit grund) und die
+// EMCS-Daten (EmcsPanel). tenant_id, id, referenz, created_at,
 // aktiv usw. werden nie aus dem Request-Body übernommen.
 // KAN-414: dazu das Verpackungsgewicht (Kartons, Palette) – steht oft erst beim Kommissionieren fest
-const AENDERBAR = ['status', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg'] as const
-const STATUS      = ['entwurf', 'bestaetigt', 'versendet', 'abgeschlossen']
+const AENDERBAR = ['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg'] as const
 const EMCS_STATUS = ['draft', 'submitted', 'accepted', 'cancelled']
 // ARC (Administrative Reference Code) besteht nur aus Buchstaben und Ziffern (21 Zeichen);
 // die Einschränkung hält den Wert außerdem sicher für das e-AD-XML unter /emcs.
@@ -59,11 +60,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const unbekannt = Object.keys(b).filter(k => !(AENDERBAR as readonly string[]).includes(k))
   if (unbekannt.length > 0) return fehler(`Nicht änderbare Felder: ${unbekannt.join(', ')}`, 400)
 
-  const update: R = {}
+  // KAN-440: Statuswechsel nur über die RPC (Übergangsmatrix, Rechnung vor „Versendet“, zurück nur Betriebsleitung mit
+  // Grund) – immer als eigener Aufruf, nie zusammen mit anderen Feldern
   if ('status' in b) {
-    if (typeof b.status !== 'string' || !STATUS.includes(b.status)) return fehler('Ungültiger Status', 400)
-    update.status = b.status
+    if (!istExportStatus(b.status)) return fehler('Ungültiger Status', 400)
+    if (Object.keys(b).some(k => k !== 'status' && k !== 'grund')) return fehler('Der Status wird als eigener Schritt geändert.', 400)
+    if (b.grund != null && typeof b.grund !== 'string') return fehler('Ungültiger Grund', 400)
+    const { error: se } = await (supabase as any).rpc('s112_exportauftrag_status_setzen', { // eslint-disable-line @typescript-eslint/no-explicit-any
+      p_tenant_id: tenantId, p_auftrag_id: id, p_status: b.status, p_grund: typeof b.grund === 'string' ? b.grund : null,
+    })
+    if (se) {
+      // Ablehnungen der Datenbank tragen den Text für den Benutzer (Matrix, Rechnung fehlt, Grund, Betriebsleitung)
+      const code = se.code === 'P0002' ? 404 : se.code === '42501' ? 403 : se.code === '23514' || se.code === '22023' ? 409 : 500
+      return fehler(code === 500 ? dbFehlerText(se, 'Statuswechsel fehlgeschlagen') : se.message, code)
+    }
+    return NextResponse.json({ ok: true })
   }
+  if ('grund' in b) return fehler('Nicht änderbare Felder: grund', 400)
+
+  const update: R = {}
   if ('emcs_status' in b) {
     const s = optionalerText(b.emcs_status)
     if (s === undefined || (s !== null && !EMCS_STATUS.includes(s))) return fehler('Ungültiger EMCS-Status', 400)

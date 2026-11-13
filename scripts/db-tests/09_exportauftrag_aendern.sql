@@ -129,14 +129,17 @@ BEGIN
 
   -- ── 3. Bestätigt: weiter bearbeitbar ────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
-  v_erg := v_erg || pg_temp.s112_erwarte('status_bestaetigt',
-    pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET status = %L WHERE id = %L', 'bestaetigt', v_auf)), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('status_bestaetigt',   -- KAN-440: Status nur noch über den Statuswechsel
+    pg_temp.s112_fehlertext(format('SELECT public.s112_exportauftrag_status_setzen(%L, %L, %L)', v_b, v_auf, 'bestaetigt')), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('aendern_bestaetigt',
     pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, v_kopf || '{"incoterms": "EXW"}', v_ok)), 'ok');
 
   -- ── 4. Versendet: gesperrt – RPC und direkt ─────────────────────────────────────────────────────────────────────
+  -- KAN-440: „Versendet“ verlangt eine Rechnung (DB-Test 06) – hier geht es um die Sperre, der Status kommt als Wartung
+  PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('status_versendet',
     pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET status = %L WHERE id = %L', 'versendet', v_auf)), 'ok');
+  PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('aendern_versendet',
     pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, v_kopf, v_ok)) LIKE '42501:%versendet%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_kopf_gesperrt',
@@ -163,8 +166,11 @@ BEGIN
     pg_temp.s112_versuch(format('UPDATE public.export_dokumente SET status = %L WHERE exportauftrag_id = %L AND dokument_art = %L', 'ausgestellt', v_auf, 'eur1')), 'k1');
 
   -- ── 5. Zurückstufen hebt die Sperre auf (Status ist die Steuerung) ──────────────────────────────────────────────
+  -- KAN-440: zurückstufen darf nur die Betriebsleitung über den Statuswechsel (DB-Test 06) – hier als Wartung
+  PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('zurueckstufen',
     pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET status = %L WHERE id = %L', 'bestaetigt', v_auf)), 'ok');
+  PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('aendern_nach_zurueckstufen',
     pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, v_kopf, v_ok)), 'ok');
 

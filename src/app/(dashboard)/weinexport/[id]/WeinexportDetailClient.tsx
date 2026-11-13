@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
+import { rueckfrage } from '@/lib/ui/rueckfrage'
+import { exportSchritte, EXPORT_GRUND_MIN, type ExportSchritt } from '@/lib/export/workflow'
 import type { SendungsGewicht } from '@/lib/export/gewicht'
 import Link from '@/components/ui/Link'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
@@ -38,11 +40,13 @@ interface Props {
   /** KAN-432: Lieferfall, abgeleitete Angaben je Position (Reihenfolge wie `zeilen`), Summen, Hinweisliste */
   grunddaten: ExportauftragErgebnis['grunddaten']
   darfSchreiben: boolean
+  /** KAN-440: zurückstufen darf nur die Betriebsleitung */
+  betriebsleitung: boolean
 }
 
 const tag = (d: unknown) => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(0, 10).split('-').reverse().join('.') : '–')
 
-export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref, gewicht, grunddaten, darfSchreiben }: Props) {
+export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref, gewicht, grunddaten, darfSchreiben, betriebsleitung }: Props) {
   const router = useRouter()
   const [verpackung, setVerpackung] = useState(auftrag.verpackung_kg == null ? '' : String(auftrag.verpackung_kg))
 
@@ -65,7 +69,10 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
       setSaving(false)
     }
   }
-  const [status, setStatus]       = useState(auftrag.status)
+  const status: string = auftrag.status ?? 'entwurf'
+  // KAN-440: Zurückstufen fragt den Grund ab (Pflicht, steht im Änderungsprotokoll)
+  const [zurueck, setZurueck]     = useState<ExportSchritt | null>(null)
+  const [grund, setGrund]         = useState('')
   const [dokumente, setDokumente] = useState(initDok)
   const [dokFehler, setDokFehler] = useState<string | null>(null)
   const [saving, setSaving]       = useState(false)
@@ -73,22 +80,33 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
 
   const importeur = importeurName(auftrag) ?? '–'
 
-  async function updateStatus(newStatus: string) {
-    setSaving(true);
-    try { setFehler(null)
-    const res = await fetch(`/api/weinexport/${auftrag.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    })
-    if (res.ok) setStatus(newStatus)
-    else setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`)
-    setSaving(false)
-
+  // KAN-440: Statuswechsel nur noch in geprüften Schritten (Datenbank: s112_exportauftrag_status_setzen)
+  async function wechsleStatus(schritt: ExportSchritt, mitGrund?: string) {
+    if (schritt.status === 'abgeschlossen' && !(await rueckfrage({
+      titel: 'Exportauftrag abschließen?',
+      text: 'Danach lässt sich der Status nicht mehr ändern.',
+      bestaetigen: 'Abschließen',
+    }))) return
+    setSaving(true)
+    try {
+      setFehler(null)
+      const res = await fetch(`/api/weinexport/${auftrag.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mitGrund != null ? { status: schritt.status, grund: mitGrund } : { status: schritt.status }),
+      })
+      if (!res.ok) { setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`); return }
+      setZurueck(null)
+      setGrund('')
+      zeigeErfolg(`Status: ${STATUS_LABEL[schritt.status] ?? schritt.status}.`)
+      router.refresh()   // Sperren, Rechnungskasten und Schritte rechnet der Server neu
+    } catch {
+      setFehler('Der Status konnte nicht geändert werden – bitte die Verbindung prüfen.')
     } finally {
       setSaving(false)
     }
   }
+  const schritte = darfSchreiben ? exportSchritte({ ...auftrag, status }, betriebsleitung) : []
 
   async function updateDokStatus(dokId: string, newStatus: string) {
     setDokFehler(null)
@@ -125,16 +143,41 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
             <Link href={`/weinexport/${auftrag.id}/bearbeiten`}
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm text-s112-text-1 hover:bg-s112-bg">Bearbeiten</Link>
           )}
-          <select value={status} onChange={e => updateStatus(e.target.value)} disabled={saving || !!auftrag.storniert_am}
-            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
-            {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
           <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLOR[status]}`}>
             {STATUS_LABEL[status]}
           </span>
-          {fehler && <span role="alert" className="text-xs text-s112-err">{fehler}</span>}
+          {schritte.map(s => (
+            <button key={s.status} type="button" disabled={saving || !!s.gesperrt} title={s.gesperrt ?? undefined} data-export-schritt={s.status}
+              onClick={() => { if (s.zurueck) { setFehler(null); setZurueck(s) } else void wechsleStatus(s) }}
+              className={s.zurueck
+                ? 'border border-s112-border rounded-lg px-3 py-1.5 text-sm text-s112-text-1 hover:bg-s112-bg disabled:opacity-50'
+                : 'bg-s112-teal text-s112-yellow rounded-lg px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-50'}>
+              {s.knopf}
+            </button>
+          ))}
         </div>
       </div>
+      {/* KAN-440: warum der nächste Schritt noch nicht geht – sichtbar, nicht nur als Tooltip */}
+      {schritte.filter(s => s.gesperrt).map(s => (
+        <p key={s.status} className="text-sm text-s112-muted text-right" data-export-schritt-hinweis={s.status}>{s.gesperrt}</p>
+      ))}
+      {zurueck && (
+        <form className="border border-s112-border rounded-xl px-4 py-3 bg-white space-y-2"
+          onSubmit={e => { e.preventDefault(); void wechsleStatus(zurueck, grund) }}>
+          <label htmlFor="export-zurueck-grund" className="block text-sm font-medium text-s112-text-1">
+            {zurueck.knopf} – Grund (mindestens {EXPORT_GRUND_MIN} Zeichen, steht im Änderungsprotokoll)
+          </label>
+          <input id="export-zurueck-grund" value={grund} onChange={e => setGrund(e.target.value)} maxLength={300} autoFocus
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm" />
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={() => { setZurueck(null); setGrund('') }} disabled={saving}
+              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm">Abbrechen</button>
+            <button type="submit" disabled={saving || grund.trim().length < EXPORT_GRUND_MIN}
+              className="bg-s112-teal text-s112-yellow rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50">Zurückstufen</button>
+          </div>
+        </form>
+      )}
+      {fehler && <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err">{fehler}</div>}
       {/* KAN-436 E1: mit Rechnung bzw. ausgebuchtem Muster gesperrt – der Weg zurück führt über das Storno der Rechnung */}
       {darfSchreiben && !auftrag.storniert_am && (auftrag.verkaufsposten_id || auftrag.muster_ausgebucht_am) && (
         <GesperrtHinweis grund={auftrag.verkaufsposten_id
@@ -142,7 +185,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           : 'Das Muster ist ausgebucht – zum Bearbeiten zuerst zurückbuchen'} erlaubt={['Status', 'EMCS-Angaben', 'Verpackung', 'Dokumente']} />
       )}
       {darfSchreiben && !auftrag.storniert_am && !auftrag.verkaufsposten_id && !auftrag.muster_ausgebucht_am && !exportBearbeitbar({ status, storniert_am: auftrag.storniert_am }) && (
-        <GesperrtHinweis grund="Exportauftrag versendet – zum Bearbeiten von Kopfdaten und Positionen den Status auf „Bestätigt“ zurückstellen" erlaubt={['Status', 'EMCS-Angaben', 'Verpackung', 'Dokumente']} />
+        <GesperrtHinweis grund="Exportauftrag versendet – zum Bearbeiten von Kopfdaten und Positionen stuft die Betriebsleitung den Status auf „Bestätigt“ zurück" erlaubt={['Status', 'EMCS-Angaben', 'Verpackung', 'Dokumente']} />
       )}
 
       {/* KAN-432: was den Dokumenten noch fehlt – nie geschätzt, immer mit dem Weg zur Stelle, an der der Wert gepflegt wird */}

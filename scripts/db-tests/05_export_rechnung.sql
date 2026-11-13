@@ -92,8 +92,8 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('verknuepfen_im_entwurf',
     pg_temp.s112_fehlertext(format(c_link, v_vp1, v_auf)) LIKE '23514:%Bestätigt%', true);
-  v_erg := v_erg || pg_temp.s112_erwarte('status_bestaetigt',
-    pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET status = %L WHERE id = %L', 'bestaetigt', v_auf)), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('status_bestaetigt',   -- KAN-440: Status nur noch über den Statuswechsel
+    pg_temp.s112_fehlertext(format('SELECT public.s112_exportauftrag_status_setzen(%L, %L, %L)', v_b, v_auf, 'bestaetigt')), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('verknuepfen_ohne_steuerfall',
     pg_temp.s112_fehlertext(format(c_link, v_vp0, v_auf)) LIKE '23514:%Steuerfall%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('verknuepfen_fremder_verkauf',
@@ -120,8 +120,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('storno_gesperrt',
     pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET storniert_am = now(), storno_grund = %L WHERE id = %L', 'S112TEST Storno mit Rechnung', v_auf))
       LIKE '23514:%zuerst die Rechnung stornieren%', true);
-  v_erg := v_erg || pg_temp.s112_erwarte('status_bleibt_aenderbar',
-    pg_temp.s112_versuch(format('UPDATE public.exportauftraege SET status = %L WHERE id = %L', 'versendet', v_auf)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('status_bleibt_aenderbar',   -- KAN-440: mit Rechnung geht „Versendet“ über den Statuswechsel
+    pg_temp.s112_fehlertext(format('SELECT public.s112_exportauftrag_status_setzen(%L, %L, %L)', v_b, v_auf, 'versendet')), 'ok');
 
   -- ── 4. Storno des Verkaufs gibt den Auftrag frei ───────────────────────────────────────────────────
   PERFORM pg_temp.s112_als_postgres();
