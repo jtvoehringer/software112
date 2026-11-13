@@ -32,7 +32,10 @@ test.describe('Verkauf (schreibend)', () => {
     // Beschriftung „Kunde suchen“ (seit dem E2E-Ausbau); Platzhalter als Rückfall für ältere Stände
     const suche = page.getByLabel('Kunde suchen').or(page.getByPlaceholder('Name oder Firma suchen…')).first()
     await suche.click()
-    const ersterKunde = suche.locator('xpath=..').getByRole('button').first()
+    // KAN-441: In der Liste stehen seit der Schnellanlage auch „+ Neue Firma“ / „+ Neuer Kontakt“ – solange die Treffer noch
+    // laden, sind das die ersten Knöpfe; sie öffnen einen Dialog, der danach „Verkauf anlegen“ verdeckt. Gemeint ist der
+    // erste vorhandene Kunde (auf ihn wird gewartet).
+    const ersterKunde = suche.locator('xpath=..').getByRole('button').filter({ hasNotText: '+ Neue' }).filter({ hasNotText: '+ Neuer' }).first()
     await expect(ersterKunde, 'kein Kunde im Testbetrieb').toBeVisible()
     await ersterKunde.click()
 
