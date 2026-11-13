@@ -25,11 +25,21 @@ export const PREMIUM_SUPPORT = {
   ],
 } as const
 
-/** Kontakt für den Support – aus Vercel-Umgebungsvariablen, damit Nummer und Adresse ohne Code-Änderung wechseln */
-export function supportKontakt(): { telefon: string | null; email: string | null } {
-  const telefon = (process.env.NEXT_PUBLIC_SUPPORT_TELEFON ?? '').trim()
-  const email = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? '').trim()
+/**
+ * Kontakt für den Support – aus Vercel-Umgebungsvariablen, damit Nummer und Adresse ohne Code-Änderung wechseln.
+ * KAN-449 (13.11.2026): Die Telefonnummer sehen nur Betriebe mit gebuchtem Premium-Support – sie steht deshalb in der
+ * serverseitigen Variable SUPPORT_TELEFON (kommt nie ins Browser-Paket); NEXT_PUBLIC_SUPPORT_TELEFON bleibt als
+ * Rückfall für bestehende Einrichtungen. Vorerst Jörgens Nummer, später die Nummer mit KI-Annahme.
+ */
+export function supportKontakt(env: Record<string, string | undefined> = process.env): { telefon: string | null; email: string | null } {
+  const telefon = (env.SUPPORT_TELEFON ?? '').trim() || (env.NEXT_PUBLIC_SUPPORT_TELEFON ?? '').trim()
+  const email = (env.NEXT_PUBLIC_SUPPORT_EMAIL ?? '').trim()
   return { telefon: telefon || null, email: email || null }
+}
+
+/** Nummer für einen tel:-Verweis: nur + und Ziffern (Leerzeichen, Punkte und Klammern fallen weg) */
+export function telefonVerweis(nummer: string): string {
+  return `tel:${nummer.replace(/[^+\d]/g, '')}`
 }
 
 export type PremiumSupportZeitraum = { seit: string | null; bis: string | null }

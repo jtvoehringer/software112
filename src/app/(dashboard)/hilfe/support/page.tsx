@@ -3,7 +3,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Headset, Mail, Phone, ShieldCheck } from 'lucide-react'
-import { PREMIUM_SUPPORT, premiumSupportStand, supportKontakt, tagText } from '@/lib/abo/premiumSupport'
+import { PREMIUM_SUPPORT, premiumSupportStand, supportKontakt, tagText, telefonVerweis } from '@/lib/abo/premiumSupport'
 import { jsmKonfiguriert } from '@/lib/support/jsm'
 import SupportAnfrage from './SupportAnfrage'
 import RueckrufAnfordern from './RueckrufAnfordern'
@@ -61,7 +61,7 @@ export default async function SupportPage() {
               {kontakt.telefon && (
                 <li className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-s112-muted" aria-hidden />
-                  <a href={`tel:${kontakt.telefon.replace(/[^+\d]/g, '')}`} className="font-medium text-s112-blue-700 hover:underline">{kontakt.telefon}</a>
+                  <a href={telefonVerweis(kontakt.telefon)} className="font-medium text-s112-blue-700 hover:underline">{kontakt.telefon}</a>
                   <span className="text-s112-muted">– wir legen die Anfrage für Sie an und schicken Ihnen den Link per E-Mail</span>
                 </li>
               )}
