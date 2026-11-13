@@ -548,7 +548,7 @@ describe('exportauftrag / exportauftraege', () => {
 describe('Katalog und Register „verkehr“', () => {
   test('Register deckt genau den Katalog ab, Zugriff und Modul wie die Seiten', () => {
     assert.deepEqual(Object.keys(MELDUNGEN_VERKEHR).sort(), Object.keys(KATALOG_VERKEHR).sort())
-    assert.deepEqual(Object.keys(KATALOG_VERKEHR).sort(), ['dac-antraege', 'exportauftraege', 'exportauftrag', 'pruefnummernantrag', 'transportbescheinigung', 'transportbescheinigungen'])
+    assert.deepEqual(Object.keys(KATALOG_VERKEHR).sort(), ['dac-antraege', 'exportauftraege', 'exportauftrag', 'pruefnummernantrag', 'transportbescheinigung', 'transportbescheinigungen', 'zusammenfassende-meldung'])   // KAN-439: + Zusammenfassende Meldung
     for (const m of Object.values(MELDUNGEN_VERKEHR)) {
       assert.equal(m.gruppe, 'verkehr')
       assert.equal(m.zugriff, 'mitglied')
@@ -557,6 +557,7 @@ describe('Katalog und Register „verkehr“', () => {
     }
     assert.equal(MELDUNGEN_VERKEHR.exportauftrag.modul, 'modul_export')
     assert.equal(MELDUNGEN_VERKEHR.exportauftraege.modul, 'modul_export')
+    assert.equal(MELDUNGEN_VERKEHR['zusammenfassende-meldung'].modul, 'modul_export')
     assert.equal(MELDUNGEN_VERKEHR.transportbescheinigung.modul, undefined)
   })
 

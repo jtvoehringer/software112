@@ -6,6 +6,10 @@ import { ladeTransportbescheinigung, ladeTransportbescheinigungen, SPALTEN_TRANS
 import { ladePruefnummernantrag, SPALTEN_PRUEFNUMMERNANTRAG } from '../pruefnummernantrag'
 import { ladeDacAntraege, SPALTEN_DAC_ANTRAEGE } from '../dac'
 import { ladeExportauftrag, ladeExportauftraege, SPALTEN_EXPORTAUFTRAG, SPALTEN_EXPORTAUFTRAEGE } from '../exportauftrag'
+import { ladeZm, SPALTEN_ZM } from '../zm'
+import { jahrAus } from '../buchhaltung-gemeinsam'
+import { uvaZeitraumAus } from '../uva'
+import { istParameterFehler } from '../typen'
 
 // Register der Behördenmeldungen – Gruppe „Weinverkehr & Export“ (Transportbescheinigung (TBS), Prüfnummernantrag (PNA), DAC-Anträge, Weinexport/EMCS).
 // Je Katalog-Eintrag aus katalog/verkehr.ts genau ein Eintrag mit CSV (laden + spalten).
@@ -84,6 +88,20 @@ export const MELDUNGEN_VERKEHR = {
     },
     spalten: SPALTEN_EXPORTAUFTRAG,
     dateiteile: (p, betrieb) => ['Exportauftrag', betrieb.betriebsnummer, p.referenz ?? p.id.slice(0, 8)],
+  }),
+
+  // KAN-439: ?jahr=JJJJ, optional &zeitraum=Q1–Q4 bzw. 01–12 (ohne Zeitraum das ganze Jahr)
+  'zusammenfassende-meldung': definiereMeldung(KATALOG_VERKEHR['zusammenfassende-meldung'], {
+    parameter: sp => {
+      const jahr = jahrAus(sp)
+      if (istParameterFehler(jahr)) return jahr
+      const zeitraum = uvaZeitraumAus(sp)
+      if (istParameterFehler(zeitraum)) return zeitraum
+      return { jahr, zeitraum }
+    },
+    laden: (ctx, p) => ladeZm(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_ZM,
+    dateiteile: (p, betrieb) => ['Zusammenfassende-Meldung', betrieb.betriebsnummer, p.zeitraum ? `${p.jahr}-${p.zeitraum}` : p.jahr],
   }),
 
   exportauftraege: definiereMeldung(KATALOG_VERKEHR.exportauftraege, {

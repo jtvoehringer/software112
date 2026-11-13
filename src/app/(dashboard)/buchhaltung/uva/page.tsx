@@ -279,6 +279,29 @@ function UvaKarte({ uva, jahr, doppik, adminOk, fehlendeMonate, uebermitteln }: 
             </tbody>
           </table>
 
+          {/* KAN-439: steuerfreie Umsätze mit gespeichertem Steuerfall (Rechnung aus dem Exportauftrag) */}
+          <p className="text-xs font-medium text-s112-text-2 mt-3 mb-1">Davon steuerfrei:</p>
+          <table className="w-full">
+            <tbody>
+              {(['kz011', 'kz017'] as const).map(s => {
+                const row = k(s)
+                if (!row) return null
+                return (
+                  <tr key={s}>
+                    <td className="py-1 text-s112-text-2">{row.bezeichnung} <span className="text-s112-tertiary text-xs">(Kz {row.kz})</span></td>
+                    <td className="py-1 text-right text-s112-text-2 tabular-nums">€ {fmt(row.bemessungsgrundlage)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          {(k('kz017')?.bemessungsgrundlage ?? 0) !== 0 && (
+            <p className="text-xs text-s112-muted mt-1 print:hidden">
+              Innergemeinschaftliche Lieferungen gehören auch in die <Link href={`/weinexport/zusammenfassende-meldung?jahr=${jahr}&zeitraum=${uva.zeitraum}`} className="text-s112-blue-700 hover:underline">Zusammenfassende Meldung</Link>.
+            </p>
+          )}
+
           <div className="flex items-center justify-between py-1 mt-2 pt-2 border-t border-s112-border/60">
             <span className="text-s112-text-2">
               {k('ust0')?.bezeichnung}{' '}

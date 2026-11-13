@@ -276,6 +276,9 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
     jahr:        jahr,
     zeitraum:    zeitraum,
     bmgl_ust_0:  row.bmgl_0  || 0,
+    // KAN-439: Teilmengen der Umsätze zu 0 % – Ausfuhr (Kz 011) und innergemeinschaftliche Lieferung (Kz 017)
+    bmgl_ausfuhr: row.bmgl_ausfuhr || 0,
+    bmgl_igl:     row.bmgl_igl     || 0,
     bmgl_ust_10: row.bmgl_10 || 0,
     bmgl_ust_13: row.bmgl_13 || 0,
     bmgl_ust_20: row.bmgl_20 || 0,

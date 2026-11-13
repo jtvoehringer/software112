@@ -50,6 +50,17 @@ export const KATALOG_VERKEHR = katalogGruppe('verkehr', {
     druckPfad: '/weinexport/[id]',
     beschreibung: 'Anlage zu V1/V2, EUR.1, CMR und Ursprungszeugnis: je Position Bezeichnung, TARIC, Menge, Einheit, Liter, Wert, Ursprung, Bestimmungsland und EORI.',
   },
+  // KAN-439: Rechnungen aus dem Exportauftrag mit innergemeinschaftlicher Lieferung, je UID des Erwerbers
+  'zusammenfassende-meldung': {
+    titel: 'Zusammenfassende Meldung (innergemeinschaftliche Lieferungen)',
+    behoerde: 'Finanzamt (FinanzOnline)',
+    zugriff: 'mitglied',
+    modul: 'modul_export',
+    rechtsgrundlage: 'Art. 21 UStG 1994 (Binnenmarktregelung)',
+    druckPfad: '/weinexport/zusammenfassende-meldung',
+    pflicht: true,
+    beschreibung: 'Je UID des Erwerbers die Summe der steuerfreien innergemeinschaftlichen Lieferungen im Meldezeitraum – zur Eingabe in FinanzOnline (keine elektronische Übermittlung).',
+  },
   exportauftraege: {
     titel: 'Weinexport – Aufträge mit Dokument- und EMCS-Status',
     behoerde: 'Zoll (EMCS-AT)',
