@@ -11,6 +11,8 @@ import DruckFormatKnopf from '@/components/DruckFormatKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeExportauftraege } from '@/lib/behoerden/exportauftrag'
 import { landAnzeige } from '@/lib/katalog/laender'
+import { ladeOffeneNachweise } from '@/lib/export/nachweisLaden'
+import { heuteWien } from '@/lib/datum/wien'
 export const metadata: Metadata = { title: 'Weinexport' }
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +21,11 @@ const STATUS_COLOR: Record<string, string> = {
   bestaetigt: 'bg-s112-blue-100 text-s112-blue-700',
   versendet: 'bg-s112-warn-bg text-s112-warn-fg',
   abgeschlossen: 'bg-s112-ok-bg text-s112-ok-fg',
+}
+
+const NACHWEIS_FARBE: Record<string, string> = {
+  offen: 'bg-s112-blue-50 text-s112-blue-700', hinweis: 'bg-s112-warn-bg text-s112-warn-fg',
+  warnung: 'bg-s112-warn-bg text-s112-warn-fg', ueberfaellig: 'bg-s112-err-bg text-s112-err-fg',
 }
 
 export default async function WeinexportPage() {
@@ -34,6 +41,8 @@ export default async function WeinexportPage() {
 
   // Dieselbe Ladefunktion wie die CSV (/meldungen/exportauftraege/csv)
   const { zeilen: rows } = await ladeExportauftraege(supabase, tenantId)
+  // KAN-440 Teil 2: Aufträge mit offenem Ausfuhr- bzw. Gelangensnachweis
+  const offen = new Map((await ladeOffeneNachweise(supabase, tenantId, heuteWien())).map(o => [o.id, o.frist]))
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -73,6 +82,7 @@ export default async function WeinexportPage() {
                 <th className="px-5 py-3 text-left">Datum</th>
                 <th className="px-5 py-3 text-left">Incoterms</th>
                 <th className="px-5 py-3 text-left">Status</th>
+                <th className="px-5 py-3 text-left">Nachweis</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-s112-border/40">
@@ -101,6 +111,13 @@ export default async function WeinexportPage() {
                     ) : (
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(a.status && STATUS_COLOR[a.status]) || 'bg-[#F2F3F5] text-s112-text-2'}`}>
                         {a.statusLabel ?? a.status}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {offen.has(a.id) && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${NACHWEIS_FARBE[offen.get(a.id)!.stufe] ?? ''}`} data-nachweis-stufe={offen.get(a.id)!.stufe}>
+                        {offen.get(a.id)!.text}
                       </span>
                     )}
                   </td>

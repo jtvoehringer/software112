@@ -8,6 +8,11 @@ import { stornoExportauftrag, loescheExportauftrag } from './actions'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import WeinexportDetailClient from './WeinexportDetailClient'
+import ExportNachweisPanel from './ExportNachweisPanel'
+import { ladeExportNachweise } from '@/lib/export/nachweisLaden'
+import { nachweisFrist } from '@/lib/export/nachweise'
+import { lieferfall } from '@/lib/export/grunddaten'
+import { heuteWien } from '@/lib/datum/wien'
 import { ladeExportauftrag } from '@/lib/behoerden/exportauftrag'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeExportFaktura } from '@/lib/export/fakturaLaden'
@@ -61,6 +66,16 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
     musterFehler: fk?.muster.fehler ?? [],
     musterFlaschen: fk?.muster.flaschen ?? 0,
   }
+  // KAN-440 Teil 2: Nachweise und Stand der Frist (Fristbeginn = Rechnungsdatum, ersatzweise Versanddatum)
+  const nachweise = await ladeExportNachweise(supabase, tenantId, id)
+  const gebiet = lieferfall(a).gebiet
+  const heute = heuteWien()
+  const frist = nachweisFrist({
+    status: a.status, storniert_am: a.storniert_am, mustersendung: a.mustersendung, verkaufsposten_id: a.verkaufsposten_id,
+    abschluss_ohne_nachweis: a.abschluss_ohne_nachweis, versanddatum: a.versanddatum, nachweise: nachweise.length,
+    rechnungsdatum: vk?.datum ?? null, gebiet,
+  }, heute)
+  const darfSchreiben = !!membership && canWrite(membership, 'warenwirtschaft')
   // KAN-150 F2 (Frage 8): Entwurf ohne ausgestelltes Dokument und ohne ARC direkt löschbar (nur Betriebsleitung)
   const entwurfLoeschbar = a.status === 'entwurf' && !a.emcs_arc_nummer && canAdmin(membership?.role ?? null)
     && !ergebnis.dokumente.some(d => d.status === 'ausgestellt')
@@ -74,9 +89,21 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
         grunddaten={ergebnis.grunddaten}
         darfSchreiben={!!membership && canWrite(membership, 'warenwirtschaft') && !a.storniert_am}
         betriebsleitung={canAdmin(membership?.role ?? null)}
+        nachweise={nachweise.length}
         dokumente={ergebnis.dokumente}
         csvHref={csvPfad('exportauftrag', { id, referenz: a.referenz })}
       />
+      {/* KAN-440 Teil 2: Nachweis – im Inland ohne Bedeutung, bei stornierten Aufträgen nur, wenn schon etwas abgelegt ist */}
+      {gebiet !== 'inland' && (!a.storniert_am || nachweise.length > 0) && (
+        <div className="px-8 max-w-5xl mx-auto">
+          <ExportNachweisPanel auftragId={id} gebiet={gebiet} nachweise={nachweise} frist={frist}
+            mrn={a.ausfuhr_mrn ?? null} anmeldungDatum={a.ausfuhr_anmeldung_datum ?? null} mustersendung={a.mustersendung === true}
+            darfAendern={darfSchreiben && !a.storniert_am && a.status !== 'abgeschlossen'}
+            gesperrtGrund={a.storniert_am ? 'Der Exportauftrag ist storniert – Nachweise lassen sich nicht mehr ändern.'
+              : a.status === 'abgeschlossen' ? 'Der Exportauftrag ist abgeschlossen – Nachweise und die Angaben zur Ausfuhranmeldung lassen sich nicht mehr ändern.' : null}
+            heute={heute} />
+        </div>
+      )}
       {!a.storniert_am && (
         <div className="px-8 max-w-5xl mx-auto">
           <ExportRechnungPanel id={id} referenz={String(a.referenz ?? '')} stand={rechnungStand}

@@ -40,7 +40,7 @@ describe('KAN-440: Übergangsmatrix (wie die Datenbank)', () => {
     assert.match(exportUebergangFehler({ status: 'bestaetigt', mustersendung: true }, 'versendet', null, true), /wenn das Muster ausgebucht ist/)
     assert.equal(exportUebergangFehler({ status: 'bestaetigt', verkaufsposten_id: 'v1' }, 'versendet', null, false), null)
     assert.equal(exportUebergangFehler({ status: 'bestaetigt', mustersendung: true, muster_ausgebucht_am: '2026-11-13' }, 'versendet', null, false), null)
-    assert.equal(exportUebergangFehler({ status: 'versendet', verkaufsposten_id: 'v1' }, 'abgeschlossen', null, false), null)
+    assert.equal(exportUebergangFehler({ status: 'versendet', verkaufsposten_id: 'v1', nachweise: 1 }, 'abgeschlossen', null, false), null)   // Teil 2: mit Nachweis
   })
   test('zurück: nur Betriebsleitung, mit Grund; auf Entwurf nur ohne Rechnung/Muster', () => {
     assert.match(exportUebergangFehler({ status: 'bestaetigt' }, 'entwurf', GRUND, false), /nur die Betriebsleitung/)
@@ -95,7 +95,7 @@ describe('KAN-440: Route, Detailseite, Migration', () => {
   test('Detailseite: Knöpfe aus exportSchritte statt freier Auswahl; Grund beim Zurückstufen; Abschließen mit Rückfrage', () => {
     const c = quelle('src/app/(dashboard)/weinexport/[id]/WeinexportDetailClient.tsx')
     assert.doesNotMatch(c, /<select value=\{status\}/)
-    assert.match(c, /const schritte = darfSchreiben \? exportSchritte\(\{ \.\.\.auftrag, status \}, betriebsleitung\) : \[\]/)
+    assert.match(c, /const schritte = darfSchreiben \? exportSchritte\(\{ \.\.\.auftrag, status, nachweise \}, betriebsleitung\) : \[\]/)   // Teil 2: + Anzahl der Nachweise
     assert.match(c, /disabled=\{saving \|\| !!s\.gesperrt\}/)
     assert.match(c, /if \(schritt\.status === 'abgeschlossen' && !\(await rueckfrage\(\{/)
     assert.match(c, /disabled=\{saving \|\| grund\.trim\(\)\.length < EXPORT_GRUND_MIN\}/)
