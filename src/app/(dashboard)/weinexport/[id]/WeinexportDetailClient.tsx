@@ -18,7 +18,7 @@ import {
   importeurName, type ExportPositionZeile, type ExportauftragErgebnis,
 } from '@/lib/behoerden/exportauftrag'
 import { farbeLabel } from '@/lib/export/grunddaten'
-import { EXPORT_DOKUMENTE, hatDruckansicht } from '@/lib/export/dokumente'
+import { EXPORT_DOKUMENTE, dokumentHinweis, hatDruckansicht } from '@/lib/export/dokumente'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const STATUS_COLOR: Record<string,string> = {
@@ -356,6 +356,8 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                     <p className="text-xs font-medium text-s112-text truncate">
                       {DOK_LABEL[dok.dokument_art] ?? dok.dokument_art}
                     </p>
+                    {/* KAN-435 D1: das alte Begleitdokument-Muster ist gekennzeichnet, bis das neue Dokument gebaut ist */}
+                    {dokumentHinweis(dok.dokument_art) && <p className="text-[11px] text-s112-warn-fg mt-0.5">{dokumentHinweis(dok.dokument_art)}</p>}
                     <select value={dok.status}
                       onChange={e => updateDokStatus(dok.id, e.target.value)}
                       className="mt-1 w-full border border-s112-border rounded-sm px-1.5 py-1 text-[11px] focus:outline-hidden">

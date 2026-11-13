@@ -48,7 +48,16 @@ export const KATALOG_VERKEHR = katalogGruppe('verkehr', {
     zugriff: 'mitglied',
     modul: 'modul_export',
     druckPfad: '/weinexport/[id]',
-    beschreibung: 'Anlage zu V1/V2, EUR.1, CMR und Ursprungszeugnis: je Position Bezeichnung, TARIC, Menge, Einheit, Liter, Wert, Ursprung, Bestimmungsland und EORI.',
+    beschreibung: 'Anlage zu Begleitdokument, EUR.1, CMR und Ursprungszeugnis: je Position Bezeichnung, TARIC, Menge, Einheit, Liter, Wert, Ursprung, Bestimmungsland und EORI.',
+  },
+  // KAN-435 D1: ersetzt die nicht einreichbare e-AD-XML-Datei – Angaben zum Erfassen in EMCS, keine Übermittlung
+  'emcs-datenblatt': {
+    titel: 'Weinexport – EMCS-Datenblatt',
+    behoerde: 'Zoll (EMCS-AT)',
+    zugriff: 'mitglied',
+    modul: 'modul_export',
+    druckPfad: '/weinexport/[id]/emcs-datenblatt',
+    beschreibung: 'Je Position Produktcode (Vorschlag), KN-Code, Liter, % vol, Gewichte und Packstücke samt Versender, Empfänger und Verkehrszweig – zum Erfassen in EMCS (kein amtliches Dokument, keine elektronische Übermittlung).',
   },
   // KAN-439: Rechnungen aus dem Exportauftrag mit innergemeinschaftlicher Lieferung, je UID des Erwerbers
   'zusammenfassende-meldung': {

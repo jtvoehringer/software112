@@ -51,14 +51,15 @@ describe('Weinexport: Zeilenwerte und Gesamtwert', () => {
     assert.equal(gesamtWert(pos), 2.14)
     assert.equal(eurText(gesamtWert([])), '0.00')
   })
-  test('Dokument- und EMCS-Route rechnen nur noch über exportWerte', () => {
+  test('Dokument-Route rechnet nur noch über exportWerte; das EMCS-Datenblatt (KAN-435) übernimmt gerundete Zeilen', () => {
     const d = quelle('src/app/api/weinexport/[id]/dokument/[art]/route.ts')
     assert.doesNotMatch(d, /toFixed\(/)
     assert.match(d, /const gesamtEUR = gesamtWert\(pos\)/)
     assert.equal((d.match(/eurText\(positionsWert\(p\)\)/g) ?? []).length, 4)
-    const m = quelle('src/app/api/weinexport/[id]/emcs/route.ts')
-    // KAN-414: Gewicht aus Füllung und Einheit (src/lib/export/gewicht.ts) statt Menge × 1,25 – Tests in kan414-leergewicht
-    assert.match(m, /<GrossWeight>.{2}kgText\(positionsGewicht\(/)
+    const m = quelle('src/lib/behoerden/emcsDatenblatt.ts')
+    // KAN-435 D1: die e-AD-XML-Route ist entfernt; das Datenblatt rechnet nicht selbst, es übernimmt die Zeilen aus ladeExportauftrag
+    assert.doesNotMatch(m, /toFixed\(|Math\.round\(/)
+    assert.match(m, /bruttoKg: p\.bruttoKg,/)
   })
 })
 
