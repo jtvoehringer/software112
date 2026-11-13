@@ -9,6 +9,8 @@ import { exportauftragFehler, exportKopf, exportPositionen, verpackungFehler, ve
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { dbFehlerText } from '@/lib/fehler'
 import { istExportStatus } from '@/lib/export/workflow'
+import { ausfuhranmeldungFehler, mrnBereinigt } from '@/lib/export/nachweise'
+import { heuteWien } from '@/lib/datum/wien'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -17,7 +19,8 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 // EMCS-Daten (EmcsPanel). tenant_id, id, referenz, created_at,
 // aktiv usw. werden nie aus dem Request-Body übernommen.
 // KAN-414: dazu das Verpackungsgewicht (Kartons, Palette) – steht oft erst beim Kommissionieren fest
-const AENDERBAR = ['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg'] as const
+// KAN-440 Teil 2: dazu MRN und Datum der Ausfuhranmeldung (stehen oft erst beim Versand fest; ab „Abgeschlossen“ gesperrt)
+const AENDERBAR = ['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum'] as const
 const EMCS_STATUS = ['draft', 'submitted', 'accepted', 'cancelled']
 // ARC (Administrative Reference Code) besteht nur aus Buchstaben und Ziffern (21 Zeichen);
 // die Einschränkung hält den Wert außerdem sicher für das e-AD-XML unter /emcs.
@@ -94,6 +97,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const vf = verpackungFehler(b.verpackung_kg)
     if (vf) return fehler(vf, 400)
     update.verpackung_kg = verpackungWert(b.verpackung_kg)
+  }
+  if ('ausfuhr_mrn' in b || 'ausfuhr_anmeldung_datum' in b) {
+    const mrn = optionalerText(b.ausfuhr_mrn ?? null)
+    const datum = optionalerText(b.ausfuhr_anmeldung_datum ?? null)
+    if (mrn === undefined || datum === undefined) return fehler('Ungültige Angaben zur Ausfuhranmeldung', 400)
+    const af = ausfuhranmeldungFehler({ mrn, datum }, heuteWien())
+    if (af) return fehler(af, 400)
+    if ('ausfuhr_mrn' in b) update.ausfuhr_mrn = mrnBereinigt(mrn) || null
+    if ('ausfuhr_anmeldung_datum' in b) update.ausfuhr_anmeldung_datum = datum
   }
   if (Object.keys(update).length === 0) return fehler('Keine Änderungen übergeben', 400)
 

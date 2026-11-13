@@ -150,7 +150,7 @@ describe('KAN-414: Dokumente, Routen, Migration', () => {
   test('Exportauftrag: Verpackung beim Anlegen und nachträglich (PATCH-Positivliste), CSV mit Gewichten', () => {
     assert.match(quelle('src/app/api/weinexport/route.ts'), /verpackung_kg:\s+verpackungWert\(body\.verpackung_kg\)/)
     const p = quelle('src/app/api/weinexport/[id]/route.ts')
-    assert.match(p, /const AENDERBAR = \['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg'\] as const/)   // KAN-440: + grund (nur mit status, über die RPC)
+    assert.match(p, /const AENDERBAR = \['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum'\] as const/)   // KAN-440: + grund (nur mit status, über die RPC), + Ausfuhranmeldung
     assert.match(p, /verpackungFehler\(b\.verpackung_kg\)/)
     const b = quelle('src/lib/behoerden/exportauftrag.ts')
     assert.match(b, /kopf: 'Nettogewicht \(kg\)'/)

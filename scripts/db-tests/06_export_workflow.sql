@@ -1,4 +1,4 @@
--- @bereich: Weinexport – Statuswechsel des Exportauftrags mit Prüfung (KAN-440 Teil 1)
+-- @bereich: Weinexport – Statuswechsel des Exportauftrags mit Prüfung, Ausfuhr- und Gelangensnachweis (KAN-440)
 -- @ziel: Der Status ändert sich nur über s112_exportauftrag_status_setzen: Entwurf → Bestätigt → Versendet → Abgeschlossen,
 -- @ziel: je ein Schritt; „Versendet“ nur mit Rechnung bzw. ausgebuchtem Muster; zurück nur die Betriebsleitung mit Grund,
 -- @ziel: auf „Entwurf“ nur ohne Rechnung/Muster; „Abgeschlossen“ ist endgültig. Direkt (Update, Insert mit Status) geht
@@ -6,6 +6,12 @@
 -- @mutation ohne_schutz: Trigger a_export_workflow entfernt | rot: direkt_.*
 -- @mutation ohne_rechnungspruefung: „Versendet“ auch ohne Rechnung bzw. Muster | rot: versendet_ohne_.*
 -- @mutation ohne_rollenpruefung: Zurückstufen prüft die Betriebsleitung nicht | rot: zurueck_mitarbeiter
+-- @ziel: Teil 2: Nachweise (export_nachweise) legt ein Mitarbeiter direkt an und entfernt sie – nie ändern, nicht mit
+-- @ziel: Datum in der Zukunft, nicht im fremden Ordner bzw. Betrieb, nicht als Leser. „Abgeschlossen“ nur mit Nachweis
+-- @ziel: oder Begründung (steht dann am Auftrag); Mustersendungen ohne. Danach sind Nachweise und die Angaben zur
+-- @ziel: Ausfuhranmeldung (MRN, Datum) gesperrt; die Begründung setzt nur der Statuswechsel.
+-- @mutation ohne_nachweispruefung: „Abgeschlossen“ auch ohne Nachweis und ohne Begründung | rot: abschluss_ohne_nachweis
+-- @mutation ohne_nachweis_schutz: Trigger a_nachweis_schutz entfernt | rot: nachweis_zukunft|nachweis_gesperrt_.*
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 06 (Stand 13.11.2026, KAN-440). Alles zurückgerollt.
 
@@ -14,6 +20,8 @@ DECLARE
   c_datei constant text := '06_export_workflow';
   c_rpc   constant text := 'SELECT public.s112_exportauftrag_status_setzen(%L::uuid, %L::uuid, %L, %L)';
   c_fn    constant regprocedure := 'public.s112_exportauftrag_status_setzen(uuid, uuid, text, text)'::regprocedure;
+  c_nw    constant text := 'INSERT INTO public.export_nachweise (tenant_id, exportauftrag_id, art, datum, datei_pfad, dateiname) VALUES (%L, %L, %L, %L, %L, %L)';
+  c_mrn   constant text := 'UPDATE public.exportauftraege SET ausfuhr_mrn = %L, ausfuhr_anmeldung_datum = %L WHERE id = %L';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;
@@ -26,6 +34,8 @@ DECLARE
   v_auf   uuid;
   v_mus   uuid;
   v_sto   uuid;
+  v_ohn   uuid;
+  v_heute date;
   v_vp    uuid := gen_random_uuid();
   v_n     bigint;
 BEGIN
@@ -46,6 +56,9 @@ BEGIN
     'datum', pg_temp.s112_heute(), 'destination_land', 'US', 'mustersendung', true)) ->> 'id')::uuid;
   v_sto := (pg_temp.s112_beispiel('exportauftraege', v_b, v_bw, jsonb_build_object('status', 'entwurf', 'storniert_am', NULL,
     'datum', pg_temp.s112_heute(), 'destination_land', 'US', 'mustersendung', false)) ->> 'id')::uuid;
+  v_heute := pg_temp.s112_heute();
+  v_ohn := (pg_temp.s112_beispiel('exportauftraege', v_b, v_bw, jsonb_build_object('status', 'versendet', 'storniert_am', NULL,
+    'datum', v_heute, 'destination_land', 'US', 'mustersendung', false)) ->> 'id')::uuid;
   PERFORM pg_temp.s112_zeile('verkaufsposten', v_b, jsonb_build_object('id', v_vp, 'rechnung_spaeter', true, 'steuerfall', 'ausfuhr', 'lieferland', 'US'));
 
   PERFORM pg_temp.s112_mutiere('ohne_schutz', $m$DROP TRIGGER a_export_workflow ON public.exportauftraege$m$);
@@ -53,6 +66,11 @@ BEGIN
     EXECUTE replace(pg_get_functiondef('public.s112_exportauftrag_status_setzen(uuid, uuid, text, text)'::regprocedure),
       $a$IF p_status = 'versendet' AND v_a.verkaufsposten_id IS NULL$a$, $a$IF p_status = 'nie' AND v_a.verkaufsposten_id IS NULL$a$);
   END $d$$m$);
+  PERFORM pg_temp.s112_mutiere('ohne_nachweispruefung', $m$DO $d$ BEGIN
+    EXECUTE replace(pg_get_functiondef('public.s112_exportauftrag_status_setzen(uuid, uuid, text, text)'::regprocedure),
+      $a$IF p_status = 'abgeschlossen' AND NOT coalesce(v_a.mustersendung, false)$a$, $a$IF p_status = 'nie' AND NOT coalesce(v_a.mustersendung, false)$a$);
+  END $d$$m$);
+  PERFORM pg_temp.s112_mutiere('ohne_nachweis_schutz', $m$DROP TRIGGER a_nachweis_schutz ON public.export_nachweise$m$);
   PERFORM pg_temp.s112_mutiere('ohne_rollenpruefung', $m$DO $d$ BEGIN
     EXECUTE replace(pg_get_functiondef('public.s112_exportauftrag_status_setzen(uuid, uuid, text, text)'::regprocedure),
       $a$IF v_uid IS NOT NULL AND NOT EXISTS ($a$, $a$IF v_uid IS NULL AND NOT EXISTS ($a$);
@@ -120,11 +138,82 @@ BEGIN
   -- ── 4. Abgeschlossen ist endgültig ───────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   PERFORM public.s112_exportauftrag_status_setzen(v_b, v_auf, 'versendet', NULL);
+  -- Teil 2: ohne Nachweis nur mit Begründung
+  v_erg := v_erg || pg_temp.s112_erwarte('abschluss_ohne_nachweis',
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, 'abgeschlossen', NULL)) LIKE '23514:%fehlt der Ausfuhr- bzw. Gelangensnachweis%', true);
+  -- (unter der Mutation ohne_nachweispruefung wäre der Auftrag jetzt abgeschlossen – für den weiteren Ablauf zurück als Wartung)
+  PERFORM pg_temp.s112_als_postgres();
+  UPDATE public.exportauftraege SET status = 'versendet', abschluss_ohne_nachweis = NULL WHERE id = v_auf AND status <> 'versendet';
+  PERFORM pg_temp.s112_als(v_bw);
+
+  -- Angaben zur Ausfuhranmeldung: auch mit Rechnung und ab „Versendet“ änderbar; MRN = 18 Zeichen
+  v_erg := v_erg || pg_temp.s112_erwarte('mrn',
+    pg_temp.s112_versuch(format(c_mrn, '26AT100000ABCDEFG1', v_heute, v_auf)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('mrn_format',
+    split_part(pg_temp.s112_fehlertext(format(c_mrn, 'zu kurz', v_heute, v_auf)), ':', 1), '23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('direkt_abschluss_grund',
+    pg_temp.s112_fehlertext(format('UPDATE public.exportauftraege SET abschluss_ohne_nachweis = %L WHERE id = %L', 'S112TEST direkt gesetzt', v_auf)) LIKE '42501:%nur über den Statuswechsel%', true);
+
+  -- Nachweise: anlegen ja – nicht in der Zukunft, nicht im fremden Ordner, nie ändern
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_zukunft',
+    pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'ausgangsvermerk', v_heute + 1, v_b || '/' || v_auf || '/s112test-z.pdf', 'S112TEST.pdf')) LIKE '23514:%in der Zukunft%', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_fremder_ordner',
+    split_part(pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'ausgangsvermerk', v_heute, v_m || '/' || v_auf || '/s112test-f.pdf', 'S112TEST.pdf')), ':', 1), '23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_unbekannte_art',
+    split_part(pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'quittung', v_heute, v_b || '/' || v_auf || '/s112test-a.pdf', 'S112TEST.pdf')), ':', 1), '23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_anlegen',
+    pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'ausgangsvermerk', v_heute, v_b || '/' || v_auf || '/s112test-1.pdf', 'S112TEST.pdf')), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_zweiter',
+    pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'frachtbrief', v_heute, v_b || '/' || v_auf || '/s112test-2.pdf', 'S112TEST CMR.pdf')), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_aendern',
+    split_part(pg_temp.s112_fehlertext(format('UPDATE public.export_nachweise SET notiz = %L WHERE exportauftrag_id = %L', 'S112TEST geändert', v_auf)), ':', 1), '42501');
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_entfernen',
+    pg_temp.s112_versuch(format('DELETE FROM public.export_nachweise WHERE exportauftrag_id = %L AND art = %L', v_auf, 'frachtbrief')), 'k1');
+  PERFORM pg_temp.s112_als(v_bl);
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_leser',
+    split_part(pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'sonstiger', v_heute, v_b || '/' || v_auf || '/s112test-l.pdf', 'S112TEST.pdf')), ':', 1), '42501');
+  PERFORM pg_temp.s112_als(v_mw);
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_fremder_betrieb',
+    split_part(pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'sonstiger', v_heute, v_b || '/' || v_auf || '/s112test-m.pdf', 'S112TEST.pdf')), ':', 1), '42501');
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_fremder_auftrag',
+    pg_temp.s112_fehlertext(format(c_nw, v_m, v_auf, 'sonstiger', v_heute, v_m || '/' || v_auf || '/s112test-x.pdf', 'S112TEST.pdf')) <> 'ok', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_fremd_unsichtbar',
+    (SELECT count(*) FROM public.export_nachweise WHERE exportauftrag_id = v_auf), 0::bigint);
+
+  -- mit Nachweis: abschließen ohne Begründung; danach ist alles gesperrt
+  PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('abschliessen',
     pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, 'abgeschlossen', NULL)), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_gesperrt_entfernen',
+    pg_temp.s112_fehlertext(format('DELETE FROM public.export_nachweise WHERE exportauftrag_id = %L', v_auf)) LIKE '42501:%abgeschlossen%', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_gesperrt_anlegen',
+    pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'sonstiger', v_heute, v_b || '/' || v_auf || '/s112test-3.pdf', 'S112TEST.pdf')) LIKE '42501:%abgeschlossen%', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('mrn_gesperrt',
+    pg_temp.s112_fehlertext(format(c_mrn, '26AT100000ABCDEFG2', v_heute, v_auf)) LIKE '42501:%abgeschlossen%', true);
+
+  -- ohne Nachweis mit Begründung: steht am Auftrag; Mustersendung ohne beides
+  v_erg := v_erg || pg_temp.s112_erwarte('abschluss_mit_begruendung',
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_ohn, 'abgeschlossen', 'S112TEST Beleg liegt beim Spediteur')), 'ok');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('begruendung_am_auftrag',
+    (SELECT concat_ws('|', a.status, a.abschluss_ohne_nachweis) FROM public.exportauftraege a WHERE a.id = v_ohn), 'abgeschlossen|S112TEST Beleg liegt beim Spediteur');
+  v_erg := v_erg || pg_temp.s112_erwarte('mit_nachweis_keine_begruendung',
+    (SELECT a.abschluss_ohne_nachweis IS NULL FROM public.exportauftraege a WHERE a.id = v_auf), true);
+  UPDATE public.exportauftraege SET status = 'versendet' WHERE id = v_mus;
+  PERFORM pg_temp.s112_als(v_bw);
+  v_erg := v_erg || pg_temp.s112_erwarte('muster_ohne_nachweis',
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_mus, 'abgeschlossen', NULL)), 'ok');
+  -- der Auftrag lässt sich samt Nachweisen löschen (Kaskade, als Wartung) – der Schutz hält die Kaskade nicht auf
+  PERFORM pg_temp.s112_als_postgres();
+  PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('kaskade',
+    pg_temp.s112_fehlertext(format('DELETE FROM public.exportauftraege WHERE id = %L', v_auf)), 'ok');   -- storno-ausnahme: Test der Kaskade auf die Nachweise, wird zurückgerollt
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('kaskade_nachweise_weg',
+    (SELECT count(*) FROM public.export_nachweise WHERE exportauftrag_id = v_auf), 0::bigint);
   PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('abgeschlossen_endgueltig',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_auf, 'versendet', 'S112TEST noch einmal öffnen')) LIKE '23514:%abgeschlossen%', true);
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_ohn, 'versendet', 'S112TEST noch einmal öffnen')) LIKE '23514:%abgeschlossen%', true);
 
   -- ── 5. Storniert, Rechte, Modul ──────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als_postgres();
@@ -134,25 +223,34 @@ BEGIN
     pg_temp.s112_fehlertext(format(c_rpc, v_b, v_sto, 'bestaetigt', NULL)) LIKE '42501:%storniert%', true);
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('leser',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_mus, 'entwurf', NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_sto, 'bestaetigt', NULL)), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_mw);
   v_erg := v_erg || pg_temp.s112_erwarte('fremder_betrieb',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_mus, 'versendet', NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_sto, 'bestaetigt', NULL)), ':', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('fremder_auftrag',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_mus, 'versendet', NULL)), ':', 1), 'P0002');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_sto, 'bestaetigt', NULL)), ':', 1), 'P0002');
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenant_einstellungen SET modul_export = false WHERE tenant_id = v_b;
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_export_modul',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_mus, 'versendet', NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_sto, 'bestaetigt', NULL)), ':', 1), '42501');
+  -- ohne Export-Modul auch keine Nachweise (Paket-Modul-Policy)
+  PERFORM pg_temp.s112_als_postgres();
+  UPDATE public.exportauftraege SET storniert_am = NULL, storno_grund = NULL WHERE id = v_sto;
+  PERFORM pg_temp.s112_als(v_bw);
+  v_erg := v_erg || pg_temp.s112_erwarte('nachweis_ohne_export_modul',
+    split_part(pg_temp.s112_fehlertext(format(c_nw, v_b, v_sto, 'sonstiger', v_heute, v_b || '/' || v_sto || '/s112test-o.pdf', 'S112TEST.pdf')), ':', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('rechte',
     concat_ws('/',
       has_function_privilege('anon', c_fn, 'EXECUTE')::text,
       has_function_privilege('authenticated', c_fn, 'EXECUTE')::text,
-      has_function_privilege('authenticated', 'public.s112_export_workflow_schutz()', 'EXECUTE')::text),
-    'false/true/false');
+      has_function_privilege('authenticated', 'public.s112_export_workflow_schutz()', 'EXECUTE')::text,
+      has_function_privilege('authenticated', 'public.s112_export_nachweis_schutz()', 'EXECUTE')::text,
+      has_table_privilege('anon', 'public.export_nachweise', 'SELECT')::text,
+      has_table_privilege('authenticated', 'public.export_nachweise', 'UPDATE')::text),
+    'false/true/false/false/false/false');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 26);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 51);
 END
 $test$;

@@ -20,7 +20,7 @@ Ein Betrieb wird ausschließlich über die Datenbankfunktion `public.s112_mandan
    - Funktioniert auch im Nur-Lesen-Modus (gekündigter Betrieb).
    - Das Änderungsprotokoll (`bestandsprotokoll`) des Betriebs bleibt stehen (siehe Schritt 8).
 5. **FK-Waisen prüfen**: `scripts/fk-waisen.sql` im SQL-Editor ausführen – **0 Zeilen** erwartet.
-6. **Storage-Ordner löschen**: In allen Buckets (`mandant-logos`, `ea-belege`, `aktivitaet-dokumente`, `analysen`, `dokumente`, `etiketten`) den Ordner `<tenant-uuid>/` über das Supabase-Dashboard bzw. die Storage-API löschen (SQL-DELETE auf `storage.objects` ist gesperrt). Danach prüfen – **0 Zeilen** erwartet:
+6. **Storage-Ordner löschen**: In allen Buckets (`mandant-logos`, `ea-belege`, `aktivitaet-dokumente`, `analysen`, `dokumente`, `etiketten`, `fuellung-bilder`, `export-nachweise`) den Ordner `<tenant-uuid>/` über das Supabase-Dashboard bzw. die Storage-API löschen (SQL-DELETE auf `storage.objects` ist gesperrt). Danach prüfen – **0 Zeilen** erwartet:
 
    ```sql
    select bucket_id, name from storage.objects o

@@ -6,7 +6,8 @@
 //   Entwurf → Bestätigt → Versendet → Abgeschlossen, je ein Schritt
 //   „Versendet“ nur mit Rechnung bzw. ausgebuchtem Muster
 //   zurück je ein Schritt, nur Betriebsleitung, mit Grund (≥ 10 Zeichen); auf „Entwurf“ nur ohne Rechnung/Muster
-//   „Abgeschlossen“ ist endgültig
+//   „Abgeschlossen“ ist endgültig – und geht nur mit Ausfuhr- bzw. Gelangensnachweis oder mit Begründung
+//   (Teil 2; Mustersendungen ohne)
 //
 // Isomorph und ohne '@/'-Importe (node:test).
 
@@ -26,6 +27,8 @@ export type ExportStand = {
   verkaufsposten_id?: string | null
   muster_ausgebucht_am?: string | null
   mustersendung?: boolean | null
+  /** Anzahl erfasster Ausfuhr- bzw. Gelangensnachweise (Teil 2) */
+  nachweise?: number | null
 }
 
 export function istExportStatus(s: unknown): s is ExportStatus {
@@ -35,6 +38,9 @@ export function istExportStatus(s: unknown): s is ExportStatus {
 const stufe = (s: ExportStatus) => EXPORT_STATUS.indexOf(s)
 const aktuell = (a: ExportStand): ExportStatus => (istExportStatus(a.status) ? a.status : 'entwurf')
 const hatAbgang = (a: ExportStand) => !!a.verkaufsposten_id || !!a.muster_ausgebucht_am
+/** abschließen ohne Nachweis (keine Mustersendung): nur mit Begründung */
+const ohneNachweis = (a: ExportStand) => !a.mustersendung && !((a.nachweise ?? 0) > 0)
+const grundReicht = (grund: string | null | undefined) => (grund ?? '').trim().length >= EXPORT_GRUND_MIN
 
 /**
  * Warum der Wechsel auf `neu` nicht geht – null, wenn er erlaubt ist. Dieselben Regeln und Texte wie
@@ -52,10 +58,13 @@ export function exportUebergangFehler(a: ExportStand, neu: unknown, grund: strin
     if (neu === 'versendet' && !hatAbgang(a)) {
       return a.mustersendung ? '„Versendet“ geht erst, wenn das Muster ausgebucht ist.' : '„Versendet“ geht erst, wenn die Rechnung gestellt ist.'
     }
+    if (neu === 'abgeschlossen' && ohneNachweis(a) && !grundReicht(grund)) {
+      return `Zum Abschließen fehlt der Ausfuhr- bzw. Gelangensnachweis – bitte den Nachweis erfassen oder den Abschluss ohne Nachweis begründen (mindestens ${EXPORT_GRUND_MIN} Zeichen).`
+    }
     return null
   }
   if (!betriebsleitung) return 'Zurückstufen darf nur die Betriebsleitung.'
-  if ((grund ?? '').trim().length < EXPORT_GRUND_MIN) return `Bitte den Grund für das Zurückstufen angeben (mindestens ${EXPORT_GRUND_MIN} Zeichen).`
+  if (!grundReicht(grund)) return `Bitte den Grund für das Zurückstufen angeben (mindestens ${EXPORT_GRUND_MIN} Zeichen).`
   if (neu === 'entwurf' && hatAbgang(a)) return 'Zurück auf „Entwurf“ geht nicht, solange es eine Rechnung bzw. ein ausgebuchtes Muster gibt.'
   return null
 }
@@ -66,6 +75,8 @@ export type ExportSchritt = {
   knopf: string
   /** zurückstufen: braucht einen Grund und die Betriebsleitung */
   zurueck: boolean
+  /** der Schritt fragt einen Grund ab: zurückstufen bzw. abschließen ohne Nachweis */
+  grundNoetig: boolean
   /** Warum der Schritt (noch) nicht geht – der Knopf ist dann gesperrt und zeigt den Hinweis */
   gesperrt: string | null
 }
@@ -84,12 +95,17 @@ export function exportSchritte(a: ExportStand, betriebsleitung: boolean): Export
   if (alt === 'abgeschlossen') return []
   const aus: ExportSchritt[] = []
   const vor = EXPORT_STATUS[stufe(alt) + 1]
-  if (vor) aus.push({ status: vor, knopf: KNOPF_VOR[vor], zurueck: false, gesperrt: exportUebergangFehler(a, vor, null, betriebsleitung) })
+  if (vor) {
+    // abschließen ohne Nachweis: der Knopf bleibt frei und fragt die Begründung ab
+    const grundNoetig = vor === 'abgeschlossen' && ohneNachweis(a)
+    aus.push({ status: vor, knopf: KNOPF_VOR[vor], zurueck: false, grundNoetig,
+      gesperrt: exportUebergangFehler(a, vor, grundNoetig ? 'x'.repeat(EXPORT_GRUND_MIN) : null, betriebsleitung) })
+  }
   const zurueck = stufe(alt) > 0 ? EXPORT_STATUS[stufe(alt) - 1] : null
   if (zurueck && betriebsleitung) {
     // der fehlende Grund ist kein Sperrgrund für den Knopf – er wird beim Zurückstufen abgefragt
     const fehler = exportUebergangFehler(a, zurueck, 'x'.repeat(EXPORT_GRUND_MIN), betriebsleitung)
-    aus.push({ status: zurueck, knopf: `Zurück auf „${EXPORT_STATUS_NAME[zurueck]}“`, zurueck: true, gesperrt: fehler })
+    aus.push({ status: zurueck, knopf: `Zurück auf „${EXPORT_STATUS_NAME[zurueck]}“`, zurueck: true, grundNoetig: true, gesperrt: fehler })
   }
   return aus
 }

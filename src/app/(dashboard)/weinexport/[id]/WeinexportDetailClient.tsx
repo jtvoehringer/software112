@@ -42,11 +42,13 @@ interface Props {
   darfSchreiben: boolean
   /** KAN-440: zurückstufen darf nur die Betriebsleitung */
   betriebsleitung: boolean
+  /** KAN-440 Teil 2: Anzahl der Ausfuhr- bzw. Gelangensnachweise (abschließen ohne Nachweis nur mit Begründung) */
+  nachweise: number
 }
 
 const tag = (d: unknown) => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(0, 10).split('-').reverse().join('.') : '–')
 
-export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref, gewicht, grunddaten, darfSchreiben, betriebsleitung }: Props) {
+export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref, gewicht, grunddaten, darfSchreiben, betriebsleitung, nachweise }: Props) {
   const router = useRouter()
   const [verpackung, setVerpackung] = useState(auftrag.verpackung_kg == null ? '' : String(auftrag.verpackung_kg))
 
@@ -106,7 +108,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
       setSaving(false)
     }
   }
-  const schritte = darfSchreiben ? exportSchritte({ ...auftrag, status }, betriebsleitung) : []
+  const schritte = darfSchreiben ? exportSchritte({ ...auftrag, status, nachweise }, betriebsleitung) : []
 
   async function updateDokStatus(dokId: string, newStatus: string) {
     setDokFehler(null)
@@ -148,7 +150,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           </span>
           {schritte.map(s => (
             <button key={s.status} type="button" disabled={saving || !!s.gesperrt} title={s.gesperrt ?? undefined} data-export-schritt={s.status}
-              onClick={() => { if (s.zurueck) { setFehler(null); setZurueck(s) } else void wechsleStatus(s) }}
+              onClick={() => { if (s.grundNoetig) { setFehler(null); setZurueck(s) } else void wechsleStatus(s) }}
               className={s.zurueck
                 ? 'border border-s112-border rounded-lg px-3 py-1.5 text-sm text-s112-text-1 hover:bg-s112-bg disabled:opacity-50'
                 : 'bg-s112-teal text-s112-yellow rounded-lg px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-50'}>
@@ -165,7 +167,9 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
         <form className="border border-s112-border rounded-xl px-4 py-3 bg-white space-y-2"
           onSubmit={e => { e.preventDefault(); void wechsleStatus(zurueck, grund) }}>
           <label htmlFor="export-zurueck-grund" className="block text-sm font-medium text-s112-text-1">
-            {zurueck.knopf} – Grund (mindestens {EXPORT_GRUND_MIN} Zeichen, steht im Änderungsprotokoll)
+            {zurueck.zurueck
+              ? `${zurueck.knopf} – Grund (mindestens ${EXPORT_GRUND_MIN} Zeichen, steht im Änderungsprotokoll)`
+              : `Abschließen ohne Nachweis – Begründung (mindestens ${EXPORT_GRUND_MIN} Zeichen, steht am Auftrag). Liegt der Ausfuhr- bzw. Gelangensnachweis vor, bitte zuerst unten ablegen.`}
           </label>
           <input id="export-zurueck-grund" value={grund} onChange={e => setGrund(e.target.value)} maxLength={300} autoFocus
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm" />
@@ -173,7 +177,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
             <button type="button" onClick={() => { setZurueck(null); setGrund('') }} disabled={saving}
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm">Abbrechen</button>
             <button type="submit" disabled={saving || grund.trim().length < EXPORT_GRUND_MIN}
-              className="bg-s112-teal text-s112-yellow rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50">Zurückstufen</button>
+              className="bg-s112-teal text-s112-yellow rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50">{zurueck.zurueck ? 'Zurückstufen' : 'Ohne Nachweis abschließen'}</button>
           </div>
         </form>
       )}

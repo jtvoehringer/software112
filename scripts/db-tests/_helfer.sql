@@ -921,6 +921,13 @@ BEGIN
       v_erg := NULL;
     END IF;
     v_w := v_w || jsonb_build_object('verkaufsposten_id', gen_random_uuid(), 'menge', 1, 'zurueckgenommen_am', NULL);
+  ELSIF p_tab = 'export_nachweise' THEN   -- KAN-440: CHECK Ablagepfad <betrieb>/<auftrag>/…, Art
+    IF NOT coalesce(p_werte, '{}'::jsonb) ? 'exportauftrag_id' THEN
+      v_w := v_w || jsonb_build_object('exportauftrag_id', pg_temp.s112_beispiel('exportauftraege', p_tenant, p_persona,
+        jsonb_build_object('status', 'entwurf', 'storniert_am', NULL, 'abschluss_ohne_nachweis', NULL, 'ausfuhr_mrn', NULL)) ->> 'id');
+    END IF;
+    v_w := v_w || jsonb_build_object('art', 'sonstiger', 'datum', pg_temp.s112_heute(), 'dateiname', 'S112TEST.pdf',
+      'datei_pfad', p_tenant::text || '/' || (v_w ->> 'exportauftrag_id') || '/s112test-' || gen_random_uuid()::text || '.pdf');
   ELSIF p_tab = 'lieferadressen' THEN   -- KAN-176: CHECK lieferadressen_ein_partner
     v_w := v_w || jsonb_build_object('kontakt_id', pg_temp.s112_zeile('kontakte', p_tenant) ->> 'id', 'firma_id', NULL,
       'strasse', 'S112TEST-Gasse 1', 'plz', '1010', 'ort', 'Wien', 'land', 'AT');
@@ -1071,6 +1078,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('auftrag_lieferungen',           '-',                                      '-',                                      '-'),   -- KAN-418 Teil 2: nur über s112_auftrag_liefern und den Storno-Trigger   -- KAN-418: Positionen – nur über s112_auftrag_anlegen
     ('verkauf_ki_begriffe',           'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),   -- KAN-411: gelernte Begriffe aus Bestell-Mails
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
+    ('export_nachweise',              'SA,TA,W*{warenwirtschaft}',              '-',                                      'SA,TA,W*{warenwirtschaft}'),   -- KAN-440: Nachweise anlegen/entfernen, nie ändern
     ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('exportauftraege',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('exportauftrag_positionen',      'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
@@ -1251,7 +1259,7 @@ BEGIN
     WHEN 'paketmodul_tabellen' THEN ARRAY[
       'assistent_aktionen', 'assistent_korrekturen', 'assistent_nachrichten', 'assistent_unterhaltungen',
       'buchhaltung_export_protokoll', 'buchhaltung_kontenmapping', 'ea_anlagen', 'ea_belege', 'ea_dauerauftraege',
-      'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'export_dokumente', 'exportauftraege',
+      'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'export_dokumente', 'export_nachweise', 'exportauftraege',
       'exportauftrag_positionen', 'konten', 'konto_umbuchungen', 'kostenarten', 'kosteneintraege',
       'kosteneintrag_behaelter', 'kosteneintrag_weingaerten', 'kostenstellen', 'sumup_checkouts', 'sumup_terminals']
     WHEN 'tid_ohne_fk' THEN ARRAY['bestandsprotokoll', 'system_ereignisse']
@@ -1473,7 +1481,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_ea_beleg_loesen(p_tenant_id uuid, p_beleg_id uuid, p_grund text)'),   -- KAN-415: Beleg von der Buchung lösen (offener Zeitraum)
     ('mandant',       '-US', true , 's112_export_muster_buchen(p_tenant_id uuid, p_auftrag_id uuid, p_datum date, p_zurueck boolean)'),   -- KAN-436 E1: Mustersendung aus- bzw. zurückbuchen
     ('mandant',       '-US', true , 's112_exportauftrag_status_setzen(p_tenant_id uuid, p_auftrag_id uuid, p_status text, p_grund text)'),   -- KAN-440: Statuswechsel mit Prüfung
-    ('trigger',       '--S', false, 's112_export_workflow_schutz()'),   -- KAN-440: Status nie direkt
+    ('trigger',       '--S', false, 's112_export_workflow_schutz()'),
+    ('trigger',       '--S', false, 's112_export_nachweis_schutz()'),   -- KAN-440 Teil 2: Nachweise ab „Abgeschlossen“ gesperrt   -- KAN-440: Status nie direkt
     ('trigger',       '--S', false, 's112_export_rechnung_schutz()'),   -- KAN-436 E1: Verknüpfung Exportauftrag–Verkauf, Storno-Sperre
     ('trigger',       '--S', false, 's112_export_rechnung_storno()'),   -- KAN-436 E1: Storno des Verkaufs gibt den Exportauftrag frei
     ('mandant',       '-US', true , 's112_exportauftrag_aendern(p_tenant_id uuid, p_auftrag_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-429: Exportauftrag bearbeiten (Entwurf/Bestätigt)

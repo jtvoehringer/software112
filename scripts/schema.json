@@ -729,6 +729,18 @@
 "ausgestellt_am",
 "notizen"
 ],
+"export_nachweise": [
+"id",
+"tenant_id",
+"exportauftrag_id",
+"art",
+"datum",
+"datei_pfad",
+"dateiname",
+"notiz",
+"erstellt_am",
+"erstellt_von"
+],
 "exportauftraege": [
 "id",
 "tenant_id",
@@ -767,7 +779,10 @@
 "versicherung_eur",
 "ursprungserklaerung",
 "verkaufsposten_id",
-"muster_ausgebucht_am"
+"muster_ausgebucht_am",
+"ausfuhr_mrn",
+"ausfuhr_anmeldung_datum",
+"abschluss_ohne_nachweis"
 ],
 "exportauftrag_positionen": [
 "id",

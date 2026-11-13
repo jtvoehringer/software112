@@ -180,7 +180,7 @@ DECLARE
   c_ohne_ma constant text[] := ARRAY['system_ereignisse'];
   -- Namens-Heuristik für Geheimnisse: bewusst lesbare Spalten (BK4 seit KAN-159: newsletter_token_hash, nur Hash)
   c_heuristik_bekannt constant text[] := '{}'::text[];
-  c_buckets constant text := 'aktivitaet-dokumente:false,analysen:false,dokumente:false,ea-belege:false,etiketten:false,fuellung-bilder:false,mandant-logos:true';   -- +fuellung-bilder KAN-220
+  c_buckets constant text := 'aktivitaet-dokumente:false,analysen:false,dokumente:false,ea-belege:false,etiketten:false,export-nachweise:false,fuellung-bilder:false,mandant-logos:true';   -- +export-nachweise KAN-440   -- +fuellung-bilder KAN-220
   c_schutz constant text := 'tenant_einstellungen={svs_option,svs_option_seit,svs_einkuenfte_manuell,svs_kv_angehoerige}/23/schutz_plattformfelder/O;'
                             'tenants={bio_status,updated_at}/23/schutz_plattformfelder/O';
   -- z_protokoll_aendern: überwachte Spalten je Tabelle (Trigger-Argumente = UPDATE OF …, alphabetisch, Stand
