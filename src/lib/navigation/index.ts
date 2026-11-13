@@ -19,6 +19,8 @@ import {
 import type { UserRole } from '@/lib/auth/roles'
 import { istPflichtmeldungsRolle } from '@/lib/auth/pflichtmeldung'
 import { isActivePath, aktiverBereichIndex } from './aktiv'
+import { seitenBereich } from './seitenBereich'
+import type { Lesebereich } from '@/lib/auth/lesebereiche'
 
 export { isActivePath }
 
@@ -248,6 +250,8 @@ export type NavContext = {
   doppik?: boolean
   /** canSeeAuswertungen(role) – serverseitig ermittelt; false blendet Controlling + Frag dein Weingut aus */
   auswertungenSichtbar?: boolean
+  /** lesbareBereiche(membership) – serverseitig ermittelt (KAN-456). Ohne Angabe: alle Bereiche (kein Profil). */
+  lesbar?: readonly Lesebereich[]
 }
 
 const ADMIN_PREFIX = '/admin/'
@@ -271,6 +275,7 @@ function pflichtmeldungenSichtbar(ctx: NavContext): boolean {
  *  - modulKey/requireModul/hideIfModul gegen die Tenant-Modul-Toggles
  *  - sandboxOnly nur im Sandbox-Mandanten
  *  - pflichtmeldung: Betriebsleiter immer, sonst Modul Controlling + Auswertungsrecht
+ *  - Lesebereich der Seite (seitenBereich.ts, KAN-456): Mitarbeiter mit Profil sehen nur Seiten ihrer Bereiche
  *  - Bereiche ohne sichtbare Seiten entfallen
  */
 export function buildNav(ctx: NavContext): NavGroup[] {
@@ -295,6 +300,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       if (it.pflichtmeldung && !pflichtmeldungenSichtbar(ctx)) return false
       if (it.requireModul && !ctx.branding[it.requireModul]) return false
       if (it.hideIfModul?.some(m => ctx.branding[m])) return false
+      if (ctx.lesbar && !ctx.lesbar.includes(seitenBereich(it.href))) return false
       return true
     })
     if (items.length === 0) continue

@@ -22,6 +22,7 @@ import ZurueckLeiste from './ZurueckLeiste'
 import { MostgewichtEinheitProvider } from '@/components/wein/MostgewichtEinheit'
 import { buildNav } from '@/lib/navigation'
 import type { UserRole } from '@/lib/auth/roles'
+import type { Lesebereich } from '@/lib/auth/lesebereiche'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
@@ -40,6 +41,8 @@ interface Props {
   sandboxAdminUnlock?: boolean
   /** canSeeAuswertungen(role) – serverseitig ermittelt (Migration 218) */
   auswertungenSichtbar?: boolean
+  /** lesbareBereiche(membership) – serverseitig ermittelt (KAN-456): Navigation und Befehlspalette nur für diese Bereiche */
+  lesbar?: readonly Lesebereich[]
   /** canWrite(role) – serverseitig ermittelt, steuert die Aktionen der Befehlspalette */
   darfSchreiben?: boolean
   /** Bevorzugte Mostgewicht-Einheit des Betriebs (KAN-128) – für useMostgewichtEinheit() */
@@ -49,7 +52,7 @@ interface Props {
 
 export default function AppShell({
   children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false, sandboxAdminUnlock = false, darfSchreiben = false, auswertungenSichtbar = true,
-  mostgewichtEinheit = 'kmw',
+  mostgewichtEinheit = 'kmw', lesbar,
 }: Props) {
   const groups = useMemo(() => buildNav({
     role,
@@ -58,7 +61,8 @@ export default function AppShell({
     sandboxAdminUnlock,
     doppik: branding.buchhaltungsart === 'doppik',
     auswertungenSichtbar,
-  }), [role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, branding.buchhaltungsart, isSandbox, sandboxAdminUnlock, auswertungenSichtbar])
+    lesbar,
+  }), [lesbar, role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, branding.buchhaltungsart, isSandbox, sandboxAdminUnlock, auswertungenSichtbar])
 
   // KAN-224: Hauptpunkte der Navigation – dort kein „Zurück“
   const navHrefs = useMemo(() => groups.flatMap(g => g.items.map(i => i.href)), [groups])
@@ -74,7 +78,7 @@ export default function AppShell({
     // war unerreichbar. h-screen bleibt als Rückfall für Browser ohne dvh. Unten unter md Abstand für die Home-Leiste.
     <div className="h-screen supports-[height:100dvh]:h-dvh relative flex flex-col overflow-clip bg-s112-bg max-md:pb-[env(safe-area-inset-bottom)]">
       <Topbar userEmail={userEmail} userName={userName} roleLabel={roleLabel} branding={branding} betriebCount={betriebCount} />
-      <CommandPalette groups={groups} darfSchreiben={darfSchreiben} branding={branding} betriebCount={betriebCount} />
+      <CommandPalette groups={groups} darfSchreiben={darfSchreiben} branding={branding} betriebCount={betriebCount} lesbar={lesbar} />
       <TabNav groups={groups} />
       {/* KAN-181: unter 768 px Bereiche über das Menü (Knopf links in der Kopfleiste) */}
       <MobileNav groups={groups} />

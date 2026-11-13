@@ -10,10 +10,12 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeRiedenStammdaten, type GstStamm, type RiedStamm } from '@/lib/behoerden/flaechenverzeichnis'
 import { fmtHa } from '@/lib/format'
+import { requireLesen } from '@/lib/auth/lesen'
 
 export const metadata: Metadata = { title: 'Rieden' }
 
 export default async function WeingartenPage() {
+  await requireLesen('rieden')   // KAN-456: Lesebereich je Profil
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const membership = await getCurrentMembership()

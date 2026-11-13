@@ -50,3 +50,6 @@ export function canRead(m: { role?: unknown; profil?: unknown } | null | undefin
 export function lesbareBereiche(m: { role?: unknown; profil?: unknown } | null | undefined): Lesebereich[] {
   return LESEBEREICHE.filter(b => canRead(m, b))
 }
+
+/** Hinweis auf der Startseite, wenn ein Seiten-Guard (requireLesen, KAN-456) dorthin umgeleitet hat */
+export const KEIN_LESERECHT_TEXT = 'Für die aufgerufene Seite fehlt dir das Leserecht – du bist deshalb auf der Übersicht gelandet.'

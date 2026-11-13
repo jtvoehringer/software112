@@ -13,6 +13,7 @@ import UebermittlungPanel, { type UebermittlungUebersicht } from './Uebermittlun
 import { erfassungsAmpel, erfassungsverzugH, fristAus, fristRelevant, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
+import { requireLesen } from '@/lib/auth/lesen'
 
 export const metadata: Metadata = { title: 'Maßnahmen' }
 export const dynamic = 'force-dynamic'
@@ -56,6 +57,7 @@ export type Behandlung = {
 }
 
 export default async function BehandlungenPage() {
+  await requireLesen('massnahmen')   // KAN-456: Lesebereich je Profil
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role, 'rieden')

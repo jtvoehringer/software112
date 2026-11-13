@@ -105,7 +105,10 @@ describe('KAN-427/428: Einstiegsseiten', () => {
   test('Controlling-Einstieg hinter dem Guard des Bereichs; die Sicht unter Übersicht bleibt ohne ihn', () => {
     const l = quelle(D + 'controlling/fristen/layout.tsx')
     assert.ok(l.includes("await requireModul('modul_controlling')") && l.includes('await requireAuswertungen()'))
-    assert.ok(!existsSync(path.join(WURZEL, D + 'dashboard/fristen/layout.tsx')))
+    // KAN-456: unter Übersicht gibt es seither ein Layout – aber nur mit dem Lesebereich („betrieb“), weiter ohne
+    // Modul- und Auswertungs-Guard (die Sicht sieht dort jedes Mitglied ohne Profil wie bisher)
+    const u = existsSync(path.join(WURZEL, D + 'dashboard/fristen/layout.tsx')) ? quelle(D + 'dashboard/fristen/layout.tsx') : ''
+    assert.ok(!u.includes('requireModul') && !u.includes('requireAuswertungen'))
   })
   test('CRM-Einstieg: „Datenimport“ nur mit Schreibrecht CRM (Mitgliedschaft, nicht Rollenname)', () => {
     const s = quelle(D + 'crm/uebersicht/page.tsx')

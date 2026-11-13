@@ -11,6 +11,7 @@ import {
 import { cuBilanz } from '@/lib/behoerden/cu'
 import { ladeOffenePostenListe, ladeUmsatzRechnungen, offenePostenSumme, umsatzJeMonat, type OffenerPosten } from '@/lib/verkauf/umsatz'
 import { heuteWien, lokalerTag, wienJetzt, tageSeit } from '@/lib/datum/wien'
+import { requireLesen } from '@/lib/auth/lesen'
 
 export const metadata: Metadata = { title: 'Reports' }
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 export default async function ReportsPage() {
+  await requireLesen('controlling')   // KAN-456: Lesebereich je Profil
   const supabase = await createSupabaseServerClient()
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
