@@ -9,7 +9,10 @@ import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButto
 import { fmtEur, fmtNum } from '@/lib/format'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
-import { alsBeleg, istStornobeleg, lieferscheineSelect, STORNO_FELDER } from '@/lib/verkauf/rechnungen'
+import { alsBeleg, istGutschrift, istStornobeleg, lieferscheineSelect, STORNO_FELDER } from '@/lib/verkauf/rechnungen'
+import { heuteWien } from '@/lib/datum/wien'
+import { alle } from '@/lib/supabase/alle'
+import GutschriftPanel from './GutschriftPanel'
 import { rechnungSummen } from '@/lib/verkauf/rechnungDruck'
 import { rechnungstexteFuerBeleg } from '@/lib/verkauf/rechnungstext'
 import { canWrite } from '@/lib/auth/roles'
@@ -25,6 +28,8 @@ type R = Record<string, any>
 // Nummer und Lieferdatum (Liefertag als Rechnungsmerkmal, § 11 UStG). Druck = Bildschirm ohne Knöpfe.
 // KAN-379: Stornobeleg (art = 'storno') als „Stornorechnung zu Rechnung … vom …“ mit den Positionen des Originals in
 // negativen Beträgen, ohne Zahlungsteil; das Original verweist auf seinen Stornobeleg.
+// KAN-419: Gutschrift (art = 'gutschrift') als „Gutschrift – Rechnungskorrektur zu Rechnung … vom …“ mit ihren eigenen
+// Zeilen in negativen Beträgen; an der Rechnung die Liste ihrer Gutschriften und „Gutschrift ausstellen“.
 export default async function RechnungPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
@@ -56,10 +61,21 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
   const s = (einst ?? {}) as R
 
   const storno = istStornobeleg(r)
-  const original = (r.storno_von ?? null) as R | null
+  const gutschrift = istGutschrift(r)
+  /** Beleg mit negativen Beträgen und ohne Zahlungsteil (Stornobeleg bzw. Gutschrift) */
+  const gegenbeleg = storno || gutschrift
+  const original = ((storno ? r.storno_von : gutschrift ? r.gutschrift_zu : null) ?? null) as R | null
+  // KAN-419: Gutschriften zu dieser Rechnung (für Liste, Restmengen und Restbetrag)
+  // storno-sichtbar: eine Gutschrift lässt sich nicht stornieren (kommt mit KAN-453) – alle aktiven zählen
+  const gutschriften = gegenbeleg ? [] : geladen(await alle<R>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('rechnungen') as any)
+      .select('id, rechnungsnummer, datum, aktiv, gutschrift_positionen')
+      .eq('tenant_id', tenantId).eq('gutschrift_zu_id', id).eq('art', 'gutschrift').eq('aktiv', true)
+      .order('datum').order('erstellt_am').order('id')), 'Gutschriften') as R[]
   const stornoDurch = (r.storniert_durch ?? null) as R | null
   // Gruppen je Lieferschein (stornierte Rechnung: aus der Momentaufnahme; Stornobeleg: deren Positionen, negativ)
-  const momentPositionen = (storno ? r.verkauf_positionen : (r.storno_positionen ?? [])) as R[]
+  const momentPositionen = (gegenbeleg ? r.verkauf_positionen : (r.storno_positionen ?? [])) as R[]
   const gruppen: { nummer: string | null; datum: string | null; id: string | null; positionen: R[] }[] = r.lieferscheine.length
     ? r.lieferscheine.map(l => ({ nummer: l.lieferscheinnummer ?? null, datum: l.datum ?? null, id: String(l.id), positionen: (l.verkauf_positionen ?? []) as R[] }))
     : [...new Map(momentPositionen.map(p => [String(p.lieferscheinnummer ?? ''), { nummer: p.lieferscheinnummer ?? null,
@@ -80,11 +96,11 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
           <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700">Verkauf</Link>
           <span>/</span>
-          <span className="text-s112-text font-medium">{storno ? 'Stornobeleg' : 'Rechnung'} {r.rechnungsnummer}</span>
+          <span className="text-s112-text font-medium">{storno ? 'Stornobeleg' : gutschrift ? 'Gutschrift' : 'Rechnung'} {r.rechnungsnummer}</span>
         </nav>
         <div className="flex items-center gap-3">
           {r.storniert && <span className="text-xs font-semibold bg-s112-err-bg text-s112-err-fg px-2.5 py-1 rounded-full">STORNIERT</span>}
-          {!r.storniert && !storno && (r.bezahlt
+          {!r.storniert && !gegenbeleg && (r.bezahlt
             ? <span className="text-xs font-semibold bg-s112-ok-bg text-s112-ok-fg px-2.5 py-1 rounded-full">bezahlt</span>
             : <Link href="/weinhandel/offene-posten" className="text-xs text-s112-blue-700 hover:underline">offen – Zahlung unter Offene Posten</Link>)}
           <PrintButton />
@@ -111,6 +127,18 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
           {stornoDurch && <> · Stornobeleg <Link href={`/weinhandel/rechnungen/${stornoDurch.id}`} className="font-mono underline">{stornoDurch.rechnungsnummer}</Link> vom {d(stornoDurch.datum)}</>}
         </p>
       )}
+      {gutschrift && original && (
+        <p role="note" className="text-sm text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2 no-print">
+          Gutschrift zu Rechnung <Link href={`/weinhandel/rechnungen/${original.id}`} className="font-mono underline">{original.rechnungsnummer}</Link> vom {d(original.datum)} – die Beträge mindern Umsatz und offenen Betrag am {d(r.datum)}. Die Gutschrift lässt sich nicht ändern.
+        </p>
+      )}
+      {/* KAN-419: Gutschriften der Rechnung und „Gutschrift ausstellen“ */}
+      {!gegenbeleg && !r.storniert && r.verkaufsposten_ids.length > 0 && (
+        <GutschriftPanel rechnungId={String(r.id)} rechnungsnummer={String(r.rechnungsnummer ?? '')} rechnungDatum={String(r.datum).slice(0, 10)} heute={heuteWien()}
+          positionen={(r.verkauf_positionen as R[]).map(p => ({ id: p.id, name: p.name, menge: p.menge, einheit: p.einheit, preis_brutto: p.preis_brutto,
+            rabatt_pct: p.rabatt_pct, sonderrabatt_pct: p.sonderrabatt_pct, ust_satz: p.ust_satz }))}
+          gutschriften={gutschriften} darfSchreiben={!!membership && canWrite(membership, 'warenwirtschaft')} />
+      )}
       {storno && original && (
         <p role="note" className="text-sm text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2 no-print">
           Stornobeleg zu Rechnung <Link href={`/weinhandel/rechnungen/${original.id}`} className="font-mono underline">{original.rechnungsnummer}</Link> vom {d(original.datum)} – die Beträge buchen am {d(r.datum)} gegen.
@@ -133,12 +161,16 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
             {s.betrieb_uid && <p className="mt-1 text-s112-text-2">UID: {s.betrieb_uid}</p>}
           </div>
           <div className="text-right">
-            <h1 className="text-3xl font-semibold">{storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</h1>
+            {gutschrift
+              ? <h1 className="text-3xl font-semibold">GUTSCHRIFT</h1>
+              : <h1 className="text-3xl font-semibold">{storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</h1>}
             <p className="text-base font-semibold mt-1">Nr. {r.rechnungsnummer}</p>
             <p className="text-s112-text-2 mt-0.5">Datum: {d(r.datum)}</p>
             {storno && original && <p className="text-s112-text-2">zu Rechnung {original.rechnungsnummer} vom {d(original.datum)}</p>}
+            {/* KAN-419 (Entscheidung 1A): „Gutschrift“ meint im UStG die Abrechnung durch den Leistungsempfänger – deshalb der Zusatz */}
+            {gutschrift && original && <p className="text-s112-text-2">Rechnungskorrektur zu Rechnung {original.rechnungsnummer} vom {d(original.datum)}</p>}
             <p className="text-s112-text-2">Lieferzeitraum: {leistung}</p>
-            {!storno && <p className="text-s112-text-2">{zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faellig.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`}</p>}
+            {!gegenbeleg && <p className="text-s112-text-2">{zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faellig.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`}</p>}
           </div>
         </div>
         {/* Empfänger */}
@@ -164,7 +196,8 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
             <tbody key={g.id ?? g.nummer ?? 'ls'}>
               <tr className="bg-s112-bg">
                 <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-s112-text-2">
-                  Lieferschein {g.id ? <Link href={`/weinhandel/verkauf/${g.id}?mode=lieferschein`} className="font-mono hover:underline">{g.nummer ?? '–'}</Link> : <span className="font-mono">{g.nummer ?? '–'}</span>} vom {d(g.datum)}
+                  {/* KAN-419: freie Zeilen einer Gutschrift (Preisnachlass) haben keinen Lieferschein; die Momentaufnahme der Gutschrift kennt kein Lieferdatum */}
+                  {!g.nummer && !g.id ? 'Ohne Lieferschein' : <>Lieferschein {g.id ? <Link href={`/weinhandel/verkauf/${g.id}?mode=lieferschein`} className="font-mono hover:underline">{g.nummer ?? '–'}</Link> : <span className="font-mono">{g.nummer ?? '–'}</span>}{g.datum ? <> vom {d(g.datum)}</> : null}</>}
                 </td>
               </tr>
               {g.positionen.map((p, i) => {
@@ -191,15 +224,16 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
         <div className="mt-3 text-xs text-right space-y-0.5">
           <p className="text-s112-text-2">Nettobetrag: {fmtEur(summen.netto)}</p>
           {summen.ust.map(u => <p key={u.satz} className="text-s112-text-2">MwSt {u.satz}%: {fmtEur(u.betrag)}</p>)}
-          <p className="text-base font-semibold text-s112-text-1">{storno ? 'Stornobetrag' : 'Rechnungsbetrag'}: {fmtEur(summen.brutto)}</p>
+          <p className="text-base font-semibold text-s112-text-1">{storno ? 'Stornobetrag' : gutschrift ? 'Gutschriftbetrag' : 'Rechnungsbetrag'}: {fmtEur(summen.brutto)}</p>
         </div>
         {/* KAN-416 (UAT 12.11.2026): Texte auf Rechnung der Lieferscheine – bei mehreren mit „Lieferschein LS-…:“ davor */}
         {!storno && rechnungstexteFuerBeleg(r.lieferscheine as { lieferscheinnummer?: string | null; rechnungstext?: string | null }[]).map((t, i) => (
           <p key={i} className="mt-3 text-sm text-s112-text whitespace-pre-line break-inside-avoid">{t}</p>
         ))}
-        {r.notizen && <p className="mt-4 text-sm text-s112-muted italic">{storno ? `Grund: ${r.notizen}` : r.notizen}</p>}
+        {r.notizen && <p className="mt-4 text-sm text-s112-muted italic">{gegenbeleg ? `Grund: ${r.notizen}` : r.notizen}</p>}
 
-        {/* Zahlung (nicht beim Stornobeleg) */}
+        {/* Zahlung (nicht beim Stornobeleg, nicht bei der Gutschrift) */}
+        {!gutschrift && <>
         {!storno && <div className="mt-8 pt-6 print:mt-4 print:pt-3 break-inside-avoid border-t border-s112-line space-y-2">
           {r.skonto_aktiv && Number(r.skonto_pct) > 0 && (
             <p className="text-s112-warn-fg">{r.skonto_pct}% Skonto bei Zahlung binnen {r.skonto_tage ?? 0} Tagen: {fmtEur(summen.brutto * (1 - Number(r.skonto_pct) / 100))}</p>
@@ -213,6 +247,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
           )}
           {s.rechnung_fusstext && <p className="text-xs text-s112-tertiary pt-2 border-t border-s112-line">{s.rechnung_fusstext}</p>}
         </div>}
+        </>}
       </div>
     </div>
   )

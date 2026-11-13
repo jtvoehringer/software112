@@ -6,7 +6,7 @@ import { hatModul } from '@/lib/auth/modul'
 import { alle, bloecke, inBloecken } from '@/lib/supabase/alle'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import {
-  mappingAufloesen, steuerfall, steuerfallMitVerkauf, momentaufnahmeLieferscheinIds, positionenMitSteuerfall, erloesSchluessel, steuercodeFuer,
+  mappingAufloesen, steuerfall, steuerfallMitVerkauf, momentaufnahmeLieferscheinIds, positionenMitSteuerfall, gutschriftRechnungIds, rechnungFaelle, erloesSchluessel, steuercodeFuer,
   bmdDatum, datumPlusTage, bmdCsv, bmdText, bmdRechnungKopf, personenkontenCsv,
   type Mapping, type BmdZeile, type PersonenkontoZeile,
 } from '@/lib/buchhaltung/bmd'
@@ -267,6 +267,12 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     .select('id, steuerfall').eq('tenant_id', tenantId).in('id', b).order('id')))
   if (vk.error) throw new AktionsFehler(`Steuerfall der stornierten Rechnungen konnte nicht geladen werden: ${vk.error.message}`)
   const verkaufFall = new Map<string, string | null>(vk.data.map(v => [String(v.id), (v.steuerfall ?? null) as string | null]))
+  // KAN-419: freie Zeilen einer Gutschrift (Preisnachlass) haben keinen Lieferschein – Steuerfall der berichtigten Rechnung
+  // storno-sichtbar: Lieferscheine einer Rechnung mit Gutschrift – sie lässt sich nicht mehr stornieren, ihre Lieferscheine hängen an ihr
+  const gl = await inBloecken<R>(gutschriftRechnungIds(posten), b => alle<R>((supabase.from('verkaufsposten') as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+    .select('id, rechnung_id, steuerfall').eq('tenant_id', tenantId).in('rechnung_id', b).order('id')))
+  if (gl.error) throw new AktionsFehler(`Steuerfall der Rechnungen mit Gutschrift konnte nicht geladen werden: ${gl.error.message}`)
+  for (const [k, fall] of rechnungFaelle(gl.data)) verkaufFall.set(k, fall)
 
   for (const p of posten) {
     const firma = p.firma ?? null, kontakt = p.kontakt ?? null

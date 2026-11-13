@@ -388,6 +388,12 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           {' '}– zum Stornieren des Lieferscheins zuerst die Rechnung stornieren.
         </p>
       )}
+      {/* KAN-419: Verkauf mit Sofort-Rechnung – die Rechnungsseite (Gutschrift ausstellen) war von hier nicht erreichbar */}
+      {berechnet && !eigeneRechnung && !posten.storniert && rechnung?.id && (
+        <p className="text-sm text-s112-text-2 no-print">
+          Rechnung <Link href={`/weinhandel/rechnungen/${rechnung.id}`} className="font-mono text-s112-blue-700 hover:underline">{rechnung.rechnungsnummer}</Link> öffnen – dort lässt sich eine Gutschrift ausstellen.
+        </p>
+      )}
 
       {/* Rechnungsversand per E-Mail */}
       {!posten.storniert && berechnet && !sammelrechnung && (

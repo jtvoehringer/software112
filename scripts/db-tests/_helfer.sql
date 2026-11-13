@@ -1380,6 +1380,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_rechnungsnummer_vergeben()'),   -- KAN-21: Rechnungsnummer im Insert, unveränderlich per API
     ('intern',        '--S', false, 's112_lieferscheinnummer_ziehen(p_tenant_id uuid)'),   -- KAN-102: Lieferschein-Zähler (Trigger)
     ('intern',        '--S', false, 's112_stornonummer_ziehen(p_tenant_id uuid, p_datum date)'),   -- KAN-379: Zähler der Stornobelege
+    ('intern',        '--S', false, 's112_gutschriftnummer_ziehen(p_tenant_id uuid, p_datum date)'),   -- KAN-419: Zähler der Gutschriften
+    ('intern',        '--S', false, 's112_gutschrift_summe(p_tenant_id uuid, p_rechnung_id uuid)'),   -- KAN-419: Summe der Gutschriften einer Rechnung (Abgleich „bezahlt“)
+    ('mandant',       '-US', true , 's112_gutschrift_anlegen(p_tenant_id uuid, p_rechnung_id uuid, p_datum date, p_grund text, p_positionen jsonb, p_betrag numeric, p_betrag_text text)'),   -- KAN-419: Gutschrift zur Rechnung
     ('intern',        '--S', false, 's112_stornobeleg_anlegen(p_tenant_id uuid, p_rechnung_id uuid, p_grund text, p_datum date)'),   -- KAN-379: Stornobeleg (Rechnungsstorno, Verkauf samt Rechnung, Spiegel)
     ('trigger',       '--S', false, 's112_lieferscheinnummer_vergeben()'),   -- KAN-102: Lieferscheinnummer im Insert
     ('trigger',       '--S', false, 's112_rechnung_aus_lieferschein()'),   -- KAN-102: Rechnung im Insert (Übergang 1:1)

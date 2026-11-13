@@ -31,6 +31,8 @@ import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme.ts'
 import { faelligkeit, type Faelligkeit } from './faelligkeit.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { tageZwischen } from '../datum/wien.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { gutschriftBrutto } from './gutschrift.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -73,7 +75,7 @@ export function rechnungBrutto(r: R): number {
  */
 export function zaehltAlsUmsatz(r: R): boolean {
   if (!zaehltMitBetrag(r)) return false
-  if (r.art === 'storno' || r.storniert === true) return true
+  if (r.art === 'storno' || r.art === 'gutschrift' || r.storniert === true) return true   // KAN-419: Gutschrift ohne Lieferscheine
   if (Array.isArray(r.verkaufsposten_ids)) return r.verkaufsposten_ids.length > 0
   return Array.isArray(r.lieferscheine) ? r.lieferscheine.length > 0 : Array.isArray(r.verkauf_positionen)
 }
@@ -209,14 +211,18 @@ export type OffenerPosten = Faelligkeit & {
   bezahltAm: string | null
   brutto: number
   gezahlt: number
-  /** Brutto − Zahlungen, nie unter 0 */
+  /** KAN-419: Summe der Gutschriften zur Rechnung (brutto, positiv) */
+  gutgeschrieben: number
+  /** Brutto − Zahlungen − Gutschriften, nie unter 0 */
   offen: number
+  /** KAN-419: Zahlungen + Gutschriften über dem Rechnungsbetrag (Guthaben des Kunden), sonst 0 */
+  guthaben: number
   /** Tage seit dem Rechnungsdatum (Rechnungsalter, nicht der Verzug) */
   alterTage: number
 }
 
 /** Ein Beleg (nach alsBeleg und Momentaufnahme) mit den Zahlungen → offener Posten am Tag `heute` ('JJJJ-MM-TT') */
-export function offenerPosten(r: R, gezahlt: number, heute: string): OffenerPosten {
+export function offenerPosten(r: R, gezahlt: number, heute: string, gutgeschrieben = 0): OffenerPosten {
   const brutto = rechnungBrutto(r)
   const kontakt = (r.kontakt ?? null) as R | null
   const firma = (r.firma ?? null) as R | null
@@ -234,7 +240,9 @@ export function offenerPosten(r: R, gezahlt: number, heute: string): OffenerPost
     bezahltAm: (r.bezahlt_am ?? null) as string | null,
     brutto,
     gezahlt: rund2(gezahlt),
-    offen: r.bezahlt ? 0 : Math.max(0, rund2(brutto - gezahlt)),
+    gutgeschrieben: rund2(gutgeschrieben),
+    offen: r.bezahlt ? 0 : Math.max(0, rund2(brutto - gezahlt - gutgeschrieben)),
+    guthaben: Math.max(0, rund2(gezahlt + gutgeschrieben - brutto)),
     alterTage: Math.max(0, tageZwischen(String(r.datum), heute)),
   }
 }
@@ -255,7 +263,7 @@ export function offenePostenSumme(posten: readonly OffenerPosten[]): OffenePoste
 }
 
 /** select-Teil der offenen Posten: Kunde mit Zahlungsziel, Momentaufnahme, Positionen aller Lieferscheine */
-export const OFFENE_POSTEN_SELECT = `id, datum, rechnungsnummer, art, aktiv, storniert, bezahlt, bezahlt_am, partner_daten,
+export const OFFENE_POSTEN_SELECT = `id, datum, rechnungsnummer, art, gutschrift_zu_id, gutschrift_positionen, aktiv, storniert, bezahlt, bezahlt_am, partner_daten,
   kontakt:kontakte!kontakt_id(id, vorname, nachname, zahlungsziel_tage),
   firma:firmen!firma_id(id, name, zahlungsziel_tage),
   ${lieferscheineSelect(UMSATZ_POSITIONEN)}`
@@ -276,12 +284,21 @@ export async function ladeOffenePostenListe(
     .in('bezahlt', opts.mitBezahlten ? [false, true] : [false])   // bezahlt ist NOT NULL (KAN-102)
     .order('datum', { ascending: true }).order('id'))
   if (error) return { data: [], error }
+  // KAN-419: Gutschriften mindern den offenen Betrag ihrer Rechnung (auch bezahlter: Guthaben) und sind selbst kein Posten
+  const gutgeschrieben = new Map<string, number>()
+  for (const g of (data ?? []) as R[]) {
+    if (g.art !== 'gutschrift' || !g.gutschrift_zu_id) continue
+    const k = String(g.gutschrift_zu_id)
+    gutgeschrieben.set(k, rund2((gutgeschrieben.get(k) ?? 0) + gutschriftBrutto(g)))
+  }
   const belege = ((data ?? []) as R[])
     .filter(r => r.art !== 'storno')   // KAN-379: ein Stornobeleg ist kein offener Posten
+    .filter(r => r.art !== 'gutschrift')   // KAN-419: eine Gutschrift auch nicht – sie mindert ihre Rechnung
     .map(r => alsBeleg(momentaufnahmeAnwenden(r, ['kontakt', 'firma'])))
     .filter(r => r.verkaufsposten_ids.length > 0)
 
-  const offeneIds = belege.filter(r => !r.bezahlt).map(r => String(r.id))
+  // Zahlungen der offenen Rechnungen – und der bezahlten mit Gutschrift (für das Guthaben)
+  const offeneIds = belege.filter(r => !r.bezahlt || gutgeschrieben.has(String(r.id))).map(r => String(r.id))
   const gezahlt = new Map<string, number>()
   // inBloecken: ab ≈ 350 IDs scheitert die URL; je Rechnung alle nicht stornierten Zahlungen (Teilzahlungen)
   const { data: zahlungen, error: zErr } = await inBloecken<R>(offeneIds, b => alle(supabase.from('zahlungen')
@@ -295,7 +312,7 @@ export async function ladeOffenePostenListe(
     const k = String(z.rechnung_id)
     gezahlt.set(k, (gezahlt.get(k) ?? 0) + (Number(z.betrag) || 0))
   }
-  return { data: belege.map(r => offenerPosten(r, gezahlt.get(String(r.id)) ?? 0, heute)), error: null }
+  return { data: belege.map(r => offenerPosten(r, gezahlt.get(String(r.id)) ?? 0, heute, gutgeschrieben.get(String(r.id)) ?? 0)), error: null }
 }
 
 // ── BMD-Übergabe (KAN-375) ───────────────────────────────────────────────────

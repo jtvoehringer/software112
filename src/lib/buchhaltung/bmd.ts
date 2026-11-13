@@ -131,6 +131,29 @@ export function momentaufnahmeLieferscheinIds(belege: readonly Zeile[]): string[
   return [...ids]
 }
 
+/** KAN-419: Schlüssel in der Steuerfall-Karte für „einheitlicher Steuerfall aller Lieferscheine dieser Rechnung“ */
+export function rechnungFallSchluessel(rechnungId: unknown): string {
+  return `rechnung:${String(rechnungId ?? '')}`
+}
+
+/** KAN-419: Rechnungen, die von den Gutschriften der Belegliste berichtigt werden (für den Steuerfall freier Zeilen) */
+export function gutschriftRechnungIds(belege: readonly Zeile[]): string[] {
+  return [...new Set(belege.filter(b => b.art === 'gutschrift' && b.gutschrift_zu_id).map(b => String(b.gutschrift_zu_id)))]
+}
+
+/** KAN-419: einheitlicher Steuerfall je Rechnung aus ihren Lieferscheinen (rechnung_id, steuerfall); uneinheitlich → kein Eintrag */
+export function rechnungFaelle(lieferscheine: readonly Zeile[]): Map<string, string | null> {
+  const je = new Map<string, Set<string | null>>()
+  for (const l of lieferscheine) {
+    const k = String(l.rechnung_id ?? '')
+    if (!k) continue
+    je.set(k, (je.get(k) ?? new Set()).add((l.steuerfall ?? null) as string | null))
+  }
+  const aus = new Map<string, string | null>()
+  for (const [k, faelle] of je) if (faelle.size === 1) aus.set(rechnungFallSchluessel(k), [...faelle][0])
+  return aus
+}
+
 /**
  * Positionen eines Belegs (alsBeleg) samt dem Steuerfall ihres Verkaufs: laufende Rechnung über ihre Lieferscheine,
  * stornierte Rechnung und Stornobeleg über die lieferschein_id der Momentaufnahme (`verkaeufe`: id → Steuerfall).
@@ -139,6 +162,14 @@ export function positionenMitSteuerfall(beleg: Zeile, verkaeufe: ReadonlyMap<str
   const lieferscheine = (beleg.lieferscheine ?? []) as Zeile[]
   if (lieferscheine.length) {
     return lieferscheine.flatMap(l => ((l.verkauf_positionen ?? []) as Zeile[]).map(pos => ({ pos, verkaufSteuerfall: (l.steuerfall ?? null) as string | null })))
+  }
+  // KAN-419: Gutschrift – Steuerfall des Lieferscheins der Zeile; freie Zeilen (Preisnachlass) haben keinen Lieferschein und
+  // bekommen den Steuerfall der berichtigten Rechnung, wenn er dort einheitlich ist (Schlüssel rechnungFallSchluessel)
+  if (beleg.art === 'gutschrift') {
+    const derRechnung = verkaeufe.get(rechnungFallSchluessel(beleg.gutschrift_zu_id)) ?? null
+    return ((beleg.verkauf_positionen ?? []) as Zeile[]).map(pos => ({
+      pos, verkaufSteuerfall: pos?.lieferschein_id ? (verkaeufe.get(String(pos.lieferschein_id)) ?? null) : derRechnung,
+    }))
   }
   return ((beleg.verkauf_positionen ?? []) as Zeile[]).map(pos => ({ pos, verkaufSteuerfall: verkaeufe.get(String(pos?.lieferschein_id ?? '')) ?? null }))
 }
@@ -238,6 +269,11 @@ export function bmdRechnungKopf(
   if (p.art === 'storno') {
     const original = (p.storno_von as { rechnungsnummer?: string | null } | null | undefined)?.rechnungsnummer ?? ''
     return { belegnr, extbelegnr: original, text: bmdText(`${name} Storno ${belegnr}${original ? ` zu RE ${original}` : ''}`), gutschrift: true }
+  }
+  // KAN-419: Gutschrift (Teilberichtigung) – eigene Belegnummer GS-…, Fremdbeleg-Nr. = berichtigte Rechnung
+  if (p.art === 'gutschrift') {
+    const original = (p.gutschrift_zu as { rechnungsnummer?: string | null } | null | undefined)?.rechnungsnummer ?? ''
+    return { belegnr, extbelegnr: original, text: bmdText(`${name} Gutschrift ${belegnr}${original ? ` zu RE ${original}` : ''}`), gutschrift: true }
   }
   return { belegnr, extbelegnr: '', text: bmdText(`${name} RE ${belegnr}`), gutschrift: false }
 }

@@ -1722,7 +1722,9 @@
 "storno_positionen",
 "art",
 "storno_von_id",
-"storniert_durch_id"
+"storniert_durch_id",
+"gutschrift_zu_id",
+"gutschrift_positionen"
 ],
 "release_notes": [
 "id",
@@ -1970,6 +1972,9 @@
 "storno_prefix",
 "storno_stellen",
 "storno_zaehler",
+"gutschrift_prefix",
+"gutschrift_stellen",
+"gutschrift_zaehler",
 "auftrag_prefix",
 "auftrag_stellen",
 "auftrag_zaehler",
