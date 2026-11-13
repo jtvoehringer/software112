@@ -12,6 +12,7 @@ import { istExportStatus } from '@/lib/export/workflow'
 import { ausfuhranmeldungFehler, mrnBereinigt } from '@/lib/export/nachweise'
 import { heuteWien } from '@/lib/datum/wien'
 import { belegnummernAus, belegnummernFehler } from '@/lib/export/belegnummern'
+import { verbrauchsteuerFehler, verbrauchsteuerWerte, type VerbrauchsteuerEingabe } from '@/lib/export/verbrauchsteuer'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -22,10 +23,12 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 // KAN-414: dazu das Verpackungsgewicht (Kartons, Palette) – steht oft erst beim Kommissionieren fest
 // KAN-440 Teil 2: dazu MRN und Datum der Ausfuhranmeldung (stehen oft erst beim Versand fest; ab „Abgeschlossen“ gesperrt)
 // KAN-437 Teil 3: dazu die länderspezifischen Belegnummern (COLA, Prior Notice …; ebenfalls bis „Abgeschlossen“)
-const AENDERBAR = ['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum', 'laender_belege'] as const
+// KAN-435 D2: dazu Verbrauchsteuerverfahren, MVV-Code, Nummer des Begleitdokuments, Verbrauchsteuernummer des Empfängers
+const AENDERBAR = ['status', 'grund', 'emcs_arc_nummer', 'emcs_status', 'verpackung_kg', 'ausfuhr_mrn', 'ausfuhr_anmeldung_datum', 'laender_belege',
+  'verbrauchsteuer_verfahren', 'mvv_code', 'begleitdokument_nr', 'empfaenger_verbrauchsteuernr'] as const
 const EMCS_STATUS = ['draft', 'submitted', 'accepted', 'cancelled']
 // ARC (Administrative Reference Code) besteht nur aus Buchstaben und Ziffern (21 Zeichen);
-// die Einschränkung hält den Wert außerdem sicher für das e-AD-XML unter /emcs.
+// (die frühere e-AD-XML-Datei gibt es seit KAN-435 nicht mehr).
 const ARC_MUSTER = /^[A-Za-z0-9]{1,30}$/
 
 function fehler(meldung: string, status: number) {
@@ -113,6 +116,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const bf = belegnummernFehler(b.laender_belege)
     if (bf) return fehler(bf, 400)
     update.laender_belege = belegnummernAus(b.laender_belege)   // nur Bezeichnung und Nummer, getrimmt – nichts sonst aus dem Body
+  }
+  // KAN-435 D2: nur die übergebenen Felder; leer → null, Nummern bereinigt
+  const vst: VerbrauchsteuerEingabe = {}
+  for (const k of ['verbrauchsteuer_verfahren', 'mvv_code', 'begleitdokument_nr', 'empfaenger_verbrauchsteuernr'] as const) if (k in b) vst[k] = b[k]
+  if (Object.keys(vst).length > 0) {
+    const vf = verbrauchsteuerFehler(vst)
+    if (vf) return fehler(vf, 400)
+    Object.assign(update, verbrauchsteuerWerte(vst))
   }
   if (Object.keys(update).length === 0) return fehler('Keine Änderungen übergeben', 400)
 

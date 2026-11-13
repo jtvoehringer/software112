@@ -169,7 +169,7 @@ export async function GET(
         </div>
         <div class="grid3">
           <div class="box"><div class="label">Referenznummer</div><div class="value">${e(a.referenz ?? '–')}</div></div>
-          <div class="box"><div class="label">Begleitdokument-Nr.</div><div class="value">&nbsp;</div></div>
+          <div class="box"><div class="label">Begleitdokument-Nr.</div><div class="value">${e(a.begleitdokument_nr ?? '')}&nbsp;</div></div>
           <div class="box"><div class="label">Datum</div><div class="value">${e(fmt(a.datum))}</div></div>
           <div class="box"><div class="label">Incoterms</div><div class="value">${e(a.incoterms ?? '–')}</div></div>
           <div class="box"><div class="label">Transportart</div><div class="value">${e(a.transport_art ?? '–')}</div></div>

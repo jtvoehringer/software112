@@ -28,6 +28,7 @@ import { rechtsformAus } from '@/lib/betrieb/rechtsform'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { dbFehlerText } from '@/lib/fehler'
 import { ganzzahlAus } from '@/lib/format'
+import { vstNummerBereinigt, vstNummerFehler } from '@/lib/export/verbrauchsteuer'
 
 async function requireOwnTenant(): Promise<{ tenantId: string } | { error: string }> {
   const membership = await getCurrentMembership()
@@ -128,6 +129,9 @@ export async function saveBetriebOwn(formData: FormData) {
   // KAN-48 AP11: Rechtsform (BKI-Betriebsdaten) – nur die Werte des CHECK
   const rechtsform = rechtsformAus(formData.get('betrieb_rechtsform'))
   if (!rechtsform.ok) return { error: 'Bitte eine gültige Rechtsform wählen.' }
+  // KAN-435 D2: Verbrauchsteuernummer des Betriebs (Grenzen wie der CHECK in der DB)
+  const vstFehler = vstNummerFehler(formData.get('betrieb_verbrauchsteuernr'), 'des Betriebs')
+  if (vstFehler) return { error: vstFehler }
   const admin = createSupabaseAdminClient()
   // Weinbau-Betriebsnummer – nur Ziffern, Leerzeichen werden entfernt; Pflicht nur für Weinproduzenten (KAN-261,
   // Betriebsart pflegt die Mandantenverwaltung)
@@ -154,6 +158,7 @@ export async function saveBetriebOwn(formData: FormData) {
       // KAN-434: Nummern für die Ursprungserklärung über 6.000 EUR (Grenze wie der CHECK in der DB)
       betrieb_rex_nummer:        ((formData.get('betrieb_rex_nummer') as string | null) ?? '').trim().slice(0, 40) || null,
       betrieb_ea_bewilligung:    ((formData.get('betrieb_ea_bewilligung') as string | null) ?? '').trim().slice(0, 40) || null,
+      betrieb_verbrauchsteuernr: vstNummerBereinigt(formData.get('betrieb_verbrauchsteuernr')) || null,
       kleiner_weinerzeuger:      formData.get('kleiner_weinerzeuger') === 'on',
       export_flaschen_je_karton: Math.min(60, Math.max(1, ganzzahlAus(formData.get('export_flaschen_je_karton')) ?? 6)),
       betrieb_betriebsnummer:    betriebsnummer.wert,

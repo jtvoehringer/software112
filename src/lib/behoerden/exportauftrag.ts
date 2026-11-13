@@ -29,6 +29,7 @@ import { exportBearbeitbar } from '../export/auftragEingabe'
 import { EXPORT_DOKUMENT_ARTEN, EXPORT_DOKUMENT_LABEL } from '../export/dokumente'
 import { befreiung, rechnungHinweise, rechnungsSumme } from '../export/rechnungTexte'
 import { belegnummernText } from '../export/belegnummern'
+import { vstVerfahrenHinweis, vstVerfahrenLabel } from '../export/verbrauchsteuer'
 
 export const EXPORT_STATUS_LABEL: Record<string, string> = {
   entwurf: 'Entwurf', bestaetigt: 'Bestätigt', versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
@@ -352,6 +353,8 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
       // KAN-434: Steuerbefreiung und Ursprungserklärung der Handelsrechnung
       ...rechnungHinweise({ auftrag, betrieb: (cfgRes.data ?? {}) as R, warenwert: summeGerundet(zeilen.map(z => z.wertEur)) })
         .map(text => ({ text, href: bearbeitbar ? `/weinexport/${String(auftrag.id)}/bearbeiten` : null })),
+      // KAN-435 D2 (Entscheidung 5A): EU-Auftrag ohne Verbrauchsteuerverfahren – nur ein Hinweis, blockiert nichts
+      ...[vstVerfahrenHinweis(auftrag, lieferfall(auftrag).gebiet)].filter((t): t is string => !!t).map(text => ({ text, href: null })),
     ],
   }
   return { auftrag, dokumente: dokRes.data, zeilen, gesamtEur: summeGerundet(zeilen.map(z => z.wertEur)), gewicht, grunddaten, warnungen }
@@ -388,6 +391,10 @@ export type ExportauftragListenZeile = {
   arcNummer: string | null
   emcsStatus: string | null
   emcsDatum: string | null
+  /** KAN-435 D2: Verbrauchsteuerverfahren (Anzeigetext), MVV-Code, Nummer des Begleitdokuments */
+  vstVerfahren: string | null
+  mvvCode: string | null
+  begleitdokumentNr: string | null
   /** KAN-437: länderspezifische Belegnummern als eine Zeile („COLA: …; Prior Notice: …“), null = keine */
   belegnummern: string | null
   /** KAN-150 F2: Storno (null = gültig) */
@@ -419,6 +426,10 @@ const SPALTEN_KOPF_LISTE: CsvSpalte<ExportauftragListenZeile>[] = [
 export const SPALTEN_EXPORTAUFTRAEGE: CsvSpalte<ExportauftragListenZeile>[] = [
   ...SPALTEN_KOPF_LISTE,
   ...EXPORT_DOK_ARTEN.map((art): CsvSpalte<ExportauftragListenZeile> => ({ kopf: EXPORT_DOK_LABEL[art], typ: 'text', wert: z => z.dokStatus[art] })),
+  // KAN-435 D2
+  { kopf: 'Verbrauchsteuerverfahren', typ: 'text', wert: z => z.vstVerfahren },
+  { kopf: 'MVV-Code', typ: 'code', wert: z => z.mvvCode },
+  { kopf: 'Begleitdokument-Nr.', typ: 'code', wert: z => z.begleitdokumentNr },
   { kopf: 'EMCS ARC-Nummer', typ: 'code', wert: z => z.arcNummer },
   { kopf: 'EMCS-Status', typ: 'text', wert: z => z.emcsStatus },
   { kopf: 'EMCS-Datum', typ: 'datum', wert: z => z.emcsDatum },
@@ -465,6 +476,9 @@ export function exportListenZeile(a: R, positionen: readonly R[], dokumente: rea
     arcNummer: textOderNull(a.emcs_arc_nummer),
     emcsStatus: emcs ? (EMCS_STATUS_LABEL[emcs] ?? emcs) : 'nicht eingereicht',
     emcsDatum: textOderNull(a.emcs_datum),
+    vstVerfahren: vstVerfahrenLabel(a.verbrauchsteuer_verfahren) || null,
+    mvvCode: textOderNull(a.mvv_code),
+    begleitdokumentNr: textOderNull(a.begleitdokument_nr),
     belegnummern: belegnummernText(a.laender_belege) || null,
     storniertAm: textOderNull(a.storniert_am),
     storniertVon: textOderNull(a.storniert_von_name),
@@ -476,7 +490,7 @@ export function exportListenZeile(a: R, positionen: readonly R[], dokumente: rea
 export async function ladeExportauftraege(supabase: Client, tenantId: string): Promise<{ zeilen: ExportauftragListenZeile[]; warnungen: string[] }> {
   // storno-sichtbar: Liste und CSV zeigen stornierte Aufträge gekennzeichnet (KAN-150 F2)
   const auftraegeRes = await alle<R>((supabase.from('exportauftraege') as any)
-    .select('id, referenz, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, taric_code, ursprungsland, versicherungswert, status, emcs_arc_nummer, emcs_status, emcs_datum, created_at, partner_daten, storniert_am, storniert_von_name, storno_grund, laender_belege, kontakte(vorname, nachname), firmen(name)')
+    .select('id, referenz, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, taric_code, ursprungsland, versicherungswert, status, emcs_arc_nummer, emcs_status, emcs_datum, created_at, partner_daten, storniert_am, storniert_von_name, storno_grund, laender_belege, verbrauchsteuer_verfahren, mvv_code, begleitdokument_nr, kontakte(vorname, nachname), firmen(name)')
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .order('created_at', { ascending: false })

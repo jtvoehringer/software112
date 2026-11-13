@@ -795,7 +795,11 @@
 "ausfuhr_mrn",
 "ausfuhr_anmeldung_datum",
 "abschluss_ohne_nachweis",
-"laender_belege"
+"laender_belege",
+"verbrauchsteuer_verfahren",
+"mvv_code",
+"begleitdokument_nr",
+"empfaenger_verbrauchsteuernr"
 ],
 "exportauftrag_positionen": [
 "id",
@@ -1977,6 +1981,7 @@
 "kleiner_weinerzeuger",
 "betrieb_rex_nummer",
 "betrieb_ea_bewilligung",
+"betrieb_verbrauchsteuernr",
 "export_flaschen_je_karton"
 ],
 "tenant_memberships": [

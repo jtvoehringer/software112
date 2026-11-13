@@ -96,13 +96,18 @@ export default async function EmcsDatenblattPage({ params }: { params: Promise<{
           <Feld name="Versender" wert={oder(k.versenderName)} />
           <Feld name="Anschrift Versender" wert={oder(k.versenderAnschrift)} />
           <Feld name="UID Versender" wert={oder(k.versenderUid)} mono />
+          <Feld name="Verbrauchsteuernummer Versender" wert={oder(k.versenderVerbrauchsteuernr)} mono />
           <Feld name="Empfänger" wert={oder(k.empfaengerName)} />
           <Feld name="Bestimmungsort" wert={[k.empfaengerOrt, k.empfaengerLand ? landAnzeige(k.empfaengerLand) : null].filter(Boolean).join(', ') || '–'} />
           <Feld name="UID Empfänger" wert={oder(k.empfaengerUid)} mono />
+          <Feld name="Verbrauchsteuernummer Empfänger" wert={oder(k.empfaengerVerbrauchsteuernr)} mono />
+          <Feld name="Verbrauchsteuerverfahren" wert={oder(k.verfahren)} />
           <Feld name="Lieferfall" wert={oder(k.lieferfall)} />
           <Feld name="Versanddatum" wert={tag(k.versanddatum)} />
           <Feld name="Verkehrszweig" wert={k.verkehrszweigCode ? `${k.verkehrszweigCode} – ${k.verkehrszweigText}` : oder(k.verkehrszweigText)} />
           <Feld name="ARC (aus EMCS)" wert={oder(k.arc)} mono />
+          <Feld name="MVV-Code" wert={oder(k.mvvCode)} mono />
+          <Feld name="Nummer des Begleitdokuments" wert={oder(k.begleitdokumentNr)} mono />
           <Feld name="MRN der Ausfuhranmeldung" wert={oder(k.ausfuhrMrn)} mono />
         </dl>
 
@@ -159,8 +164,8 @@ export default async function EmcsDatenblattPage({ params }: { params: Promise<{
 
         <p className="text-xs text-s112-muted mt-5">
           * Produktcode: {PRODUKTCODE_VERMERK}. Abgeleitet aus dem KN-Code (2204 10 Schaumwein → W300, übriger Wein in Behältnissen → W200).
-          Das Bruttogewicht der Sendung enthält die Verpackung des Auftrags. Die eigene Verbrauchsteuernummer und die des Empfängers
-          trägst du in EMCS selbst ein.
+          Das Bruttogewicht der Sendung enthält die Verpackung des Auftrags. Die Verbrauchsteuernummer des Betriebs steht in den
+          Betriebseinstellungen, die des Empfängers am Exportauftrag.
         </p>
       </div>
     </div>
