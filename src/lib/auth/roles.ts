@@ -16,8 +16,11 @@ export type UserRole = 'system_admin' | 'tenant_admin' | 'winzer' | 'leser' | nu
 export type { Modul } from './module'
 export { MODULE, ALLE_MODULE, isModul, MODUL_VORLAGEN } from './module'
 import { ALLE_MODULE, isModul, type Modul } from './module'
+import { profilAus, type Profil } from './lesebereiche'
+export { canRead, type Lesebereich, type Profil } from './lesebereiche'
 
-export type Membership = { tenantId: string; role: UserRole; schreibmodule: Modul[] }
+/** profil (KAN-412): Profil eines Mitarbeiters – beschränkt das Lesen (canRead, lib/auth/lesebereiche); fehlt bzw. null = liest alles */
+export type Membership = { tenantId: string; role: UserRole; schreibmodule: Modul[]; profil?: Profil | null }
 
 /** Module aus der Mitgliedschaft: Admins immer alle, Leser keine, Mitarbeiter laut Matrix */
 export function moduleAusMembership(role: UserRole, roh: unknown): Modul[] {
@@ -71,7 +74,7 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
     // abfrage-ohne-fehler: bei einem Fehler gibt es keine Mitgliedschaft – Ablehnung bzw. Betriebswahl, nie eine Freigabe
     // tenant-isolation-ignore: Auflösung des Betriebs aus der Subdomain – eigene Mitgliedschaft (user_id), tenants!inner
     const { data } = await (supabase.from('tenant_memberships') as R)
-      .select('tenant_id, role, schreibmodule, tenants!inner(subdomain)')
+      .select('tenant_id, role, schreibmodule, profil, tenants!inner(subdomain)')
       .eq('user_id', user.id)
       .eq('aktiv', true)
       .eq('tenants.subdomain', sub)
@@ -92,7 +95,7 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
     // Zeilenreihenfolge ohne ORDER BY.
     // abfrage-ohne-fehler: bei einem Fehler gibt es keine Mitgliedschaft – Ablehnung bzw. Betriebswahl, nie eine Freigabe
     const { data } = await (supabase.from('tenant_memberships') as any)
-      .select('tenant_id, role, schreibmodule')
+      .select('tenant_id, role, schreibmodule, profil')
       .eq('tenant_id', activeTenantId)
       .eq('user_id', user.id)
       .eq('aktiv', true)   // deaktivierte Mitgliedschaft (Migration 159) zählt nicht - wie in RLS
@@ -114,7 +117,7 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   // abfrage-ohne-fehler: bei einem Fehler gibt es keine Mitgliedschaft – Ablehnung bzw. Betriebswahl, nie eine Freigabe
   // tenant-isolation-ignore: kanonischer Fallback ohne aktiven Tenant-Cookie, siehe Kommentar oben
   const { data } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id, role, schreibmodule')
+    .select('tenant_id, role, schreibmodule, profil')
     .eq('user_id', user.id)
     .eq('aktiv', true)
     .order('created_at', { ascending: true })
@@ -127,7 +130,9 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
 
 function membershipAus(d: R): Membership {
   const role = d.role as UserRole
-  const m: Membership = { tenantId: d.tenant_id, role, schreibmodule: moduleAusMembership(role, d.schreibmodule) }
+  // KAN-412: das Profil nur, wenn eines gesetzt ist – ohne Profil bleibt die Mitgliedschaft genau wie bisher
+  const profil = profilAus(role, d.profil)
+  const m: Membership = { tenantId: d.tenant_id, role, schreibmodule: moduleAusMembership(role, d.schreibmodule), ...(profil ? { profil } : {}) }
   try { rechteSpeicher().schreibmodule = m.schreibmodule } catch { /* außerhalb eines Requests */ }
   return m
 }
