@@ -11,7 +11,7 @@ import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import AboClient from './AboClient'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import Link from '@/components/ui/Link'
-import { PREMIUM_SUPPORT, heuteWien, kuendigungZumMonatsende, premiumSupportStand, premiumSupportText, tagText } from '@/lib/abo/premiumSupport'
+import { PREMIUM_SUPPORT, heuteWien, kuendigungZumMonatsende, premiumSupportStand, premiumSupportText, supportKontakt, tagText, telefonVerweis } from '@/lib/abo/premiumSupport'
 import PremiumSupportKnopf from './PremiumSupportKnopf'
 import { geladen } from '@/lib/supabase/geladen'
 
@@ -94,6 +94,7 @@ export default async function AboPage() {
   // KAN-226 Teil 2: selbst buchen/kündigen – nur Betriebsleitung, mit Stripe-Preis und eigenem Abo, nicht im Nur-Lesen-Modus
   const psSelbst = canAdmin(role) && !!(process.env.STRIPE_PRICE_PREMIUM_SUPPORT ?? '').trim() && hatAbo && !t?.abrechnung_ueber && !abo.gesperrt
   const psGebucht = psStand.status === 'aktiv' && !psStand.bis
+  const supportTelefon = supportKontakt().telefon
   const psKnopf = psSelbst && (psGebucht || psStand.status === 'ohne' || psStand.status === 'beendet')
   const premiumKarte = (
     <div className="max-w-3xl mx-auto px-6 pb-6">
@@ -106,6 +107,13 @@ export default async function AboPage() {
             : <>{premiumSupportText(psStand)} · {PREMIUM_SUPPORT.preisMonatNetto} € netto pro Monat. Kündigung zum Monatsende{psKnopf ? '.' : ' – wenden Sie sich bitte an uns.'}</>}
           {' '}<Link href="/hilfe/support" className="text-s112-blue-700 hover:underline">Mehr zum Support</Link>
         </p>
+        {/* KAN-449: Telefonnummer nur, solange Premium-Support aktiv ist */}
+        {psStand.status === 'aktiv' && supportTelefon && (
+          <p className="text-s112-text-2" data-support-telefon>
+            Telefon-Support ({PREMIUM_SUPPORT.servicezeiten}):{' '}
+            <a href={telefonVerweis(supportTelefon)} className="font-medium text-s112-blue-700 hover:underline">{supportTelefon}</a>
+          </p>
+        )}
         {psKnopf && <PremiumSupportKnopf gebucht={psGebucht} preisNetto={PREMIUM_SUPPORT.preisMonatNetto} monatsende={tagText(kuendigungZumMonatsende(heuteWien()))} />}
       </div>
     </div>
