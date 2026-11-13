@@ -217,7 +217,8 @@ DECLARE
     'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,erzeugnis,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,land_iso,menge_liter,mostgewicht_einheit,name,notizen,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart,weingarten_id,zusatzbezeichnung',   -- KAN-150 F1a: + weingarten_id; KAN-186: + erzeugnis, land_iso, zusatzbezeichnung
     'zukauf_posten=aktiv,art,datum,einheit,erzeugnis,kmw,land_iso,lieferant_firma_id,lieferant_kontakt_id,menge,mostgewicht_einheit,notizen,oechsle,storniert_am,storno_grund,tbs_jahr_lieferant,tbs_nummer_lieferant,tenant_id,zh_kontakt_id,ziel_weinausbau_id,zusatzbezeichnung',   -- KAN-90: + tbs_jahr_lieferant, tbs_nummer_lieferant;   -- KAN-186: + erzeugnis, land_iso, zusatzbezeichnung;   -- KAN-150 F1a: + lieferant_kontakt_id, lieferant_firma_id, zh_kontakt_id
     -- KAN-150 F1a: Stammdaten – Deaktivieren (aktiv) und Umhängen protokolliert
-    'weingarten=aktiv,name,notizen,tenant_id', 'grundstuecke=aktiv,deaktiviert_am,notizen,tenant_id,weingarten_id', 'pflanzenschutzmittel=aktiv,name,notizen,tenant_id',
+    'weingarten=aktiv,name,notizen,tenant_id', 'grundstuecke=aktiv,deaktiviert_am,notizen,tenant_id,weingarten_id', 'grundstueck_recht=einheitswert,einheitswert_bescheid,grundstueck_id,rechtsverhaeltnis,svs_zurechnung,tenant_id',   -- KAN-458
+    'pflanzenschutzmittel=aktiv,name,notizen,tenant_id',
     'duengemittel=aktiv,name,notizen,tenant_id', 'ea_kategorien=aktiv,name,tenant_id', 'ea_dauerauftraege=aktiv,beschreibung,notizen,tenant_id',
     -- KAN-150 F2a: Anträge und Aufzeichnungen (Status, Prüfnummer, Mengen, Messwerte, formular_daten, EMCS, Storno)
     'dac_antrag=aktiv,alkohol_prozent,bescheid_am,bezeichnung,dac_region,eingereicht_am,jahrgang,menge_liter,notizen,pruefnummer,rebsorte,status,storniert_am,storno_grund,tenant_id,weinausbau_id',

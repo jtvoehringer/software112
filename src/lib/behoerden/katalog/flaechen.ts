@@ -10,6 +10,7 @@ export const KATALOG_FLAECHEN = katalogGruppe('flaechen', {
   // Pflichtmeldung im Sinne der Entscheidung 24.09.2026 und – wie die Rieden-Übersicht
   // selbst – für jedes Mitglied abrufbar (bisheriger Rieden-CSV-Export, jetzt serverseitig).
   flaechenverzeichnis: {
+    bereich: 'ea',   // KAN-458: enthält das Rechtsverhältnis (grundstueck_recht) – nur mit Lesebereich E&A, „Extern“ exportiert es nicht
     titel: 'Flächenverzeichnis (Rieden & Grundstücke)',
     behoerde: 'AMA (Mehrfachantrag, eAMA) / Weinbaukataster',
     zugriff: 'mitglied',

@@ -51,11 +51,11 @@ describe('KAN-455: Lesebereich je Behördenmeldung', () => {
   test('abweichende Bereiche stehen am Eintrag', () => {
     assert.deepEqual(KATALOG.filter(e => e.bereich).map(e => `${e.id}=${e.bereich}`).sort(), [
       'aenderungsprotokoll=verwaltung', 'bestandsmeldung=keller', 'bsm-kontrolljournal=keller', 'bsm=keller', 'dac-antraege=keller',
-      'pruefnummernantrag=keller', 'transportbescheinigung=lager', 'transportbescheinigungen=lager',
+      'flaechenverzeichnis=ea', 'pruefnummernantrag=keller', 'transportbescheinigung=lager', 'transportbescheinigungen=lager',
     ])
   })
-  test('Extern exportiert keine Meldung außer dem Flächenverzeichnis seiner Rieden', () => {
-    assert.deepEqual(KATALOG.filter(e => darf('extern', e.id)).map(e => e.id), ['flaechenverzeichnis'])
+  test('Extern exportiert keine Meldung – seit KAN-458 auch nicht das Flächenverzeichnis (es enthält das Rechtsverhältnis)', () => {
+    assert.deepEqual(KATALOG.filter(e => darf('extern', e.id)).map(e => e.id), [])
     for (const id of ['psm-aufzeichnung', 'cu-bilanz', 'uva', 'weinbuch', 'erntemeldung', 'rueckverfolgung-weingarten']) assert.equal(darf('extern', id), false, id)
   })
   test('Vertrieb: Weinverkehr und Lager – nicht Buchhaltung, Kellerbuch, Ernte, Pflanzenschutz', () => {

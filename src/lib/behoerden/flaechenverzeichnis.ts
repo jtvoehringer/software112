@@ -4,6 +4,7 @@ import { NUTZART_OPTIONS } from '@/lib/wein/nutzart'
 import type { LadeErgebnis } from './typen'
 import { flaechenZeilen, hektar, type FlaechenZeile, type GstStamm, type RiedStamm } from './flaechenverzeichnis-zeilen'
 import { AktionsFehler } from '@/lib/fehler'
+import { RECHT_EINBETTUNG, mitRecht } from '@/lib/wein/grundstueckRecht'
 
 // ── Flächenverzeichnis: EINE Ladefunktion für die Rieden-Übersicht und die CSV (24.09.2026) ──
 //
@@ -17,7 +18,7 @@ export { SPALTEN_FLAECHENVERZEICHNIS } from './flaechenverzeichnis-zeilen'
 export type { FlaechenZeile, GstStamm, RiedStamm } from './flaechenverzeichnis-zeilen'
 
 const RIED_SPALTEN = 'id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, pflanzjahr, zentrum_lat, zentrum_lon'
-const GST_SPALTEN = 'id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, kg_bezeichnung, einlagezahl, nutzart, lse_stueckzahl, ama_feldnummer, pflanzjahr, unterlagsrebe, rechtsverhaeltnis, weinart, bewirtschaftung, aktiv, deaktiviert_am'
+const GST_SPALTEN = 'id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, kg_bezeichnung, einlagezahl, nutzart, lse_stueckzahl, ama_feldnummer, pflanzjahr, unterlagsrebe, weinart, bewirtschaftung, aktiv, deaktiviert_am, ' + RECHT_EINBETTUNG
 
 type Roh = Record<string, unknown>
 
@@ -105,7 +106,7 @@ export async function ladeRiedenStammdaten(supabase: any, tenantId: string): Pro
   ])
   if (w.error) throw new AktionsFehler(`Rieden konnten nicht geladen werden: ${w.error.message}`)
   if (g.error) throw new AktionsFehler(`Grundstücke konnten nicht geladen werden: ${g.error.message}`)
-  return { weingaerten: w.data.map(riedAus), grundstuecke: g.data.map(gstAus) }
+  return { weingaerten: w.data.map(riedAus), grundstuecke: g.data.map(r => gstAus(mitRecht(r))) }   // KAN-458: Rechtsverhältnis aus grundstueck_recht
 }
 
 function nutzungLabel(nutzart: string | null): string | null {

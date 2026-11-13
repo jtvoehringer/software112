@@ -132,6 +132,8 @@
   {"n":"fuellungen_tenant_id_fkey","t":"fuellungen","s":["tenant_id"],"z":"tenants"},
   {"n":"fuellungen_weinausbau_id_fkey","t":"fuellungen","s":["weinausbau_id"],"z":"weinausbau"},
   {"n":"fuellungen_zukauf_posten_id_fkey","t":"fuellungen","s":["zukauf_posten_id"],"z":"zukauf_posten"},
+  {"n":"grundstueck_recht_grundstueck_id_fkey","t":"grundstueck_recht","s":["grundstueck_id"],"z":"grundstuecke"},
+  {"n":"grundstueck_recht_tenant_id_fkey","t":"grundstueck_recht","s":["tenant_id"],"z":"tenants"},
   {"n":"grundstuecke_rebsorte_id_fkey","t":"grundstuecke","s":["rebsorte_id"],"z":"rebsorten"},
   {"n":"grundstuecke_tenant_id_fkey","t":"grundstuecke","s":["tenant_id"],"z":"tenants"},
   {"n":"grundstuecke_weingarten_id_fkey","t":"grundstuecke","s":["weingarten_id"],"z":"weingarten"},
