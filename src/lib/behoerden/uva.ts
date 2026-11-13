@@ -27,7 +27,7 @@ export function uvaZeitraumLabel(zeitraum: string, jahr: number): string {
   return `${UVA_MONATE[m - 1] ?? zeitraum} ${jahr}`
 }
 
-export type UvaSchluessel = 'kz000' | 'kz022' | 'kz029' | 'kz006' | 'ust0' | 'vst20' | 'vst10' | 'vst13' | 'kz060' | 'kz095'
+export type UvaSchluessel = 'kz000' | 'kz022' | 'kz029' | 'kz006' | 'kz011' | 'kz017' | 'ust0' | 'vst20' | 'vst10' | 'vst13' | 'kz060' | 'kz095'
 
 export type UvaKennzahl = {
   schluessel: UvaSchluessel
@@ -78,10 +78,14 @@ export function uvaKennzahlen(uva: R, doppik: boolean): UvaKennzahl[] {
     z('kz022', '022', '20 % Normalsteuersatz', b('bmgl_ust_20'), b('ust_20')),
     z('kz029', '029', '10 % ermäßigter Steuersatz', b('bmgl_ust_10'), b('ust_10')),
     z('kz006', '006', '13 % ermäßigter Steuersatz', b('bmgl_ust_13'), b('ust_13')),
-    // ea_uva kennt nur die Summe zu 0 % – sie enthält Ausfuhren (Kz 011), innergemeinschaftliche
-    // Lieferungen (Kz 017) und steuerfreie Inlandsumsätze (Kz 016/020). Ohne Aufteilung nach
-    // Steuerfall darf die maschinenlesbare Spalte „Kennzahl“ keine davon behaupten (Review 25.09.2026).
-    z('ust0', null, UVA_0_PROZENT_BEZEICHNUNG, b('bmgl_ust_0'), null),
+    // KAN-439 (Entscheidung 1A): Kz 011 und 017 nur aus Verkäufen mit gespeichertem Steuerfall (Rechnung aus dem
+    // Exportauftrag, KAN-436) – beide sind Teil der Summe zu 0 % (bmgl_ust_0) und damit der Kz 000.
+    z('kz011', '011', 'Ausfuhrlieferungen (steuerfrei)', b('bmgl_ausfuhr'), null),
+    z('kz017', '017', 'Innergemeinschaftliche Lieferungen (steuerfrei)', b('bmgl_igl'), null),
+    // Der Rest zu 0 % hat keinen gespeicherten Steuerfall – er kann Ausfuhr (Kz 011), innergemeinschaftliche
+    // Lieferung (Kz 017) oder ein steuerfreier Inlandsumsatz (Kz 016/020) sein. Ohne Aufteilung darf die
+    // maschinenlesbare Spalte „Kennzahl“ keine davon behaupten (Review 25.09.2026).
+    z('ust0', null, UVA_0_PROZENT_BEZEICHNUNG, uvaRestNull(uva), null),
     z('vst20', null, 'Vorsteuer 20 %', null, b('vst_20')),
     z('vst10', null, 'Vorsteuer 10 %', null, b('vst_10')),
     z('vst13', null, 'Vorsteuer 13 %', null, b('vst_13')),
@@ -90,8 +94,13 @@ export function uvaKennzahlen(uva: R, doppik: boolean): UvaKennzahl[] {
   ]
 }
 
-/** Bezeichnung der 0-%-Zeile – ohne Kennzahl, bis ea_uva nach Steuerfall getrennt ist */
-export const UVA_0_PROZENT_BEZEICHNUNG = 'Steuerfreie Umsätze (0 %) – Ausfuhr, ig. Lieferung oder steuerfrei; bitte auf Kz 011/017/016/020 aufteilen'
+/** Bezeichnung der Rest-Zeile zu 0 % – ohne Kennzahl, weil diesen Umsätzen kein Steuerfall gespeichert ist */
+export const UVA_0_PROZENT_BEZEICHNUNG = 'Übrige steuerfreie Umsätze (0 %) ohne gespeicherten Steuerfall – bitte auf Kz 011/017/016/020 aufteilen'
+
+/** KAN-439: Umsätze zu 0 %, die weder als Ausfuhr noch als innergemeinschaftliche Lieferung gespeichert sind */
+export function uvaRestNull(uva: R): number {
+  return summe([betrag(uva.bmgl_ust_0) ?? 0, -(betrag(uva.bmgl_ausfuhr) ?? 0), -(betrag(uva.bmgl_igl) ?? 0)])
+}
 
 export const SPALTEN_UVA: CsvSpalte<UvaKennzahl>[] = [
   { kopf: 'Jahr', typ: 'ganzzahl', stellen: STELLEN.ganzzahl, wert: z => z.jahr },
@@ -130,7 +139,7 @@ export async function ladeUva(supabase: any, tenantId: string, p: UvaParameter, 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q = (supabase.from('ea_uva') as any)
-    .select('id, jahr, zeitraum, bmgl_ust_0, bmgl_ust_10, bmgl_ust_13, bmgl_ust_20, ust_10, ust_13, ust_20, vst_10, vst_13, vst_20, vst_gesamt, zahllast, gesperrt, gesperrt_am')
+    .select('id, jahr, zeitraum, bmgl_ust_0, bmgl_ausfuhr, bmgl_igl, bmgl_ust_10, bmgl_ust_13, bmgl_ust_20, ust_10, ust_13, ust_20, vst_10, vst_13, vst_20, vst_gesamt, zahllast, gesperrt, gesperrt_am')
     .eq('tenant_id', tenantId)
     .eq('jahr', p.jahr)
   if (p.zeitraum) q = q.eq('zeitraum', p.zeitraum)
@@ -152,7 +161,7 @@ export async function ladeUva(supabase: any, tenantId: string, p: UvaParameter, 
   }
   const mitNull = meldungen.filter(m => (m.kennzahlen.find(k => k.schluessel === 'ust0')?.bemessungsgrundlage ?? 0) !== 0).map(m => m.label)
   if (mitNull.length > 0) {
-    warnungen.push(`Steuerfreie Umsätze (0 %) in ${mitNull.join(', ')}: ohne Kennzahl ausgegeben – vor der Übermittlung auf Kz 011 (Ausfuhr), 017 (innergemeinschaftliche Lieferung) bzw. 016/020 (steuerfreie Inlandsumsätze) aufteilen; die ig. Lieferungen gehören zusätzlich in die Zusammenfassende Meldung.`)
+    warnungen.push(`Steuerfreie Umsätze (0 %) ohne gespeicherten Steuerfall in ${mitNull.join(', ')}: ohne Kennzahl ausgegeben – vor der Übermittlung auf Kz 011 (Ausfuhr), 017 (innergemeinschaftliche Lieferung) bzw. 016/020 (steuerfreie Inlandsumsätze) aufteilen; die ig. Lieferungen gehören zusätzlich in die Zusammenfassende Meldung.`)
   }
   const entwuerfe = doppik ? [] : meldungen.filter(m => !m.gesperrt).map(m => m.label)
   if (entwuerfe.length > 0) {

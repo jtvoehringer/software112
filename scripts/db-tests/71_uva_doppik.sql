@@ -5,6 +5,9 @@
 -- @ziel: übrige Einnahmen und Vorsteuer in beiden Fällen aus ea_transaktionen. Fremder Betrieb: 42501.
 -- @mutation doppelt: Doppik zählt die Zahlungseinnahmen zusätzlich | rot: doppik
 -- @mutation mit_storno: Doppik zählt stornierte Rechnungen mit | rot: doppik
+-- @ziel: KAN-439: Umsätze zu 0 % mit gespeichertem Steuerfall stehen zusätzlich in bmgl_ausfuhr (Kz 011) bzw. bmgl_igl
+-- @ziel: (Kz 017) – E&A nach Zahlung, Doppik nach Rechnung; 0-%-Umsätze ohne Steuerfall nur in bmgl_0.
+-- @mutation ohne_steuerfall: der Steuerfall „ausfuhr“ wird nicht mehr erkannt | rot: ea_steuerfall
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 71 (Stand 08.10.2026, KAN-105). Alles zurückgerollt.
 
@@ -25,6 +28,12 @@ CREATE FUNCTION pg_temp.t71_uva(p_tenant uuid, p_jahr smallint, p_zeitraum text)
   FROM public.berechne_ea_uva(p_tenant, p_jahr, p_zeitraum) u
 $f$;
 
+-- KAN-439: Summe zu 0 % und ihre Teilmengen Ausfuhr (Kz 011) und innergemeinschaftliche Lieferung (Kz 017)
+CREATE FUNCTION pg_temp.t71_steuerfall(p_tenant uuid, p_jahr smallint, p_zeitraum text) RETURNS text LANGUAGE sql AS $f$
+  SELECT concat_ws('|', u.bmgl_0::numeric(12, 2), u.bmgl_ausfuhr::numeric(12, 2), u.bmgl_igl::numeric(12, 2))
+  FROM public.berechne_ea_uva(p_tenant, p_jahr, p_zeitraum) u
+$f$;
+
 DO $test$
 DECLARE
   v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;
@@ -41,6 +50,9 @@ DECLARE
   v_ls2   uuid;
   v_ls3   uuid;
   v_ls4   uuid;
+  v_ls5   uuid;
+  v_ls6   uuid;
+  v_ls7   uuid;
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
   v_t0 := clock_timestamp();
@@ -60,6 +72,10 @@ BEGIN
     $m$SELECT pg_temp.t71_ersetze('public.berechne_ea_uva(uuid, smallint, text)'::regprocedure,
       $r$AND r\.aktiv AND NOT r\.storniert$r$, $r$AND r.aktiv$r$)$m$);
 
+  PERFORM pg_temp.s112_mutiere('ohne_steuerfall',
+    $m$SELECT pg_temp.t71_ersetze('public.berechne_ea_uva(uuid, smallint, text)'::regprocedure,
+      $r$a\.sf='ausfuhr'$r$, $r$a.sf='keiner'$r$)$m$);
+
   -- Rechnungen im laufenden Monat: 10 × 12 € zu 20 % (netto 100), 3 × 11,30 € zu 13 % (netto 30),
   -- eine stornierte (24 € zu 20 %) und ein nicht berechneter Lieferschein (60 € zu 20 %) – beide zählen nicht
   INSERT INTO public.verkaufsposten (tenant_id, datum) VALUES (v_b, v_heute) RETURNING id INTO v_ls1;
@@ -76,6 +92,23 @@ BEGIN
   INSERT INTO public.verkauf_positionen (tenant_id, verkaufsposten_id, typ, name, menge, einheit, preis_brutto, ust_satz)
   VALUES (v_b, v_ls4, 'sonstiges', 'S112TEST nicht berechnet', 5, 'Stk', 12, 20);
 
+  -- KAN-439: drei Rechnungen zu 0 % – Ausfuhr (2 × 50 €), innergemeinschaftliche Lieferung (1 × 70 €) und eine ohne
+  -- Steuerfall (1 × 30 €)
+  INSERT INTO public.verkaufsposten (tenant_id, datum, steuerfall, lieferland) VALUES (v_b, v_heute, 'ausfuhr', 'US') RETURNING id INTO v_ls5;
+  INSERT INTO public.verkauf_positionen (tenant_id, verkaufsposten_id, typ, name, menge, einheit, preis_brutto, ust_satz)
+  VALUES (v_b, v_ls5, 'sonstiges', 'S112TEST Ausfuhr', 2, 'Stk', 50, 0);
+  INSERT INTO public.verkaufsposten (tenant_id, datum, steuerfall, kunde_uid, lieferland) VALUES (v_b, v_heute, 'igl', 'DE123456789', 'DE') RETURNING id INTO v_ls6;
+  INSERT INTO public.verkauf_positionen (tenant_id, verkaufsposten_id, typ, name, menge, einheit, preis_brutto, ust_satz)
+  VALUES (v_b, v_ls6, 'sonstiges', 'S112TEST ig. Lieferung', 1, 'Stk', 70, 0);
+  INSERT INTO public.verkaufsposten (tenant_id, datum) VALUES (v_b, v_heute) RETURNING id INTO v_ls7;
+  INSERT INTO public.verkauf_positionen (tenant_id, verkaufsposten_id, typ, name, menge, einheit, preis_brutto, ust_satz)
+  VALUES (v_b, v_ls7, 'sonstiges', 'S112TEST steuerfrei ohne Fall', 1, 'Stk', 30, 0);
+  -- Zahlungen dazu: Ausfuhr ganz (100 €), ig. Lieferung als Teilzahlung (40 €), ohne Steuerfall ganz (30 €)
+  INSERT INTO public.ea_transaktionen (tenant_id, typ, import_quelle, verkaufsposten_id, datum, beschreibung, betrag_netto, ust_satz)
+  VALUES (v_b, 'einnahme', 'verkauf', v_ls5, v_heute, 'S112TEST Zahlung Ausfuhr', 100, 0),
+         (v_b, 'einnahme', 'verkauf', v_ls6, v_heute, 'S112TEST Teilzahlung ig. Lieferung', 40, 0),
+         (v_b, 'einnahme', 'verkauf', v_ls7, v_heute, 'S112TEST Zahlung steuerfrei', 30, 0);
+
   -- E&A: Zahlungseinnahme 50 € netto zu 20 % (Teilzahlung), manuelle Einnahme 10 € zu 13 %, Ausgabe 100 € zu 20 %
   INSERT INTO public.ea_transaktionen (tenant_id, typ, import_quelle, verkaufsposten_id, datum, beschreibung, betrag_netto, ust_satz)
   VALUES (v_b, 'einnahme', 'verkauf', v_ls1, v_heute, 'S112TEST Zahlungseingang', 50, 20),
@@ -85,10 +118,14 @@ BEGIN
   -- ── 1. E&A: nach Zahlung ──────────────────────────────────────────────────────────────────────────────
   UPDATE public.tenant_einstellungen SET buchhaltungsart = 'ea' WHERE tenant_id = v_b;
   v_erg := v_erg || pg_temp.s112_erwarte('ea', pg_temp.t71_uva(v_b, v_jahr, v_zr), '10.00|50.00|1.30|10.00|20.00');
+  -- KAN-439: nach Zahlung – 0 % gesamt 170, davon Ausfuhr 100 und ig. Lieferung 40 (Teilzahlung)
+  v_erg := v_erg || pg_temp.s112_erwarte('ea_steuerfall', pg_temp.t71_steuerfall(v_b, v_jahr, v_zr), '170.00|100.00|40.00');
 
   -- ── 2. Doppik: Umsätze aus den Rechnungen, Zahlungseinnahme nicht doppelt ─────────────────────────────
   UPDATE public.tenant_einstellungen SET buchhaltungsart = 'doppik' WHERE tenant_id = v_b;
   v_erg := v_erg || pg_temp.s112_erwarte('doppik', pg_temp.t71_uva(v_b, v_jahr, v_zr), '40.00|100.00|5.20|20.00|20.00');
+  -- KAN-439: nach Rechnung – 0 % gesamt 200, davon Ausfuhr 100 und ig. Lieferung 70 (ganze Rechnung)
+  v_erg := v_erg || pg_temp.s112_erwarte('doppik_steuerfall', pg_temp.t71_steuerfall(v_b, v_jahr, v_zr), '200.00|100.00|70.00');
 
   -- ── 3. Als Mitarbeiter des Betriebs ja, fremder Betrieb nein ──────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
@@ -97,5 +134,5 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format('SELECT public.berechne_ea_uva(%L::uuid, %s::smallint, %L)', v_m, v_jahr, v_zr)), ':', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 4);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 6);
 END $test$;

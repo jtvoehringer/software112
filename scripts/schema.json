@@ -638,7 +638,9 @@
 "gesperrt",
 "gesperrt_am",
 "notizen",
-"erstellt_am"
+"erstellt_am",
+"bmgl_ausfuhr",
+"bmgl_igl"
 ],
 "elabel_zutaten": [
 "id",

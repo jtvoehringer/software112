@@ -113,15 +113,18 @@ describe('uva – Kennzahlen U30', () => {
 
   test('eine Zeile je Kennzahl, Reihenfolge wie U30, Kz 095 mit Vorzeichen', () => {
     const k = uva.uvaKennzahlen(Q1, false)
-    assert.deepEqual(k.map(z => z.kz), ['000', '022', '029', '006', null, null, null, null, '060', '095'])
+    // KAN-439: + Kz 011 (Ausfuhr) und 017 (ig. Lieferung) vor der Rest-Zeile zu 0 %
+    assert.deepEqual(k.map(z => z.kz), ['000', '022', '029', '006', '011', '017', null, null, null, null, '060', '095'])
     assert.equal(k[0].bemessungsgrundlage, 15500.75)
     const t = csvText(k, uva.SPALTEN_UVA)
     const z = zeilen(t)
     assert.equal(z[0], 'Jahr;Zeitraum;Kennzahl;Bezeichnung;Bemessungsgrundlage (€);Steuer (€);Status;Übermittelt am')
     assert.equal(z[1], '2026;Q1 2026;000;Gesamtbetrag der Bemessungsgrundlagen für Lieferungen und sonstige Leistungen;15500,75;;Übermittelt;15.04.2026 00:30')
     assert.equal(z[2], '2026;Q1 2026;022;20 % Normalsteuersatz;2500,25;500,05;Übermittelt;15.04.2026 00:30')
-    assert.equal(z[6], '2026;Q1 2026;;Vorsteuer 20 %;;800,10;Übermittelt;15.04.2026 00:30')
-    assert.equal(z[10], '2026;Q1 2026;095;Vorauszahlung (Zahllast);;1247,52;Übermittelt;15.04.2026 00:30')
+    assert.equal(z[5], '2026;Q1 2026;011;Ausfuhrlieferungen (steuerfrei);0,00;;Übermittelt;15.04.2026 00:30')
+    assert.equal(z[6], '2026;Q1 2026;017;Innergemeinschaftliche Lieferungen (steuerfrei);0,00;;Übermittelt;15.04.2026 00:30')
+    assert.equal(z[8], '2026;Q1 2026;;Vorsteuer 20 %;;800,10;Übermittelt;15.04.2026 00:30')
+    assert.equal(z[12], '2026;Q1 2026;095;Vorauszahlung (Zahllast);;1247,52;Übermittelt;15.04.2026 00:30')
     const neg = uva.uvaKennzahlen(Q2, false).at(-1)
     assert.equal(neg.bezeichnung, 'Überschuss (Gutschrift)')
     assert.equal(csv.csvZelle(neg.steuer, 'betrag'), '-800,00')
@@ -149,10 +152,10 @@ describe('uva – Kennzahlen U30', () => {
     const r = await uva.ladeUva(db, T, { jahr: 2026, zeitraum: null })
     mandantGefiltert(db)
     assert.equal(r.meldungen.length, 2)
-    assert.equal(r.zeilen.length, 20)
+    assert.equal(r.zeilen.length, 24)   // KAN-439: zwölf Zeilen je UVA
     assert.equal(r.doppik, false)
     assert.deepEqual(r.warnungen, [
-      'Steuerfreie Umsätze (0 %) in Q1 2026, Q2 2026: ohne Kennzahl ausgegeben – vor der Übermittlung auf Kz 011 (Ausfuhr), 017 (innergemeinschaftliche Lieferung) bzw. 016/020 (steuerfreie Inlandsumsätze) aufteilen; die ig. Lieferungen gehören zusätzlich in die Zusammenfassende Meldung.',
+      'Steuerfreie Umsätze (0 %) ohne gespeicherten Steuerfall in Q1 2026, Q2 2026: ohne Kennzahl ausgegeben – vor der Übermittlung auf Kz 011 (Ausfuhr), 017 (innergemeinschaftliche Lieferung) bzw. 016/020 (steuerfreie Inlandsumsätze) aufteilen; die ig. Lieferungen gehören zusätzlich in die Zusammenfassende Meldung.',
       'Noch nicht als übermittelt markiert (Entwurf): Q2 2026 – die Werte können sich bis zur Übermittlung ändern.',
     ])
     // 0-%-Zeile ohne Kennzahl (enthält Ausfuhr Kz 011, ig. Lieferung Kz 017, steuerfrei Kz 016/020)
@@ -160,7 +163,7 @@ describe('uva – Kennzahlen U30', () => {
     assert.equal(null0.kz, null)
     assert.match(null0.bezeichnung, /bitte auf Kz 011\/017\/016\/020 aufteilen/)
     const nurQ1 = await uva.ladeUva(db, T, { jahr: 2026, zeitraum: 'Q1' }, { doppik: true })
-    assert.equal(nurQ1.zeilen.length, 10)
+    assert.equal(nurQ1.zeilen.length, 12)
     assert.match(nurQ1.warnungen[0], /Kontroll-Vorschau/)
     const leer = await uva.ladeUva(db, T, { jahr: 2026, zeitraum: 'Q3' }, { doppik: false })
     assert.equal(leer.zeilen.length, 0)
