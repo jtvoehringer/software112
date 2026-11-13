@@ -107,6 +107,7 @@
   {"n":"export_dokumente_exportauftrag_id_fkey","t":"export_dokumente","s":["exportauftrag_id"],"z":"exportauftraege"},
   {"n":"export_nachweise_exportauftrag_id_fkey","t":"export_nachweise","s":["exportauftrag_id"],"z":"exportauftraege"},
   {"n":"export_nachweise_tenant_id_fkey","t":"export_nachweise","s":["tenant_id"],"z":"tenants"},
+  {"n":"export_registrierungen_tenant_id_fkey","t":"export_registrierungen","s":["tenant_id"],"z":"tenants"},
   {"n":"exportauftraege_firma_id_fkey","t":"exportauftraege","s":["firma_id"],"z":"firmen"},
   {"n":"exportauftraege_kontakt_id_fkey","t":"exportauftraege","s":["kontakt_id"],"z":"kontakte"},
   {"n":"exportauftraege_tenant_id_fkey","t":"exportauftraege","s":["tenant_id"],"z":"tenants"},

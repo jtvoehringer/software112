@@ -17,6 +17,8 @@ import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { fristAus, psmErfassungFrist, PSM_FRIST_STANDARD_H, type PsmErfassungZeile } from '@/lib/behandlungen/erfassungsfrist'
 import { geladen } from '@/lib/supabase/geladen'
+import { ladeExportRegistrierungen } from '@/lib/export/registrierungenLaden'
+import { registrierungFristen } from '@/lib/export/registrierungen'
 import { ladeOffenePostenListe, ladeRechnungenOhneBmdExport, offenePostenSumme, type OffenerPosten } from '@/lib/verkauf/umsatz'
 
 // Sweep 87 (KAN-279): jede Abfrage über geladen() – ein Lesefehler zeigt die Fehlergrenze des Dashboards statt falscher
@@ -470,6 +472,14 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   }
 
   const rang: Record<FristStatus, number> = { ueberfaellig: 0, faellig: 1, offen: 2, laufend: 3, erledigt: 4 }
+  // KAN-437 Teil 2: Export-Registrierungen (FDA, GACC, MFDS …), die abgelaufen sind oder binnen 90 Tagen ablaufen
+  if (ctx.tenantId) {
+    for (const f of registrierungFristen(await ladeExportRegistrierungen(ctx.supabase, ctx.tenantId), ctx.heuteStr)) {
+      fristen.push({ key: f.key, bezeichnung: f.bezeichnung, hinweis: f.hinweis, kategorie: 'betrieb', faelligAm: f.faelligAm,
+        status: f.status, statusText: f.statusText, href: '/weinexport/registrierungen', quelle: 'system' })
+    }
+  }
+
   fristen.sort((a, b) => rang[a.status] - rang[b.status] || (a.faelligAm ?? '9999').localeCompare(b.faelligAm ?? '9999'))
   return fristen
 }
