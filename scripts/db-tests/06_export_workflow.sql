@@ -204,7 +204,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('nachweis_gesperrt_anlegen',
     pg_temp.s112_fehlertext(format(c_nw, v_b, v_auf, 'sonstiger', v_heute, v_b || '/' || v_auf || '/s112test-3.pdf', 'S112TEST.pdf')) LIKE '42501:%abgeschlossen%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('belege_gesperrt',
-    pg_temp.s112_fehlertext(format(c_bel, '[]', v_auf)) LIKE '42501:%abgeschlossen%', true);
+    pg_temp.s112_fehlertext(format(c_bel, '[{"bezeichnung": "COLA", "nummer": "S112TEST-3"}]', v_auf)) LIKE '42501:%abgeschlossen%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('mrn_gesperrt',
     pg_temp.s112_fehlertext(format(c_mrn, '26AT100000ABCDEFG2', v_heute, v_auf)) LIKE '42501:%abgeschlossen%', true);
 
