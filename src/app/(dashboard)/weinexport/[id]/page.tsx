@@ -10,6 +10,8 @@ import Link from '@/components/ui/Link'
 import WeinexportDetailClient from './WeinexportDetailClient'
 import ExportNachweisPanel from './ExportNachweisPanel'
 import ExportLaenderhinweise from './ExportLaenderhinweise'
+import ExportBelegnummernPanel from './ExportBelegnummernPanel'
+import { belegnummernAus, belegVorschlaege } from '@/lib/export/belegnummern'
 import { ladeExportRegistrierungen } from '@/lib/export/registrierungenLaden'
 import { registrierungHinweise } from '@/lib/export/registrierungen'
 import { landAnzeige } from '@/lib/katalog/laender'
@@ -106,6 +108,15 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
         <div className="px-8 max-w-5xl mx-auto">
           <ExportLaenderhinweise land={typeof a.destination_land === 'string' ? a.destination_land : null}
             landName={landAnzeige(a.destination_land) || 'dieses Land'} registrierungen={regHinweise} />
+        </div>
+      )}
+      {/* KAN-437 Teil 3: länderspezifische Belegnummern (COLA, Prior Notice …) – nur Drittland; storniert nur, wenn schon etwas hinterlegt ist */}
+      {gebiet === 'drittland' && (!a.storniert_am || belegnummernAus(a.laender_belege).length > 0) && (
+        <div className="px-8 max-w-5xl mx-auto">
+          <ExportBelegnummernPanel auftragId={id} belege={belegnummernAus(a.laender_belege)} vorschlaege={belegVorschlaege(a.destination_land)}
+            darfAendern={darfSchreiben && !a.storniert_am && a.status !== 'abgeschlossen'}
+            gesperrtGrund={a.storniert_am ? 'Der Exportauftrag ist storniert – die Belegnummern lassen sich nicht mehr ändern.'
+              : a.status === 'abgeschlossen' ? 'Der Exportauftrag ist abgeschlossen – die Belegnummern lassen sich nicht mehr ändern.' : null} />
         </div>
       )}
       {/* KAN-440 Teil 2: Nachweis – im Inland ohne Bedeutung, bei stornierten Aufträgen nur, wenn schon etwas abgelegt ist */}
