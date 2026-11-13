@@ -51,7 +51,7 @@ test.describe('Verkauf (schreibend)', () => {
     await page.getByLabel('Menge', { exact: true }).first().fill('1')
     const preis = page.getByLabel('Preis/Einheit (€, brutto)').first()
     if (!(await preis.inputValue())) await preis.fill('10')
-    await page.getByLabel('Notizen').first().fill(marke)
+    await page.getByLabel('Interne Notiz').first().fill(marke)   // KAN-441: seit KAN-416 heißt das Feld „Interne Notiz“
     await page.getByRole('button', { name: 'Verkauf anlegen' }).click()
     await page.waitForURL(url => url.pathname === '/weinhandel/verkauf', { timeout: 30_000 })
 

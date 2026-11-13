@@ -182,7 +182,8 @@ test('Charge über das Dashboard öffnen und speichern: bleibt auf der Charge mi
   test.skip(!charge, 'keine Charge mit Bestand auf Staging')
   await page.goto('/dashboard')
   await page.waitForLoadState('networkidle')
-  await page.goto(`/kellerbuch/weinausbau/${charge}`)
+  // KAN-441: Das Formular „Charge bearbeiten“ ist seit 07.10.2026 eingeklappt – über ?form=bearbeiten geöffnet
+  await page.goto(`/kellerbuch/weinausbau/${charge}?form=bearbeiten`)
   await page.waitForLoadState('networkidle')
   const formular = page.locator('form', { has: page.locator('textarea[name="notizen"]') })
   await formular.getByRole('button', { name: 'Speichern', exact: true }).click()

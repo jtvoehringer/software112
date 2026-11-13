@@ -137,7 +137,11 @@ function AufgabenSpalte({ titel, hinweis, eintraege, heute, leer, meine = false 
       {offen === 0 ? (
         <p className="text-[12px] text-s112-tertiary py-2">{leer}</p>
       ) : (
-        <table className="w-full">
+        // KAN-441: feste Spalten – „truncate“ kürzt in einer Tabellenzelle nur bei table-fixed; sonst ragte die Karte am
+        // Handy rechts hinaus (E2E mobil, 139 px). Das Kennzeichen steht am Handy nicht (Art und Überfälligkeit zeigen
+        // Untertitel und rote Datumsfarbe).
+        <table className="w-full table-fixed">
+          <colgroup><col /><col className="w-[8.5rem]" /><col className="hidden sm:table-column sm:w-[6.5rem]" /></colgroup>
           <tbody>
             {eintraege.slice(0, 6).map(a => (
               <tr key={a.id} className="border-b border-s112-line last:border-0 hover:bg-s112-bg">
@@ -152,7 +156,7 @@ function AufgabenSpalte({ titel, hinweis, eintraege, heute, leer, meine = false 
                 <td className={`py-2 px-2 font-mono text-[12px] whitespace-nowrap text-right ${a.ueberfaellig ? 'text-s112-err-fg' : 'text-s112-text-2'}`}>
                   {a.datum === heute ? 'heute' : fmtDate(a.datum, { weekday: 'short', day: '2-digit', month: '2-digit' })}{a.uhrzeit ? ` ${a.uhrzeit}` : ''}
                 </td>
-                <td className="py-2 pl-2 text-right"><Badge tone={a.ueberfaellig ? 'err' : a.istAufgabe ? 'warn' : 'info'}>{a.ueberfaellig ? 'ÜBERFÄLLIG' : a.istAufgabe ? 'AUFGABE' : 'TERMIN'}</Badge></td>
+                <td className="hidden sm:table-cell py-2 pl-2 text-right"><Badge tone={a.ueberfaellig ? 'err' : a.istAufgabe ? 'warn' : 'info'}>{a.ueberfaellig ? 'ÜBERFÄLLIG' : a.istAufgabe ? 'AUFGABE' : 'TERMIN'}</Badge></td>
               </tr>
             ))}
             {offen > 6 && (

@@ -59,7 +59,16 @@ test.describe('Behördenmeldungen – CSV', { tag: '@lesend' }, () => {
       test.skip(!eintrag, `${id} fehlt im Katalog (siehe Test „Auswahl steht im Katalog“)`)
       if (!eintrag) return
 
-      const r = await page.request.get(`/meldungen/${id}/csv${query(eintrag, fest)}`, { maxRedirects: 0 })
+      // KAN-441: Die Weinbuch-Sammlung lehnt mehr als 30 Chargen ab (fachliche Grenze) – der Testbetrieb hat längst mehr.
+      // Deshalb nach Jahrgang eingrenzen und den ersten Jahrgang nehmen, der unter der Grenze bleibt.
+      const varianten = id === 'weinbuch-sammlung'
+        ? [0, 1, 2, 3, 4].map(n => ({ ...fest, jahrgang: String(Number(JAHR) - n) }))
+        : [fest]
+      let r = await page.request.get(`/meldungen/${id}/csv${query(eintrag, varianten[0])}`, { maxRedirects: 0 })
+      for (const v of varianten.slice(1)) {
+        if (r.status() !== 400 || !/höchstens \d+ je Weinbuch-Sammlung/.test(await r.text())) break
+        r = await page.request.get(`/meldungen/${id}/csv${query(eintrag, v)}`, { maxRedirects: 0 })
+      }
       const status = r.status()
       expect(erlaubteStatus(eintrag, rolle), `HTTP ${status} für ${rolle}: ${status >= 400 ? await r.text() : ''}`).toContain(status)
       if (status !== 200) return
