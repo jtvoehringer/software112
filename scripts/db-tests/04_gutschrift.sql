@@ -10,9 +10,11 @@
 -- @mutation ohne_datumspruefung: Gutschrift ohne eigene Prüfung des Zeitraums | rot: datum_gesperrt
 -- @mutation ohne_gutschrift_im_abgleich: der Zahlungsabgleich kennt die Gutschriften nicht | rot: bezahlt_mit_gutschrift
 -- @mutation storno_trotz_gutschrift: Rechnung mit Gutschrift lässt sich stornieren | rot: storno_gesperrt
+-- @ziel: Doppik-UVA: Die Gutschrift mindert Bemessungsgrundlage und Steuer im Zeitraum ihres Datums.
+-- @mutation uva_ohne_gutschrift: die UVA zählt die Gutschrift nicht | rot: uva_gutschrift
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 04 (Stand 13.11.2026, KAN-419). Alles zurückgerollt.
--- Betrieb B: Monat „vor zwei Monaten“ abgeschlossen, laufender Monat offen.
+-- Betrieb B (Doppik): Monat „vor zwei Monaten“ abgeschlossen, laufender Monat offen.
 
 CREATE FUNCTION pg_temp.t04_ersetze(p_fn regprocedure, p_alt text, p_neu text) RETURNS void LANGUAGE plpgsql AS $f$
 DECLARE
@@ -30,6 +32,12 @@ CREATE FUNCTION pg_temp.t04_summe(p_rechnung uuid) RETURNS numeric LANGUAGE sql 
   SELECT coalesce(sum(round((x.pos ->> 'menge')::numeric * (x.pos ->> 'preis_brutto')::numeric, 2)), 0)::numeric(12, 2)
     FROM public.rechnungen g CROSS JOIN LATERAL jsonb_array_elements(g.gutschrift_positionen) AS x(pos)
    WHERE g.gutschrift_zu_id = p_rechnung AND g.art = 'gutschrift'
+$f$;
+
+-- Bemessungsgrundlage und Steuer zu 20 % im Monat des Tages (Doppik-UVA)
+CREATE FUNCTION pg_temp.t04_uva(p_tenant uuid, p_tag date) RETURNS numeric[] LANGUAGE sql AS $f$
+  SELECT ARRAY[u.bmgl_20::numeric(12, 2), u.ust_20::numeric(12, 2)]
+  FROM public.berechne_ea_uva(p_tenant, extract(year FROM p_tag)::smallint, to_char(p_tag, 'MM')) u
 $f$;
 
 DO $test$
@@ -59,6 +67,9 @@ DECLARE
   v_p3    uuid;
   v_g1    uuid;
   v_g2    uuid;
+  v_ls3   uuid;    -- Rechnung heute: 1 × 12 € zu 20 % (UVA)
+  v_r3    uuid;
+  v_uva   numeric[];
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
   v_t0 := clock_timestamp();
@@ -70,6 +81,7 @@ BEGIN
   v_bl := (v_a ->> 'b_l')::uuid;
   v_m := (v_a ->> 'm')::uuid;
   v_zu := (date_trunc('month', v_heute) - interval '2 months')::date + 9;
+  UPDATE public.tenant_einstellungen SET buchhaltungsart = 'doppik' WHERE tenant_id = v_b;
 
   PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);
   INSERT INTO public.verkaufsposten (tenant_id, datum, notizen, rechnung_spaeter) VALUES (v_b, v_zu, 'S112TEST KAN-419 alt', true) RETURNING id INTO v_ls0;
@@ -85,6 +97,9 @@ BEGIN
   EXECUTE format(c_pos, v_b, v_ls2, 'sonstiges', 'S112TEST Klein', 1, 'Stk', 5, 20, NULL);
   v_r2 := public.s112_rechnung_erstellen(v_b, ARRAY[v_ls2], v_heute, '[]'::jsonb, NULL);
   SELECT id INTO v_p3 FROM public.verkauf_positionen WHERE verkaufsposten_id = v_ls2;
+  INSERT INTO public.verkaufsposten (tenant_id, datum, notizen, rechnung_spaeter) VALUES (v_b, v_heute, 'S112TEST KAN-419 UVA', true) RETURNING id INTO v_ls3;
+  EXECUTE format(c_pos, v_b, v_ls3, 'sonstiges', 'S112TEST UVA', 1, 'Stk', 12, 20, NULL);
+  v_r3 := public.s112_rechnung_erstellen(v_b, ARRAY[v_ls3], v_heute, '[]'::jsonb, NULL);
   PERFORM pg_temp.s112_zeile('ea_monatsabschluss', v_b,
     jsonb_build_object('jahr', extract(year FROM v_zu)::int::text, 'monat', extract(month FROM v_zu)::int::text));
   PERFORM set_config('s112.loeschen_erlaubt', '', true);
@@ -101,6 +116,9 @@ BEGIN
   PERFORM pg_temp.s112_mutiere('ohne_gutschrift_im_abgleich',
     $m$SELECT pg_temp.t04_ersetze('public.sync_verkaufsposten_bezahlt()'::regprocedure,
       $r$v_gezahlt := v_gezahlt + public.s112_gutschrift_summe(v_tenant, v_re);$r$, $r$NULL;$r$)$m$);
+  PERFORM pg_temp.s112_mutiere('uva_ohne_gutschrift',
+    $m$SELECT pg_temp.t04_ersetze('public.berechne_ea_uva(uuid, smallint, text)'::regprocedure,
+      $r$AND g.art = 'gutschrift' AND g.aktiv$r$, $r$AND false$r$)$m$);
   PERFORM pg_temp.s112_mutiere('storno_trotz_gutschrift',
     $m$SELECT pg_temp.t04_ersetze('public.s112_stornobeleg_anlegen(uuid, uuid, text, date)'::regprocedure,
       $r$IF EXISTS (SELECT 1 FROM public.rechnungen g WHERE g.gutschrift_zu_id = v_r.id$r$, $r$IF false AND EXISTS (SELECT 1 FROM public.rechnungen g WHERE g.gutschrift_zu_id = v_r.id$r$)$m$);
@@ -189,6 +207,13 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('gutschrift_auf_gutschrift',
     split_part(pg_temp.s112_fehlertext(format(c_gs, v_b, v_g1, v_heute, 'S112TEST Gutschrift zur Gutschrift', '[]', 1, NULL)), ': ', 1), '22023');
 
+  -- ── 6b. Doppik-UVA: Gutschrift über 6 € (20 %) mindert den Monat ihres Datums um 5,00 € netto und 1,00 € Steuer ──
+  v_uva := pg_temp.t04_uva(v_b, v_heute);
+  v_erg := v_erg || pg_temp.s112_erwarte('uva_gutschrift_ok',
+    pg_temp.s112_fehlertext(format(c_gs, v_b, v_r3, v_heute, 'S112TEST Nachlass für die UVA', '[]', 6, NULL)), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('uva_gutschrift',
+    (SELECT concat_ws('|', (v_uva[1] - n[1])::numeric(12, 2), (v_uva[2] - n[2])::numeric(12, 2)) FROM pg_temp.t04_uva(v_b, v_heute) AS n), '5.00|1.00');
+
   -- ── 7. Direkt ändern oder löschen: nichts ──────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_aendern',
     pg_temp.s112_versuch(format('UPDATE public.rechnungen SET gutschrift_positionen = %L::jsonb WHERE id = %L', '[{"menge": 1}]', v_g1)), 'G');   -- kein Schreibrecht auf rechnungen (nur über die RPC)
@@ -198,6 +223,6 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('art_und_verweis_gekoppelt',
     split_part(pg_temp.s112_fehlertext(format('UPDATE public.rechnungen SET gutschrift_zu_id = NULL WHERE id = %L', v_g1)), ': ', 1), '23514');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 27);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 29);
 END
 $test$;

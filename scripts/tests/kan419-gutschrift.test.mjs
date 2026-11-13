@@ -159,8 +159,8 @@ describe('KAN-419: Migration und DB-Test', () => {
   })
   test('DB-Test 04 mit Mutationen; Soll-Listen in 01, 14, 18 und _helfer', () => {
     const t = quelle('scripts/db-tests/04_gutschrift.sql')
-    assert.equal(t.split('@mutation ').length - 1, 5)
-    assert.match(t, /PERFORM pg_temp\.s112_ende\(c_datei, v_erg, v_t0, 27\);/)
+    assert.equal(t.split('@mutation ').length - 1, 6)
+    assert.match(t, /PERFORM pg_temp\.s112_ende\(c_datei, v_erg, v_t0, 29\);/)
     assert.match(quelle('scripts/db-tests/_helfer.sql'), /\('mandant',\s+'-US', true , 's112_gutschrift_anlegen\(p_tenant_id uuid, p_rechnung_id uuid, p_datum date, p_grund text, p_positionen jsonb, p_betrag numeric, p_betrag_text text\)'\)/)
     assert.match(quelle('scripts/db-tests/14_abo_schreibsperre.sql'), /'s112_gutschrift_anlegen', format\('SELECT public\.s112_gutschrift_anlegen\(/)
   })
