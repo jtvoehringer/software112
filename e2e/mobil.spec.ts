@@ -72,7 +72,9 @@ test.describe('Mobil – Kernseiten passen aufs Handy', { tag: '@lesend' }, () =
     test.skip(!pfad, 'kein Jahrgang im Testbetrieb')
     await laden(page, pfad!)
     await passtAufsHandy(page, pfad!)
-    const bearbeiten = page.getByRole('button', { name: 'Bearbeiten' }).first()
+    // KAN-441: Der erste Knopf „Bearbeiten“ der Seite gehört seit KAN-129 zur Lese selbst – gemeint ist die Zeile der
+    // Lesedaten (Tabelle unter „Lesedaten“)
+    const bearbeiten = page.locator('table').getByRole('button', { name: 'Bearbeiten', exact: true }).first()
     test.skip(await bearbeiten.count() === 0, 'keine Lesedaten zum Bearbeiten')
     await bearbeiten.click()
     const formular = page.locator('[data-lesedaten-bearbeiten]')

@@ -16,18 +16,20 @@ test.describe('Ungespeicherte Eingaben', { tag: '@lesend' }, () => {
     // erster Treffer = Hauptpunkt „Übersicht“ (/dashboard); die zweite Zeile kann ebenfalls „Übersicht“ enthalten
     const menue = page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name: 'Übersicht', exact: true }).first()
 
-    // 1) abbrechen → bleibt auf der Seite, Eingabe noch da. Den Dialog VOR dem Klick behandeln: click() kehrt erst
-    //    zurück, wenn der Dialog geschlossen ist (sonst warten Klick und waitForEvent aufeinander – erster Lauf 10.10.)
-    let meldung = ''
-    page.once('dialog', async d => { meldung = d.message(); await d.dismiss() })
+    // KAN-441: Seit KAN-359 (22.10.2026) fragt die App im eigenen Dialog (role="alertdialog"), nicht mehr per Browser-Dialog.
+    const dialog = page.getByRole('alertdialog')
+
+    // 1) „Weiter bearbeiten“ → bleibt auf der Seite, Eingabe noch da
     await menue.click()
-    expect(meldung).toContain('Ungespeicherte Eingaben gehen verloren')
+    await expect(dialog).toContainText('Ungespeicherte Eingaben gehen verloren')
+    await dialog.getByRole('button', { name: 'Weiter bearbeiten' }).click()
+    await expect(dialog).toHaveCount(0)
     await expect(page).toHaveURL(/\/buchhaltung\/neu/)
     await expect(betrag).toHaveValue('99.90')
 
-    // 2) bestätigen → verlässt die Seite
-    page.once('dialog', d => d.accept())
+    // 2) „Verlassen“ → verlässt die Seite
     await menue.click()
+    await dialog.getByRole('button', { name: 'Verlassen' }).click()
     await expect(page).toHaveURL(/\/dashboard/)
   })
 })

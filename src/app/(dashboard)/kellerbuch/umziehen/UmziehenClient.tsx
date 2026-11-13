@@ -68,7 +68,7 @@ function QuelleZeile({
             onChange(e.target.value, charge ? String(charge.menge_liter) : '')
           }}
           required
-          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[220px]"
+          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full min-w-0 max-w-full sm:basis-0 sm:min-w-[220px]"   // KAN-441: min-w-0 – sonst so breit wie der längste Eintrag (Handy: 167 px über den Rand)
         >
           <option value="">– Behälter · Charge wählen –</option>
           {quellen.map(q => (
@@ -142,7 +142,7 @@ function ZielZeile({
         value={value}
         onChange={e => onChange(e.target.value, menge)}
         required
-        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[200px]"
+        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full min-w-0 max-w-full sm:basis-0 sm:min-w-[200px]"   // KAN-441: wie die Quelle
       >
         <option value="">– Behälter wählen –</option>
         {zielGebindeOhneQuellen(behaelter, quellGebindeIds, value).map(b => {
