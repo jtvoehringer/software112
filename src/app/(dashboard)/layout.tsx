@@ -5,6 +5,7 @@ import { subdomainUrl } from '@/lib/tenant/subdomain'
 import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, canSeeAuswertungen, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { aboStandErmitteln, SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import AppShell from '@/components/layout/AppShell'
+import { lesbareBereiche } from '@/lib/auth/lesebereiche'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
 import AutoRefresh from '@/components/AutoRefresh'
@@ -191,6 +192,7 @@ export default async function DashboardLayout({
            würde ohnehin abgelehnt und die Eingaben eines ganzen Formulars gingen verloren */
         darfSchreiben={canWrite(role) && !billingBlocked}
         auswertungenSichtbar={canSeeAuswertungen(role)}
+        lesbar={lesbareBereiche(membership)}
         mostgewichtEinheit={mostgewichtEinheit}
       >
         {/* Hinweisleisten: nie mitdrucken (print:hidden + data-print) – sonst stünden sie auf

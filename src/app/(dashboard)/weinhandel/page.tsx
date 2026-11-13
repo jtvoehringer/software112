@@ -12,6 +12,7 @@ import { fmtEur, fmtNum } from '@/lib/format'
 import { ladeReservierungen } from '@/lib/auftrag/laden'
 import { verfuegbar } from '@/lib/auftrag/regeln'
 import { fuellungStornoSperren, VERKAUFS_BEWEGUNGEN } from '@/lib/handel/fuellungStornoSperre'
+import { requireLesen } from '@/lib/auth/lesen'
 
 export const metadata: Metadata = { title: 'Warenwirtschaft' }
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,7 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
 const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', most: 'Most', maische: 'Maische', flaschen: 'Flaschen' }
 
 export default async function WeinhandelPage({ searchParams }: { searchParams: Promise<{ ausverkauft?: string }> }) {
+  await requireLesen('lager')   // KAN-456: Lesebereich je Profil
   const sp = await searchParams
   // KAN-35: Füllungen werden nicht mehr gelöscht, sobald verkauft wurde – ausverkaufte
   // (Bestand 0) standardmäßig ausblenden, damit die Liste nicht Jahr für Jahr wächst

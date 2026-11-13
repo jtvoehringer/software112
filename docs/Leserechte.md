@@ -119,6 +119,18 @@ Jede der 91 Routen unter `src/app/api` hat einen Bereich oder eine begründete A
 
 **Benachrichtigungen:** Aufgaben, Termine und Erwähnungen aus dem CRM gehen (App und Mail) nur an Empfänger, die den Bereich `crm` lesen dürfen (`bereich` am Ereignis, `sendeBenachrichtigung`). Den Morgenbericht gibt es nur als Tabelle im Bereich `ki` – ihn sperrt die Policy, einen Mailversand gibt es nicht.
 
+## Oberfläche (R4, KAN-456)
+
+**Eine Liste für alles:** `src/lib/navigation/seitenBereich.ts` ordnet jeder Seite ihren Lesebereich zu (längster Pfad gewinnt).
+
+- **Navigation und Befehlspalette:** `buildNav` blendet Einträge gesperrter Bereiche aus; die fest eingebauten Aktionen der Befehlspalette („Neuer Verkauf“ …) ebenso. Die globale Suche filtern die Policies.
+- **Seiten-Guards:** `await requireLesen('<bereich>')` (`src/lib/auth/lesen.ts`) im `layout.tsx` eines Verzeichnisses bzw. in der Seite selbst, wenn das Verzeichnis gemischt ist (`/weinhandel`, `/behandlungen`, `/weingarten`, `/reports`). Wer eine gesperrte Seite direkt aufruft, landet auf der Übersicht mit dem Hinweis „Für die aufgerufene Seite fehlt dir das Leserecht“.
+- **Wächter** `scripts/check-lesebereich-seiten.js` (prebuild; `--liste` zeigt jede Seite mit Bereich und Ort des Guards): Seite ohne Regel, ohne Guard oder mit anderem Bereich als die Regel.
+- **Was die Profile sehen:** „Extern“ – Übersicht, Sicht „Weingarten & Ernte“, Rieden, Rebsorten prüfen, Maßnahmen, dazu Hilfe und Profil. „Vertrieb“ – Übersicht, Sichten Verkauf und Fristen, Warenwirtschaft samt Zukauf und Exportaufträgen, CRM samt Postfach, Controlling, Frag dein Weingut.
+- **Morgenbericht:** für beide Profile gesperrt (Seite im Bereich `verwaltung`) – er fasst Befunde aller Bereiche zusammen. Die Tabelle `morgenberichte` liegt noch im Bereich `ki` und wird mit der nächsten Migration (R4, PR 3) nachgezogen.
+- **Neue Seite:** in einem bestehenden Verzeichnis gilt dessen Guard; in einem neuen Verzeichnis Regel eintragen und Guard anlegen – der Wächter meldet beides.
+- **Noch offen in R4:** Dashboard-Kacheln je Bereich, Maßnahmen und Grundstücke für „Extern“, Verkauf ohne Kellerbuch für „Vertrieb“, Durchsicht aller Seiten mit Testbenutzern.
+
 ## Stand der Umsetzung
 
 | Schritt | Inhalt | Ticket |
@@ -126,5 +138,5 @@ Jede der 91 Routen unter `src/app/api` hat einen Bereich oder eine begründete A
 | R1 | Profil an der Mitgliedschaft, Funktionen, diese Liste – ohne Wirkung (erledigt) | KAN-412 |
 | R2 | Sperr-Policies auf allen Tabellen, DB-Test-Matrix (umgesetzt) | KAN-454 |
 | R3 | Funktionen, KI, Suche, Exporte, Dateien (umgesetzt) | KAN-455 |
-| R4 | Navigation, Seiten, Dashboard | KAN-456 |
+| R4 | Navigation, Seiten, Dashboard (Navigation und Guards umgesetzt) | KAN-456 |
 | R5 | Vergabe in der Benutzerverwaltung, E2E, Freigabe | KAN-457 |

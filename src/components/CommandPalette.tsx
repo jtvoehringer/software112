@@ -20,6 +20,8 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { PALETTE_EVENT } from '@/components/layout/Topbar'
 import { SPERRE_EREIGNIS, istTabGesperrt } from '@/lib/tenant/waechter'
 import type { NavGroup } from '@/lib/navigation'
+import { seitenBereich } from '@/lib/navigation/seitenBereich'
+import type { Lesebereich } from '@/lib/auth/lesebereiche'
 import type { SearchResult } from '@/app/api/global-search/route'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
 
@@ -63,11 +65,13 @@ function passt(e: Eintrag, q: string) {
 }
 
 export default function CommandPalette({
-  groups, darfSchreiben, branding, betriebCount = 1,
+  groups, darfSchreiben, branding, betriebCount = 1, lesbar,
 }: {
   groups: NavGroup[]
   /** canWrite(role) – serverseitig in layout.tsx ermittelt (lib/auth/roles ist server-only) */
   darfSchreiben: boolean
+  /** KAN-456: lesbare Bereiche – Aktionen in gesperrte Bereiche entfallen (ohne Angabe: alle) */
+  lesbar?: readonly Lesebereich[]
   branding: TenantBranding
   betriebCount?: number
 }) {
@@ -80,7 +84,7 @@ export default function CommandPalette({
   const anfrageNr = useRef(0)
 
   // ── Statische Einträge: Aktionen + Seiten je Rolle/Modul ─────────────────
-  const statisch = useMemo<Eintrag[]>(() => {
+  const statischAlle = useMemo<Eintrag[]>(() => {
     const seiten: Eintrag[] = groups.flatMap(g =>
       g.items.filter(i => i.phase !== 2).map(i => ({
         id: `s:${g.key}:${i.href}`, gruppe: 'Seiten' as const, label: i.label, detail: g.label, icon: g.icon, href: i.href,
@@ -115,6 +119,11 @@ export default function CommandPalette({
     })
     return [...aktionen, ...seiten]
   }, [groups, darfSchreiben, branding.modul_ea, betriebCount])
+  // KAN-456: Aktionen mit Ziel in einem gesperrten Lesebereich entfallen (die Seiten filtert buildNav)
+  const statisch = useMemo(
+    () => statischAlle.filter(e => e.gruppe !== 'Aktionen' || !e.href || !lesbar || lesbar.includes(seitenBereich(e.href))),
+    [statischAlle, lesbar],
+  )
 
   // ── Öffnen/Schließen: Strg+K, ⌘K, Kopfleisten-Knopf ──────────────────────
   // Betriebs-Wächter (KAN-30): Solange der Tab wegen eines Betriebswechsels gesperrt ist, bleibt

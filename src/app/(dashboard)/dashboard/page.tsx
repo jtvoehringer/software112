@@ -6,6 +6,7 @@ import { ladeWidgetDaten } from './_shared/widgetDaten'
 import { STANDARD_LAYOUT, sichtbareWidgets, benoetigteQuellen, abschnitte, layoutPruefen, editorEintraege, type WidgetAbschnitt, type WidgetId } from '@/lib/dashboard/widgets'
 import { WIDGET_KOMPONENTEN, schnellaktionenFuer, type WidgetProps } from './_widgets'
 import DashboardAnpassen from './_widgets/DashboardAnpassen'
+import { KEIN_LESERECHT_TEXT } from '@/lib/auth/lesebereiche'
 
 export const metadata: Metadata = { title: 'Übersicht' }
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,9 @@ export const dynamic = 'force-dynamic'
 // geladen werden nur die Daten der sichtbaren Widgets. Seit KAN-388 je Benutzer anpassbar (Tabelle benutzer_dashboard,
 // über alle Betriebe; ohne Zeile gilt STANDARD_LAYOUT).
 
-export default async function UebersichtPage() {
+export default async function UebersichtPage({ searchParams }: { searchParams: Promise<{ kein_leserecht?: string }> }) {
+  // KAN-456: requireLesen leitet von Seiten gesperrter Lesebereiche hierher – der Grund steht oben auf der Seite
+  const keinLeserecht = (await searchParams).kein_leserecht === '1'
   const ctx = await getCtx()
   const [einst, profilRes, layoutRes] = await Promise.all([
     ladeEinstellungen(ctx),
@@ -49,6 +52,7 @@ export default async function UebersichtPage() {
         title={`${gruss}${vorname ? `, ${vorname}` : ''} 👋`}
         sub={<><span className="max-sm:hidden">Kellerbuch, Weingarten, Verkauf und Meldungen an einem Ort – alles, was heute ansteht, auf einen Blick. </span>{ctx.tenantName && <span className="text-s112-tertiary">{ctx.tenantName} · </span>}<span className="text-s112-tertiary">Stand {fmtDate(ctx.heute, { weekday: 'long', day: '2-digit', month: 'long' })}</span></>}
       />
+      {keinLeserecht && <p role="status" className="text-[12.5px] text-s112-warn-fg bg-s112-warn-bg rounded-lg px-3 py-2">{KEIN_LESERECHT_TEXT}</p>}
       {layoutFehler && <p role="status" className="text-[12.5px] text-s112-warn-fg bg-s112-warn-bg rounded-lg px-3 py-2">{layoutFehler}</p>}
       {widgets.length === 0 && <p className="text-[13px] text-s112-text-2">Alle Widgets sind ausgeblendet – über „Dashboard anpassen“ wieder einblenden.</p>}
       {abschnitte(widgets).map(a => <Abschnitt key={a.widgets[0].def.id} abschnitt={a} props={props} />)}
