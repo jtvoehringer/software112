@@ -16,6 +16,7 @@ import { domainVon, FREEMAIL_DOMAINS, normEmail } from '@/lib/crm/absender'
 import { LEER, mailText, type LeadVorbelegung } from '@/lib/crm/leadEmail'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
     const gesperrt = await schreibSperreKonflikt(membership, 'ki')   // KAN-5: Nur-Lesen-Modus – KI gesperrt (Kosten)

@@ -11,6 +11,7 @@ import { modulKonflikt } from '@/lib/auth/modul'
 import { wienJetzt } from '@/lib/datum/wien'
 import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -65,6 +66,8 @@ export async function GET(req: NextRequest) {
   const s = await createSupabaseServerClient()
   const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+  const leseSperre = leseKonflikt(await getCurrentMembership(), 'controlling')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const a = req.nextUrl.searchParams.get('action')
 
   if (a === 'eintraege') {
@@ -167,6 +170,8 @@ export async function POST(req: NextRequest) {
   const konflikt = await seitenBetriebKonflikt(t)   // KAN-30: Seite aus einem anderen Betrieb? (Transaktionsnummer)
   if (konflikt) return konflikt
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'controlling')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt
   if (!membership || !darfKostenSchreiben(membership)) return fehlerAntwort('Keine Berechtigung für die Kostenrechnung – dafür ist die Freigabe Auswertungen, Rieden oder Kellerbuch nötig.', 403)

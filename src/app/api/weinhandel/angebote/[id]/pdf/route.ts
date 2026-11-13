@@ -9,6 +9,7 @@ import { ladeAngebot } from '@/lib/auftrag/angebotLaden'
 import { angebotDateiname } from '@/lib/auftrag/angebot'
 import { renderAngebotPdf } from '@/lib/pdf/angebotPdf'
 import { fehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
 
   const geladen = await ladeAngebot(supabase, membership.tenantId, id)

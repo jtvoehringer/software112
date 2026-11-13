@@ -19,6 +19,7 @@ import {
   bestellSystemPrompt, bestellUserPrompt, fuellungText, leseKiAntwort, mailFuerPrompt,
   BEGRIFFE_MAX, FUELLUNGEN_MAX, type GelernterBegriff, type KiFuellung,
 } from '@/lib/verkauf/bestellungKi'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -33,6 +34,8 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!membership || !tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
     const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Anfrage aus einem veralteten Tab?

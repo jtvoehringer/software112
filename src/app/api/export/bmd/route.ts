@@ -18,6 +18,7 @@ import { alsBeleg, lieferscheineSelect, STORNO_FELDER, zaehltMitBetrag } from '@
 import { STORNIERT_ZAEHLT } from '@/lib/verkauf/umsatz'
 import { rund } from '@/lib/zahl/runden'
 import { AktionsFehler } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -61,6 +62,8 @@ export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'ea')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehlerAntwort(401, 'Nicht autorisiert')
   if (!(await hatModul('modul_ea'))) return fehlerAntwort(403, 'Modul E&A-Rechnung nicht freigeschaltet')

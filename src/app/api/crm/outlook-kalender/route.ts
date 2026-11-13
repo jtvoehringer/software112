@@ -5,6 +5,7 @@ import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { M365TokenFehler, NEU_VERBINDEN_TEXT, istNeuVerbinden } from '@/lib/m365/tokenFehler'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -25,6 +26,8 @@ export async function GET(req: NextRequest) {
     const admin    = createSupabaseAdminClient()
 
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ eintraege: [] })
 

@@ -87,7 +87,23 @@ Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich`
 - **Bewusst offen:** `pruefe_ea_zeitraum_offen` (liefert nur „offen/gesperrt“ samt Grund; der Verkauf braucht es), die Rechte-Helfer und die Nummernkreise.
 - **Neue Funktion** mit `p_tenant_id` und SECURITY DEFINER: nach der Zugriffsprüfung `PERFORM public.s112_pruefe_lesen(p_tenant_id, '<bereich>');`, wenn sie Daten eines Bereichs liefert oder ein Profil sie über sein Schreibmodul erreicht – und in DB-Test 07 einstufen (`c_soll` bzw. `c_frei`); ohne Einstufung ist der Test rot.
 - **Grenze des Tests:** Die sechs SQL-Funktionen mit eigener Mitgliedsprüfung lassen die Sitzung „postgres“ durch und sind im Testrahmen nur statisch geprüft (die Bedingung steht im Zweig der Mitgliedschaft).
-- **Noch offen in R3:** Wege der App über die Service-Role (API-Routen, Postfach, Morgenbericht, Benachrichtigungen), globale Suche, Behördenmeldungen und Datenexporte – PR 2 und 3.
+**API-Routen (`scripts/lesebereich-routen.json`, Wächter `scripts/check-lesebereich-routen.js`):**
+
+Jede der 91 Routen unter `src/app/api` hat einen Bereich oder eine begründete Ausnahme. 65 Routen prüfen direkt nach `getCurrentMembership()` mit `leseKonflikt(membership, '<bereich>')` (`src/lib/api/lesebereich.ts`, HTTP 403) – unabhängig davon, ob sie per Service-Role oder mit dem Benutzer-Client laden.
+
+| Bereich | Routen |
+| --- | --- |
+| crm | `crm/*`, Postfach (`nachrichten/*`, `email/*`, `m365/*`, `auth/m365`), Besuchsplanung, Visitkarte, Export Kontakte/Firmen |
+| verkauf | `weinhandel/*` (Angebot, Auftrag, Verkauf, Rechnung), `weinexport/*`, SumUp-Checkout, Verkaufs-Stammdaten, Umsatz-Reports, Export Verkauf |
+| lager | Füllungsbilder und Datenblatt, Zukauf-Stammdaten, Export Lager und Datenblätter |
+| ea | `buchhaltung/*`, BMD-Export |
+| keller | Export Journal, Report Weinbücher; Assistent (zusätzlich ki) |
+| ki / controlling / rieden / betriebsmittel | KI-Abfrage / Kostenrechnung / Export Rieden-Geodaten / PSM-Übermittlung |
+
+- **Ausnahmen (26):** Webhooks, Cron und OAuth-Rückkehr (ohne Benutzersitzung), Routen im Bereich `allgemein` (Profil, Betrieb, Support, Benachrichtigungen, Release-Notes) sowie globale Suche und Import – beide laden nur mit dem Benutzer-Client, die Policies filtern.
+- **Service-Role außerhalb von `/api`** (Dashboard, CRM, Buchhaltung, Betrieb, Benutzer, Morgenbericht, E-Mail, Newsletter): durchgesehen am 13.11.2026 – dort werden nur Tabellen des Bereichs `allgemein` (Betriebseinstellungen, Mitgliedschaften, Postfach-Verbindungen) bzw. im Cron ohne Benutzer gelesen; kein Befund.
+- **Neue Route:** Eintrag in `scripts/lesebereich-routen.json` und Aufruf von `leseKonflikt` – der Wächter (prebuild) meldet beides.
+- **Noch offen in R3 (PR 3):** Behördenmeldungen und ihre Übersichten (`zugriffsFehler`), Benachrichtigungen und Morgenbericht je Bereich.
 
 ## Stand der Umsetzung
 
@@ -95,6 +111,6 @@ Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich`
 | --- | --- | --- |
 | R1 | Profil an der Mitgliedschaft, Funktionen, diese Liste – ohne Wirkung (erledigt) | KAN-412 |
 | R2 | Sperr-Policies auf allen Tabellen, DB-Test-Matrix (umgesetzt) | KAN-454 |
-| R3 | Funktionen, KI, Suche, Exporte, Dateien (Datenbank umgesetzt; App-Wege offen) | KAN-455 |
+| R3 | Funktionen, KI, Suche, Exporte, Dateien (Datenbank und API-Routen umgesetzt; Behördenmeldungen und Benachrichtigungen offen) | KAN-455 |
 | R4 | Navigation, Seiten, Dashboard | KAN-456 |
 | R5 | Vergabe in der Benutzerverwaltung, E2E, Freigabe | KAN-457 |

@@ -11,6 +11,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { BILD_BUCKET, bildArtAusName, bildFehler, bildPfad, istBildArt, type BildArt } from '@/lib/handel/datenblatt'
 import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
 import { AktionsFehler } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,8 @@ const fehler = (status: number, text: string) => NextResponse.json({ fehler: tex
 /** Gemeinsame Prüfungen; liefert Antwort (Fehler) oder Kontext */
 async function kontext(id: string): Promise<NextResponse | { m: Membership; supabase: Awaited<ReturnType<typeof createSupabaseServerClient>> }> {
   const m = await getCurrentMembership()
+  const leseSperre = leseKonflikt(m, 'lager')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!m?.tenantId) return fehler(401, 'Kein Betrieb')
   const konflikt = await seitenBetriebKonflikt(m.tenantId)
   if (konflikt) return konflikt

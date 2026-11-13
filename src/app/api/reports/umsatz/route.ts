@@ -6,6 +6,7 @@ import { ladeUmsatzBelege, umsatzNetto } from '@/lib/verkauf/umsatz'
 import { umsatzBasis, type UmsatzBasis } from '@/lib/verkauf/umsatzBasis'
 import { dbFehlerText } from '@/lib/fehler'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

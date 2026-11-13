@@ -4,6 +4,7 @@ import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -22,6 +23,8 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
 
@@ -53,6 +56,8 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ladeOutlookVerbindung, ladeOutlookKollegen } from '@/lib/m365/benutzer'
 import { kalenderFreiBelegt } from '@/lib/m365/graph'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { getCurrentMembership } from '@/lib/auth/roles'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +14,8 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const leseSperre = leseKonflikt(await getCurrentMembership(), 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const datum = req.nextUrl.searchParams.get('datum')
   if (!datum || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) return NextResponse.json({ ok: false, grund: 'eingabe', kollegen: [] })
   const nurIds = (req.nextUrl.searchParams.get('user') ?? '').split(',').filter(Boolean)

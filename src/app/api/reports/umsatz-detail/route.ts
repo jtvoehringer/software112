@@ -5,6 +5,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { ladeUmsatzBelege, umsatzBelegZeile } from '@/lib/verkauf/umsatz'
 import { umsatzBasis } from '@/lib/verkauf/umsatzBasis'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 const TAG = /^\d{4}-\d{2}-\d{2}$/
 
@@ -16,6 +17,8 @@ export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

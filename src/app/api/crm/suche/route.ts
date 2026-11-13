@@ -7,6 +7,7 @@ import { suchWoerter } from '@/lib/crm/liste'
 import { fremderBetrieb, ladeCrmGemeinschaft, sichtbareBetriebe, type CrmGemeinschaft } from '@/lib/crm/gemeinschaft'
 import { zahlWert } from '@/lib/format'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 // Serverseitige Namenssuche für Auswahlfelder (17.9.2026):
 //   /api/crm/suche?art=kontakt|firma|kunde|lieferant&q=<text>
@@ -87,6 +88,8 @@ export async function GET(req: NextRequest) {
   const idsRoh = (sp.get('ids') ?? '').split(',').filter(Boolean).slice(0, 50)
   const firmaId = sp.get('firma_id') || null
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ treffer: [] })
   const supabase = await createSupabaseServerClient()

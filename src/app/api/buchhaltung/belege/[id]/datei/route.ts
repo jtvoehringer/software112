@@ -9,6 +9,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { dbFehlerText } from '@/lib/fehler'
 import { BELEG_BUCKET } from '@/lib/buchhaltung/belegAnhang'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -28,6 +29,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'ea')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 

@@ -18,6 +18,7 @@ import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { rund } from '@/lib/zahl/runden'
 import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'ea')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
   const konflikt = await seitenBetriebKonflikt(tenantId, 'error')   // KAN-30: Beleg aus einem veralteten Tab?

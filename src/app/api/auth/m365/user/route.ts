@@ -5,6 +5,7 @@ import { m365AuthUrl, m365ScopeFuer } from '@/lib/m365/graph'
 import { erzeugeStateWert, setzeNonceCookie } from '@/lib/m365/state'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
 
   const admin = createSupabaseAdminClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.redirect(new URL('/dashboard', req.url))
 

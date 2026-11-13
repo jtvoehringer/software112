@@ -28,6 +28,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -163,6 +164,8 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
 
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'ki', 'keller')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     if (!membership) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
     // KAN-30: Nachricht aus einem veralteten Tab (anderer Betrieb)? Vor dem Speichern und vor
     // jedem Tool-Aufruf ablehnen – „Verkauf bestätigen“ o. ä. landete sonst im neuen Betrieb.

@@ -17,6 +17,7 @@ import { dbFehlerText, fehlerText } from '@/lib/fehler'
 import { ladeAuftragsbestaetigung } from '@/lib/auftrag/bestaetigungLaden'
 import { abBetreff, abDateiname, abEmpfaengerFehler, abMailText, abNachrichtFehler } from '@/lib/auftrag/bestaetigung'
 import { renderAuftragsbestaetigungPdf } from '@/lib/pdf/auftragsbestaetigungPdf'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!membership?.tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
   const fremderBetrieb = await seitenBetriebKonflikt(membership.tenantId, 'error')   // KAN-30: Seite aus einem anderen Betrieb?
   if (fremderBetrieb) return fremderBetrieb

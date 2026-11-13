@@ -13,6 +13,7 @@ import { ausfuhranmeldungFehler, mrnBereinigt } from '@/lib/export/nachweise'
 import { heuteWien } from '@/lib/datum/wien'
 import { belegnummernAus, belegnummernFehler } from '@/lib/export/belegnummern'
 import { verbrauchsteuerFehler, verbrauchsteuerWerte, type VerbrauchsteuerEingabe } from '@/lib/export/verbrauchsteuer'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -52,6 +53,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const supabase = await createSupabaseServerClient()
   // tenant_id + Rolle IMMER aus aktivem Tenant (Cookie) – niemals aus dem Request-Body
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehler('Nicht autorisiert', 401)
   const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
@@ -147,6 +150,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   const tenantId = membership?.tenantId
   if (!tenantId) return fehler('Nicht autorisiert', 401)
   const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?

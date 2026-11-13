@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
@@ -11,6 +12,8 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const leseSperre = leseKonflikt(await getCurrentMembership(), 'crm')   // KAN-455: Lesebereich je Profil
+  if (leseSperre) return leseSperre
   if (!process.env.ANTHROPIC_API_KEY)
     return NextResponse.json({ fehler: 'ANTHROPIC_API_KEY nicht gesetzt' }, { status: 500 })
 

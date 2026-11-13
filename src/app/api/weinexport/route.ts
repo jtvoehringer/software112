@@ -11,6 +11,7 @@ import { modulKonflikt } from '@/lib/auth/modul'
 import { exportauftragFehler, exportKopf, exportPositionen, verpackungWert } from '@/lib/export/auftragEingabe'
 import { dbFehlerText } from '@/lib/fehler'
 import { EXPORT_STANDARD_DOKUMENTE } from '@/lib/export/dokumente'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -33,6 +34,8 @@ export async function POST(req: NextRequest) {
     // tenant_id + Rolle IMMER aus aktivem Tenant (Cookie) – niemals aus Request-Body
     // oder einer beliebigen Membership (Sicherheit)
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'verkauf')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
     // KAN-30: Formular aus einem veralteten Tab (anderer Betrieb)? Sonst Exportnummer aus dem

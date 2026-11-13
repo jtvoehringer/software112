@@ -10,6 +10,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
     // Cron-Aufruf (kein Session-Cookie) liefert es null -> tenantId bleibt undefined und
     // der Cron-Zweig unten (alle Tenants) greift wie zuvor.
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     // KAN-25-Nachtrag (02.10.2026): Der Knopf in der Mandantenverwaltung schickt den angezeigten Betrieb mit
     // (?tenant=<id>) – vorher wurde immer der aktive Betrieb aus dem Cookie erneuert. Ein anderer als der aktive
     // Betrieb nur für Plattform-Admins.

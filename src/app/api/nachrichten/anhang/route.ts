@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 // E-Mail-Anhang herunterladen (17.9.2026): /api/nachrichten/anhang?id=<mail>&aid=<anhang>&mailbox=own|shared
 // Holt den Anhang über Graph mit dem Token des angemeldeten Benutzers und
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 

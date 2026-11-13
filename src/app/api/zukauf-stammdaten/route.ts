@@ -5,6 +5,7 @@ import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,8 @@ export async function GET() {
   if (zweiFaktor) return zweiFaktor
   try {
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'lager')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
 

@@ -5,6 +5,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { dbFehlerText } from '@/lib/fehler'
+import { leseKonflikt } from '@/lib/api/lesebereich'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -18,6 +19,8 @@ export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
     const { data: { user } } = await supabase.auth.getUser()
@@ -39,6 +42,8 @@ export async function POST(req: NextRequest) {
     const { monitored_email } = await req.json()
     const supabase = await createSupabaseServerClient()
     const membership = await getCurrentMembership()
+    const leseSperre = leseKonflikt(membership, 'crm')   // KAN-455: Lesebereich je Profil
+    if (leseSperre) return leseSperre
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
     const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
