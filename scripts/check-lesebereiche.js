@@ -33,6 +33,30 @@ function pruefe(liste, schema) {
     if (!(liste.profile ?? {})[f.profil]) fehler.push(`Spalten-Fall ${f.tabelle}: unbekanntes Profil „${f.profil}“`)
     for (const s of f.spalten ?? []) if (!schema[f.tabelle].includes(s)) fehler.push(`Spalten-Fall ${f.tabelle}: unbekannte Spalte „${s}“`)
   }
+  // KAN-454: Form der Sperr-Policy je Tabelle (scripts/lesebereich-sql.js erzeugt daraus die Liste der Migration)
+  const kinder = liste.kinder ?? {}
+  const sichten = liste.sichten ?? []
+  const freigaben = liste.freigaben ?? []
+  for (const [t, k] of Object.entries(kinder)) {
+    if (!schema[t]) { fehler.push(`Kindtabelle „${t}“ steht nicht in scripts/schema.json`); continue }
+    if (schema[t].includes('tenant_id')) fehler.push(`Kindtabelle „${t}“ hat eine tenant_id – sie braucht die Sperre über tenant_id, nicht über die Elternzeile`)
+    if (!schema[t].includes(k.spalte)) fehler.push(`Kindtabelle „${t}“: unbekannte Spalte „${k.spalte}“`)
+    if (!schema[k.eltern]) { fehler.push(`Kindtabelle „${t}“: unbekannte Elterntabelle „${k.eltern}“`); continue }
+    if (!schema[k.eltern].includes('tenant_id') || kinder[k.eltern] || sichten.includes(k.eltern))
+      fehler.push(`Kindtabelle „${t}“: die Elterntabelle „${k.eltern}“ muss eine Tabelle mit tenant_id sein (sie trägt die Sperre)`)
+    if (tabellen[k.eltern] !== tabellen[t]) fehler.push(`Kindtabelle „${t}“ (${tabellen[t]}) und Elterntabelle „${k.eltern}“ (${tabellen[k.eltern]}) liegen in verschiedenen Bereichen`)
+    if (tabellen[t] === 'allgemein') fehler.push(`Kindtabelle „${t}“ liegt im Bereich „allgemein“ – dort gibt es keine Sperre`)
+  }
+  for (const t of sichten) if (!schema[t]) fehler.push(`Sicht „${t}“ steht nicht in scripts/schema.json`)
+  for (const t of freigaben) {
+    if (!schema[t]) { fehler.push(`Freigabe „${t}“ steht nicht in scripts/schema.json`); continue }
+    for (const s of ['eigentuemer_tenant_id', 'nutzer_tenant_id']) if (!schema[t].includes(s)) fehler.push(`Freigabe „${t}“: Spalte „${s}“ fehlt`)
+  }
+  for (const [t, b] of Object.entries(tabellen)) {
+    if (b === 'allgemein' || !schema[t] || schema[t].includes('tenant_id')) continue
+    if (!kinder[t] && !sichten.includes(t) && !freigaben.includes(t))
+      fehler.push(`Tabelle „${t}“ (${b}) hat keine tenant_id – als Kindtabelle (kinder), Sicht (sichten) oder Freigabe (freigaben) eintragen`)
+  }
   return fehler
 }
 

@@ -1,5 +1,5 @@
 {
-  "hinweis": "KAN-412: jede Tabelle genau ein Lesebereich; Profile lesen nur ihre Bereiche. Pflege von Hand – scripts/check-lesebereiche.js prüft gegen scripts/schema.json.",
+  "hinweis": "KAN-412/KAN-454: jede Tabelle genau ein Lesebereich; Profile lesen nur ihre Bereiche. kinder = Tabellen ohne tenant_id (Sperre über die Elternzeile), sichten = Sichten mit security_invoker (keine eigene Policy), freigaben = Gemeinschaften. Pflege von Hand – scripts/check-lesebereiche.js prüft gegen scripts/schema.json; neue Tabelle → hier eintragen UND Policy lesebereich in derselben Migration.",
   "bereiche": {
     "allgemein": "Allgemeines (Profil, Betrieb, Kataloge, Benachrichtigungen) – jedes Mitglied",
     "rieden": "Rieden, Lagen, Grundstücke, Reifemessungen",
@@ -75,7 +75,7 @@
     "ea_transaktionen": "ea",
     "ea_uva": "ea",
     "elabel_umleitungen": "lager",
-    "elabel_zutaten": "lager",
+    "elabel_zutaten": "allgemein",
     "elabels": "lager",
     "email_lead_ignoriert": "crm",
     "ernte_gst_abgeschlossen": "lese",
@@ -155,7 +155,7 @@
     "sumup_checkouts": "verkauf",
     "sumup_terminals": "verkauf",
     "sumup_transaktionen": "verkauf",
-    "svs_parameter": "ea",
+    "svs_parameter": "allgemein",
     "system_ereignisse": "verwaltung",
     "tenant_einstellungen": "allgemein",
     "tenant_memberships": "allgemein",
@@ -182,6 +182,84 @@
     "zeiterfassung": "controlling",
     "zukauf_posten": "lager"
   },
+  "kinder": {
+    "ama_meldepositionen": {
+      "eltern": "ama_erntemeldungen",
+      "spalte": "meldung_id"
+    },
+    "assistent_aktionen": {
+      "eltern": "assistent_unterhaltungen",
+      "spalte": "unterhaltung_id"
+    },
+    "assistent_nachrichten": {
+      "eltern": "assistent_unterhaltungen",
+      "spalte": "unterhaltung_id"
+    },
+    "behandlung_grundstuecke": {
+      "eltern": "behandlungen",
+      "spalte": "behandlung_id"
+    },
+    "bestellung_positionen": {
+      "eltern": "bestellungen",
+      "spalte": "bestellung_id"
+    },
+    "ernte_parzellen": {
+      "eltern": "weinjahrgaenge",
+      "spalte": "jahrgang_id"
+    },
+    "export_dokumente": {
+      "eltern": "exportauftraege",
+      "spalte": "exportauftrag_id"
+    },
+    "exportauftrag_positionen": {
+      "eltern": "exportauftraege",
+      "spalte": "exportauftrag_id"
+    },
+    "kontakt_firmen": {
+      "eltern": "kontakte",
+      "spalte": "kontakt_id"
+    },
+    "kontakt_praeferenzen": {
+      "eltern": "kontakte",
+      "spalte": "kontakt_id"
+    },
+    "kosteneintrag_behaelter": {
+      "eltern": "kosteneintraege",
+      "spalte": "kosteneintrag_id"
+    },
+    "kosteneintrag_weingaerten": {
+      "eltern": "kosteneintraege",
+      "spalte": "kosteneintrag_id"
+    },
+    "pipeline_verlauf": {
+      "eltern": "pipeline_eintraege",
+      "spalte": "pipeline_id"
+    },
+    "pressung_behaelter": {
+      "eltern": "pressungen",
+      "spalte": "pressung_id"
+    },
+    "pressung_weingaerten": {
+      "eltern": "pressungen",
+      "spalte": "pressung_id"
+    },
+    "verschneidung_quellen": {
+      "eltern": "verschneidungen",
+      "spalte": "verschneidung_id"
+    },
+    "weingarten_rebsorten": {
+      "eltern": "weingarten",
+      "spalte": "weingarten_id"
+    }
+  },
+  "sichten": [
+    "charge_herkunft",
+    "v_behaelter_fuellstand"
+  ],
+  "freigaben": [
+    "crm_freigaben",
+    "keller_freigaben"
+  ],
   "spaltenfaelle": [
     {
       "tabelle": "grundstuecke",
