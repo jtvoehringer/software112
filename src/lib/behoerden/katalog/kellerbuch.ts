@@ -242,6 +242,7 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     beschreibung: 'Alle Umzüge, Filtrationen und Schwundbuchungen im gewählten Zeitraum.',
   },
   aenderungsprotokoll: {
+    bereich: 'verwaltung',   // KAN-455: Änderungsprotokoll – keines der Profile
     titel: 'Änderungs- und Löschprotokoll (Bestandsprotokoll)',
     behoerde: 'BKI / Weinaufsicht',
     zugriff: 'verwaltung',

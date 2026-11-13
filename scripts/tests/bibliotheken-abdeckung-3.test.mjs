@@ -52,7 +52,8 @@ describe('Benachrichtigung zustellen (sendeBenachrichtigung, benachrichtigeAktiv
     globalThis.__brevoFehler = null
     process.env.BREVO_API_KEY = 'test'
     process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.at/'
-    admin = datenbank({ benachrichtigungen: [] }, { rpc: (name, args) => (name === 's112_mandant_mitglieder_mit_email' && args.p_tenant_id === T ? { data: MITGLIEDER, error: null } : { data: null, error: { message: 'x' } }) })
+    // KAN-455: CRM-Benachrichtigungen lesen Rolle und Profil der Empfänger (Leserecht) – hier alle ohne Profil
+    admin = datenbank({ benachrichtigungen: [], tenant_memberships: MITGLIEDER.map(m => ({ tenant_id: T, user_id: m.user_id, role: 'winzer', profil: null })) }, { rpc: (name, args) => (name === 's112_mandant_mitglieder_mit_email' && args.p_tenant_id === T ? { data: MITGLIEDER, error: null } : { data: null, error: { message: 'x' } }) })
     globalThis.__adminFake = admin
   })
   afterEach(() => {
@@ -135,6 +136,37 @@ describe('Benachrichtigung zustellen (sendeBenachrichtigung, benachrichtigeAktiv
     assert.deepEqual(nachArt('aufgabe_alle'), ['u2', 'u3', 'u4'])
     assert.equal(zeilen()[0].titel, 'Termin für alle: Lese')
     assert.equal(zeilen()[0].text, 'Bitte @Hannes und @Karin', 'ohne Datum nur die Beschreibung')
+  })
+
+  // KAN-455 (13.11.2026): Ein Mitarbeiter mit Profil „Extern“ darf das CRM nicht lesen – er bekäme sonst Titel und Text
+  // der Aufgabe per Glocke und Mail. Ohne den Filter in sendeBenachrichtigung ist dieser Test rot.
+  test('Aktivität: Empfänger ohne Leserecht im CRM bekommen nichts; „Vertrieb“ und Mitglieder ohne Profil schon', async () => {
+    const mitglieder = MITGLIEDER.map(m => ({ id: m.user_id, name: m.name }))
+    admin.tabellen.tenant_memberships.find(m => m.user_id === 'u2').profil = 'extern'
+    admin.tabellen.tenant_memberships.find(m => m.user_id === 'u3').profil = 'vertrieb'
+    await bn.benachrichtigeAktivitaet({
+      tenantId: T, userId: 'u1', id: 'a9', betreff: 'Kunde anrufen', art: 'aufgabe', datum: null, beschreibung: 'geheim',
+      verantwortlichId: 'u2', fuerAlle: true, vorher: null, mitglieder,
+    })
+    assert.deepEqual(zeilen().map(z => `${z.art}:${z.empfaenger_id}`).sort(), ['aufgabe_alle:u3', 'aufgabe_alle:u4'])
+    assert.equal(globalThis.__mails.length, 0, 'u2 (extern) bekommt auch keine Mail; u3 hat die Mail abgeschaltet, u4 keine Adresse')
+  })
+
+  test('Leserecht nicht ladbar → an niemanden; Ereignis ohne Bereich → wie bisher an alle', async () => {
+    const orig = console.error
+    console.error = () => {}
+    try {
+      admin = datenbank({ benachrichtigungen: [], tenant_memberships: [] }, {
+        rpc: () => ({ data: MITGLIEDER, error: null }),
+        vorher: e => (e.tabelle === 'tenant_memberships' ? { error: { message: 'weg' } } : null),
+      })
+      globalThis.__adminFake = admin
+      await bn.sendeBenachrichtigung({ tenantId: T, empfaengerIds: ['u2'], ausgeloestVon: null, art: 'aufgabe_zugewiesen', titel: 'x', bereich: 'crm' })
+      assert.equal(zeilen().length, 0)
+      assert.equal(globalThis.__mails.length, 0)
+      await bn.sendeBenachrichtigung({ tenantId: T, empfaengerIds: ['u2'], ausgeloestVon: null, art: 'system', titel: 'x' })
+      assert.equal(zeilen().length, 1)
+    } finally { console.error = orig }
   })
 })
 

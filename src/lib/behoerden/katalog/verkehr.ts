@@ -10,6 +10,7 @@ import { katalogGruppe } from '../typen'
 
 export const KATALOG_VERKEHR = katalogGruppe('verkehr', {
   transportbescheinigung: {
+    bereich: 'lager',   // KAN-455: Füllungen und Lager
     titel: 'Transportbescheinigung',
     behoerde: 'Bundeskellereiinspektion (BKI)',
     zugriff: 'mitglied',
@@ -19,6 +20,7 @@ export const KATALOG_VERKEHR = katalogGruppe('verkehr', {
     beschreibung: 'Je Verkaufsposten eine Zeile je Weinposition mit Versender, Empfänger, Transportmittel, Menge, Art, Sorte, Jahrgang, Herkunft und Prüfnummer.',
   },
   transportbescheinigungen: {
+    bereich: 'lager',   // KAN-455: Füllungen und Lager
     titel: 'Transportbescheinigungen eines Zeitraums',
     behoerde: 'Bundeskellereiinspektion (BKI)',
     zugriff: 'mitglied',
@@ -27,6 +29,7 @@ export const KATALOG_VERKEHR = katalogGruppe('verkehr', {
     beschreibung: 'Alle Verkäufe von–bis mit Tank-, Flaschen- oder Traubenpositionen, gleiche Spalten wie die einzelne Transportbescheinigung, mit Formularstand.',
   },
   pruefnummernantrag: {
+    bereich: 'keller',   // KAN-455: Chargen und Prüfnummern
     titel: 'Antrag auf staatliche Prüfnummer',
     behoerde: 'Bundesamt für Weinbau (Prüfnummer)',
     zugriff: 'mitglied',
@@ -36,6 +39,7 @@ export const KATALOG_VERKEHR = katalogGruppe('verkehr', {
     beschreibung: 'Antragsangaben je DAC-Antrag, eine Zeile je Mostcharge (ohne Mostcharge eine Zeile).',
   },
   'dac-antraege': {
+    bereich: 'keller',   // KAN-455: Chargen und Prüfnummern
     titel: 'DAC- und Prüfnummernanträge',
     behoerde: 'Bundesamt für Weinbau (Prüfnummer)',
     zugriff: 'mitglied',
