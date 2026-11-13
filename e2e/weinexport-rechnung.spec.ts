@@ -53,7 +53,9 @@ test.describe('Weinexport: Rechnung aus dem Exportauftrag (schreibend)', () => {
     const fuellung = page.locator('select', { has: page.locator('option', { hasText: '– Füllung –' }) }).first()
     const optionen = await fuellung.locator('option').evaluateAll(os => os.map(o => ({ wert: (o as HTMLOptionElement).value, text: o.textContent ?? '' })))
     // nie die Füllung eines parallel laufenden Tests („E2E-Test …“)
-    const mitBestand = optionen.find(o => o.wert && !o.text.includes('E2E-Test') && Number(/\((\d+) Fl\.\)/.exec(o.text)?.[1] ?? 0) >= 1)
+    // Die LETZTE Füllung mit Bestand: e2e/verkauf.spec.ts läuft gleichzeitig und nimmt die erste – aus derselben Füllung
+    // sähen beide Tests einen um 2 statt um 1 gesunkenen Bestand (E2E-Lauf 13.11.2026: 923 statt 924 in beiden Tests)
+    const mitBestand = [...optionen].reverse().find(o => o.wert && !o.text.includes('E2E-Test') && Number(/\((\d+) Fl\.\)/.exec(o.text)?.[1] ?? 0) >= 1)
     test.skip(!mitBestand, 'keine Füllung mit Bestand im Testbetrieb')
     const fuellungId = mitBestand!.wert
     const vorher = Number(/\((\d+) Fl\.\)/.exec(mitBestand!.text)![1])
