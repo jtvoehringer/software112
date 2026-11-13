@@ -527,7 +527,7 @@ describe('exportauftrag / exportauftraege', () => {
     assert.equal(z.dokErforderlich, 2)
     const d = csvDatei(r.zeilen, exp.SPALTEN_EXPORTAUFTRAEGE)
     assert.equal(zelle(d.text, 1, 'Phytosanitäres Zertifikat'), 'Beantragt')
-    assert.equal(zelle(d.text, 1, 'V1/V2 Begleitdokument'), 'Ausgestellt')
+    assert.equal(zelle(d.text, 1, 'Weinbegleitdokument (altes Muster)'), 'Ausgestellt')   // KAN-435 D1: umbenannt
     assert.equal(zelle(d.text, 1, 'EUR.1 Ursprungszeugnis'), '')
     assert.equal(zelle(d.text, 1, 'EMCS-Status'), 'Eingereicht')
     assert.equal(zelle(d.text, 1, 'EMCS ARC-Nummer'), '26AT000000000000001')
@@ -548,7 +548,7 @@ describe('exportauftrag / exportauftraege', () => {
 describe('Katalog und Register „verkehr“', () => {
   test('Register deckt genau den Katalog ab, Zugriff und Modul wie die Seiten', () => {
     assert.deepEqual(Object.keys(MELDUNGEN_VERKEHR).sort(), Object.keys(KATALOG_VERKEHR).sort())
-    assert.deepEqual(Object.keys(KATALOG_VERKEHR).sort(), ['dac-antraege', 'exportauftraege', 'exportauftrag', 'pruefnummernantrag', 'transportbescheinigung', 'transportbescheinigungen', 'zusammenfassende-meldung'])   // KAN-439: + Zusammenfassende Meldung
+    assert.deepEqual(Object.keys(KATALOG_VERKEHR).sort(), ['dac-antraege', 'emcs-datenblatt', 'exportauftraege', 'exportauftrag', 'pruefnummernantrag', 'transportbescheinigung', 'transportbescheinigungen', 'zusammenfassende-meldung'])   // KAN-439: + Zusammenfassende Meldung
     for (const m of Object.values(MELDUNGEN_VERKEHR)) {
       assert.equal(m.gruppe, 'verkehr')
       assert.equal(m.zugriff, 'mitglied')

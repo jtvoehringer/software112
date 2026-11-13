@@ -1,15 +1,15 @@
 // ── Behördenmeldungen „Weinexport“ (24.09.2026) ─────────────────────────────────
 //
 //  exportauftrag   Positionsliste eines Exportauftrags als gemeinsame Anlage zu den
-//                  Begleitpapieren (V1/V2, EUR.1, CMR, Ursprungszeugnis) und für den
+//                  Begleitpapieren (Begleitdokument, EUR.1, CMR, Ursprungszeugnis) und für den
 //                  Spediteur: eine Zeile je Position mit Bezeichnung, TARIC, Menge,
 //                  Einheit, Liter, Wert (€), Ursprung, Bestimmungsland, EORI.
 //                  Seite /weinexport/[id] und CSV nutzen ladeExportauftrag().
 //  exportauftraege Auftragsliste mit Dokumentstatus (auch Phytosanitär), ARC-Nummer und
 //                  EMCS-Status. Seite /weinexport und CSV nutzen ladeExportauftraege().
 //
-// Das EMCS-XML (IE801) und die HTML-Papiere unter /api/weinexport bleiben das Meldeformat;
-// die CSV kommt zusätzlich. Wert je Position = Menge × Preis, kaufmännisch auf 2 Stellen
+// Die HTML-Papiere unter /api/weinexport bleiben das Druckformat; die CSV kommt zusätzlich. Die frühere e-AD-XML-Datei
+// ist seit KAN-435 durch das EMCS-Datenblatt ersetzt (emcsDatenblatt.ts). Wert je Position = Menge × Preis, kaufmännisch auf 2 Stellen
 // gerundet; Summen addieren die gerundeten Werte (Seite und CSV stimmen überein).
 //
 // Isomorph ohne Server-Importe (Konstanten auch für WeinexportDetailClient) – Tests: scripts/tests/verkehr.test.mjs

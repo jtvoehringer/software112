@@ -31,7 +31,7 @@ const ROUTE = 'src/app/api/weinexport/[id]/dokument/[art]/route.ts'
 
 describe('KAN-433: Dokumentarten an einer Stelle', () => {
   test('Packliste ist Standard (1A), Phytosanitär nicht mehr wählbar (2A), Health Certificate ohne Druckansicht', () => {
-    assert.deepEqual([...EXPORT_STANDARD_DOKUMENTE], ['v1v2', 'eur1', 'packliste', 'lieferschein', 'rechnung'])
+    assert.deepEqual([...EXPORT_STANDARD_DOKUMENTE], ['eur1', 'packliste', 'lieferschein', 'rechnung'])   // KAN-435 D1: das alte Begleitdokument-Muster ist nicht mehr Standard
     assert.ok(!EXPORT_WAEHLBARE_DOKUMENTE.includes('phytosanitaer'))
     assert.ok(EXPORT_DOKUMENT_ARTEN.includes('phytosanitaer'), 'bestehende Einträge bleiben sichtbar')
     assert.equal(EXPORT_DOKUMENT_LABEL.phytosanitaer, 'Phytosanitäres Zertifikat')
@@ -133,7 +133,7 @@ describe('KAN-433: Druckansichten', () => {
     const leiste = r.slice(r.indexOf('const hinweisLeiste ='), r.indexOf('const leiste ='))
     assert.doesNotMatch(leiste, /<a |href=/)
     assert.equal(r.split('${leiste}').length - 1, 6, 'alle Dokumente außer V1/V2')
-    assert.equal(r.split('${druckleiste()}').length - 1, 1, 'V1/V2 bleibt bis KAN-435 unverändert')
+    assert.equal(r.split('${druckleiste()}').length - 1, 1, 'altes Begleitdokument-Muster: eigener Hinweis (KAN-435 D1), keine Liste „fehlt noch“')
   })
   test('Packliste: Kartonnummern, Summen, Liter nach Farbe, Ursprungsland', () => {
     const p = r.slice(r.indexOf("case 'packliste': {"), r.indexOf('    default:'))

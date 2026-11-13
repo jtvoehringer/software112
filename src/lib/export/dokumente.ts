@@ -24,7 +24,10 @@ export type ExportDokument = {
 
 /** Reihenfolge = Reihenfolge in Checkliste, Auswahl und CSV der Auftragsliste. dokument_art ist varchar(30). */
 export const EXPORT_DOKUMENTE: readonly ExportDokument[] = [
-  { art: 'v1v2', label: 'V1/V2 Begleitdokument', druck: true, standard: true, waehlbar: true },
+  // KAN-435 D1 (Entscheidung 3A): Das Muster beruht auf der aufgehobenen VO (EG) 436/2009. Bis das Begleitdokument nach
+  // VO (EU) 2018/273 gebaut ist (wartet auf Auskünfte von Zollamt und BKI), bleibt es druckbar, aber gekennzeichnet und
+  // nicht mehr Standard bei neuen Aufträgen. Die Art heißt in der Datenbank weiter „v1v2“.
+  { art: 'v1v2', label: 'Weinbegleitdokument (altes Muster)', druck: true, standard: false, waehlbar: true },
   { art: 'eur1', label: 'EUR.1 Ursprungszeugnis', druck: true, standard: true, waehlbar: true },
   { art: 'cmr', label: 'CMR Frachtbrief', druck: true, standard: false, waehlbar: true },
   { art: 'certificate_of_origin', label: 'Certificate of Origin', druck: true, standard: false, waehlbar: true },
@@ -42,6 +45,14 @@ export const EXPORT_DOKUMENT_LABEL: Record<string, string> = Object.fromEntries(
 export const EXPORT_STANDARD_DOKUMENTE: readonly string[] = EXPORT_DOKUMENTE.filter(d => d.standard).map(d => d.art)
 /** Dokumente, die sich über „Weiteres Dokument“ hinzufügen lassen */
 export const EXPORT_WAEHLBARE_DOKUMENTE: readonly string[] = EXPORT_DOKUMENTE.filter(d => d.waehlbar).map(d => d.art)
+
+/** Bildschirmhinweis am alten Begleitdokument-Muster (Checkliste und Druckansicht; nicht im Druck) */
+export const ALTES_MUSTER_HINWEIS = 'Altes Muster: Dieses Dokument entspricht nicht dem Weinbegleitdokument nach VO (EU) 2018/273 und wird ersetzt. Vor der Verwendung bitte mit Zollamt bzw. Bundeskellereiinspektion klären, welches Begleitdokument für die Sendung gilt.'
+
+/** Hinweis, der in der Checkliste unter dem Dokument steht (null = keiner) */
+export function dokumentHinweis(art: unknown): string | null {
+  return art === 'v1v2' ? ALTES_MUSTER_HINWEIS : null
+}
 
 export function hatDruckansicht(art: unknown): boolean {
   return EXPORT_DOKUMENTE.some(d => d.art === art && d.druck)

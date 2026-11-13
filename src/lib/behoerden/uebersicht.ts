@@ -51,6 +51,7 @@ export const EINSTIEG: Readonly<Record<string, { pfad: string; label: string }>>
   '/weinhandel/verkauf/[id]/transportbescheinigung': { pfad: '/weinhandel/transportbescheinigungen', label: 'Verkauf wählen' },
   '/dac/[id]/antrag': { pfad: '/dac', label: 'Antrag wählen' },
   '/weinexport/[id]': { pfad: '/weinexport', label: 'Auftrag wählen' },
+  '/weinexport/[id]/emcs-datenblatt': { pfad: '/weinexport', label: 'Auftrag wählen' },
   '/kellerbuch/behaelter/[id]/bewegungen': { pfad: '/kellerbuch', label: 'Gebinde wählen' },
   '/kellerbuch/behaelter/[id]/behandlungen': { pfad: '/kellerbuch', label: 'Gebinde wählen' },
   '/kellerbuch/weinausbau/[id]/buch': { pfad: '/kellerbuch/weinausbau', label: 'Charge wählen' },

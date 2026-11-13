@@ -12,7 +12,7 @@ import { modulKonflikt } from '@/lib/auth/modul'
 import { kgText, sendungsGewicht } from '@/lib/export/gewicht'   // KAN-414: Netto-/Bruttogewicht aus Füllung und Verpackung
 import { eurText, gesamtWert, positionsWert } from '@/lib/export/exportWerte'   // Sweep 77: kaufmännisch, Gesamt = Σ Zeilen
 import { ladeExportauftrag } from '@/lib/behoerden/exportauftrag'   // KAN-433: abgeleitete Angaben je Position (KAN-432)
-import { MUSTERSENDUNG_VERMERK, farbeGroesse, kartonAufschluesselung, kartonNummern, kartonText, kartonsGesamt, warenbeschreibung, zahlDe } from '@/lib/export/dokumente'
+import { ALTES_MUSTER_HINWEIS, MUSTERSENDUNG_VERMERK, farbeGroesse, kartonAufschluesselung, kartonNummern, kartonText, kartonsGesamt, warenbeschreibung, zahlDe } from '@/lib/export/dokumente'
 import { fehlerText } from '@/lib/fehler'
 import { lieferfall } from '@/lib/export/grunddaten'
 import { PROFORMA_VERMERK, befreiung, rechnungsSumme, ursprungserklaerung } from '@/lib/export/rechnungTexte'   // KAN-434
@@ -146,12 +146,13 @@ export async function GET(
   let html = ''
 
   switch (art) {
-    // ── V1/V2 Simplified Accompanying Document ────────────────────────────────
+    // ── Weinbegleitdokument, altes Muster (KAN-435 D1: ohne Verweis auf die aufgehobene Verordnung, mit Bildschirmhinweis) ──
     case 'v1v2':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V1/V2 – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Weinbegleitdokument – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
+        <div class="hinweis-leiste"><strong>${e(ALTES_MUSTER_HINWEIS)}</strong></div>
         ${header(b)}
-        <h1>SIMPLIFIED ACCOMPANYING DOCUMENT (SAD)</h1>
-        <p class="subtitle">V-Dokument für Weinbewegungen – Reg. (EG) Nr. 436/2009</p>
+        <h1>WEINBEGLEITDOKUMENT</h1>
+        <p class="subtitle">Accompanying document for wine</p>
         <div class="grid2">
           <div class="box">
             <div class="label">Versender / Konsignant</div>

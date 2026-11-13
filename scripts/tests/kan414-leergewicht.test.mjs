@@ -135,9 +135,11 @@ describe('KAN-414: Dokumente, Routen, Migration', () => {
     assert.match(d, /Bruttogewicht \/ Gross weight/)
     assert.equal((d.match(/gew\.positionen\[i\]\?\.bruttoKg/g) ?? []).length >= 3, true)
   })
-  test('e-AD-Datei rechnet über positionsGewicht (mit Einheit), nicht mehr Menge × 1,25', () => {
-    const m = quelle('src/app/api/weinexport/[id]/emcs/route.ts')
-    assert.match(m, /<GrossWeight>\$\{kgText\(positionsGewicht\(\{ menge: p\.menge, einheit: p\.einheit, flaschen_je_karton: p\.flaschen_je_karton, fuellung: p\.fuellungen \?\? null \}\)\.bruttoKg\)\}<\/GrossWeight>/)
+  test('EMCS-Datenblatt (KAN-435: ersetzt die e-AD-Datei) nimmt das Gewicht aus der gemeinsamen Ladefunktion, nicht mehr Menge × 1,25', () => {
+    assert.equal(existsSync(new URL('../../src/app/api/weinexport/[id]/emcs/route.ts', import.meta.url)), false, 'die e-AD-XML-Route gibt es nicht mehr')
+    const m = quelle('src/lib/behoerden/emcsDatenblatt.ts')
+    assert.match(m, /nettoKg: p\.nettoKg,\n\s+bruttoKg: p\.bruttoKg,/)   // Zeilen aus ladeExportauftrag (positionsGewicht mit Einheit)
+    assert.doesNotMatch(m, /1\.25/)
     assert.doesNotMatch(quelle('src/lib/export/exportWerte.ts'), /1\.25/)
   })
   test('Füllung: Feld im Anlegen und Bearbeiten, Speichern über die RPC mit Grund', () => {

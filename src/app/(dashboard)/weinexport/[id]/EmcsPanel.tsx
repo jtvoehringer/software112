@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from '@/components/ui/Link'
 
 interface Props { auftragId: string; initialArc: string; initialStatus: string }
 
@@ -46,10 +47,12 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
           {saving ? 'Speichern...' : 'EMCS speichern'}
         </button>
         {fehler && <p role="alert" className="text-xs text-s112-err">{fehler}</p>}
-        <a href={'/api/weinexport/' + auftragId + '/emcs'}
+        {/* KAN-435 D1: Datenblatt zum Erfassen in EMCS statt der nicht einreichbaren e-AD-XML-Datei */}
+        <Link href={'/weinexport/' + auftragId + '/emcs-datenblatt'}
           className="block text-center text-xs border border-s112-border text-s112-text-2 py-1.5 rounded-lg hover:bg-s112-bg mt-1">
-          e-AD XML Download
-        </a>
+          Datenblatt für EMCS
+        </Link>
+        <p className="text-[11px] text-s112-muted">software:112 übermittelt nichts an EMCS. Das Datenblatt zeigt die Angaben zum Erfassen dort; die ARC-Nummer trägst du danach hier ein.</p>
       </div>
     </div>
   )

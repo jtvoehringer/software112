@@ -7,6 +7,7 @@ import { ladePruefnummernantrag, SPALTEN_PRUEFNUMMERNANTRAG } from '../pruefnumm
 import { ladeDacAntraege, SPALTEN_DAC_ANTRAEGE } from '../dac'
 import { ladeExportauftrag, ladeExportauftraege, SPALTEN_EXPORTAUFTRAG, SPALTEN_EXPORTAUFTRAEGE } from '../exportauftrag'
 import { ladeZm, SPALTEN_ZM } from '../zm'
+import { ladeEmcsDatenblatt, SPALTEN_EMCS_DATENBLATT } from '../emcsDatenblatt'
 import { jahrAus } from '../buchhaltung-gemeinsam'
 import { uvaZeitraumAus } from '../uva'
 import { istParameterFehler } from '../typen'
@@ -88,6 +89,21 @@ export const MELDUNGEN_VERKEHR = {
     },
     spalten: SPALTEN_EXPORTAUFTRAG,
     dateiteile: (p, betrieb) => ['Exportauftrag', betrieb.betriebsnummer, p.referenz ?? p.id.slice(0, 8)],
+  }),
+
+  // KAN-435 D1: Datenblatt zum Erfassen in EMCS (ersetzt die e-AD-XML-Datei)
+  'emcs-datenblatt': definiereMeldung(KATALOG_VERKEHR['emcs-datenblatt'], {
+    parameter: sp => {
+      const p = idParameter(sp, 'Exportauftrag')
+      return 'id' in p ? { id: p.id, referenz: dateiParameter(sp, 'referenz') } : p
+    },
+    laden: async (ctx, p) => {
+      const r = await ladeEmcsDatenblatt(ctx.supabase, ctx.tenantId, { id: p.id })
+      if (!r) throw new MeldungsFehler(404, 'Exportauftrag nicht gefunden.')
+      return { zeilen: r.zeilen, warnungen: [...r.warnungen, ...r.fehlt] }
+    },
+    spalten: SPALTEN_EMCS_DATENBLATT,
+    dateiteile: (p, betrieb) => ['EMCS-Datenblatt', betrieb.betriebsnummer, p.referenz ?? p.id.slice(0, 8)],
   }),
 
   // KAN-439: ?jahr=JJJJ, optional &zeitraum=Q1–Q4 bzw. 01–12 (ohne Zeitraum das ganze Jahr)
