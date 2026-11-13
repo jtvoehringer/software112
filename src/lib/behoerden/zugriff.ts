@@ -6,6 +6,8 @@ import type { ModulFlag } from '@/lib/auth/modul'
 import type { Betriebsdaten, KatalogEintrag } from './typen'
 import { KATALOG_LISTE } from './katalog'
 import { AktionsFehler } from '@/lib/fehler'
+import { canRead } from '@/lib/auth/lesebereiche'
+import { meldungsBereich } from './bereich'
 
 // ── Zugriff auf Behördenmeldungen (server-only, 24.09.2026) ──────────────────
 //
@@ -33,15 +35,19 @@ export function benoetigteModule(e: Pick<KatalogEintrag, 'zugriff' | 'modul'>): 
   return m
 }
 
+export const LESE_MELDUNG_MELDUNG = 'Für diese Meldung fehlt dir das Leserecht.'
+
 /** null = erlaubt, sonst deutscher Grund (→ HTTP 403) */
 export function zugriffsFehler(
-  e: Pick<KatalogEintrag, 'zugriff' | 'modul' | 'schreibModul'>,
+  e: Pick<KatalogEintrag, 'zugriff' | 'modul' | 'schreibModul' | 'gruppe' | 'bereich'>,
   membership: Membership,
   module: ModulSchalter,
 ): string | null {
   for (const flag of benoetigteModule(e)) {
     if (!module[flag]) return `Das Modul „${MODUL_NAME[flag]}“ ist für diesen Betrieb nicht freigeschaltet.`
   }
+  // KAN-455: Mitarbeiter mit Profil nur Meldungen aus ihren Lesebereichen (ohne Profil: alles wie bisher)
+  if (!canRead(membership, meldungsBereich(e))) return LESE_MELDUNG_MELDUNG
   switch (e.zugriff) {
     case 'mitglied':
       return null

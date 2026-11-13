@@ -18,6 +18,7 @@
 import type { CsvProfil, CsvSpalte } from '@/lib/csv'
 import type { Membership } from '@/lib/auth/roles'
 import type { ModulFlag } from '@/lib/auth/modul'
+import type { Lesebereich } from '@/lib/auth/lesebereiche'
 import type { Modul } from '@/lib/auth/module'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -48,6 +49,8 @@ export type KatalogEintrag = {
   behoerde: string
   gruppe: MeldungsGruppe
   zugriff: Zugriff
+  /** Lesebereich je Profil (KAN-455), wenn er vom Bereich der Gruppe abweicht – siehe bereich.ts */
+  bereich?: Lesebereich
   rechtsgrundlage?: string
   /** Routenmuster der Druckseite wie im App-Verzeichnis ohne Gruppen-Klammern,
    *  z. B. '/reports/ama' oder '/dac/[id]/antrag'. Die Seite trägt den Marker. */

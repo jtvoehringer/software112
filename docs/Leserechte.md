@@ -103,7 +103,21 @@ Jede der 91 Routen unter `src/app/api` hat einen Bereich oder eine begründete A
 - **Ausnahmen (26):** Webhooks, Cron und OAuth-Rückkehr (ohne Benutzersitzung), Routen im Bereich `allgemein` (Profil, Betrieb, Support, Benachrichtigungen, Release-Notes) sowie globale Suche und Import – beide laden nur mit dem Benutzer-Client, die Policies filtern.
 - **Service-Role außerhalb von `/api`** (Dashboard, CRM, Buchhaltung, Betrieb, Benutzer, Morgenbericht, E-Mail, Newsletter): durchgesehen am 13.11.2026 – dort werden nur Tabellen des Bereichs `allgemein` (Betriebseinstellungen, Mitgliedschaften, Postfach-Verbindungen) bzw. im Cron ohne Benutzer gelesen; kein Befund.
 - **Neue Route:** Eintrag in `scripts/lesebereich-routen.json` und Aufruf von `leseKonflikt` – der Wächter (prebuild) meldet beides.
-- **Noch offen in R3 (PR 3):** Behördenmeldungen und ihre Übersichten (`zugriffsFehler`), Benachrichtigungen und Morgenbericht je Bereich.
+**Behördenmeldungen (`src/lib/behoerden/bereich.ts`):** `zugriffsFehler` prüft nach den Modulen den Lesebereich der Meldung – für die CSV-Route, die Übersichten („Meldungen & Fristen“, Tab „Behörden“) und die BKI-Schnittstelle.
+
+| Gruppe | Bereich | abweichend je Meldung |
+| --- | --- | --- |
+| Ernte & Lese | lese | Bestandsmeldung, BSM, BSM-Kontrolljournal → keller |
+| Pflanzenschutz & Düngung | betriebsmittel | – |
+| Weinverkehr & Export | verkauf | Transportbescheinigung(en) → lager; Prüfnummernantrag, DAC-Anträge → keller |
+| Kellerbuch | keller | Änderungsprotokoll → verwaltung |
+| Buchhaltung & Steuer | ea | – |
+| Flächen & Kataster | rieden | – |
+
+- „Extern“ bekommt damit nur das Flächenverzeichnis, „Vertrieb“ Transportbescheinigungen, Exportaufträge, EMCS-Datenblatt und die Zusammenfassende Meldung.
+- **Neue Meldung:** Bereich der Gruppe gilt; liegt sie fachlich woanders, `bereich: '<bereich>'` am Katalog-Eintrag. Neue Gruppe → `GRUPPEN_BEREICH`.
+
+**Benachrichtigungen:** Aufgaben, Termine und Erwähnungen aus dem CRM gehen (App und Mail) nur an Empfänger, die den Bereich `crm` lesen dürfen (`bereich` am Ereignis, `sendeBenachrichtigung`). Den Morgenbericht gibt es nur als Tabelle im Bereich `ki` – ihn sperrt die Policy, einen Mailversand gibt es nicht.
 
 ## Stand der Umsetzung
 
@@ -111,6 +125,6 @@ Jede der 91 Routen unter `src/app/api` hat einen Bereich oder eine begründete A
 | --- | --- | --- |
 | R1 | Profil an der Mitgliedschaft, Funktionen, diese Liste – ohne Wirkung (erledigt) | KAN-412 |
 | R2 | Sperr-Policies auf allen Tabellen, DB-Test-Matrix (umgesetzt) | KAN-454 |
-| R3 | Funktionen, KI, Suche, Exporte, Dateien (Datenbank und API-Routen umgesetzt; Behördenmeldungen und Benachrichtigungen offen) | KAN-455 |
+| R3 | Funktionen, KI, Suche, Exporte, Dateien (umgesetzt) | KAN-455 |
 | R4 | Navigation, Seiten, Dashboard | KAN-456 |
 | R5 | Vergabe in der Benutzerverwaltung, E2E, Freigabe | KAN-457 |

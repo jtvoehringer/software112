@@ -28,6 +28,7 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     beschreibung: 'Lese je Ried bzw. Grundstück: Datum, KG- und GST-Nr., Rebsorte, Menge, Mostgewicht in °KMW und °Oe samt gemessener Einheit, Qualitätsstufe, Lesemethode, Notizen (z. B. Grund für 0 kg).',
   },
   bestandsmeldung: {
+    bereich: 'keller',   // KAN-455: Bestand im Keller
     titel: 'Weinbestandsmeldung (Bestand zum Stichtag)',
     behoerde: 'BMLUK-Weindatenbank',
     zugriff: 'betriebsleitung',
@@ -38,6 +39,7 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
   },
   // KAN-43 Etappe 2: BSM je Meldezeitraum (Entscheidung Jörgen 02.10.2026: BSM = 1.8.–31.7.), gegliedert nach Buchungsarten
   bsm: {
+    bereich: 'keller',   // KAN-455: Bestand im Keller
     titel: 'Weinbestandsmeldung nach Buchungsarten (BSM)',
     behoerde: 'BMLUK-Weindatenbank',
     zugriff: 'betriebsleitung',
@@ -47,6 +49,7 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     beschreibung: 'Anfangsbestand + Zugänge − Abgänge je BSM-Buchungsart = Endbestand, je Herkunft, BSM-Spalte (Wein … Prädikatswein, Perl-/Schaumwein, Sonstige), weiß/rot und offen/Flasche – mit Abgleich gegen den Stichtagsbestand.',
   },
   'bsm-kontrolljournal': {
+    bereich: 'keller',   // KAN-455: Bestand im Keller
     titel: 'Kontrolljournal zur Bestandsmeldung (BSM)',
     behoerde: 'BMLUK-Weindatenbank',
     zugriff: 'betriebsleitung',

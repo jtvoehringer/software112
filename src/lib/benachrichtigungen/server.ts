@@ -11,6 +11,7 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/brevo/api'
+import { canRead, type Lesebereich } from '@/lib/auth/lesebereiche'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -32,6 +33,8 @@ export type Ereignis = {
   quelleId?: string | null
   /** Kanäle – Standard: App + E-Mail */
   kanaele?: Kanal[]
+  /** Lesebereich des Ereignisses (KAN-455): Empfänger mit Profil ohne diesen Bereich bekommen nichts */
+  bereich?: Lesebereich
 }
 
 type Mitglied = { user_id: string; name: string; email: string; benachrichtigung_email: boolean }
@@ -52,9 +55,29 @@ async function ladeMitgliederMitEmail(tenantId: string): Promise<Mitglied[]> {
   } catch { return [] }
 }
 
+/**
+ * KAN-455: Empfänger, die den Bereich des Ereignisses lesen dürfen. Ein Mitarbeiter mit Profil „Extern“ bekäme sonst
+ * Titel und Text einer CRM-Aufgabe per App und Mail, die er in der App nicht öffnen darf. Bei einem Lesefehler geht die
+ * Benachrichtigung an niemanden (lieber keine Nachricht als eine an den Falschen).
+ */
+async function nurMitLeserecht(tenantId: string, empfaenger: string[], bereich: Lesebereich): Promise<string[]> {
+  try {
+    const admin = createSupabaseAdminClient()
+    // alle-ausnahme: Empfänger einer Benachrichtigung sind Mitglieder eines Betriebs – eine kleine Liste
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (admin.from('tenant_memberships') as any)
+      .select('user_id, role, profil').eq('tenant_id', tenantId).in('user_id', empfaenger)
+    if (error) { console.error('benachrichtigungen (leserecht):', error.message); return [] }
+    const darf = new Set(((data ?? []) as R[]).filter(m => canRead({ role: m.role, profil: m.profil }, bereich)).map(m => String(m.user_id)))
+    return empfaenger.filter(id => darf.has(id))
+  } catch (err) { console.error('benachrichtigungen (leserecht):', err); return [] }
+}
+
 /** Ereignis zustellen (App + E-Mail). Wirft nie. */
 export async function sendeBenachrichtigung(e: Ereignis): Promise<void> {
-  const empfaenger = [...new Set(e.empfaengerIds)].filter(id => id && id !== e.ausgeloestVon)
+  const alle = [...new Set(e.empfaengerIds)].filter(id => id && id !== e.ausgeloestVon)
+  if (alle.length === 0) return
+  const empfaenger = e.bereich ? await nurMitLeserecht(e.tenantId, alle, e.bereich) : alle
   if (empfaenger.length === 0) return
   const kanaele = e.kanaele ?? ['app', 'email']
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at').replace(/\/$/, '')
@@ -151,7 +174,7 @@ export async function benachrichtigeAktivitaet(a: AktivitaetBenachrichtigung): P
     const wann = a.datum ? ` · ${new Date(a.datum + 'T00:00:00').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : ''
     const beschreibung = a.beschreibung
     const textMit = beschreibung ? beschreibung.slice(0, 500) + wann : (wann.replace(/^ · /, '') || null)
-    const basis = { tenantId: a.tenantId, ausgeloestVon: a.userId, href, quelleTyp: 'aktivitaet', quelleId: a.id }
+    const basis = { tenantId: a.tenantId, ausgeloestVon: a.userId, href, quelleTyp: 'aktivitaet', quelleId: a.id, bereich: 'crm' as const }   // KAN-455
 
     // 1) Verantwortlich neu zugewiesen (nicht an sich selbst – filtert sendeBenachrichtigung)
     const neuV = a.verantwortlichId
