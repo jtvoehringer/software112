@@ -5,6 +5,8 @@
 -- @ziel: Mitarbeiter mit Profil „extern“ bzw. „vertrieb“ bekommen aus Funktionen gesperrter Bereiche 42501 (HINT
 -- @ziel: lesebereich) bzw. 0 Zeilen, die KI-Abfrage ist für „extern“ gesperrt und liefert „vertrieb“ keine Kellerdaten,
 -- @ziel: Dateien im Storage sind je Bucket nur mit dem passenden Bereich lesbar. Ohne Profil ändert sich nichts.
+-- @ziel: Seit KAN-459 prüfen auch vier schreibende Funktionen den Bereich (Privat-Blöcke, Bankabgleich, Nachtrag an
+-- @ziel: der Füllung, endgültig löschen je Tabelle).
 -- @mutation pruefe_lesen_aus: s112_pruefe_lesen prüft nichts mehr | rot: (extern|vertrieb)_.*
 -- @mutation uva_ohne_pruefung: berechne_ea_uva ohne Leseprüfung | rot: funktion:berechne_ea_uva|vertrieb_uva
 -- @mutation storage_ohne_policy: die Sperre kennt keinen gesperrten Betrieb mehr | rot: storage_.*|(extern|vertrieb)_.*
@@ -34,10 +36,11 @@ DECLARE
     'journal_abgleichen=keller', 'journal_konsistenz=keller', 'ki_readonly_query=ki', 'lade_behaelter=keller',
     'lade_crmgemeinschaft=crm', 'lade_kellergemeinschaft=keller', 's112_ama_einreichen=lese', 's112_ama_korrektur_anlegen=lese',
     's112_ama_meldung_speichern=lese', 's112_ama_status_setzen=lese', 's112_betriebsmittel_einkauf=betriebsmittel', 's112_betriebsmittel_ohne_preis=massnahmen',
-    's112_betriebsmittel_stornieren=betriebsmittel', 's112_duengemittel_ohne_preis=massnahmen', 's112_lager_einkauf=betriebsmittel', 's112_lager_einkauf_stornieren=betriebsmittel',
-    's112_mostzeile_anlegen=lese', 's112_pressung_anlegen=lese', 's112_pressung_stornieren=lese', 's112_pressung_zeilen_stornieren=lese',
-    's112_psm_ohne_preis=massnahmen', 's112_psm_uebermittlung_protokollieren=betriebsmittel', 's112_schwund_minderung=keller', 's112_stammdaten_bezuege=*',
-    's112_verkauf_samt_rechnung_stornieren=verkauf', 'schwund_buchen=keller'];
+    's112_betriebsmittel_stornieren=betriebsmittel', 's112_duengemittel_ohne_preis=massnahmen', 's112_fuellung_nachtragen=keller', 's112_lager_einkauf=betriebsmittel',
+    's112_lager_einkauf_stornieren=betriebsmittel', 's112_mostzeile_anlegen=lese', 's112_pressung_anlegen=lese', 's112_pressung_stornieren=lese',
+    's112_pressung_zeilen_stornieren=lese', 's112_privat_bloecke=crm', 's112_psm_ohne_preis=massnahmen', 's112_psm_uebermittlung_protokollieren=betriebsmittel',
+    's112_schwund_minderung=keller', 's112_stammdaten_bezuege=*', 's112_storniert_loeschen=*', 's112_verkauf_samt_rechnung_stornieren=verkauf',
+    'schwund_buchen=keller', 'setze_kontobewegung_abgeglichen=ea'];
   -- ohne Lesebereich: Rechte-Helfer, Nummernkreise, Funktionen in Bereichen, die jedes Profil mit dem nötigen
   -- Schreibmodul auch lesen darf (Kellerbuch, Warenwirtschaft, CRM, E&A), und Funktionen nur für die Betriebsleitung
   c_frei  constant text[] := ARRAY[
@@ -50,14 +53,13 @@ DECLARE
     's112_auftrag_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_darf_lesen',
     's112_ea_beleg_loesen', 's112_ea_kosten_zuordnen', 's112_ea_stornieren', 's112_elabel_umleiten',
     's112_etikettierung_stornieren', 's112_export_muster_buchen', 's112_exportauftrag_aendern', 's112_exportauftrag_status_setzen',
-    's112_freeze_korrektur', 's112_fuellung_aendern', 's112_fuellung_etikettieren', 's112_fuellung_nachtragen',
-    's112_fuellung_verkauf_buchen', 's112_gutschrift_anlegen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma',
-    's112_kontakt_personendaten_loeschen', 's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mandant_mitglieder',
-    's112_paketmodul_frei', 's112_privat_bloecke', 's112_produktion_buchen', 's112_produktion_stornieren',
-    's112_pruefnummernantrag_status_setzen', 's112_rechnung_erstellen', 's112_rechnung_stornieren', 's112_sekt_stufe_setzen',
-    's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen', 's112_verarbeitung_stornieren',
-    's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zugangskorrektur_buchen',
-    's112_zugangskorrektur_stornieren', 's112_zukauf_buchen', 'setze_kontobewegung_abgeglichen', 'sperre_ea_monat',
+    's112_freeze_korrektur', 's112_fuellung_aendern', 's112_fuellung_etikettieren', 's112_fuellung_verkauf_buchen',
+    's112_gutschrift_anlegen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen',
+    's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mandant_mitglieder', 's112_paketmodul_frei',
+    's112_produktion_buchen', 's112_produktion_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_rechnung_erstellen',
+    's112_rechnung_stornieren', 's112_sekt_stufe_setzen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen',
+    's112_verarbeitung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren',
+    's112_zugangskorrektur_buchen', 's112_zugangskorrektur_stornieren', 's112_zukauf_buchen', 'sperre_ea_monat',
     'sperre_ea_uva', 'user_has_role_in_tenant'];
   c_buckets constant text[] := ARRAY['aktivitaet-dokumente=crm', 'analysen=keller', 'dokumente=betrieb', 'ea-belege=ea', 'etiketten=lager',
     'export-nachweise=verkauf', 'fuellung-bilder=lager'];
@@ -77,6 +79,9 @@ DECLARE
   v_txt  text;
   v_uuid uuid := gen_random_uuid();
   v_einkauf text;
+  v_bloecke text;
+  v_abgleich text;
+  v_nachtrag text;
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
   v_t0 := clock_timestamp();
@@ -147,6 +152,10 @@ BEGIN
          FROM pg_policies p WHERE p.schemaname = 'storage' AND p.tablename = 'objects' AND p.policyname = 'lesebereich'), true);
   END LOOP;
 
+  -- KAN-459: schreibende Funktionen, die ein Profil über Rolle bzw. Schreibmodul erreicht
+  v_bloecke := format('SELECT * FROM public.s112_privat_bloecke(%L)', v_b);
+  v_abgleich := format('SELECT public.setze_kontobewegung_abgeglichen(%L, %L, %L, true)', v_b, 'zahlung', v_uuid);
+  v_nachtrag := format('SELECT public.s112_fuellung_nachtragen(%L, %L, %L, NULL)', v_b, v_uuid, v_uuid);
   v_einkauf := format('SELECT public.s112_lager_einkauf(%L, %L, %L, pg_temp.s112_heute(), 1, %L, 1, 13, NULL, NULL, NULL)', v_b, 'psm', v_uuid, 'l');
 
   -- ── 2. Ohne Profil: wie bisher ───────────────────────────────────────────────────────────────────────────────
@@ -156,6 +165,10 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_profil_ki', pg_temp.t07(format('SELECT public.ki_readonly_query(%L, %L)', 'select 1 as x', v_b)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_profil_einkauf_kein_lesefehler', pg_temp.t07(v_einkauf) LIKE '%|lesebereich', false);
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_profil_bezuege', pg_temp.t07(format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)', v_b, 'kontakte', v_uuid)), 'P0002|');
+  v_erg := v_erg || pg_temp.s112_erwarte('ohne_profil_privat_bloecke', pg_temp.t07(v_bloecke), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('ohne_profil_schreibwege_kein_lesefehler',
+    pg_temp.t07(v_abgleich) LIKE '%|lesebereich' OR pg_temp.t07(v_nachtrag) LIKE '%|lesebereich'
+    OR pg_temp.t07(format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'keller_umzuege', v_uuid, 'S112TEST Grund der Löschung')) LIKE '%|lesebereich', false);
   SELECT count(*) INTO v_n FROM storage.objects o WHERE o.name = v_b || '/s112test/lesewege.dat';
   v_erg := v_erg || pg_temp.s112_erwarte('storage_ohne_profil', v_n, 8::bigint);
 
@@ -169,6 +182,11 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('extern_bezuege_crm', pg_temp.t07(format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)', v_b, 'kontakte', v_uuid)), '42501|lesebereich');
   v_erg := v_erg || pg_temp.s112_erwarte('extern_bezuege_mittel', pg_temp.t07(format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)', v_b, 'pflanzenschutzmittel', v_uuid)), '42501|lesebereich');
   v_erg := v_erg || pg_temp.s112_erwarte('extern_bezuege_rieden_frei', pg_temp.t07(format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)', v_b, 'weingarten', v_uuid)), 'P0002|');
+  v_erg := v_erg || pg_temp.s112_erwarte('extern_privat_bloecke', pg_temp.t07(v_bloecke), '42501|lesebereich');
+  v_erg := v_erg || pg_temp.s112_erwarte('extern_loeschen_mittellager',
+    pg_temp.t07(format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'psm_lager_bewegungen', v_uuid, 'S112TEST Grund der Löschung')), '42501|lesebereich');
+  v_erg := v_erg || pg_temp.s112_erwarte('extern_loeschen_massnahme_frei',
+    pg_temp.t07(format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'behandlungen', v_uuid, 'S112TEST Grund der Löschung')) LIKE '%|lesebereich', false);
   SELECT string_agg(o.bucket_id, ',' ORDER BY o.bucket_id) INTO v_txt FROM storage.objects o WHERE o.name = v_b || '/s112test/lesewege.dat';
   v_erg := v_erg || pg_temp.s112_erwarte('storage_extern', coalesce(v_txt, ''), 'mandant-logos');
 
@@ -185,6 +203,13 @@ BEGIN
     public.ki_readonly_query('select count(*) as n from behaelter', v_b) -> 0 ->> 'n', '0');
   v_erg := v_erg || pg_temp.s112_erwarte('vertrieb_ki_crm_sichtbar',
     (public.ki_readonly_query('select count(*) as n from kontakte', v_b) -> 0 ->> 'n')::int > 0, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('vertrieb_privat_bloecke_frei', pg_temp.t07(v_bloecke), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('vertrieb_bankabgleich', pg_temp.t07(v_abgleich), '42501|lesebereich');
+  v_erg := v_erg || pg_temp.s112_erwarte('vertrieb_fuellung_nachtragen', pg_temp.t07(v_nachtrag), '42501|lesebereich');
+  v_erg := v_erg || pg_temp.s112_erwarte('vertrieb_loeschen_umzug',
+    pg_temp.t07(format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'keller_umzuege', v_uuid, 'S112TEST Grund der Löschung')), '42501|lesebereich');
+  v_erg := v_erg || pg_temp.s112_erwarte('vertrieb_loeschen_export_frei',
+    pg_temp.t07(format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'exportauftraege', v_uuid, 'S112TEST Grund der Löschung')) LIKE '%|lesebereich', false);
   SELECT string_agg(o.bucket_id, ',' ORDER BY o.bucket_id) INTO v_txt FROM storage.objects o WHERE o.name = v_b || '/s112test/lesewege.dat';
   v_erg := v_erg || pg_temp.s112_erwarte('storage_vertrieb', coalesce(v_txt, ''), 'aktivitaet-dokumente,dokumente,etiketten,export-nachweise,fuellung-bilder,mandant-logos');
 
@@ -196,6 +221,6 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('service_passiert', pg_temp.t07(format('SELECT public.s112_pruefe_lesen(%L, %L)', v_b, 'ea')), 'ok');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 71);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 85);
 END
 $test$;

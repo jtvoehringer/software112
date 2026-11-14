@@ -42,9 +42,11 @@ describe('KAN-455: Leseprüfung in den Funktionen', () => {
   test('Migration und DB-Test 07 nennen dieselben Funktionen mit demselben Bereich', () => {
     // dazu seit KAN-456 (kan412d_extern_mittel) die drei Funktionen „Mittel ohne Preis“ mit dem Bereich massnahmen
     const erwartet = [...plpgsql, ...sql, 's112_stammdaten_bezuege=*', 'ki_readonly_query=ki',
-      's112_psm_ohne_preis=massnahmen', 's112_duengemittel_ohne_preis=massnahmen', 's112_betriebsmittel_ohne_preis=massnahmen'].sort()
+      's112_psm_ohne_preis=massnahmen', 's112_duengemittel_ohne_preis=massnahmen', 's112_betriebsmittel_ohne_preis=massnahmen',
+      // seit KAN-459 (kan459b_schreibwege_lesebereich) vier schreibende Funktionen
+      's112_privat_bloecke=crm', 'setze_kontobewegung_abgeglichen=ea', 's112_fuellung_nachtragen=keller', 's112_storniert_loeschen=*'].sort()
     assert.deepEqual(feld('c_soll'), erwartet)
-    assert.equal(erwartet.length, 30)
+    assert.equal(erwartet.length, 34)
   })
   test('jeder Bereich ist ein Lesebereich der Liste – nie „allgemein“', () => {
     for (const e of [...plpgsql, ...sql]) {
@@ -61,7 +63,8 @@ describe('KAN-455: Leseprüfung in den Funktionen', () => {
   })
   test('bewusst ohne Lesebereich: Zeitraum-Prüfung der E&A (der Verkauf braucht sie) und die Rechte-Helfer', () => {
     const frei = feld('c_frei')
-    for (const f of ['pruefe_ea_zeitraum_offen', 's112_darf_lesen', 's112_paketmodul_frei', 's112_mandant_mitglieder', 's112_privat_bloecke']) assert.ok(frei.includes(f), f)
+    for (const f of ['pruefe_ea_zeitraum_offen', 's112_darf_lesen', 's112_paketmodul_frei', 's112_mandant_mitglieder']) assert.ok(frei.includes(f), f)
+    assert.ok(!frei.includes('s112_privat_bloecke'), 'seit KAN-459 mit Leseprüfung crm – einzige Aufrufstelle ist die CRM-Seite')
   })
   test('ein Profil erreicht über sein Schreibmodul keine Funktion eines gesperrten Bereichs', () => {
     const soll = Object.fromEntries(feld('c_soll').map(e => e.split('=')))
