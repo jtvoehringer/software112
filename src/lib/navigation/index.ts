@@ -24,7 +24,7 @@ import type { Lesebereich } from '@/lib/auth/lesebereiche'
 
 export { isActivePath }
 
-export type ModulKey = 'modul_ea' | 'modul_sumup' | 'modul_export' | 'modul_controlling'
+export type ModulKey = 'modul_ea' | 'modul_sumup' | 'modul_export' | 'modul_controlling' | 'modul_shop'
 
 /** Teilmenge des Tenant-Brandings, die die Navigation braucht (Modul-Toggles). */
 export type NavBranding = Record<ModulKey, boolean>
@@ -156,6 +156,8 @@ const NAV: NavGroup[] = [
       { href: '/weinhandel/sonstige-artikel', label: 'Sonstiges-Produkte', phase: 1, keywords: 'artikel' },
       { href: '/weinhandel/rabattgruppen',    label: 'Rabattgruppen',      phase: 1 },
       { href: '/weinexport',                  label: 'Exportaufträge',     requireModul: 'modul_export', keywords: 'eur.1 cmr export' },
+      // KAN-460: Zusatzmodul Weinshop-Anbindung (WooCommerce) – Zugangsdaten pflegt die Betriebsleitung
+      { href: '/weinhandel/shop',             label: 'Shop-Anbindung',     adminOnly: true, requireModul: 'modul_shop', keywords: 'woocommerce onlineshop webshop weinshop wordpress' },
     ],
   },
   {

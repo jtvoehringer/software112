@@ -35,6 +35,8 @@ export type TenantBranding = {
   modul_sumup: boolean
   modul_export: boolean
   modul_controlling: boolean
+  /** KAN-460: Zusatzmodul Weinshop-Anbindung */
+  modul_shop: boolean
   /** Migration 197: 'ea' = E&A in software:112, 'doppik' = Steuerberater/BMD */
   buchhaltungsart: 'ea' | 'doppik'
 }
@@ -53,6 +55,7 @@ const DEFAULT_BRANDING: TenantBranding = {
   modul_sumup:      false,
   modul_export:     false,
   modul_controlling: false,
+  modul_shop:       false,
   buchhaltungsart:  'ea',
 }
 
@@ -131,6 +134,7 @@ export default async function DashboardLayout({
         modul_sumup:      d.modul_sumup ?? false,
         modul_export:     d.modul_export ?? false,
         modul_controlling: d.modul_controlling ?? false,
+        modul_shop:       d.modul_shop ?? false,
         buchhaltungsart:  d.buchhaltungsart === 'doppik' ? 'doppik' : 'ea',
       }
       assistentAktiv = !!d.assistent_aktiv

@@ -8,7 +8,7 @@ import { buildNav, type ModulKey, type NavBranding } from '../src/lib/navigation
 import { PROFILE } from '../src/lib/auth/lesebereiche'
 import { istProfilRolle, module, ROLLEN, type Rolle } from './umgebung'
 
-const ALLE_MODULE: ModulKey[] = ['modul_ea', 'modul_sumup', 'modul_export', 'modul_controlling']
+const ALLE_MODULE: ModulKey[] = ['modul_ea', 'modul_sumup', 'modul_export', 'modul_controlling', 'modul_shop']
 
 function branding(): NavBranding {
   const aktiv = module()

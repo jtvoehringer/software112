@@ -25,6 +25,7 @@ const MODUL_NAME: Record<ModulFlag, string> = {
   modul_sumup: 'SumUp-Kassa',
   modul_export: 'Weinexport',
   modul_controlling: 'Controlling',
+  modul_shop: 'Weinshop-Anbindung',
 }
 
 /** Module, die für eine Meldung freigeschaltet sein müssen */
@@ -70,7 +71,7 @@ export function zugriffsFehler(
 export async function betriebUndModuleLaden(supabase: any, tenantId: string): Promise<{ betrieb: Betriebsdaten; module: ModulSchalter }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('tenant_einstellungen') as any)
-    .select('betrieb_name, betrieb_betriebsnummer, modul_ea, modul_sumup, modul_export, modul_controlling')
+    .select('betrieb_name, betrieb_betriebsnummer, modul_ea, modul_sumup, modul_export, modul_controlling, modul_shop')
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (error) throw new AktionsFehler(`Betriebseinstellungen konnten nicht geladen werden: ${error.message}`)
@@ -83,6 +84,7 @@ export async function betriebUndModuleLaden(supabase: any, tenantId: string): Pr
       modul_sumup: d.modul_sumup === true,
       modul_export: d.modul_export === true,
       modul_controlling: d.modul_controlling === true,
+      modul_shop: d.modul_shop === true,
     },
   }
 }

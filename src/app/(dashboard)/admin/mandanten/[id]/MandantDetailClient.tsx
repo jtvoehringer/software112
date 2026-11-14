@@ -608,6 +608,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
   // '' = noch nicht gewählt (bei Betrieben ohne E&A gibt es noch keine Wahl)
   const [buchhaltungsart, setBuchhaltungsart] = useState<'ea' | 'doppik' | ''>(settings.modul_ea ? (settings.buchhaltungsart ?? 'ea') : '')
   const [sumup, setSumup]          = useState(settings.modul_sumup ?? false)
+  const [shop, setShop]            = useState(settings.modul_shop ?? false)
   const [saved, setSaved]          = useState(false)
 
   // Props nach router.refresh() (Paket-Vorgaben, Stripe-Webhook) übernehmen
@@ -617,6 +618,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     setSettingsVorher(settings)
     setBuchhaltungsart(settings.modul_ea ? (settings.buchhaltungsart ?? 'ea') : '')
     setSumup(settings.modul_sumup ?? false)
+    setShop(settings.modul_shop ?? false)
   }
 
   const gewaehlt = paketWahl ? PAKETE[paketWahl] : (paket ? PAKETE[paket] : null)
@@ -645,6 +647,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('modul_newsletter', settings.modul_newsletter   ? 'true' : 'false')
     fd.set('modul_ea',         settings.modul_ea           ? 'true' : 'false')
     fd.set('modul_sumup',      sumup && settings.modul_ea  ? 'true' : 'false')
+    fd.set('modul_shop',       shop ? 'true' : 'false')
     fd.set('modul_export',     settings.modul_export        ? 'true' : 'false')
     fd.set('modul_controlling', settings.modul_controlling   ? 'true' : 'false')
     fd.set('buchhaltungsart',  buchhaltungsart || 'ea')
@@ -677,8 +680,10 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     { label: 'Exportaufträge (Weinexport)', aktiv: settings.modul_export, hinweis: 'Premium' },
     { label: 'bot:112 mit Sprachsteuerung', aktiv: settings.assistent_aktiv, hinweis: 'Premium' },
     { label: 'SumUp Kartenterminal',     aktiv: settings.modul_sumup,       hinweis: 'Zusatzoption' },
+    { label: 'Weinshop-Anbindung (WooCommerce)', aktiv: settings.modul_shop, hinweis: 'Zusatzoption' },
   ]
   const geaendert = (buchhaltungsart || 'ea') !== (settings.buchhaltungsart ?? 'ea') || sumup !== (settings.modul_sumup ?? false)
+    || shop !== (settings.modul_shop ?? false)
 
   const BuchhaltungsWahl = (
     <div className="space-y-2">
@@ -744,13 +749,19 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
         </ul>
       </div>
 
-      {settings.modul_ea && (
+      {(
         <div className="card space-y-3">
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Buchhaltung &amp; Zusatzoptionen</h2>
           <p className="text-xs text-s112-muted">Wird nicht vom Paket entschieden, sondern vom Betrieb – kann jederzeit umgestellt werden.</p>
-          {BuchhaltungsWahl}
+          {settings.modul_ea && BuchhaltungsWahl}
+          {settings.modul_ea && (
+            <div className="pt-1">
+              <Toggle on={sumup} onToggle={() => setSumup(v => !v)} label="SumUp Kartenterminal (Zusatzoption, Hardware)" />
+            </div>
+          )}
+          {/* KAN-460: Zugangsdaten hinterlegt die Betriebsleitung selbst unter Warenwirtschaft → Shop-Anbindung */}
           <div className="pt-1">
-            <Toggle on={sumup} onToggle={() => setSumup(v => !v)} label="SumUp Kartenterminal (Zusatzoption, Hardware)" />
+            <Toggle on={shop} onToggle={() => setShop(v => !v)} label="Weinshop-Anbindung (WooCommerce, Zusatzoption)" />
           </div>
           <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSave} disabled={pending || !geaendert}
@@ -2052,6 +2063,7 @@ export default function MandantDetailClient({ tenant, settings, members, verbund
           {settings.modul_newsletter && <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full">Newsletter</span>}
           {settings.modul_ea         && <span className="text-xs bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full">{settings.buchhaltungsart === 'doppik' ? 'E&A · Doppik/BMD' : 'E&A'}</span>}
           {settings.modul_sumup      && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">SumUp</span>}
+          {settings.modul_shop       && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">Weinshop</span>}
           {settings.modul_export     && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">Exportaufträge</span>}
           {settings.modul_controlling && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">Controlling</span>}
           {tenant.stripe_status === 'active'   && <span className="text-xs bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full">Abo aktiv</span>}

@@ -20,7 +20,7 @@ type R = Record<string, any>
 const TABELLEN: { tabelle: string; schluessel: string; spalten: string[]; klartext?: boolean }[] = [
   { tabelle: 'tenant_einstellungen',   schluessel: 'tenant_id', spalten: ['email_smtp_pass_enc', 'email_imap_pass_enc', 'm365_client_secret_enc', 'm365_access_token_enc', 'm365_refresh_token_enc'] },
   { tabelle: 'user_email_connections', schluessel: 'id',        spalten: ['m365_access_token_enc', 'm365_refresh_token_enc', 'imap_pass_enc', 'smtp_pass_enc'] },
-  { tabelle: 'tenant_einstellungen',   schluessel: 'tenant_id', spalten: ['brevo_api_key', 'sumup_api_key', 'bawb_passwort'], klartext: true },
+  { tabelle: 'tenant_einstellungen',   schluessel: 'tenant_id', spalten: ['brevo_api_key', 'sumup_api_key', 'bawb_passwort', 'shop_woo_api_key', 'shop_woo_secret'], klartext: true },
 ]
 
 export type SchluesselStatus = { v2Aktiv: boolean; alt: number; neu: number; je: { tabelle: string; spalte: string; alt: number; neu: number }[] }

@@ -10,7 +10,7 @@ import { istPflichtmeldungsRolle } from '@/lib/auth/pflichtmeldung'
 // Server-Guards sichern zusätzlich die Routen selbst ab - ein direkter Aufruf
 // per URL landet ohne Freischaltung auf dem Dashboard (gleiches Muster wie die
 // inline-Prüfungen der E&A-Seiten, hier nur einmal zentral).
-export type ModulFlag = 'modul_ea' | 'modul_sumup' | 'modul_export' | 'modul_controlling'
+export type ModulFlag = 'modul_ea' | 'modul_sumup' | 'modul_export' | 'modul_controlling' | 'modul_shop'
 
 export async function hatModul(flag: ModulFlag): Promise<boolean> {
   const membership = await getCurrentMembership()
@@ -28,9 +28,14 @@ export async function hatModul(flag: ModulFlag): Promise<boolean> {
 // ebenfalls gesperrt.
 export const MODUL_LABEL: Record<ModulFlag, string> = {
   modul_ea: 'E&A-Rechnung', modul_sumup: 'SumUp-Kartenzahlung', modul_export: 'Exportaufträge', modul_controlling: 'Controlling',
+  modul_shop: 'Weinshop-Anbindung',
 }
 
+/** Zusatzmodule, die kein Paket enthält – sie schaltet der Support frei (wie SumUp), nicht die Abo-Seite */
+const ZUSATZMODULE: ReadonlySet<ModulFlag> = new Set<ModulFlag>(['modul_shop'])
+
 export function modulAusMeldung(flag: ModulFlag): string {
+  if (ZUSATZMODULE.has(flag)) return `Das Zusatzmodul „${MODUL_LABEL[flag]}“ ist für diesen Betrieb nicht freigeschaltet – bitte beim Support anfragen.`
   return `Das Modul „${MODUL_LABEL[flag]}“ ist im Paket dieses Betriebs nicht enthalten – bitte unter „Abo“ das passende Paket wählen.`
 }
 

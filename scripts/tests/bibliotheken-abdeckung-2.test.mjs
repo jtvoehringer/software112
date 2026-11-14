@@ -23,8 +23,8 @@ after(() => { if (altV2 === undefined) delete process.env.EMAIL_CRYPT_SECRET_V2;
 
 const T = 't1'
 const mitglied = (role, schreibmodule = []) => ({ tenantId: T, role, schreibmodule })
-const MODULE_AUS = { modul_ea: false, modul_sumup: false, modul_export: false, modul_controlling: false }
-const MODULE_AN = { modul_ea: true, modul_sumup: true, modul_export: true, modul_controlling: true }
+const MODULE_AUS = { modul_ea: false, modul_sumup: false, modul_export: false, modul_controlling: false, modul_shop: false }
+const MODULE_AN = { modul_ea: true, modul_sumup: true, modul_export: true, modul_controlling: true, modul_shop: true }
 
 describe('Zugriff auf Behördenmeldungen (lib/behoerden/zugriff.ts)', nurMitHooks, () => {
   test('benötigte Module: Auswertungen brauchen Controlling, ein gesetztes Modul zusätzlich, nie doppelt', () => {
@@ -67,7 +67,7 @@ describe('Zugriff auf Behördenmeldungen (lib/behoerden/zugriff.ts)', nurMitHook
     ] })
     assert.deepEqual(await zg.betriebUndModuleLaden(db, T), {
       betrieb: { name: 'Weingut Test', betriebsnummer: null },
-      module: { modul_ea: true, modul_sumup: false, modul_export: false, modul_controlling: true },
+      module: { modul_ea: true, modul_sumup: false, modul_export: false, modul_controlling: true, modul_shop: false },   // KAN-460: neuer Schalter, nicht gesetzt = aus
     })
     assert.ok(db.aufrufe.every(a => hatFilter(a, 'eq', 'tenant_id', T)))
     assert.deepEqual(await zg.betriebUndModuleLaden(datenbank({ tenant_einstellungen: [] }), 'neu'), { betrieb: { name: null, betriebsnummer: null }, module: MODULE_AUS })

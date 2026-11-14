@@ -465,8 +465,8 @@ BEGIN
           's112test-' || v_id, p_stripe_status);
   -- KAN-195: Paket-Module wie Premium an (die DB sperrt sonst E&A, Export, SumUp, Kostenrechnung und Assistent);
   -- modul_ea nur zusammen mit modul_sumup abschalten (chk_sumup_bedingt_buchhaltung). Abschalten prüft 12 (Abschnitt 6).
-  INSERT INTO public.tenant_einstellungen (tenant_id, modul_ea, modul_export, modul_sumup, modul_controlling, assistent_aktiv)
-  VALUES (v_id, true, true, true, true, true);
+  INSERT INTO public.tenant_einstellungen (tenant_id, modul_ea, modul_export, modul_sumup, modul_controlling, assistent_aktiv, modul_shop)
+  VALUES (v_id, true, true, true, true, true, true);
   RETURN v_id;
 END $f$;
 
@@ -554,7 +554,7 @@ BEGIN
   PERFORM pg_temp.s112_nur_postgres('s112_aufbau');
   -- KAN-195: im Musterhof (Staging-Stand kann abweichen) alle Paket-Module an – Rollen-/Schreibproben setzen sie voraus
   UPDATE public.tenant_einstellungen
-     SET modul_ea = true, modul_export = true, modul_sumup = true, modul_controlling = true, assistent_aktiv = true
+     SET modul_ea = true, modul_export = true, modul_sumup = true, modul_controlling = true, assistent_aktiv = true, modul_shop = true
    WHERE tenant_id = c_m;
   v_pa := pg_temp.s112_plattform_admin(ARRAY[c_m]);
   v_b := pg_temp.s112_betrieb('S112TEST Betrieb B');
@@ -1232,6 +1232,7 @@ BEGIN
       'tenant_einstellungen.m365_client_secret_enc', 'tenant_einstellungen.email_imap_pass_enc',
       'tenant_einstellungen.email_smtp_pass_enc', 'tenant_einstellungen.brevo_api_key',
       'tenant_einstellungen.sumup_api_key', 'tenant_einstellungen.bawb_passwort',
+      'tenant_einstellungen.shop_woo_api_key', 'tenant_einstellungen.shop_woo_secret',
       'user_email_connections.m365_access_token_enc', 'user_email_connections.m365_refresh_token_enc',
       'user_email_connections.imap_pass_enc', 'user_email_connections.smtp_pass_enc']
     WHEN 'public_policies' THEN ARRAY[
