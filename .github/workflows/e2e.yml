@@ -9,7 +9,7 @@ name: E2E-Regressionstests
 # Produktionsschutz: e2e/umgebung.ts lässt schreibende Tests nur gegen das Staging-Projekt (bzw. einen lokalen
 # Supabase-Stack) zu; Produktion und unbekannte Projekte brechen ab. Ziel und Datenbank stehen deshalb hier fest.
 #
-# Secrets (nur Zugangsdaten): E2E_{TENANT_ADMIN,WINZER,LESER}_{EMAIL,PASSWORT}, E2E_TENANT_ADMIN_TOTP_SECRET
+# Secrets (nur Zugangsdaten): E2E_{TENANT_ADMIN,WINZER,LESER,EXTERN,VERTRIEB}_{EMAIL,PASSWORT}, E2E_TENANT_ADMIN_TOTP_SECRET
 #   (Zwei-Faktor-Pflicht für Admins ab 15.10.2026), E2E_VERCEL_BYPASS (Protection Bypass for Automation).
 
 on:
@@ -69,6 +69,11 @@ jobs:
       E2E_LESER_EMAIL: ${{ secrets.E2E_LESER_EMAIL }}
       E2E_LESER_PASSWORT: ${{ secrets.E2E_LESER_PASSWORT }}
       E2E_LESER_TOTP_SECRET: ${{ secrets.E2E_LESER_TOTP_SECRET }}
+      # Mitarbeiter mit Profil (KAN-456): ohne diese Secrets wird e2e/profile.spec.ts übersprungen
+      E2E_EXTERN_EMAIL: ${{ secrets.E2E_EXTERN_EMAIL }}
+      E2E_EXTERN_PASSWORT: ${{ secrets.E2E_EXTERN_PASSWORT }}
+      E2E_VERTRIEB_EMAIL: ${{ secrets.E2E_VERTRIEB_EMAIL }}
+      E2E_VERTRIEB_PASSWORT: ${{ secrets.E2E_VERTRIEB_PASSWORT }}
       E2E_VERCEL_BYPASS: ${{ secrets.E2E_VERCEL_BYPASS }}
     steps:
       - uses: actions/checkout@v7

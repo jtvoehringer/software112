@@ -7,7 +7,7 @@
 
 import { defineConfig, devices } from '@playwright/test'
 import type { Optionen } from './e2e/fixtures'
-import { authDatei, BASE_URL, NUR_LESEN, PRODUKTIONS_DOMAIN, PRODUKTIONS_SUPABASE_REF, ROLLEN, rolleKonfiguriert, vercelBypassHeader, zielPruefen } from './e2e/umgebung'
+import { authDatei, BASE_URL, NUR_LESEN, PRODUKTIONS_DOMAIN, PRODUKTIONS_SUPABASE_REF, PROFIL_ROLLEN, ROLLEN, rolleKonfiguriert, vercelBypassHeader, zielPruefen } from './e2e/umgebung'
 
 const ziel = zielPruefen()
 // `playwright test --list` führt nichts aus – Auflisten bleibt ohne Zielumgebung möglich
@@ -55,11 +55,23 @@ export default defineConfig<Optionen>({
     ...ROLLEN.map(rolle => ({
       name: rolle,
       testMatch: /.*\.spec\.ts$/,
+      testIgnore: /profile\.spec\.ts$/,
       dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
         rolle,
         // Ohne Zugangsdaten gibt es keine Datei – die Tests der Rolle werden dann übersprungen
+        storageState: rolleKonfiguriert(rolle) ? authDatei(rolle) : undefined,
+      },
+    })),
+    // Mitarbeiter mit Profil (KAN-456): nur der Rundgang je Profil – die übrigen Tests setzen eine Rolle ohne Profil voraus
+    ...PROFIL_ROLLEN.map(rolle => ({
+      name: rolle,
+      testMatch: /profile\.spec\.ts$/,
+      dependencies: ['setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        rolle,
         storageState: rolleKonfiguriert(rolle) ? authDatei(rolle) : undefined,
       },
     })),

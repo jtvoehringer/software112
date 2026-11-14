@@ -8,7 +8,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { test as setup, expect, type Page } from '@playwright/test'
-import { authDatei, ROLLEN, zugang, type Rolle, type Zugang } from './umgebung'
+import { authDatei, PROFIL_ROLLEN, ROLLEN, schluesselDatei, zugang, type Rolle, type Zugang } from './umgebung'
 import { restSekunden, totp } from './totp'
 
 async function zweiFaktor(page: Page, rolle: Rolle, z: Zugang): Promise<void> {
@@ -28,7 +28,7 @@ async function zweiFaktor(page: Page, rolle: Rolle, z: Zugang): Promise<void> {
   await page.waitForURL(url => url.pathname !== '/zwei-faktor', { timeout: 20_000 })
 }
 
-for (const rolle of ROLLEN) {
+for (const rolle of [...ROLLEN, ...PROFIL_ROLLEN]) {
   // @lesend: die Anmeldung ändert keine Daten und muss auch im Nur-Lesen-Modus laufen
   setup.describe(`Rolle ${rolle}`, { tag: '@lesend' }, () => {
     // Übersprungen, bevor ein Browser startet (kein page-Fixture ohne Zugangsdaten)
@@ -41,6 +41,14 @@ function anmeldung(rolle: Rolle): void {
   setup(`Anmeldung ${rolle}`, async ({ page }) => {
     const z = zugang(rolle)
     if (!z) return
+
+    // Die Anmeldeseite spricht direkt mit der Datenschnittstelle – ihren öffentlichen Schlüssel für die Gegenprobe merken
+    page.on('request', req => {
+      const apikey = req.headers()['apikey']
+      if (!apikey || !req.url().includes('/auth/v1/')) return
+      fs.mkdirSync(path.dirname(schluesselDatei()), { recursive: true })
+      fs.writeFileSync(schluesselDatei(), JSON.stringify({ url: new URL(req.url()).origin, apikey }))
+    })
 
     await page.goto('/login')
     await page.locator('#email').fill(z.email)

@@ -12,7 +12,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 export const ROLLEN = ['tenant_admin', 'winzer', 'leser'] as const
-export type Rolle = (typeof ROLLEN)[number]
+/** Mitarbeiter mit Profil (KAN-456): eigene Playwright-Projekte, die nur e2e/profile.spec.ts ausführen –
+ *  die übrigen Tests setzen eine Rolle ohne Profil voraus. Zugangsdaten: E2E_EXTERN_* bzw. E2E_VERTRIEB_*. */
+export const PROFIL_ROLLEN = ['extern', 'vertrieb'] as const
+export type ProfilRolle = (typeof PROFIL_ROLLEN)[number]
+export type Rolle = (typeof ROLLEN)[number] | ProfilRolle
+export const istProfilRolle = (r: Rolle): r is ProfilRolle => (PROFIL_ROLLEN as readonly string[]).includes(r)
 
 /** Produktion – schreibende Tests dagegen sind ausgeschlossen (siehe e2e/README.md) */
 export const PRODUKTIONS_DOMAIN = 'software112.icp-consultants.at'
@@ -161,6 +166,9 @@ export function rolleKonfiguriert(rolle: Rolle): boolean {
 }
 
 export const authDatei = (rolle: Rolle) => path.join(PROJEKT, 'e2e', '.auth', `${rolle}.json`)
+/** Öffentlicher Schlüssel der Datenschnittstelle, den die Anmeldeseite selbst mitschickt (auth.setup merkt ihn) –
+ *  für die Gegenprobe „direkte Abfrage liefert 0 Zeilen“ in e2e/profile.spec.ts. Kein Geheimnis, trotzdem nicht im Repository. */
+export const schluesselDatei = () => path.join(PROJEKT, 'e2e', '.auth', 'datenschnittstelle.json')
 
 // ── Weitere Test-Einstellungen ────────────────────────────────────────────────
 
