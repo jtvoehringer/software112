@@ -150,6 +150,29 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   ('psm_lager_bewegungen', 'abräumen', NULL, NULL, 'tenant_id'),
   ('duengemittel_lager_bewegungen', 'abräumen', NULL, NULL, 'tenant_id'),
   ('betriebsmittel_lager_bewegungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  -- Nachtrag 14.11.2026: seit Oktober 2026 neu hinzugekommene Tabellen (Einordnung: Vorschlag, Bestätigung Jörgen in KAN-185)
+  ('rechnungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('sonstige_artikel_bewegungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('auftraege', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('auftrag_positionen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('auftrag_lieferungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('export_nachweise', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('verkauf_ki_begriffe', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('elabels', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('elabel_umleitungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('fuellung_etikettierungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('lohnversektungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('produktionen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('produktion_eingaenge', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('kellermittel_buchungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('keller_verarbeitungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('keller_zugangskorrekturen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('charge_umstufungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('pruefnummer_chargen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('pruefnummer_ereignisse', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('psm_uebermittlungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('reifemessungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('ernte_gst_abgeschlossen', 'abräumen', NULL, NULL, 'tenant_id'),
   -- Nummernkreis
   ('transaktionszaehler', 'nummernkreis', NULL, NULL, 'tenant_id'),
   -- Behalten (Liste Jörgen 02.10.2026)
@@ -188,7 +211,13 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   ('meldung_abgaben', 'behalten', NULL, NULL, 'tenant_id'),
   ('wetter_stunden', 'behalten', NULL, NULL, 'tenant_id'),
   ('morgenberichte', 'behalten', NULL, NULL, 'tenant_id'),
+  -- Nachtrag 14.11.2026: Stammdaten der neuen Module (bleiben)
+  ('kellermittel', 'behalten', NULL, NULL, 'tenant_id'),
+  ('lieferadressen', 'behalten', NULL, NULL, 'tenant_id'),
+  ('grundstueck_recht', 'behalten', NULL, NULL, 'tenant_id'),
+  ('export_registrierungen', 'behalten', NULL, NULL, 'tenant_id'),
   -- In keiner Liste – bleibt (im Bericht KAN-185 genannt)
+  ('crm_freigaben', 'bleibt-ungelistet', NULL, NULL, 'eigentuemer_tenant_id'),
   ('kontakt_firmen', 'bleibt-ungelistet', 'kontakte', 'kontakt_id', 'tenant_id'),
   ('kontakt_praeferenzen', 'bleibt-ungelistet', 'kontakte', 'kontakt_id', 'tenant_id'),
   ('pipeline_verlauf', 'bleibt-ungelistet', 'pipeline_eintraege', 'pipeline_id', 'tenant_id'),
@@ -214,6 +243,8 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   ('profiles', 'global', NULL, NULL, 'tenant_id'),
   ('plattform_admins', 'global', NULL, NULL, 'tenant_id'),
   ('rebsorten', 'global', NULL, NULL, 'tenant_id'),
+  ('elabel_zutaten', 'global', NULL, NULL, 'tenant_id'),
+  ('benutzer_dashboard', 'global', NULL, NULL, 'tenant_id'),   -- je Benutzer, ohne Betriebsbezug
   ('release_notes', 'global', NULL, NULL, 'tenant_id'),
   ('release_notes_gesehen', 'global', NULL, NULL, 'tenant_id'),
   ('svs_parameter', 'global', NULL, NULL, 'tenant_id'),
@@ -366,6 +397,8 @@ BEGIN
      WHERE tabelle = 'lesen' AND tenant_id = v_t;
     UPDATE pg_temp.pilot_kennzahlen SET erwartet = (SELECT count(*) FROM public.ernte_parzellen e WHERE e.jahrgang_id = ANY (v_jg))
      WHERE tabelle = 'ernte_parzellen' AND tenant_id = v_t;
+    UPDATE pg_temp.pilot_kennzahlen SET erwartet = (SELECT count(*) FROM public.ernte_gst_abgeschlossen e WHERE e.jahrgang_id = ANY (v_jg))
+     WHERE tabelle = 'ernte_gst_abgeschlossen' AND tenant_id = v_t;
     IF cardinality(v_jg) > 0 THEN
       v_jg_alle := v_jg_alle || jsonb_build_object(c_namen[v_i],
         (SELECT jsonb_agg(j.jahrgang ORDER BY j.jahrgang) FROM public.weinjahrgaenge j WHERE j.id = ANY (v_jg)));
@@ -395,6 +428,11 @@ BEGIN
     v_t := c_betriebe[v_i];
     -- Wartungs-Kennzeichen nur für diesen Betrieb (transaktionslokal); Kinder ohne tenant_id gelten damit als frei
     PERFORM set_config('s112.loeschen_erlaubt', v_t::text, true);
+    -- Freeze-Sperren (KAN-96): s112_freeze gibt mit dem Wartungs-Kennzeichen nur Zeilen MIT tenant_id frei; Kinder ohne
+    -- tenant_id (behandlung_grundstuecke, verschneidung_quellen, pressung_weingaerten …) blieben gesperrt
+    -- (Staging-Probelauf 14.11.2026: „Ried nach der Maßnahme geerntet“). Deshalb die Sperre für diese Transaktion
+    -- aufheben – gelöscht wird ohnehin nur mit ausdrücklichem Betriebsfilter.
+    PERFORM set_config('s112.freeze_frei', '*', true);
     SELECT COALESCE(array_agg(DISTINCT m.jahrgang_id), '{}') INTO v_jg
       FROM public.ama_erntemeldungen m WHERE m.tenant_id = v_t AND m.status NOT IN ('entwurf', 'bereit');
 
@@ -426,6 +464,11 @@ BEGIN
     DELETE FROM public.kosteneintraege WHERE tenant_id = v_t;
 
     -- b) Verkauf, Export, Bestellungen (Kinder vor Eltern; Traubenverkäufe vor den Verkaufsposten)
+    DELETE FROM public.sonstige_artikel_bewegungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.auftrag_lieferungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.auftrag_positionen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.auftraege WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.export_nachweise WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.transportbescheinigungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.export_dokumente WHERE exportauftrag_id IN (SELECT id FROM public.exportauftraege WHERE tenant_id = v_t);   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.exportauftrag_positionen WHERE exportauftrag_id IN (SELECT id FROM public.exportauftraege WHERE tenant_id = v_t);   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
@@ -439,12 +482,33 @@ BEGIN
 
     -- c) Füllungen, Prüfnummern, DAC
     DELETE FROM public.fuellung_bewegungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    -- Rechnungen (samt Stornobelegen und Gutschriften) nach Zahlungen, Verkäufen und Flaschenbewegungen, die auf sie zeigen
+    DELETE FROM public.rechnungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.verkauf_ki_begriffe WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.elabel_umleitungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.elabels WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.fuellung_etikettierungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.fuellung_chargen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.fuellungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.lohnversektungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.pruefnummer_chargen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.pruefnummer_ereignisse WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.pruefnummernantraege WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.dac_antrag WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
 
     -- d) Keller: alles, was auf Chargen (weinausbau) zeigt, vor den Chargen; Pressungen vor Zukauf (chk_pressung_wg_quelle)
+    -- Kellermittel-Buchungen: Gegenbuchungen vor den Originalen (storno_von_id ist RESTRICT) – schichtweise
+    LOOP
+      DELETE FROM public.kellermittel_buchungen x WHERE x.tenant_id = v_t   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+         AND NOT EXISTS (SELECT 1 FROM public.kellermittel_buchungen g WHERE g.storno_von_id = x.id);
+      GET DIAGNOSTICS v_n = ROW_COUNT;
+      EXIT WHEN v_n = 0;
+    END LOOP;
+    DELETE FROM public.produktion_eingaenge WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.produktionen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.keller_verarbeitungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.keller_zugangskorrekturen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.charge_umstufungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.weinanalysen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.verschneidung_quellen WHERE verschneidung_id IN (SELECT id FROM public.verschneidungen WHERE tenant_id = v_t);   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.verschneidungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
@@ -458,6 +522,8 @@ BEGIN
     DELETE FROM public.weinausbau WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
 
     -- e) Weingarten-Maßnahmen und Lagerbewegungen der Mittel
+    DELETE FROM public.psm_uebermittlungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.reifemessungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.behandlung_grundstuecke WHERE behandlung_id IN (SELECT id FROM public.behandlungen WHERE tenant_id = v_t);   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.behandlungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.psm_lager_bewegungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
@@ -469,6 +535,7 @@ BEGIN
     DELETE FROM public.ama_erntemeldungen WHERE tenant_id = v_t AND status IN ('entwurf', 'bereit');   -- storno-ausnahme: Pilotabschluss KAN-185, nur offene Meldungen (entwurf/bereit)
 
     -- g) Lesedaten und Jahrgänge (Lesen über die Kaskade des Jahrgangs) – außer Jahrgängen mit abgegebener Meldung
+    DELETE FROM public.ernte_gst_abgeschlossen WHERE tenant_id = v_t AND jahrgang_id <> ALL (v_jg);   -- storno-ausnahme: Pilotabschluss KAN-185, Jahrgänge ohne abgegebene AMA-Meldung
     DELETE FROM public.ernte_parzellen   -- storno-ausnahme: Pilotabschluss KAN-185, Jahrgänge ohne abgegebene AMA-Meldung
      WHERE jahrgang_id IN (SELECT id FROM public.weinjahrgaenge WHERE tenant_id = v_t AND id <> ALL (v_jg));
     DELETE FROM public.weinjahrgaenge WHERE tenant_id = v_t AND id <> ALL (v_jg);   -- storno-ausnahme: Pilotabschluss KAN-185, Jahrgänge ohne abgegebene AMA-Meldung
@@ -485,6 +552,7 @@ BEGIN
      WHERE tenant_id = v_t;
   END LOOP;
   PERFORM set_config('s112.loeschen_erlaubt', '', true);
+  PERFORM set_config('s112.freeze_frei', '', true);
 
   -- ── 4. Nachher-Kennzahlen und Prüfungen ──────────────────────────────────────────────────────────────────
   PERFORM pg_temp.pilot_zaehlen('nachher', c_betriebe, c_namen);
