@@ -61,7 +61,7 @@ describe('KAN-379: Stornobeleg als PDF (stornobelegPdfInhalt)', () => {
     const i = stornobelegPdfInhalt(beleg([pos('Grüner Veltliner', 'LS-1', 6, 11.3), pos('Zweigelt', 'LS-1', 2, 10, { rabatt_pct: 10 })]))
     assert.equal(i.nummer, 'ST-2026-0001')
     assert.equal(i.datumIso, '2026-10-27')
-    assert.deepEqual(i.storno, { zuNummer: 'RE-0050', zuDatumIso: '2026-10-20', grund: 'Preis falsch verrechnet' })
+    assert.deepEqual(i.storno, { zuNummer: 'RE-0050', zuDatumIso: '2026-10-20', grund: 'Preis falsch verrechnet', zuArt: 'rechnung' })   // KAN-453: zuArt
     assert.deepEqual(i.positionen.map(p => p.menge), [-6, -2])
     assert.ok(Math.abs(i.positionen[0].summe - -67.8) < 1e-9)
     assert.ok(Math.abs(i.positionen[1].summe - -18) < 1e-9)
@@ -85,8 +85,8 @@ describe('KAN-379: Stornobeleg als PDF (stornobelegPdfInhalt)', () => {
   })
   test('PDF-Layout: Titel, Bezug, Stornobetrag, Grund, kein Zahlungsteil und kein Skonto', () => {
     const s = quelle('src/lib/pdf/verkaufRechnungPdf.tsx')
-    assert.match(s, /\{gutschrift \? 'GUTSCHRIFT' : storno \? 'STORNORECHNUNG' : 'RECHNUNG'\}/)   // KAN-453: auch Gutschrift
-    assert.match(s, /zu Rechnung \{storno\.zuNummer\} vom \{fmtDate\(storno\.zuDatumIso\)\}/)
+    assert.match(s, /\{gutschrift \? 'GUTSCHRIFT' : zuGutschrift \? 'STORNOBELEG' : storno \? 'STORNORECHNUNG' : 'RECHNUNG'\}/)   // KAN-453: auch Gutschrift und ihr Storno
+    assert.match(s, /zu \{zuGutschrift \? 'Gutschrift' : 'Rechnung'\} \{storno\.zuNummer\} vom \{fmtDate\(storno\.zuDatumIso\)\}/)
     assert.match(s, /\{gutschrift \? 'Gutschriftbetrag' : storno \? 'Stornobetrag' : 'Rechnungsbetrag'\}/)
     assert.match(s, /Grund: \{storno\.grund\}/)
     assert.match(s, /const gegenbeleg = storno \?\? gutschrift\n\s+const skonto = gegenbeleg \? null : props\.skonto/)
@@ -115,7 +115,7 @@ describe('KAN-379: Versand des Stornobelegs', () => {
   test('Stornobeleg-Seite bietet den Versand über die eigene Route an', () => {
     const p = quelle('src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx')
     assert.match(p, /\{storno && membership && canWrite\(membership, 'warenwirtschaft'\) && \(/)
-    assert.match(p, /pfad=\{`\/api\/weinhandel\/rechnungen\/\$\{r\.id\}\/send`\} titel="Stornorechnung"/)
+    assert.match(p, /pfad=\{`\/api\/weinhandel\/rechnungen\/\$\{r\.id\}\/send`\} titel=\{zuGutschrift \? 'Stornobeleg' : 'Stornorechnung'\}/)
     assert.match(quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/RechnungVersandPanel.tsx'), /fetch\(pfad \?\? `\/api\/weinhandel\/verkauf\/\$\{verkaufId\}\/send`/)
   })
 })

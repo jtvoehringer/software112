@@ -132,7 +132,7 @@ describe('KAN-439: Zusammenfassende Meldung', () => {
   })
   test('Storno wie in der UVA: Original zählt weiter, Stornobeleg negativ, Altfälle nicht', () => {
     assert.match(z, /if \(r\.storniert === true\) \{[\s\S]{0,200}if \(!r\.storniert_durch_id\) continue[\s\S]{0,260}if \(f\.igl\) aus\.push\(\{ uid: f\.uid, betrag: wert\(pos\), nummer \}\)/)
-    assert.match(z, /const pos = \(o\.storno_positionen \?\? \[\]\) as R\[\][\s\S]{0,200}if \(f\.igl\) aus\.push\(\{ uid: f\.uid, betrag: -wert\(pos\), nummer \}\)/)
+    assert.match(z, /const pos = \(o\.storno_positionen \?\? \[\]\) as R\[\][\s\S]{0,700}if \(f\.igl\) aus\.push\(\{ uid: f\.uid, betrag: -wert\(pos\), nummer \}\)/)
     assert.match(z, /if \(r\.aktiv === false\) continue/)
   })
   // Nachtrag (13.11.2026): Wird nur die Rechnung storniert, ist der Lieferschein wieder „nicht berechnet“ und hängt

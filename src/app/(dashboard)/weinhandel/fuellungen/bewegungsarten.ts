@@ -27,6 +27,7 @@ export const VERKAUFSARTEN: Record<string, string> = {
   verkauf:        'Verkauf',
   verkauf_storno: 'Verkauf storniert (Rückbuchung)',
   ruecknahme:     'Rücknahme (Gutschrift)',
+  ruecknahme_storno: 'Rücknahme storniert (Gutschrift storniert)',   // KAN-453: nur über s112_gutschrift_stornieren
 }
 
 export function bewegungsartLabel(art: string): string {

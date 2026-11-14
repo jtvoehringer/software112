@@ -138,7 +138,10 @@ export function rechnungFallSchluessel(rechnungId: unknown): string {
 
 /** KAN-419: Rechnungen, die von den Gutschriften der Belegliste berichtigt werden (für den Steuerfall freier Zeilen) */
 export function gutschriftRechnungIds(belege: readonly Zeile[]): string[] {
-  return [...new Set(belege.filter(b => b.art === 'gutschrift' && b.gutschrift_zu_id).map(b => String(b.gutschrift_zu_id)))]
+  // KAN-453: auch die Rechnung hinter einem Stornobeleg zu einer Gutschrift (storno_von = die Gutschrift)
+  const ids = belege.map(b => b.art === 'gutschrift' ? b.gutschrift_zu_id
+    : b.art === 'storno' && (b.storno_von as Zeile | null)?.art === 'gutschrift' ? (b.storno_von as Zeile).gutschrift_zu_id : null)
+  return [...new Set(ids.filter(Boolean).map(String))]
 }
 
 /** KAN-419: einheitlicher Steuerfall je Rechnung aus ihren Lieferscheinen (rechnung_id, steuerfall); uneinheitlich → kein Eintrag */
@@ -165,8 +168,10 @@ export function positionenMitSteuerfall(beleg: Zeile, verkaeufe: ReadonlyMap<str
   }
   // KAN-419: Gutschrift – Steuerfall des Lieferscheins der Zeile; freie Zeilen (Preisnachlass) haben keinen Lieferschein und
   // bekommen den Steuerfall der berichtigten Rechnung, wenn er dort einheitlich ist (Schlüssel rechnungFallSchluessel)
-  if (beleg.art === 'gutschrift') {
-    const derRechnung = verkaeufe.get(rechnungFallSchluessel(beleg.gutschrift_zu_id)) ?? null
+  // KAN-453: ebenso der Stornobeleg zu einer Gutschrift (ihre Zeilen aus der Momentaufnahme, positiv)
+  const gutschriftStorno = beleg.art === 'storno' && (beleg.storno_von as Zeile | null)?.art === 'gutschrift'
+  if (beleg.art === 'gutschrift' || gutschriftStorno) {
+    const derRechnung = verkaeufe.get(rechnungFallSchluessel(gutschriftStorno ? (beleg.storno_von as Zeile).gutschrift_zu_id : beleg.gutschrift_zu_id)) ?? null
     return ((beleg.verkauf_positionen ?? []) as Zeile[]).map(pos => ({
       pos, verkaufSteuerfall: pos?.lieferschein_id ? (verkaeufe.get(String(pos.lieferschein_id)) ?? null) : derRechnung,
     }))
@@ -267,8 +272,10 @@ export function bmdRechnungKopf(
 ): { belegnr: string; extbelegnr: string; text: string; gutschrift: boolean } {
   const belegnr = (p.rechnungsnummer as string | null | undefined) ?? String(p.id ?? '').slice(0, 8)
   if (p.art === 'storno') {
-    const original = (p.storno_von as { rechnungsnummer?: string | null } | null | undefined)?.rechnungsnummer ?? ''
-    return { belegnr, extbelegnr: original, text: bmdText(`${name} Storno ${belegnr}${original ? ` zu RE ${original}` : ''}`), gutschrift: true }
+    const von = p.storno_von as { rechnungsnummer?: string | null; art?: string | null } | null | undefined
+    const original = von?.rechnungsnummer ?? ''
+    // KAN-453: Stornobeleg zu einer Gutschrift – positive Beträge, Fremdbeleg-Nr. = die Gutschrift; fällig am Belegdatum, ohne Skonto
+    return { belegnr, extbelegnr: original, text: bmdText(`${name} Storno ${belegnr}${original ? ` zu ${von?.art === 'gutschrift' ? 'GS' : 'RE'} ${original}` : ''}`), gutschrift: true }
   }
   // KAN-419: Gutschrift (Teilberichtigung) – eigene Belegnummer GS-…, Fremdbeleg-Nr. = berichtigte Rechnung
   if (p.art === 'gutschrift') {

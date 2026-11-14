@@ -36,16 +36,22 @@ export function gutschriftBrutto(g: R): number {
   return rund2(gutschriftZeilen(g).reduce((s, z) => s + positionBrutto(z), 0))
 }
 
-/** Summe mehrerer Gutschriften, brutto und positiv; inaktive zählen nicht */
+/** KAN-453: Zählt die Gutschrift noch gegen ihre Rechnung (Restmenge, Restbetrag, offener Betrag)? Nicht, wenn sie
+ *  storniert oder inaktiv ist – wie s112_gutschrift_summe */
+export function gutschriftWirksam(g: R): boolean {
+  return g.aktiv !== false && g.storniert !== true
+}
+
+/** Summe mehrerer Gutschriften, brutto und positiv; inaktive und stornierte zählen nicht */
 export function gutschriftSumme(gutschriften: readonly R[]): number {
-  return rund2(gutschriften.filter(g => g.aktiv !== false).reduce((s, g) => s + gutschriftBrutto(g), 0))
+  return rund2(gutschriften.filter(gutschriftWirksam).reduce((s, g) => s + gutschriftBrutto(g), 0))
 }
 
 /** Bereits gutgeschriebene Menge je Position der Rechnung (Schlüssel: Positions-ID) */
 export function bereitsGutgeschrieben(gutschriften: readonly R[]): Map<string, number> {
   const aus = new Map<string, number>()
   for (const g of gutschriften) {
-    if (g.aktiv === false) continue
+    if (!gutschriftWirksam(g)) continue
     for (const z of gutschriftZeilen(g)) {
       if (!z.position_id) continue
       const k = String(z.position_id)

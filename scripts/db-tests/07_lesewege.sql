@@ -54,7 +54,7 @@ DECLARE
     's112_ea_beleg_loesen', 's112_ea_kosten_zuordnen', 's112_ea_stornieren', 's112_elabel_umleiten',
     's112_etikettierung_stornieren', 's112_export_muster_buchen', 's112_exportauftrag_aendern', 's112_exportauftrag_status_setzen',
     's112_freeze_korrektur', 's112_fuellung_aendern', 's112_fuellung_etikettieren', 's112_fuellung_verkauf_buchen',
-    's112_gutschrift_anlegen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen',
+    's112_gutschrift_anlegen', 's112_gutschrift_stornieren', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen',
     's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mandant_mitglieder', 's112_paketmodul_frei',
     's112_produktion_buchen', 's112_produktion_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_rechnung_erstellen',
     's112_rechnung_stornieren', 's112_sekt_stufe_setzen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen',

@@ -9,7 +9,9 @@ import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButto
 import { fmtEur, fmtNum } from '@/lib/format'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
-import { alsBeleg, istGutschrift, istStornobeleg, lieferscheineSelect, STORNO_FELDER } from '@/lib/verkauf/rechnungen'
+import { alsBeleg, istGutschrift, istGutschriftStorno, istStornobeleg, lieferscheineSelect, STORNO_FELDER } from '@/lib/verkauf/rechnungen'
+import StornoButton from '@/components/StornoButton'
+import { gutschriftStornieren } from '../../verkauf/actions'
 import { heuteWien } from '@/lib/datum/wien'
 import { alle } from '@/lib/supabase/alle'
 import GutschriftPanel from './GutschriftPanel'
@@ -64,13 +66,15 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
   const gutschrift = istGutschrift(r)
   /** Beleg mit negativen Beträgen und ohne Zahlungsteil (Stornobeleg bzw. Gutschrift) */
   const gegenbeleg = storno || gutschrift
+  /** KAN-453: Stornobeleg, der eine Gutschrift aufhebt (positive Beträge) */
+  const zuGutschrift = istGutschriftStorno(r)
   const original = ((storno ? r.storno_von : gutschrift ? r.gutschrift_zu : null) ?? null) as R | null
   // KAN-419: Gutschriften zu dieser Rechnung (für Liste, Restmengen und Restbetrag)
-  // storno-sichtbar: eine Gutschrift lässt sich nicht stornieren (kommt mit KAN-453) – alle aktiven zählen
+  // storno-sichtbar: auch stornierte Gutschriften (KAN-453) stehen in der Liste – gekennzeichnet, sie zählen nicht mehr (gutschriftWirksam)
   const gutschriften = gegenbeleg ? [] : geladen(await alle<R>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('rechnungen') as any)
-      .select('id, rechnungsnummer, datum, aktiv, gutschrift_positionen')
+      .select('id, rechnungsnummer, datum, aktiv, storniert, gutschrift_positionen')
       .eq('tenant_id', tenantId).eq('gutschrift_zu_id', id).eq('art', 'gutschrift').eq('aktiv', true)
       .order('datum').order('erstellt_am').order('id')), 'Gutschriften') as R[]
   const stornoDurch = (r.storniert_durch ?? null) as R | null
@@ -116,13 +120,13 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
       {/* KAN-379: Stornobeleg als PDF „Stornorechnung“ per E-Mail */}
       {storno && membership && canWrite(membership, 'warenwirtschaft') && (
         <div className="no-print">
-          <RechnungVersandPanel pfad={`/api/weinhandel/rechnungen/${r.id}/send`} titel="Stornorechnung"
+          <RechnungVersandPanel pfad={`/api/weinhandel/rechnungen/${r.id}/send`} titel={zuGutschrift ? 'Stornobeleg' : 'Stornorechnung'}
             defaultEmail={String((r.kontakt as R | null)?.email ?? (r.firma as R | null)?.email ?? '')}
             sentAt={r.rechnung_versendet_am ?? null} sentTo={r.rechnung_versendet_an ?? null} />
         </div>
       )}
       {/* KAN-453 G3a: Gutschrift als PDF „Gutschrift – Rechnungskorrektur“ per E-Mail */}
-      {gutschrift && membership && canWrite(membership, 'warenwirtschaft') && (
+      {gutschrift && !r.storniert && membership && canWrite(membership, 'warenwirtschaft') && (
         <div className="no-print">
           <RechnungVersandPanel pfad={`/api/weinhandel/rechnungen/${r.id}/send`} titel="Gutschrift"
             defaultEmail={String((r.kontakt as R | null)?.email ?? (r.firma as R | null)?.email ?? '')}
@@ -137,8 +141,16 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
       )}
       {gutschrift && original && (
         <p role="note" className="text-sm text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2 no-print">
-          Gutschrift zu Rechnung <Link href={`/weinhandel/rechnungen/${original.id}`} className="font-mono underline">{original.rechnungsnummer}</Link> vom {d(original.datum)} – die Beträge mindern Umsatz und offenen Betrag am {d(r.datum)}. Die Gutschrift lässt sich nicht ändern.
+          Gutschrift zu Rechnung <Link href={`/weinhandel/rechnungen/${original.id}`} className="font-mono underline">{original.rechnungsnummer}</Link> vom {d(original.datum)} – die Beträge mindern Umsatz und offenen Betrag am {d(r.datum)}. Die Gutschrift lässt sich nicht ändern{r.storniert ? '' : ', nur stornieren'}.
         </p>
+      )}
+      {/* KAN-453 G3b: Gutschrift stornieren – Stornobeleg am Storno-Datum, eine Rücknahme in den Bestand wird zurückgebucht */}
+      {gutschrift && !r.storniert && membership && canWrite(membership, 'warenwirtschaft') && (
+        <div className="no-print flex justify-end">
+          <StornoButton action={gutschriftStornieren.bind(null, String(r.id))} label="Gutschrift stornieren" mitText
+            hinweis="Es entsteht ein Stornobeleg am Storno-Datum; die Gutschrift bleibt in ihrem Zeitraum stehen. Menge und Betrag sind an der Rechnung wieder gutschreibbar. Zurückgenommene Ware wird wieder aus dem Bestand gebucht."
+            stornoDatum={{ heute: heuteWien(), ab: String(r.datum).slice(0, 10), hilfe: 'Nicht vor dem Datum der Gutschrift, nicht im abgeschlossenen Zeitraum.' }} />
+        </div>
       )}
       {/* KAN-419: Gutschriften der Rechnung und „Gutschrift ausstellen“ */}
       {!gegenbeleg && !r.storniert && r.verkaufsposten_ids.length > 0 && (
@@ -153,7 +165,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
       )}
       {storno && original && (
         <p role="note" className="text-sm text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2 no-print">
-          Stornobeleg zu Rechnung <Link href={`/weinhandel/rechnungen/${original.id}`} className="font-mono underline">{original.rechnungsnummer}</Link> vom {d(original.datum)} – die Beträge buchen am {d(r.datum)} gegen.
+          Stornobeleg zu {zuGutschrift ? 'Gutschrift' : 'Rechnung'} <Link href={`/weinhandel/rechnungen/${original.id}`} className="font-mono underline">{original.rechnungsnummer}</Link> vom {d(original.datum)} – die Beträge buchen am {d(r.datum)} gegen.
         </p>
       )}
 
@@ -175,10 +187,10 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
           <div className="text-right">
             {gutschrift
               ? <h1 className="text-3xl font-semibold">GUTSCHRIFT</h1>
-              : <h1 className="text-3xl font-semibold">{storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</h1>}
+              : <h1 className="text-3xl font-semibold">{zuGutschrift ? 'STORNOBELEG' : storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</h1>}
             <p className="text-base font-semibold mt-1">Nr. {r.rechnungsnummer}</p>
             <p className="text-s112-text-2 mt-0.5">Datum: {d(r.datum)}</p>
-            {storno && original && <p className="text-s112-text-2">zu Rechnung {original.rechnungsnummer} vom {d(original.datum)}</p>}
+            {storno && original && <p className="text-s112-text-2">zu {zuGutschrift ? 'Gutschrift' : 'Rechnung'} {original.rechnungsnummer} vom {d(original.datum)}</p>}
             {/* KAN-419 (Entscheidung 1A): „Gutschrift“ meint im UStG die Abrechnung durch den Leistungsempfänger – deshalb der Zusatz */}
             {gutschrift && original && <p className="text-s112-text-2">Rechnungskorrektur zu Rechnung {original.rechnungsnummer} vom {d(original.datum)}</p>}
             <p className="text-s112-text-2">Lieferzeitraum: {leistung}</p>

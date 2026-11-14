@@ -101,9 +101,9 @@ describe('KAN-452: Leser', () => {
   })
   test('BSM und Bestandsmeldung: Buchungsart des Verkaufs, Zugang, Kunde wie beim Verkauf', () => {
     const b = quelle('src/lib/behoerden/bsm.ts')
-    assert.match(b, /case 'verkauf': case 'verkauf_storno': case 'verkauf_alt': case 'verkauf_alt_storno':\n\s+case 'ruecknahme':.*\n\s+return k\.kundeAusland \? 'VK_FL_AU' : 'VK_FL_AT'/)
-    assert.match(b, /const istVerkauf = fb\.art\.startsWith\('verkauf'\) \|\| fb\.art === 'ruecknahme'/)
-    assert.match(b, /fb\.art === 'ruecknahme' \? 'Rücknahme \(Gutschrift\)' : null/)
+    assert.match(b, /case 'verkauf': case 'verkauf_storno': case 'verkauf_alt': case 'verkauf_alt_storno':\n\s+case 'ruecknahme_storno':.*\n\s+case 'ruecknahme':.*\n\s+return k\.kundeAusland \? 'VK_FL_AU' : 'VK_FL_AT'/)
+    assert.match(b, /const istVerkauf = fb\.art\.startsWith\('verkauf'\) \|\| fb\.art\.startsWith\('ruecknahme'\)/)   // KAN-453: auch die Gegenbewegung
+    assert.match(b, /fb\.art === 'ruecknahme' \? 'Rücknahme \(Gutschrift\)' : fb\.art === 'ruecknahme_storno'/)
     assert.match(b, /ruecknahme: 'Rücknahme zu einer Gutschrift \(Zugang Flaschenlager\)'/)
     // die Bestandsmeldung übernimmt jede Flaschenbewegung mit ihrem Vorzeichen – ohne Filter auf die Art
     assert.match(quelle('src/lib/behoerden/bestandsmeldung.ts'), /plus\(fb\.fuellung_id, \{ datum: tag\(fb\.datum\), menge: Math\.trunc\(zahlOderNull\(fb\.menge_stk\) \?\? 0\), art: String\(fb\.art \?\? ''\)/)

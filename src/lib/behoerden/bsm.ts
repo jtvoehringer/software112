@@ -355,6 +355,7 @@ export function buchungsartFlasche(art: string, menge: number, k: { kundeAusland
       // KAN-232: Sekt aus der Lohnversektung (Zugang im Flaschenbestand)
       return k.eroeffnung ? 'EROEFF' : k.lohnversektung && k.mitCharge ? 'LNSKT_ZU' : k.mitCharge ? 'FUELLUNG' : 'ZK_FLA'
     case 'verkauf': case 'verkauf_storno': case 'verkauf_alt': case 'verkauf_alt_storno':
+    case 'ruecknahme_storno':   // KAN-453: Storno der Gutschrift – die zurückgenommene Ware geht wieder ab
     case 'ruecknahme':   // KAN-452: Rücknahme zu einer Gutschrift – Buchungsart des Verkaufs mit positivem Vorzeichen (wie im Journal)
       return k.kundeAusland ? 'VK_FL_AU' : 'VK_FL_AT'
     case 'bruch': case 'eigenverbrauch': case 'schwund':
@@ -918,7 +919,7 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
       const zl = zelle(merkmaleFuellung(f), 'flasche', name)
       if (!zl) continue
       const liter = l2((fb.menge * p.ml) / 1000)
-      const istVerkauf = fb.art.startsWith('verkauf') || fb.art === 'ruecknahme'
+      const istVerkauf = fb.art.startsWith('verkauf') || fb.art.startsWith('ruecknahme')
       const k = istVerkauf ? kunde(fb.verkaufspostenId) : { ausland: false, land: null, quelle: null }
       const code = buchungsartFlasche(fb.art, fb.menge, { kundeAusland: k.ausland, mitCharge: !!f.weinausbau_id, eroeffnung, lohnversektung: !!f.lohnversektung_id })
       const altbestandAb = fb.art === 'anfangsbestand' && fb.menge < 0
@@ -933,7 +934,7 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
         gegenstelle: istVerkauf ? [kunde_, landText(k)].filter(Boolean).join(' · ') || null : null,
         beleg: istVerkauf ? textOderNull(vp?.rechnungsnummer) : textOderNull(f.pruefnummer) ?? textOderNull(f.chargennummer),
         storno: fb.art === 'verkauf_storno' || fb.art === 'verkauf_alt_storno' || fb.art === 'storno_fuellung' ? 'Gegenbuchung (Storno)'
-          : fb.art === 'ruecknahme' ? 'Rücknahme (Gutschrift)' : null,
+          : fb.art === 'ruecknahme' ? 'Rücknahme (Gutschrift)' : fb.art === 'ruecknahme_storno' ? 'Gegenbuchung (Gutschrift storniert)' : null,
         hinweis: `${fmtNum(Math.abs(fb.menge), 0)} Fl. à ${p.ml} ml${p.mlErfasst ? '' : ' (angenommen)'}${code === 'ZK_FLA' ? (f.zukauf_posten_id ? ` · ${HANDELSWARE_HINWEIS}` : ' · Füllung ohne Charge – als Flaschenzukauf gezählt, prüfen') : ''}${altbestandAb ? ' · Altbestand-Korrektur (−): Abgang, als Eigenverbrauch/Schwund gezählt' : ''}`,
       }
       if (code === 'FUELLUNG') {
@@ -1470,6 +1471,7 @@ const FLASCHEN_VORGANG: Record<string, string> = {
   verkauf_alt: 'Flaschenverkauf',
   verkauf_alt_storno: 'Flaschenverkauf storniert (Rückbuchung)',
   ruecknahme: 'Rücknahme zu einer Gutschrift (Zugang Flaschenlager)',
+  ruecknahme_storno: 'Gutschrift storniert – Rücknahme zurückgebucht (Abgang Flaschenlager)',
   bruch: 'Bruch',
   eigenverbrauch: 'Eigenverbrauch / Verkostung',
   schwund: 'Schwund / Fehlmenge',

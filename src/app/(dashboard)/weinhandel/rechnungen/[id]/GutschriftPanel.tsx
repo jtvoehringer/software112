@@ -12,7 +12,7 @@ import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { fmtEur, fmtNum, zahlAus } from '@/lib/format'
 import {
   GUTSCHRIFT_GRUND_MAX, GUTSCHRIFT_GRUND_MIN, GUTSCHRIFT_TEXT_MAX, bereitsGutgeschrieben, betragAufteilen, gutschriftBrutto,
-  gutschriftEingabeFehler, mitRuecknahme, neueGutschriftBrutto, restBetrag, restMenge, ruecknahmeArt, ruecknahmeSperre,
+  gutschriftEingabeFehler, gutschriftWirksam, mitRuecknahme, neueGutschriftBrutto, restBetrag, restMenge, ruecknahmeArt, ruecknahmeSperre,
 } from '@/lib/verkauf/gutschrift'
 import { gutschriftAusstellen } from '../../verkauf/actions'
 
@@ -27,7 +27,7 @@ interface Props {
   /** Positionen der Rechnung (id, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz; für die
    *  Rücknahme typ, fuellung_id, sonstige_artikel_id, bestand_fuehren, fuellung_aktiv, fuellung_storniert_am, artikel_aktiv) */
   positionen: R[]
-  /** bisherige Gutschriften (id, rechnungsnummer, datum, aktiv, gutschrift_positionen) */
+  /** bisherige Gutschriften (id, rechnungsnummer, datum, aktiv, storniert, gutschrift_positionen) – stornierte zählen nicht mehr */
   gutschriften: R[]
   darfSchreiben: boolean
 }
@@ -98,7 +98,9 @@ export default function GutschriftPanel({ rechnungId, rechnungsnummer, rechnungD
                 {gutschriften.map(g => (
                   <li key={String(g.id)}>
                     <Link href={`/weinhandel/rechnungen/${g.id}`} className="font-mono text-s112-blue-700 hover:underline">{g.rechnungsnummer}</Link>
-                    {' '}vom {tag(String(g.datum))} · −{fmtEur(gutschriftBrutto(g))}{mitRuecknahme(g) ? ' · Ware zurückgenommen' : ''}
+                    {' '}vom {tag(String(g.datum))} · {gutschriftWirksam(g)
+                      ? <>−{fmtEur(gutschriftBrutto(g))}{mitRuecknahme(g) ? ' · Ware zurückgenommen' : ''}</>
+                      : <span className="text-s112-muted">storniert ({fmtEur(gutschriftBrutto(g))})</span>}
                   </li>
                 ))}
               </ul>
