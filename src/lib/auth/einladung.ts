@@ -130,6 +130,8 @@ export async function mitgliedEinladen(admin: SupabaseClient, p: {
   name: string
   /** Modulmatrix (Migration 218); undefined = Feld nicht setzen (DB-Standard) */
   schreibmodule?: string[] | null
+  /** Profil eines Mitarbeiters (KAN-457: vertrieb | extern) – die Schreibmodule folgen dem Profil (auch per Trigger) */
+  profil?: string | null
   /** auth.users-ID der einladenden Person (für Mail und Glocke) */
   eingeladenVon: string | null
 }): Promise<EinladungsErgebnis> {
@@ -149,6 +151,7 @@ export async function mitgliedEinladen(admin: SupabaseClient, p: {
 
   const zeile: R = { tenant_id: p.tenantId, user_id: userId, role: p.role }
   if (p.schreibmodule !== undefined) zeile.schreibmodule = p.schreibmodule
+  if (p.profil) zeile.profil = p.profil
   const { error: memberError } = await (admin.from('tenant_memberships') as R).insert(zeile)
   if (memberError) { await aufraeumen(); return { error: dbFehlerText(memberError) } }
 

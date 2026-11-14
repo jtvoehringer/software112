@@ -21,6 +21,7 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, zahlAus } from '@/lib/format'
 import { betriebsartAus, weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
+import { rolleProfilAus, profilSchreibmodule } from '@/lib/auth/rolleProfil'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { austrittsWerte, beitrittFehler, beitrittsWerte, gemeinschaftsFreigaben, paketwechselVerbundFehler, type VerbundBetrieb } from '@/lib/abo/verbund'
 import { premiumSupportEingabeFehler } from '@/lib/abo/premiumSupport'
@@ -182,9 +183,12 @@ export async function uploadTenantLogo(tenantId: string, formData: FormData): Pr
 // /admin/benutzer (inviteSystemAdmin, pflegt plattform_admins mit).
 const VERGEBBARE_ROLLEN = ['tenant_admin', 'winzer', 'leser']
 
-export async function inviteUserToTenant(tenantId: string, email: string, role: string, fullName: string) {
+export async function inviteUserToTenant(tenantId: string, email: string, rolleWert: string, fullName: string) {
   await assertSystemAdmin(tenantId)
-  if (!VERGEBBARE_ROLLEN.includes(role)) return { error: 'Ungültige Rolle' }
+  // KAN-457: 'winzer:<profil>' = Mitarbeiter mit Profil (die Schreibmodule folgen dem Profil)
+  const rp = rolleProfilAus(rolleWert)
+  if (!rp || !VERGEBBARE_ROLLEN.includes(rp.role)) return { error: 'Ungültige Rolle' }
+  const { role, profil } = rp
   const admin = createSupabaseAdminClient()
 
   // Name ist seit 7.8.2026 ein Pflichtfeld: der Klarname wird nicht mehr vom
@@ -206,7 +210,8 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
   // bestehenden Konten nur ergänzt, nicht überschrieben (Korrektur: updateMemberNameAdmin).
   const authClient = await createSupabaseServerClient()
   const { data: { user } } = await authClient.auth.getUser()
-  const ergebnis = await mitgliedEinladen(admin, { tenantId, email, role, name, eingeladenVon: user?.id ?? null })
+  const ergebnis = await mitgliedEinladen(admin, { tenantId, email, role, name, eingeladenVon: user?.id ?? null,
+    ...(profil ? { profil, schreibmodule: profilSchreibmodule(profil) } : {}) })
   if ('error' in ergebnis) return { error: ergebnis.error }
 
   tenantKopfInvalidieren(tenantId)
@@ -269,13 +274,24 @@ export async function updateMemberNameAdmin(userId: string, fullName: string, te
 
 // ── Benutzer: Rolle ändern ────────────────────────────────────────────────────
 
-export async function updateMemberRoleAdmin(membershipId: string, role: string, tenantId: string) {
+export async function updateMemberRoleAdmin(membershipId: string, rolleWert: string, tenantId: string) {
   await assertSystemAdmin(tenantId)
-  if (!VERGEBBARE_ROLLEN.includes(role)) return { error: 'Ungültige Rolle' }
+  const rp = rolleProfilAus(rolleWert)   // KAN-457
+  if (!rp || !VERGEBBARE_ROLLEN.includes(rp.role)) return { error: 'Ungültige Rolle' }
+  const { role, profil } = rp
   const admin = createSupabaseAdminClient()
 
+  // Bisheriges Profil: Fällt es weg und bleibt die Person Mitarbeiter, bekommt sie wieder alle Module (wie ein neuer
+  // Mitarbeiter) – sonst blieben die Module des Profils stehen. Die Feinsteuerung macht die Betriebsleitung unter /benutzer.
+  const { data: bisher, error: bisherFehler } = await (admin.from('tenant_memberships') as R)
+    .select('profil').eq('id', membershipId).eq('tenant_id', tenantId).maybeSingle()
+  if (bisherFehler) return { error: dbFehlerText(bisherFehler, 'Mitgliedschaft konnte nicht geladen werden') }
+  const patch: Record<string, unknown> = { role, profil }
+  if (profil) patch.schreibmodule = profilSchreibmodule(profil)
+  else if (role === 'winzer' && bisher?.profil) patch.schreibmodule = ['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
+
   const { error, count } = await (admin.from('tenant_memberships') as any)
-    .update({ role }, { count: 'exact' })
+    .update(patch, { count: 'exact' })
     .eq('id', membershipId)
     .eq('tenant_id', tenantId)
     .neq('role', 'system_admin')

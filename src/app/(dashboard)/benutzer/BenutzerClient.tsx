@@ -2,7 +2,8 @@
 import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import { useState, useTransition } from 'react'
-import { updateMemberRole, updateMemberModule, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
+import { updateMemberRole, updateMemberModule, updateMemberProfil, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
+import { PROFILE, type Profil } from '@/lib/auth/lesebereiche'
 import type { MemberWithEmail } from './actions'
 import { MODULE, MODUL_VORLAGEN, type Modul } from '@/lib/auth/module'
 import { Users, Info } from 'lucide-react'
@@ -40,6 +41,23 @@ const MODUL_KURZ: Record<Modul, string> = {
 }
 
 const gleich = (a: Modul[], b: Modul[]) => a.length === b.length && a.every(x => b.includes(x))
+
+/** KAN-457: Zugriff eines Mitarbeiters – voll (Modulmatrix) oder ein Profil, das auch das Lesen beschränkt */
+const PROFIL_WAHL = Object.keys(PROFILE) as Profil[]
+function ZugriffWahl({ profil, onChange, disabled }: { profil: Profil | ''; onChange: (p: Profil | '') => void; disabled?: boolean }) {
+  return (
+    <div className="space-y-1">
+      <label className="block text-xs font-medium text-s112-text-2">Zugriff
+        <select aria-label="Zugriff" value={profil} onChange={e => onChange(e.target.value as Profil | '')} disabled={disabled}
+          className="mt-1 block w-full border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
+          <option value="">Voll – sieht alles, bearbeitet laut Modulmatrix</option>
+          {PROFIL_WAHL.map(p => <option key={p} value={p}>Profil {PROFILE[p].label}</option>)}
+        </select>
+      </label>
+      {profil && <p className="text-[11.5px] text-s112-muted leading-snug">{PROFILE[profil].hinweis}. Sieht und bearbeitet nur diese Bereiche – die Module sind durch das Profil festgelegt.</p>}
+    </div>
+  )
+}
 
 /** Modulmatrix mit Vorlagen – für Einladung und Bearbeitung */
 function ModulMatrix({ module, onChange, disabled }: { module: Modul[]; onChange: (m: Modul[]) => void; disabled?: boolean }) {
@@ -87,6 +105,7 @@ export default function BenutzerClient({ members, limit }: Props) {
   const [editingId, setEditingId]         = useState<string | null>(null)
   const [selectedRole, setSelectedRole]   = useState<string>('')
   const [selectedModule, setSelectedModule] = useState<Modul[]>([])
+  const [selectedProfil, setSelectedProfil] = useState<Profil | ''>('')
   const [error, setError]                 = useState<string | null>(null)
   const [success, setSuccess]             = useState<string | null>(null)
   const [isPending, startTransition]      = useTransition()
@@ -97,16 +116,17 @@ export default function BenutzerClient({ members, limit }: Props) {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole]   = useState('winzer')
   const [inviteModule, setInviteModule] = useState<Modul[]>([...MODUL_VORLAGEN[0].module])
+  const [inviteProfil, setInviteProfil] = useState<Profil | ''>('')
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault()
     setError(null); setSuccess(null)
     startTransition(async () => {
-      const result = await inviteMember(inviteEmail, inviteRole, inviteName, inviteRole === 'winzer' ? inviteModule : [])
+      const result = await inviteMember(inviteEmail, inviteRole, inviteName, inviteRole === 'winzer' ? inviteModule : [], inviteRole === 'winzer' ? (inviteProfil || null) : null)
       if (result?.error) setError(result.error)
       else {
         setSuccess(result.hinweis ?? `Einladung an ${inviteEmail} versandt.`)
-        setInviteName(''); setInviteEmail(''); setInviteRole('winzer'); setInviteModule([...MODUL_VORLAGEN[0].module]); setShowInvite(false)
+        setInviteName(''); setInviteEmail(''); setInviteRole('winzer'); setInviteModule([...MODUL_VORLAGEN[0].module]); setInviteProfil(''); setShowInvite(false)
       }
     })
   }
@@ -114,16 +134,22 @@ export default function BenutzerClient({ members, limit }: Props) {
   const handleEditRole = (m: MemberWithEmail) => {
     setEditingId(m.id)
     setSelectedRole(m.role)
-    setSelectedModule(m.role === 'winzer' ? [...m.schreibmodule] : [...MODUL_VORLAGEN[0].module])
+    setSelectedModule(m.role === 'winzer' && !m.profil ? [...m.schreibmodule] : [...MODUL_VORLAGEN[0].module])
+    setSelectedProfil(m.role === 'winzer' ? (m.profil ?? '') : '')
     setError(null); setSuccess(null)
   }
 
   const handleSaveRole = (m: MemberWithEmail) => {
     setError(null)
     startTransition(async () => {
-      const result = selectedRole === m.role && m.role === 'winzer'
-        ? await updateMemberModule(m.id, selectedModule)
-        : await updateMemberRole(m.id, selectedRole, selectedRole === 'winzer' ? selectedModule : undefined)
+      // KAN-457: Rolle geändert → Rolle samt Profil; sonst Profil geändert → Profil; sonst nur die Modulmatrix
+      const profil = selectedRole === 'winzer' ? (selectedProfil || null) : null
+      const result = selectedRole !== m.role
+        ? await updateMemberRole(m.id, selectedRole, selectedRole === 'winzer' ? selectedModule : undefined, profil)
+        : m.role !== 'winzer' ? await updateMemberRole(m.id, selectedRole, undefined, null)
+        : profil !== m.profil ? await updateMemberProfil(m.id, profil, selectedModule)
+        : profil ? { success: true }
+        : await updateMemberModule(m.id, selectedModule)
       if (result?.error) setError(result.error)
       else setEditingId(null)
     })
@@ -226,8 +252,9 @@ export default function BenutzerClient({ members, limit }: Props) {
                           ))}
                         </select>
                         {selectedRole === 'winzer' && (
-                          <div className="bg-white border border-s112-border rounded-lg p-3">
-                            <ModulMatrix module={selectedModule} onChange={setSelectedModule} disabled={isPending} />
+                          <div className="bg-white border border-s112-border rounded-lg p-3 space-y-3">
+                            <ZugriffWahl profil={selectedProfil} onChange={setSelectedProfil} disabled={isPending} />
+                            <ModulMatrix module={selectedProfil ? ([...PROFILE[selectedProfil].schreibmodule] as Modul[]) : selectedModule} onChange={setSelectedModule} disabled={isPending || !!selectedProfil} />
                           </div>
                         )}
                       </div>
@@ -236,6 +263,9 @@ export default function BenutzerClient({ members, limit }: Props) {
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
                           {ROLE_LABELS[m.role] ?? m.role}
                         </span>
+                        {m.role === 'winzer' && m.profil && (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-warn-bg text-s112-warn-fg" title={PROFILE[m.profil].hinweis}>Profil {PROFILE[m.profil].label}</span>
+                        )}
                         {m.role === 'winzer' && (
                           m.schreibmodule.length === 0
                             ? <span className="text-[11px] text-s112-warn-fg">keine Module – nur lesen</span>
@@ -360,8 +390,9 @@ export default function BenutzerClient({ members, limit }: Props) {
           </div>
           {inviteRole === 'winzer' && (
             <div className="bg-white border border-s112-border rounded-lg p-3">
+              <div className="mb-3"><ZugriffWahl profil={inviteProfil} onChange={setInviteProfil} disabled={isPending} /></div>
               <p className="text-xs font-medium text-s112-text-2 mb-2">Module, in denen der Mitarbeiter bearbeiten darf</p>
-              <ModulMatrix module={inviteModule} onChange={setInviteModule} disabled={isPending} />
+              <ModulMatrix module={inviteProfil ? ([...PROFILE[inviteProfil].schreibmodule] as Modul[]) : inviteModule} onChange={setInviteModule} disabled={isPending || !!inviteProfil} />
             </div>
           )}
           <div className="flex gap-2">

@@ -142,5 +142,12 @@ Jede der 91 Routen unter `src/app/api` hat einen Bereich oder eine begründete A
 | R1 | Profil an der Mitgliedschaft, Funktionen, diese Liste – ohne Wirkung (erledigt) | KAN-412 |
 | R2 | Sperr-Policies auf allen Tabellen, DB-Test-Matrix (umgesetzt) | KAN-454 |
 | R3 | Funktionen, KI, Suche, Exporte, Dateien (umgesetzt) | KAN-455 |
-| R4 | Navigation, Seiten, Dashboard (Navigation und Guards umgesetzt) | KAN-456 |
-| R5 | Vergabe in der Benutzerverwaltung, E2E, Freigabe | KAN-457 |
+| R4 | Navigation, Seiten, Dashboard, „Vertrieb“ ohne Kellerbuch, E2E-Rundgang (umgesetzt) | KAN-456 |
+| R5 | Vergabe in der Benutzerverwaltung und Mandantenverwaltung, Schreibmodule folgen dem Profil (Migration `kan457a_profil_module`), Handbuch und FAQ (umgesetzt) | KAN-457 |
+
+## Vergabe (R5)
+
+- **Wer:** Betriebsleitung unter `/benutzer` (Auswahl „Zugriff“: Voll · Vertrieb · Extern, beim Einladen und am Mitglied) und der Plattform-Admin in der Mandantenverwaltung (Rolle und Profil in einer Liste, Wert `winzer:<profil>`, `src/lib/auth/rolleProfil.ts`). Ein Profil gibt es nur für Mitarbeiter, in allen Paketen.
+- **Schreibmodule:** fest aus dem Profil (`PROFILE` in `src/lib/auth/lesebereiche.ts`). Die App setzt sie, der Trigger `z_profil_module` auf `tenant_memberships` erzwingt sie – auch für Schreibwege, die das Profil setzen und die Module vergessen. Ein Rollenwechsel weg vom Mitarbeiter leert das Profil.
+- **Wirkung:** sofort, ohne neue Anmeldung (die Mitgliedschaft wird je Anfrage gelesen, die Policies werten sie je Abfrage aus).
+- **Neues Profil:** `PROFILE`, `s112_profil_bereiche`, der Trigger und `scripts/lesebereiche.json` gemeinsam (Tests `kan412-profil`, `kan457-profil-vergabe` und DB-Test 03 vergleichen).
