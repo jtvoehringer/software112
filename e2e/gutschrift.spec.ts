@@ -77,6 +77,8 @@ test.describe('Gutschrift zur Rechnung (schreibend)', () => {
     await expect(page.getByText(/Rechnungskorrektur zu Rechnung /).first()).toBeVisible()
     await expect(page.getByText(/Gutschriftbetrag:/)).toContainText('-10,00')
     // KAN-453 G3a: die Gutschrift lässt sich per E-Mail senden (hier ohne Versand – nur das Angebot)
+    // Das Panel ist zugeklappt (Knopf „Per E-Mail senden“); der Titel steht erst im geöffneten Panel.
+    await page.getByRole('button', { name: 'Per E-Mail senden' }).click()
     await expect(page.getByText('Gutschrift per E-Mail senden')).toBeVisible()
 
     // an der Rechnung: Gutschrift gelistet, Rest 10 €
