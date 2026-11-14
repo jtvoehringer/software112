@@ -40,7 +40,7 @@ export type TenantKopf = {
 // ACHTUNG Reihenfolge: erst Migration A einspielen, dann diesen Stand deployen – solange die Spalte
 // fehlt, lehnt PostgREST die ganze Abfrage ab (42703), ladeTenantKopf() liefert dann bei jeder
 // Anfrage den leeren, ungecachten Stand (Standard-Branding, Module aus, Abo-Sperre FREI).
-export const KOPF_SPALTEN = 'anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, modul_controlling, buchhaltungsart, session_timeout_minuten, assistent_aktiv, mostgewicht_einheit'
+export const KOPF_SPALTEN = 'anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, modul_controlling, modul_shop, buchhaltungsart, session_timeout_minuten, assistent_aktiv, mostgewicht_einheit'
 
 const LEER: TenantKopf = { einstellungen: null, tenant: null, ladefehler: true }
 

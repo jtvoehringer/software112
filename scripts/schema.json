@@ -1995,7 +1995,13 @@
 "betrieb_rex_nummer",
 "betrieb_ea_bewilligung",
 "betrieb_verbrauchsteuernr",
-"export_flaschen_je_karton"
+"export_flaschen_je_karton",
+"modul_shop",
+"shop_url",
+"shop_bestandsreserve",
+"shop_bestand_uebertragen",
+"shop_woo_api_key",
+"shop_woo_secret"
 ],
 "tenant_memberships": [
 "id",

@@ -122,6 +122,8 @@ export type TenantSettings = {
   modul_export:        boolean
   // Migration 193 – Controlling (Auswertungen, Kostenrechnung, Datenexport)
   modul_controlling:   boolean
+  // KAN-460 – Zusatzmodul Weinshop-Anbindung (WooCommerce)
+  modul_shop:          boolean
   // Migration 197 – Buchhaltungsart: 'ea' (E&A in software:112) | 'doppik' (Steuerberater/BMD)
   buchhaltungsart:     'ea' | 'doppik'
   // Migration 148 – Prozess-Assistent (Bot)
@@ -318,6 +320,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     modul_sumup:         !!(s?.modul_sumup),
     modul_export:        !!(s?.modul_export),
     modul_controlling:   !!(s?.modul_controlling),
+    modul_shop:          !!(s?.modul_shop),
     buchhaltungsart:     s?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea',
     ea_buchung_modus:    s?.ea_buchung_modus ?? 'brutto',
     ea_kleinunternehmer: !!(s?.ea_kleinunternehmer),

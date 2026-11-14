@@ -19,6 +19,7 @@
 -- @mutation anon_revoke_nicht_geheimnis: REVOKE SELECT (anzeigename) ON tenant_einstellungen FROM anon | rot: spalte_ohne_grant_anon:tenant_einstellungen\.anzeigename
 -- @mutation service_gesperrt: schutz_plattformfelder sperrt auch postgres und service_role | rot: service_.*
 -- @mutation uec_delete_betrieb: DELETE-Policy von user_email_connections auf den ganzen Betrieb aufgeweicht | rot: uec_delete_policy_nur_eigene
+-- @mutation shop_schalter_fehlt: s112_paketmodul_frei kennt modul_shop nicht mehr | rot: paketmodul_shop_an
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 16 (Stand 28.09.2026).
 -- Nur Staging. Die ganze Datei ist EINE Transaktion und endet mit pg_temp.s112_ende(…) = RAISE → nichts bleibt.
@@ -349,6 +350,12 @@ END $fn$$m$);
     $m$GRANT EXECUTE ON FUNCTION public.s112test_dyn(uuid, text) TO authenticated$m$);
   PERFORM pg_temp.s112_mutiere('anon_revoke_nicht_geheimnis',
     $m$REVOKE SELECT (anzeigename) ON public.tenant_einstellungen FROM anon$m$);
+  PERFORM pg_temp.s112_mutiere('shop_schalter_fehlt',
+    $m$DO $d$ BEGIN
+         EXECUTE replace(pg_get_functiondef('public.s112_paketmodul_frei(uuid, text)'::regprocedure),
+                         'WHEN ''modul_shop''', 'WHEN ''modul_shop_weg''');
+       END $d$$m$);
+
   PERFORM pg_temp.s112_mutiere('service_gesperrt',
     $m$CREATE OR REPLACE FUNCTION public.schutz_plattformfelder() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $fn$
 DECLARE
@@ -839,6 +846,27 @@ END $fn$$m$);
     pg_temp.s112_versuch(format('INSERT INTO public.tenants (id, name, slug) VALUES (%L, %L, %L)', v_uec_w, 'S112TEST Service', 's112test-service-' || gen_random_uuid())), 'k1');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('rolle_zurueck_postgres', current_user::text, 'postgres');
+
+  -- ── 8. Paket-Modul Weinshop (KAN-460): Schalter in s112_paketmodul_frei, Einstellungen nur per Service-Role ──
+  UPDATE public.tenant_einstellungen SET modul_shop = true WHERE tenant_id = v_b;
+  PERFORM pg_temp.s112_als(v_bta);
+  v_erg := v_erg || pg_temp.s112_erwarte('paketmodul_shop_an', public.s112_paketmodul_frei(v_b, 'modul_shop'), true);
+  v_erg := v_erg || pg_temp.s112_erwarte('paketmodul_unbekannter_schalter', public.s112_paketmodul_frei(v_b, 'modul_gibt_es_nicht'), false);
+  v_erg := v_erg || pg_temp.s112_erwarte('shop_url_b_ta_nicht_schreibbar',
+    pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET shop_url = %L WHERE tenant_id = %L', 'https://shop.example.at', v_b)) IN ('T', 'G'), true);
+  v_erg := v_erg || pg_temp.s112_erwarte('shop_bestand_b_ta_nicht_schreibbar',
+    pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET shop_bestand_uebertragen = true WHERE tenant_id = %L', v_b)) IN ('T', 'G'), true);
+  PERFORM pg_temp.s112_als_postgres();
+  UPDATE public.tenant_einstellungen SET modul_shop = false WHERE tenant_id = v_b;
+  PERFORM pg_temp.s112_als(v_bta);
+  v_erg := v_erg || pg_temp.s112_erwarte('paketmodul_shop_aus', public.s112_paketmodul_frei(v_b, 'modul_shop'), false);
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('shop_url_nur_https',
+    pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET shop_url = %L WHERE tenant_id = %L', 'http://shop.example.at', v_b)), 'E23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('shop_reserve_nicht_negativ',
+    pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET shop_bestandsreserve = -1 WHERE tenant_id = %L', v_b)), 'E23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('shop_einstellungen_service',
+    pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET shop_url = %L, shop_bestandsreserve = 12, shop_woo_api_key = %L WHERE tenant_id = %L', 'https://shop.example.at', 's112test-geheim', v_b)), 'k1');
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 550);
 END

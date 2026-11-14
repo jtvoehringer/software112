@@ -105,6 +105,7 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     ...schalter('modul_sumup'),
     ...schalter('modul_export'),
     ...schalter('modul_controlling'),
+    ...schalter('modul_shop'),   // KAN-460: Zusatzmodul, nur der Tab „Module“ schickt es mit
     // Migration 197 – nur schreiben, wenn der Aufrufer sie mitschickt (Tab Module);
     // die anderen Tabs (Branding, Brevo) lassen die Buchhaltungsart unverändert.
     ...(formData.has('buchhaltungsart') ? { buchhaltungsart: formData.get('buchhaltungsart') === 'doppik' ? 'doppik' : 'ea' } : {}),

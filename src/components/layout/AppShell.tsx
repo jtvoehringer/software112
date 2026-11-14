@@ -56,13 +56,13 @@ export default function AppShell({
 }: Props) {
   const groups = useMemo(() => buildNav({
     role,
-    branding: { modul_ea: branding.modul_ea, modul_sumup: branding.modul_sumup, modul_export: branding.modul_export, modul_controlling: branding.modul_controlling },
+    branding: { modul_ea: branding.modul_ea, modul_sumup: branding.modul_sumup, modul_export: branding.modul_export, modul_controlling: branding.modul_controlling, modul_shop: branding.modul_shop },
     isSandbox,
     sandboxAdminUnlock,
     doppik: branding.buchhaltungsart === 'doppik',
     auswertungenSichtbar,
     lesbar,
-  }), [lesbar, role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, branding.buchhaltungsart, isSandbox, sandboxAdminUnlock, auswertungenSichtbar])
+  }), [lesbar, role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, branding.modul_shop, branding.buchhaltungsart, isSandbox, sandboxAdminUnlock, auswertungenSichtbar])
 
   // KAN-224: Hauptpunkte der Navigation – dort kein „Zurück“
   const navHrefs = useMemo(() => groups.flatMap(g => g.items.map(i => i.href)), [groups])
