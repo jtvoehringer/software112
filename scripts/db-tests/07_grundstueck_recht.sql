@@ -2,10 +2,10 @@
 -- @ziel: Die fünf Werte liegen je Grundstück in grundstueck_recht (Lesebereich ea). „Extern“ liest die Grundstücke
 -- @ziel: seiner Rieden (auch eingebettet in Maßnahmen), aber keine Zeile von grundstueck_recht; „Vertrieb“ ebenso wenig.
 -- @ziel: Ohne Profil lesen Mitglieder beides; schreiben dürfen Betriebsleitung und Mitarbeiter mit Modul Rieden oder
--- @ziel: E&A, der Leser nicht. Bis kan458b gleicht ein Trigger Änderungen der alten Spalten von grundstuecke ab –
--- @ziel: nur diese, die neue Tabelle wird sonst nicht überschrieben. Ein Grundstück bleibt löschbar (Zeile fällt mit).
+-- @ziel: E&A, der Leser nicht. Seit kan458b stehen die alten Spalten nicht mehr in grundstuecke, der Abgleich ist
+-- @ziel: entfernt; die Zeile entsteht erst beim Speichern. Ein Grundstück bleibt löschbar (Zeile fällt mit).
 -- @mutation ohne_lesebereich: grundstueck_recht ohne Sperr-Policy | rot: extern_recht_.*|vertrieb_recht_leer
--- @mutation ohne_abgleich: Abgleich-Trigger auf grundstuecke entfernt | rot: abgleich_.*
+-- @mutation alte_spalte_zurueck: grundstuecke bekommt die Spalte rechtsverhaeltnis wieder | rot: alte_spalten_weg
 -- @mutation leser_schreibt: Schreibmodul-Policy für UPDATE entfernt und Rollenprüfung offen | rot: leser_aendert_nicht
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 07 (Stand 14.11.2026, KAN-458). Alles zurückgerollt.
@@ -56,7 +56,7 @@ BEGIN
   UPDATE public.tenant_memberships SET profil = 'vertrieb' WHERE tenant_id = v_b AND user_id = v_ver;
 
   PERFORM pg_temp.s112_mutiere('ohne_lesebereich', $m$DROP POLICY lesebereich ON public.grundstueck_recht$m$);
-  PERFORM pg_temp.s112_mutiere('ohne_abgleich', $m$DROP TRIGGER a_recht_abgleich ON public.grundstuecke$m$);
+  PERFORM pg_temp.s112_mutiere('alte_spalte_zurueck', $m$ALTER TABLE public.grundstuecke ADD COLUMN rechtsverhaeltnis text$m$);
   PERFORM pg_temp.s112_mutiere('leser_schreibt', $m$DO $d$ BEGIN
     DROP POLICY modul_update ON public.grundstueck_recht;
     DROP POLICY grundstueck_recht_update ON public.grundstueck_recht;
@@ -71,18 +71,23 @@ BEGIN
     (SELECT p.qual LIKE '%s112_lesegesperrte_tenants(''ea''::text)%' FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = 'grundstueck_recht' AND p.policyname = 'lesebereich'), true);
   v_erg := v_erg || pg_temp.s112_erwarte('nicht_in_ki_liste', 'grundstueck_recht' = ANY (public.ki_erlaubte_tabellen()), false);
 
-  -- ── 2. Abgleich der alten Spalten (bis kan458b) ───────────────────────────────────────────────────────────────
+  -- ── 2. Seit kan458b: alte Spalten und Abgleich sind weg; die Zeile entsteht erst beim Speichern ─────────────────
+  v_erg := v_erg || pg_temp.s112_erwarte('alte_spalten_weg',
+    (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'grundstuecke'
+       AND column_name IN ('rechtsverhaeltnis', 'einheitswert', 'einheitswert_bescheid', 'einheitswert_quelle', 'svs_zurechnung')), 0::bigint);
+  v_erg := v_erg || pg_temp.s112_erwarte('kein_abgleich',
+    (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.grundstuecke'::regclass AND tgname = 'a_recht_abgleich')
+    + (SELECT count(*) FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname = 's112_grundstueck_recht_abgleich'), 0::bigint);
   v_gst := (pg_temp.s112_beispiel('grundstuecke', v_b, v_bta) ->> 'id')::uuid;
-  v_erg := v_erg || pg_temp.s112_erwarte('abgleich_neues_grundstueck',
-    (SELECT concat_ws('|', count(*), max(r.svs_zurechnung), max(r.tenant_id::text) = v_b::text) FROM public.grundstueck_recht r WHERE r.grundstueck_id = v_gst), '1|eigen|t');
-  UPDATE public.grundstuecke SET rechtsverhaeltnis = 'pacht', einheitswert = 1234.5, svs_zurechnung = 'pacht_fremd', einheitswert_quelle = 'manuell' WHERE id = v_gst;
-  v_erg := v_erg || pg_temp.s112_erwarte('abgleich_aenderung',
-    (SELECT concat_ws('|', r.rechtsverhaeltnis, r.einheitswert, r.svs_zurechnung, r.einheitswert_quelle) FROM public.grundstueck_recht r WHERE r.grundstueck_id = v_gst), 'pacht|1234.50|pacht_fremd|manuell');
-  -- die neue App schreibt nur die neue Tabelle; eine andere Änderung am Grundstück überschreibt sie nicht
-  UPDATE public.grundstueck_recht SET rechtsverhaeltnis = 'eigentum' WHERE grundstueck_id = v_gst;
-  UPDATE public.grundstuecke SET notizen = 'S112TEST' WHERE id = v_gst;
-  v_erg := v_erg || pg_temp.s112_erwarte('neue_tabelle_bleibt',
-    (SELECT r.rechtsverhaeltnis FROM public.grundstueck_recht r WHERE r.grundstueck_id = v_gst), 'eigentum');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('neues_grundstueck_ohne_zeile',
+    (SELECT count(*) FROM public.grundstueck_recht r WHERE r.grundstueck_id = v_gst), 0::bigint);
+  -- der Mitarbeiter (Modul Rieden) legt die Zeile an – wie die App beim Speichern des Grundstücks
+  PERFORM pg_temp.s112_als(v_bw);
+  v_txt := pg_temp.t07g(format('INSERT INTO public.grundstueck_recht (tenant_id, grundstueck_id, rechtsverhaeltnis, einheitswert, svs_zurechnung) VALUES (%L, %L, ''eigentum'', 1234.5, ''pacht_fremd'')', v_b, v_gst));
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('mitarbeiter_legt_an',
+    concat_ws('|', v_txt, (SELECT concat_ws('|', r.rechtsverhaeltnis, r.einheitswert, r.svs_zurechnung) FROM public.grundstueck_recht r WHERE r.grundstueck_id = v_gst)), 'ok|eigentum|1234.50|pacht_fremd');
 
   -- ── 3. Extern: Grundstück ja (auch über die Maßnahme), Rechtsverhältnis und Einheitswert nein ─────────────────
   PERFORM pg_temp.s112_als(v_ext);
@@ -125,12 +130,14 @@ BEGIN
 
   -- ── 6. Ein Grundstück bleibt löschbar – die Zeile ist kein Bezug, sie fällt mit ───────────────────────────────
   v_gst2 := (pg_temp.s112_beispiel('grundstuecke', v_b, v_bta) ->> 'id')::uuid;
+  PERFORM pg_temp.s112_als_postgres();
+  INSERT INTO public.grundstueck_recht (tenant_id, grundstueck_id, rechtsverhaeltnis) VALUES (v_b, v_gst2, 'pacht');
   PERFORM pg_temp.s112_als(v_bta);
   v_txt := pg_temp.t07g(format('DELETE FROM public.grundstuecke WHERE id = %L', v_gst2));
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('grundstueck_loeschbar',
     concat_ws('|', v_txt, (SELECT count(*) FROM public.grundstuecke WHERE id = v_gst2), (SELECT count(*) FROM public.grundstueck_recht WHERE grundstueck_id = v_gst2)), 'ok|0|0');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 18);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 19);
 END
 $test$;

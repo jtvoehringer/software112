@@ -1,8 +1,9 @@
 // KAN-458 (14.11.2026): Rechtsverhältnis, Einheitswert und SVS-Zurechnung der Grundstücke in eigener Tabelle.
 // Befund: Das Profil „Extern“ liest die Grundstücke seiner Rieden – und damit auch Pacht/Eigentum, Einheitswert und
 // SVS-Zurechnung, die in derselben Tabelle standen. Neu: grundstueck_recht (Lesebereich ea, höchstens eine Zeile je
-// Grundstück); die App liest über eine Einbettung und schreibt über speichereGrundstueckRecht(). Schritt 1: Tabelle
-// neben den alten Spalten mit Abgleich; die alten Spalten entfernt kan458b. Datenbank: DB-Test 07_grundstueck_recht.
+// Grundstück); die App liest über eine Einbettung und schreibt über speichereGrundstueckRecht(). Schritt 1 (kan458a):
+// Tabelle neben den alten Spalten mit Abgleich; Schritt 2 (kan458b): Abgleich und alte Spalten entfernt, Demo-Funktionen
+// umgestellt. Datenbank: DB-Test 07_grundstueck_recht.
 //
 // Aufruf:  npm run -s test:csv
 import { test, describe } from 'node:test'
@@ -25,6 +26,7 @@ function migration(name) {
   return quelle(entwurf)
 }
 const M = migration('kan458a_grundstueck_recht')
+const M2 = migration('kan458b_grundstuecke_ohne_recht')
 const SCHEMA = JSON.parse(quelle('scripts/schema.json'))
 const LISTE = JSON.parse(quelle('scripts/lesebereiche.json'))
 
@@ -165,6 +167,31 @@ describe('KAN-458: Migration kan458a', () => {
   test('die alten Spalten bleiben in Schritt 1 stehen; die neue Tabelle kommt nicht in die KI-Liste', () => {
     assert.doesNotMatch(M, /DROP COLUMN/)
     assert.doesNotMatch(M, /CREATE OR REPLACE FUNCTION public\.ki_erlaubte_tabellen/)
-    for (const s of RECHT_SPALTEN) assert.ok(SCHEMA.grundstuecke.includes(s), `${s} noch in grundstuecke (bis kan458b)`)
+  })
+})
+
+describe('KAN-458: Migration kan458b (Schritt 2)', () => {
+  test('vor dem Entfernen: Abbruch, wenn alte Spalten und neue Tabelle auseinanderliegen', () => {
+    const sicherung = M2.indexOf("RAISE EXCEPTION 'KAN-458: % Grundstücke weichen in grundstueck_recht von den alten Spalten ab'")
+    assert.ok(sicherung > 0 && sicherung < M2.indexOf('DROP COLUMN'))
+    for (const s of RECHT_SPALTEN) assert.ok(M2.includes(`OR r.${s} IS DISTINCT FROM g.${s}`), s)
+    assert.match(M2, /WHERE r\.id IS NULL\n\s+OR r\.tenant_id IS DISTINCT FROM g\.tenant_id/)
+  })
+  test('Abgleich, Index und genau die fünf Spalten fallen', () => {
+    assert.match(M2, /DROP TRIGGER a_recht_abgleich ON public\.grundstuecke;\nDROP FUNCTION public\.s112_grundstueck_recht_abgleich\(\);\nDROP INDEX public\.idx_grundstuecke_rechtsv;/)
+    assert.deepEqual([...M2.matchAll(/^ {2}DROP COLUMN (\w+)[,;]$/gm)].map(m => m[1]), [...RECHT_SPALTEN])
+    assert.doesNotMatch(M2, /CASCADE/)
+  })
+  test('Demo-Funktionen: Spalte aus dem INSERT, Zeile in grundstueck_recht; jeder Anker genau einmal, vor dem Entfernen', () => {
+    for (const f of ['public.demo_musterhof_gebiete()', 'public.demo_musterhof_zuruecksetzen()']) assert.ok(M2.includes(`('${f}',`), f)
+    assert.match(M2, /insert into grundstueck_recht \(tenant_id, grundstueck_id, rechtsverhaeltnis\)/)
+    assert.match(M2, /on conflict \(grundstueck_id\) do nothing;/)
+    assert.match(M2, /IF v_n <> 1 THEN RAISE EXCEPTION 'KAN-458: % – Anker % kommt %-mal vor \(erwartet 1\)'/)
+    assert.ok(M2.indexOf('EXECUTE v_def;') < M2.indexOf('DROP TRIGGER a_recht_abgleich'))
+  })
+  test('Schema-Liste: grundstuecke ohne die fünf Spalten, der Spaltenfall der Leserechte ist erledigt', () => {
+    for (const s of RECHT_SPALTEN) assert.ok(!SCHEMA.grundstuecke.includes(s), `${s} nicht mehr in grundstuecke`)
+    assert.deepEqual(LISTE.spaltenfaelle.filter(f => f.tabelle === 'grundstuecke'), [])
+    assert.doesNotMatch(quelle('scripts/db-tests/_helfer.sql'), /s112_grundstueck_recht_abgleich\(\)/)
   })
 })

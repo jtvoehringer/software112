@@ -872,8 +872,8 @@ BEGIN
       RETURN v_erg;
     END IF;
   ELSIF p_tab = 'grundstueck_recht' AND NOT (coalesce(p_werte, '{}'::jsonb) ? 'grundstueck_id') THEN
-    -- KAN-458: je Grundstück höchstens eine Zeile. Solange der Abgleich-Trigger a_recht_abgleich (bis kan458b) sie mit dem
-    -- Grundstück anlegt, ist das Beispiel diese Zeile eines neuen Grundstücks; ohne den Trigger wird sie hier angelegt.
+    -- KAN-458: je Grundstück höchstens eine Zeile – das Beispiel gehört zu einem neuen Grundstück. Gibt es die Zeile
+    -- schon (ein Trigger legt sie an), wird sie verwendet; sonst wird sie hier angelegt (seit kan458b der Regelfall).
     v_erg := pg_temp.s112_beispiel('grundstuecke', p_tenant, p_persona);
     IF EXISTS (SELECT 1 FROM public.grundstueck_recht gr WHERE gr.grundstueck_id = (v_erg ->> 'id')::uuid) THEN
       IF coalesce(p_werte, '{}'::jsonb) <> '{}'::jsonb THEN
@@ -1314,7 +1314,6 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
-    ('trigger',       '--S', false, 's112_grundstueck_recht_abgleich()'),   -- KAN-458: alte Spalten von grundstuecke → grundstueck_recht (bis kan458b)
     ('trigger',       '--S', false, 's112_bienenschutz_bestaetigung()'),   -- KAN-325: Bienenschutz-Bestätigung (Zeitpunkt, Benutzer, Name)
     ('trigger',       '--S', false, 's112_lager_einkauf_schutz()'),   -- KAN-326: Einkauf mit Ausgabe nur über die RPCs
     ('trigger',       '--S', false, 's112_journal_trg_produktion()'),   -- KAN-118: Journal AB_VERAR/ZU_PROD
