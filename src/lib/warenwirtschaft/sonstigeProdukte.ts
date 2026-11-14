@@ -37,6 +37,7 @@ export const BEWEGUNG_ART_LABEL: Record<string, string> = {
   verkauf: 'Verkauf',
   inventur: 'Inventur',
   storno: 'Storno',
+  ruecknahme: 'Rücknahme (Gutschrift)',   // KAN-452: nur über eine Gutschrift (s112_gutschrift_anlegen)
 }
 
 /** Vorschlag für die erzeugte Stückzahl: Liter ÷ Liter je Stück, abgerundet auf ganze Stück; ohne Angabe null */

@@ -22,10 +22,11 @@ export function istBewegungsart(x: unknown): x is BewegungsArt {
 }
 
 /** KAN-149 D1: Verkauf und Storno-Rückbuchung – nur über den Verkauf (RPC s112_fuellung_verkauf_buchen), nicht im
- *  Formular „Bestand korrigieren“ wählbar */
+ *  Formular „Bestand korrigieren“ wählbar. KAN-452: Rücknahme – nur über eine Gutschrift (s112_gutschrift_anlegen) */
 export const VERKAUFSARTEN: Record<string, string> = {
   verkauf:        'Verkauf',
   verkauf_storno: 'Verkauf storniert (Rückbuchung)',
+  ruecknahme:     'Rücknahme (Gutschrift)',
 }
 
 export function bewegungsartLabel(art: string): string {

@@ -881,7 +881,8 @@
 "grund",
 "erstellt_von",
 "erstellt_am",
-"verkaufsposten_id"
+"verkaufsposten_id",
+"gutschrift_id"
 ],
 "fuellung_etikettierungen": [
 "id",
@@ -2486,7 +2487,8 @@
 "notizen",
 "erstellt_von",
 "erstellt_von_name",
-"erstellt_am"
+"erstellt_am",
+"gutschrift_id"
 ],
 "lieferadressen": [
 "id",

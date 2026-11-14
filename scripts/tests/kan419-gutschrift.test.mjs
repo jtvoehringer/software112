@@ -215,7 +215,8 @@ describe('KAN-419: Server Action und Oberfläche', () => {
     assert.match(fn, /const tenantId = await getTenantId\(\)/)
     assert.match(fn, /rpc\('s112_gutschrift_anlegen', \{/)
     assert.match(fn, /if \(istStornoDatumAblehnung\(hint\)\) return \{ error: meldung, feld: 'datum' \}/)
-    assert.match(fn, /if \(hint === 'gutschrift_menge'\) return \{ error: meldung, feld: 'positionen' \}/)
+    // KAN-452: dieselbe Zeile ordnet auch die Ablehnung einer Rücknahme den Positionen zu
+    assert.match(fn, /if \(hint === 'gutschrift_menge' \|\| hint === 'ruecknahme'\) return \{ error: meldung, feld: 'positionen' \}/)
     assert.match(fn, /if \(hint === 'gutschrift_betrag'\) return \{ error: meldung, feld: 'betrag' \}/)
     assert.doesNotMatch(fn, /preis/i, 'Preise kommen nie aus dem Aufruf')
   })

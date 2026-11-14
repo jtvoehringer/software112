@@ -2,6 +2,8 @@
 // KAN-419 G1 (13.11.2026): „Gutschrift ausstellen“ an der Rechnung – einzelne Positionen bis zur Restmenge und/oder ein
 // freier Betrag (Preisnachlass, Bonus). Dieselben Regeln wie die Datenbank (src/lib/verkauf/gutschrift.ts); gebucht wird
 // erst mit dem Knopf, die Gutschrift ist danach unveränderlich.
+// KAN-452 G2: je Position „Ware kommt zurück“ – Flaschen und Produkte mit Lagerbestand werden am Datum der Gutschrift
+// wieder in den Bestand gebucht; ohne Haken (Preisnachlass, Bruch beim Kunden) bleibt der Bestand unverändert.
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
@@ -10,7 +12,7 @@ import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { fmtEur, fmtNum, zahlAus } from '@/lib/format'
 import {
   GUTSCHRIFT_GRUND_MAX, GUTSCHRIFT_GRUND_MIN, GUTSCHRIFT_TEXT_MAX, bereitsGutgeschrieben, betragAufteilen, gutschriftBrutto,
-  gutschriftEingabeFehler, neueGutschriftBrutto, restBetrag, restMenge,
+  gutschriftEingabeFehler, mitRuecknahme, neueGutschriftBrutto, restBetrag, restMenge, ruecknahmeArt, ruecknahmeSperre,
 } from '@/lib/verkauf/gutschrift'
 import { gutschriftAusstellen } from '../../verkauf/actions'
 
@@ -22,7 +24,8 @@ interface Props {
   rechnungsnummer: string
   rechnungDatum: string
   heute: string
-  /** Positionen der Rechnung (id, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz) */
+  /** Positionen der Rechnung (id, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz; für die
+   *  Rücknahme typ, fuellung_id, sonstige_artikel_id, bestand_fuehren, fuellung_aktiv, fuellung_storniert_am, artikel_aktiv) */
   positionen: R[]
   /** bisherige Gutschriften (id, rechnungsnummer, datum, aktiv, gutschrift_positionen) */
   gutschriften: R[]
@@ -39,6 +42,7 @@ export default function GutschriftPanel({ rechnungId, rechnungsnummer, rechnungD
   const [datum, setDatum] = useState(heute)
   const [grund, setGrund] = useState('')
   const [mengen, setMengen] = useState<Record<string, string>>({})
+  const [zurueck, setZurueck] = useState<Record<string, boolean>>({})
   const [betrag, setBetrag] = useState('')
   const [betragText, setBetragText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -47,19 +51,23 @@ export default function GutschriftPanel({ rechnungId, rechnungsnummer, rechnungD
   const bisher = useMemo(() => bereitsGutgeschrieben(gutschriften), [gutschriften])
   const rest = restBetrag(positionen, gutschriften)
   const gewaehlt = positionen
-    .map(p => ({ position_id: String(p.id), menge: zahlAus(mengen[String(p.id)] ?? '') ?? 0, roh: (mengen[String(p.id)] ?? '').trim() }))
+    .map(p => ({ position_id: String(p.id), menge: zahlAus(mengen[String(p.id)] ?? '') ?? 0, roh: (mengen[String(p.id)] ?? '').trim(),
+      ruecknahme: zurueck[String(p.id)] === true && ruecknahmeArt(p) !== null && ruecknahmeSperre(p) === null }))
     .filter(z => z.roh !== '')
+  const mitWare = gewaehlt.filter(z => z.ruecknahme).length
+  const ruecknahmeMoeglich = positionen.some(p => ruecknahmeArt(p) !== null)
   const betragZahl = betrag.trim() === '' ? 0 : (zahlAus(betrag) ?? Number.NaN)
   const neu = Number.isFinite(betragZahl) ? neueGutschriftBrutto({ positionen: gewaehlt, betrag: betragZahl }, positionen) : 0
   const anteile = Number.isFinite(betragZahl) && betragZahl > 0 ? betragAufteilen(betragZahl, positionen) : []
 
   async function ausstellen() {
-    const e = { datum, grund, positionen: gewaehlt.map(({ position_id, menge }) => ({ position_id, menge })), betrag: betragZahl, betragText }
+    const e = { datum, grund, positionen: gewaehlt.map(({ position_id, menge, ruecknahme }) => ({ position_id, menge, ruecknahme })), betrag: betragZahl, betragText }
     const f = gutschriftEingabeFehler(e, { rechnungDatum, heute, positionen, gutschriften })
     if (f) { setFehler(f); return }
     if (!(await rueckfrage({
       titel: `Gutschrift über ${fmtEur(neu)} ausstellen?`,
-      text: `Zur Rechnung ${rechnungsnummer} entsteht ein eigener Beleg mit Datum ${tag(datum)}. Er lässt sich danach nicht mehr ändern.`,
+      text: `Zur Rechnung ${rechnungsnummer} entsteht ein eigener Beleg mit Datum ${tag(datum)}. Er lässt sich danach nicht mehr ändern.`
+        + (mitWare > 0 ? ` Die Ware aus ${mitWare === 1 ? 'einer Position' : `${mitWare} Positionen`} wird am ${tag(datum)} wieder in den Bestand gebucht.` : ''),
       bestaetigen: 'Gutschrift ausstellen',
     }))) return
     setSaving(true)
@@ -90,7 +98,7 @@ export default function GutschriftPanel({ rechnungId, rechnungsnummer, rechnungD
                 {gutschriften.map(g => (
                   <li key={String(g.id)}>
                     <Link href={`/weinhandel/rechnungen/${g.id}`} className="font-mono text-s112-blue-700 hover:underline">{g.rechnungsnummer}</Link>
-                    {' '}vom {tag(String(g.datum))} · −{fmtEur(gutschriftBrutto(g))}
+                    {' '}vom {tag(String(g.datum))} · −{fmtEur(gutschriftBrutto(g))}{mitRuecknahme(g) ? ' · Ware zurückgenommen' : ''}
                   </li>
                 ))}
               </ul>
@@ -127,28 +135,54 @@ export default function GutschriftPanel({ rechnungId, rechnungsnummer, rechnungD
                   <th className="py-2 pr-3 font-semibold">Position</th>
                   <th className="py-2 pr-3 font-semibold text-right">Verrechnet</th>
                   <th className="py-2 pr-3 font-semibold text-right">Noch gutschreibbar</th>
-                  <th className="py-2 font-semibold text-right">Menge der Gutschrift</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Menge der Gutschrift</th>
+                  {ruecknahmeMoeglich && <th className="py-2 font-semibold">Ware kommt zurück</th>}
                 </tr>
               </thead>
               <tbody>
                 {positionen.map(p => {
                   const r = restMenge(p, bisher)
+                  const key = String(p.id)
+                  const sperre = ruecknahmeSperre(p)
+                  const ohneMenge = (mengen[key] ?? '').trim() === ''
                   return (
                     <tr key={String(p.id)} className="border-b border-s112-border/60">
                       <td className="py-2 pr-3">{p.name} <span className="text-xs text-s112-muted">à {p.preis_brutto != null ? fmtEur(Number(p.preis_brutto)) : '–'}</span></td>
                       <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(Number(p.menge))} {p.einheit ?? ''}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(r)}</td>
-                      <td className="py-2 text-right">
+                      <td className="py-2 pr-3 text-right">
                         <input aria-label={`Menge der Gutschrift für ${p.name}`} inputMode="decimal" disabled={r <= 0 || p.preis_brutto == null}
-                          value={mengen[String(p.id)] ?? ''} onChange={e => setMengen(m => ({ ...m, [String(p.id)]: e.target.value }))}
+                          value={mengen[key] ?? ''} onChange={e => setMengen(m => ({ ...m, [key]: e.target.value }))}
                           className={`${eingabe} w-24 text-right disabled:bg-s112-bg`} />
                       </td>
+                      {ruecknahmeMoeglich && (
+                        <td className="py-2">
+                          {ruecknahmeArt(p) === null
+                            ? <span className="text-xs text-s112-muted">–</span>
+                            : sperre
+                              ? <span className="text-xs text-s112-muted">{sperre}</span>
+                              : (
+                                <label className="inline-flex items-center gap-2 text-sm">
+                                  <input type="checkbox" aria-label={`Ware kommt zurück: ${p.name}`} disabled={ohneMenge || r <= 0}
+                                    checked={!ohneMenge && zurueck[key] === true} onChange={e => setZurueck(z => ({ ...z, [key]: e.target.checked }))} />
+                                  <span className={ohneMenge ? 'text-s112-muted' : ''}>zurück in den Bestand</span>
+                                </label>
+                              )}
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
               </tbody>
             </table>
             {meldung('positionen')}
+            {ruecknahmeMoeglich && (
+              <p className="text-xs text-s112-muted mt-2">
+                Mit „Ware kommt zurück“ wird die gutgeschriebene Menge der Position am Datum der Gutschrift wieder in den Bestand gebucht
+                (Flaschen samt Eintrag im Kellerbuch). Ohne Haken – Preisnachlass, Bruch beim Kunden – bleibt der Bestand unverändert.
+                Kommt nur ein Teil zurück, bitte zwei Gutschriften ausstellen.
+              </p>
+            )}
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">

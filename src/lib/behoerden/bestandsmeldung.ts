@@ -126,7 +126,7 @@ const auszug = (namen: readonly string[]) => [...new Set(namen)].slice(0, 5).joi
 
 /** Flaschenbuchung einer Füllung (Stück, + Zugang, − Abgang) mit Herkunft der Buchung */
 export type FlaschenBuchung = MengenBuchung & {
-  /** 'abfuellung' | 'storno_fuellung' | fuellung_bewegungen.art | 'verkauf_alt' | 'verkauf_alt_storno' */
+  /** 'abfuellung' | 'storno_fuellung' | fuellung_bewegungen.art (auch 'ruecknahme', KAN-452: Zugang) | 'verkauf_alt' | 'verkauf_alt_storno' */
   art: string
   verkaufspostenId: string | null
 }
