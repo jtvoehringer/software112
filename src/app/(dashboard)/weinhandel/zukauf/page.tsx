@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { canRead } from '@/lib/auth/lesebereiche'
+import { zukaufArtFehler } from '@/lib/auth/profilGrenzen'
 import Link from '@/components/ui/Link'
 import { Pencil, AlertTriangle } from 'lucide-react'
 import ZukaufLoeschen from './ZukaufLoeschen'
@@ -35,6 +37,13 @@ const ART_LABEL: Record<string, string> = {
 // Menge je Hektar bewirtschafteter Rebfläche pro Kalenderjahr begrenzt
 // (Eigenbau-Grenze). Reine Info-/Warnfunktion, ersetzt keine rechtliche Prüfung.
 const TRAUBENZUKAUFSGRENZE_KG_HA = 1500
+
+/** KAN-456: Zeile nur anklickbar, wenn der Zukauf bearbeitet werden kann */
+function ZukaufZeile({ href, children }: { href?: string; children: React.ReactNode }) {
+  return href
+    ? <ClickableTableRow href={href} className="hover:bg-s112-bg/50 transition-colors">{children}</ClickableTableRow>
+    : <tr>{children}</tr>
+}
 
 export default async function ZukaufPage({
   searchParams,
@@ -86,7 +95,8 @@ export default async function ZukaufPage({
       .select('ust_satz_standard').eq('tenant_id', membership.tenantId).maybeSingle(), 'Einstellungen')
     const istWeinproduzent = Number((einst as R | null)?.ust_satz_standard) === 13
 
-    if (istWeinproduzent) {
+    // KAN-456: Die Grenze rechnet mit der Betriebsfläche (Grundstücke, Bereich Rieden) – ohne Leserecht dort keine Anzeige
+    if (istWeinproduzent && canRead(membership, 'rieden')) {
       const [rawGSTFlRes, rawTraubenZukaufRes] = await Promise.all([
         // alle(): Betriebsfläche über alle Grundstücke, nicht nur die ersten 1.000
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -199,17 +209,22 @@ export default async function ZukaufPage({
                   ? [p.lieferant_kontakt.vorname, p.lieferant_kontakt.nachname].filter(Boolean).join(' ')
                   : p.lieferant_firma?.name ?? '–'
                 const rebInfo = [p.rebsorte ? formatRebsorteMitKuerzel(p.rebsorte) : null, p.jahrgang].filter(Boolean).join(' ') || '–'
+                // KAN-456: Wein/Most bzw. Trauben/Maische nur mit Leserecht auf Kellerbuch bzw. Lese bearbeiten und stornieren
+                const bearbeitbar = zukaufArtFehler(membership, p.art) === null
+                const ziel = bearbeitbar ? `/weinhandel/zukauf/${p.id}/edit` : undefined
                 return (
-                  <ClickableTableRow key={p.id} href={`/weinhandel/zukauf/${p.id}/edit`} className="hover:bg-s112-bg/50 transition-colors">
+                  <ZukaufZeile key={p.id} href={ziel}>
                     <td className="px-4 py-3 text-s112-text-1 whitespace-nowrap">
                       {new Date(p.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                     </td>
                     <td className="px-4 py-3">
                       {/* Sweep Namenslinks: Rechnungsnummer als echter Link (Tastatur), Zeile bleibt klickbar */}
                       <StopPropagation className="font-mono text-xs">
-                        <Link href={`/weinhandel/zukauf/${p.id}/edit`} className="font-medium text-s112-blue-700 hover:underline">
-                          {p.eingangsrechnungsnummer || 'ohne Rechnungsnr.'}
-                        </Link>
+                        {bearbeitbar ? (
+                          <Link href={`/weinhandel/zukauf/${p.id}/edit`} className="font-medium text-s112-blue-700 hover:underline">
+                            {p.eingangsrechnungsnummer || 'ohne Rechnungsnr.'}
+                          </Link>
+                        ) : <span className="font-medium text-s112-text-1">{p.eingangsrechnungsnummer || 'ohne Rechnungsnr.'}</span>}
                       </StopPropagation>
                       {tbsText(p.tbs_nummer_lieferant, p.tbs_jahr_lieferant) && (
                         <div className="font-mono text-xs text-s112-muted mt-0.5">TBS {tbsText(p.tbs_nummer_lieferant, p.tbs_jahr_lieferant)}</div>
@@ -231,7 +246,7 @@ export default async function ZukaufPage({
                     </td>
                     {writeOk && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <StopPropagation className="flex items-center justify-end gap-2">
+                        {bearbeitbar && <StopPropagation className="flex items-center justify-end gap-2">
                           <Link
                             href={`/weinhandel/zukauf/${p.id}/edit`}
                             title="Bearbeiten" aria-label="Bearbeiten"
@@ -239,10 +254,10 @@ export default async function ZukaufPage({
                             <Pencil className="w-4 h-4" />
                           </Link>
                           <ZukaufLoeschen id={p.id} info={rebInfo} hatCharge={!!p.ziel_weinausbau} />
-                        </StopPropagation>
+                        </StopPropagation>}
                       </td>
                     )}
-                  </ClickableTableRow>
+                  </ZukaufZeile>
                 )
               })}
             </tbody>

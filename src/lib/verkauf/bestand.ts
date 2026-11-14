@@ -32,6 +32,7 @@ import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
+import { verkaufPositionenFehler } from '@/lib/auth/profilGrenzen'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { stornoDatumFehler } from '@/lib/storno/datum'
@@ -399,6 +400,10 @@ export async function verkaufspostenStornieren(
     vorgang: 'storno',
     rechnungsnummer: posten.rechnungsnummer ?? null,
   })
+  // KAN-456: Ohne Leserecht auf Lese bzw. Kellerbuch träfe die Rückbuchung des Traubenverkaufs bzw. der Charge 0 Zeilen –
+  // der Verkauf gälte als storniert, der Traubenverkauf (BKI) bliebe aktiv. Deshalb vor dem ersten Schreibzugriff ablehnen.
+  { const grenze = verkaufPositionenFehler(membership, positionen)
+    if (grenze) throw new AktionsFehler(grenze) }
 
   // 1. Bestand zurückbuchen – alles oder nichts
   let rueckbuchungen: BestandsBuchung[]

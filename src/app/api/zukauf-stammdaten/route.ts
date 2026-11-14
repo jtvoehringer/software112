@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { leseKonflikt } from '@/lib/api/lesebereich'
+import { zukaufArtenErlaubt } from '@/lib/auth/profilGrenzen'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,9 @@ export async function GET() {
 
     const behaelter = behaelterRows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter }))
     // KAN-353: crm_schreiben – Lieferant direkt aus der Partner-Suche anlegen nur mit Schreibrecht CRM (canWrite nie im Client)
-    return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [], laender: laender ?? [], crm_schreiben: !!membership && canWrite(membership, 'crm') })
+    return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [], laender: laender ?? [], crm_schreiben: !!membership && canWrite(membership, 'crm'),
+      // KAN-456: Zukauf-Arten, die das Mitglied erfassen kann (Wein/Most nur mit Kellerbuch, Trauben/Maische nur mit Lese lesbar)
+      arten_erlaubt: zukaufArtenErlaubt(membership) })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

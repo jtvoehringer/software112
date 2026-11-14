@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { canRead } from '@/lib/auth/lesebereiche'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -26,7 +27,9 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
   const membership = await getCurrentMembership()
   if (!membership) redirect('/weinhandel')
   const tenantId = membership.tenantId
-  const schreiben = canWrite(membership, 'kellerbuch') || canWrite(membership, 'warenwirtschaft')
+  // KAN-456: ohne Leserecht Kellerbuch nur ansehen (Zutaten-Vorschlag und Analysen wären leer)
+  const kellerLesbar = canRead(membership, 'keller')
+  const schreiben = kellerLesbar && (canWrite(membership, 'kellerbuch') || canWrite(membership, 'warenwirtschaft'))
   const { id } = await params
   const supabase = await createSupabaseServerClient()
 
@@ -145,6 +148,7 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
         </p>
       </div>
       {f.storniert_am && <div className="card text-sm text-s112-err-fg">Die Füllung ist storniert – kein E-Label möglich.</div>}
+      {!kellerLesbar && <div className="card text-sm text-s112-text-1">Das E-Label pflegt die Kellerwirtschaft: Zutaten und Allergene kommen aus den Kellerbehandlungen, die Nährwerte aus den Analysen. Du siehst hier den gespeicherten Stand.</div>}
       <ElabelFormular
         fuellungId={id}
         katalog={katalog}

@@ -4,6 +4,7 @@ import { qrSvg, qrPngDataUrl, appBasisUrl } from '@/lib/qr'
 import { weinpassPfad } from '@/lib/handel/losnummer'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
+import { canRead } from '@/lib/auth/lesebereiche'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { redirect } from 'next/navigation'
@@ -69,6 +70,8 @@ export default async function EditFuellungPage({
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  // KAN-456: Charge und Prüfnummer kommen aus dem Kellerbuch – ohne Leserecht dort sind die Auswahlen leer
+  const kellerLesbar = canRead(membership, 'keller')
   const tenantId = membership?.tenantId ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
@@ -330,12 +333,15 @@ export default async function EditFuellungPage({
         {/* KAN-101: nach dem Speichern sperrt die Datenbank alles außer Produktname, Preisen, KN-Code und Notizen;
             KAN-378: auch diese nur mit Grund (Feld „Grund der Änderung“ unten) */}
         <GesperrtHinweis grund="Füllung gespeichert" seit={gespeichertAm}
-          erlaubt={['Produktname', 'Preise', 'KN-Code', 'Notizen', ...(f.weinausbau_id ? [] : ['Charge (einmal nachtragbar)'])]} />
+          erlaubt={['Produktname', 'Preise', 'KN-Code', 'Notizen', ...(f.weinausbau_id || !kellerLesbar ? [] : ['Charge (einmal nachtragbar)'])]} />
 
         {/* Kellerbuch-Charge */}
         <div className="card p-5 space-y-2">
           <h2 className="font-semibold text-s112-text text-sm">Kellerbuch-Charge</h2>
-          {!f.weinausbau_id && (
+          {!f.weinausbau_id && !kellerLesbar && (
+            <p className="text-xs text-s112-muted">Keine Charge verknüpft. Die Zuordnung zu einer Kellerbuch-Charge nimmt die Kellerwirtschaft vor.</p>
+          )}
+          {!f.weinausbau_id && kellerLesbar && (
             <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2">
               Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen (einmalig,
               danach gesperrt). Die nachträgliche Zuordnung dient nur der Rückverfolgung – von der Charge wird dabei nichts abgebucht.
@@ -360,7 +366,7 @@ export default async function EditFuellungPage({
                 {' '}Falsche Charge? Füllung stornieren (nur ohne Verkäufe und Bestandsbuchungen) und neu anlegen.
               </p>
             </div>
-          ) : (
+          ) : !kellerLesbar ? null : (
             <div>
               <label className={labelCls}>Weinausbau-Charge</label>
               <select aria-label="Weinausbau-Charge" name="weinausbau_id" defaultValue={f.weinausbau_id ?? ''} className={inputCls}>
@@ -612,6 +618,8 @@ export default async function EditFuellungPage({
         {f.pruefnummer ? (
           <p className="text-sm"><span className="font-mono">{f.pruefnummer}</span>
             <span className="text-xs text-s112-muted"> – eingetragen, gesperrt (Korrektur nur durch die Betriebsleitung)</span></p>
+        ) : !kellerLesbar ? (
+          <p className="text-xs text-s112-muted">Noch keine Prüfnummer eingetragen. Die Prüfnummer trägt die Kellerwirtschaft aus dem DAC-Antrag der Charge nach.</p>
         ) : !f.weinausbau_id ? (
           <p className="text-xs text-s112-muted">Ohne Kellerbuch-Charge keine Prüfnummer aus einem DAC-Antrag – bitte zuerst die Charge nachtragen.</p>
         ) : f.storniert_am ? (
