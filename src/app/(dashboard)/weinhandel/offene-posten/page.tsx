@@ -45,6 +45,10 @@ export default async function OffenePostenPage() {
     bezahlt_am:      p.bezahltAm,
     gesamt:          p.brutto,
     bereitsBezahlt:  p.gezahlt,   // je Rechnung
+    // KAN-453 G3c: Gutschriften und Guthaben der Rechnung (bisher nur gerechnet, nicht gezeigt), offener Betrag nach beidem
+    gutgeschrieben:  p.gutgeschrieben,
+    offen:           p.offen,
+    guthaben:        p.guthaben,
     kundenName:      p.kunde,
     kontaktId:       p.kontaktId,
     firmaId:         p.firmaId,

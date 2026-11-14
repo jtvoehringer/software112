@@ -103,7 +103,7 @@ export default async function AbstimmungPage({
     // KAN-149 D2b: stornierte Zahlungen/Umbuchungen an ihrem Tag gekennzeichnet, Gegenzeile am Storno-Tag
     ...((zahlungenRaw ?? []) as R[]).flatMap(z => stornoPaar({
       id: z.id as string, quelle: 'zahlung' as const, datum: z.datum as string, zeitpunkt: z.erstellt_am ?? null,
-      beschreibung: `Zahlungseingang${z.verkaufsposten?.rechnungsnummer ? ` RE ${z.verkaufsposten.rechnungsnummer}` : ''}`,
+      beschreibung: `${Number(z.betrag) < 0 ? 'Rückzahlung' : 'Zahlungseingang'}${z.verkaufsposten?.rechnungsnummer ? ` RE ${z.verkaufsposten.rechnungsnummer}` : ''}`,   // KAN-453 G3c
       betrag: Number(z.betrag ?? 0), abgeglichen: !!z.abgeglichen, gesperrt: false,
     }, z)),
     // KAN-149 D2c: E&A-Stornos sind echte Gegenbuchungen (negativer Betrag, eigener Abgleich) – Original und

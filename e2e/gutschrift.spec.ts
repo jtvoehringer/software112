@@ -59,6 +59,8 @@ test.describe('Gutschrift zur Rechnung (schreibend)', () => {
     await page.waitForURL(url => /^\/weinhandel\/rechnungen\/[0-9a-f-]{36}$/.test(url.pathname), { timeout: 20_000 })
     const rechnung = page.url()
     await expect(page.getByText('Zu dieser Rechnung gibt es noch keine Gutschrift.')).toBeVisible()
+    // Rechnungsnummer aus der Brotkrumenzeile („Rechnung RE-…“) – für die Zeile in den offenen Posten (KAN-453 G3c)
+    const rechnungsnummer = (await page.locator('nav span', { hasText: /^Rechnung \S+$/ }).first().innerText()).replace(/^Rechnung /, '')
 
     // Gutschrift über 1 von 2 Stück; eine freie Position kann nicht zurück in den Bestand (KAN-452: kein Haken)
     await page.getByRole('button', { name: 'Gutschrift ausstellen' }).click()
@@ -95,6 +97,23 @@ test.describe('Gutschrift zur Rechnung (schreibend)', () => {
     await page.getByLabel(/Grund des Stornos/).fill('E2E-Test: Storno trotz Gutschrift')
     await page.getByRole('button', { name: 'Verkauf stornieren' }).last().click()
     await expect(page.getByText(/gibt es eine Gutschrift/).first()).toBeVisible({ timeout: 20_000 })
+
+    // KAN-453 G3c: Rechnung ganz bezahlen (20 €) → mit der Gutschrift 10 € Guthaben → in den offenen Posten auszahlen
+    await page.goto(verkauf)
+    await page.getByLabel('Betrag (€)').fill('20')
+    await page.getByRole('button', { name: /Zahlung buchen/ }).click()
+    await expect(page.getByText('Bezahlt', { exact: true }).first()).toBeVisible({ timeout: 20_000 })
+    await page.goto('/weinhandel/offene-posten')
+    await page.getByLabel(/Bezahlte Rechnungen anzeigen/).check()
+    const zeile = page.locator('tbody tr', { hasText: rechnungsnummer }).first()
+    await expect(zeile.getByText(/Guthaben/), 'Guthaben der bezahlten Rechnung mit Gutschrift').toContainText('10,00')
+    await zeile.getByRole('button', { name: 'Rückzahlung erfassen' }).click()
+    await expect(page.getByLabel('Betrag der Rückzahlung (€)')).toHaveValue('10,00')
+    await page.getByRole('button', { name: 'Rückzahlung buchen' }).click()
+    await expect(zeile.getByText(/Guthaben/), 'nach der Rückzahlung kein Guthaben mehr').toHaveCount(0, { timeout: 30_000 })
+    // beim Verkauf steht die Rückzahlung als negative Zahlung
+    await page.goto(verkauf)
+    await expect(page.getByText(/· Rückzahlung/).first()).toBeVisible()
   })
 
   // KAN-452 G2: Flasche verkaufen (Bestand −1), Gutschrift mit „Ware kommt zurück“ → Bestand wieder wie vorher.
