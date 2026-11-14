@@ -1314,6 +1314,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
+    ('trigger',       '--S', false, 's112_mitglied_profil_module()'),   -- KAN-457: Schreibmodule folgen dem Profil
     ('trigger',       '--S', false, 's112_bienenschutz_bestaetigung()'),   -- KAN-325: Bienenschutz-Bestätigung (Zeitpunkt, Benutzer, Name)
     ('trigger',       '--S', false, 's112_lager_einkauf_schutz()'),   -- KAN-326: Einkauf mit Ausgabe nur über die RPCs
     ('trigger',       '--S', false, 's112_journal_trg_produktion()'),   -- KAN-118: Journal AB_VERAR/ZU_PROD

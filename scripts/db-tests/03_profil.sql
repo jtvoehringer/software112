@@ -3,8 +3,11 @@
 -- @ziel: Funktion s112_lesegesperrte_tenants(bereich) nennt für den angemeldeten Benutzer die Betriebe, in denen er den
 -- @ziel: Bereich wegen seines Profils nicht lesen darf – ohne Profil keinen. s112_darf_lesen prüft dasselbe je Betrieb.
 -- @ziel: Ein Benutzer kann sich sein Profil nicht selbst nehmen oder ändern. Anonym ist nichts ausführbar.
+-- @ziel: Seit KAN-457 folgen die Schreibmodule dem Profil (Trigger z_profil_module); ein Rollenwechsel weg vom
+-- @ziel: Mitarbeiter leert das Profil.
 -- @mutation ohne_profilpruefung: mit Profil ist kein Bereich gesperrt | rot: extern_.*gesperrt|vertrieb_.*gesperrt|darf_lesen_extern
 -- @mutation profil_fuer_jede_rolle: ein Profil auch für Betriebsleitung und Leser | rot: profil_nur_.*
+-- @mutation ohne_modulabgleich: der Trigger z_profil_module fehlt | rot: module_.*|rollenwechsel_.*
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 03 (Stand 13.11.2026, KAN-412). Alles zurückgerollt.
 
@@ -34,6 +37,7 @@ BEGIN
   END $d$$m$);
 
   PERFORM pg_temp.s112_mutiere('profil_fuer_jede_rolle', $m$ALTER TABLE public.tenant_memberships DROP CONSTRAINT tenant_memberships_profil_rolle_chk$m$);
+  PERFORM pg_temp.s112_mutiere('ohne_modulabgleich', $m$DROP TRIGGER z_profil_module ON public.tenant_memberships$m$);
 
   -- ── 1. Rechte und Regeln der Spalte ─────────────────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('rechte',
@@ -60,6 +64,7 @@ BEGIN
   -- ── 3. Extern: nur allgemein, rieden, massnahmen ────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenant_memberships SET profil = 'extern' WHERE tenant_id = v_b AND user_id = v_bw;
+  v_erg := v_erg || pg_temp.s112_erwarte('module_folgen_extern', (SELECT array_to_string(m.schreibmodule, ',') FROM public.tenant_memberships m WHERE m.tenant_id = v_b AND m.user_id = v_bw), 'rieden');   -- KAN-457
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('extern_frei',
     (SELECT count(*) FROM unnest(ARRAY['allgemein', 'rieden', 'massnahmen']) b WHERE EXISTS (SELECT 1 FROM public.s112_lesegesperrte_tenants(b))), 0);
@@ -78,6 +83,10 @@ BEGIN
 
   -- ── 4. Vertrieb: nicht keller, rieden, massnahmen, betriebsmittel, lese, ea, verwaltung ──────────────────────────
   UPDATE public.tenant_memberships SET profil = 'vertrieb' WHERE tenant_id = v_b AND user_id = v_bw;
+  v_erg := v_erg || pg_temp.s112_erwarte('module_folgen_vertrieb', (SELECT array_to_string(m.schreibmodule, ',') FROM public.tenant_memberships m WHERE m.tenant_id = v_b AND m.user_id = v_bw), 'warenwirtschaft,crm,auswertungen');   -- KAN-457
+  -- mit Profil lassen sich die Module nicht frei setzen
+  UPDATE public.tenant_memberships SET schreibmodule = ARRAY['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen'] WHERE tenant_id = v_b AND user_id = v_bw;
+  v_erg := v_erg || pg_temp.s112_erwarte('module_bei_profil_fest', (SELECT array_to_string(m.schreibmodule, ',') FROM public.tenant_memberships m WHERE m.tenant_id = v_b AND m.user_id = v_bw), 'warenwirtschaft,crm,auswertungen');
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('vertrieb_frei',
     (SELECT count(*) FROM unnest(ARRAY['allgemein', 'crm', 'verkauf', 'lager', 'controlling', 'ki', 'betrieb']) b WHERE EXISTS (SELECT 1 FROM public.s112_lesegesperrte_tenants(b))), 0);
@@ -92,6 +101,13 @@ BEGIN
     concat_ws('|', (SELECT count(*) FROM public.s112_lesegesperrte_tenants('ea')), public.s112_darf_lesen(v_b, 'keller')), '0|t');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 15);
+  -- ── 6. KAN-457: Rollenwechsel weg vom Mitarbeiter leert das Profil; ohne Profil sind die Module wieder frei ─────
+  UPDATE public.tenant_memberships SET role = 'leser', schreibmodule = NULL WHERE tenant_id = v_b AND user_id = v_bw;
+  v_erg := v_erg || pg_temp.s112_erwarte('rollenwechsel_leert_profil',
+    (SELECT concat_ws('|', m.role, coalesce(m.profil, '-')) FROM public.tenant_memberships m WHERE m.tenant_id = v_b AND m.user_id = v_bw), 'leser|-');
+  UPDATE public.tenant_memberships SET role = 'winzer', schreibmodule = ARRAY['kellerbuch', 'ea'] WHERE tenant_id = v_b AND user_id = v_bw;
+  v_erg := v_erg || pg_temp.s112_erwarte('module_ohne_profil_frei', (SELECT array_to_string(m.schreibmodule, ',') FROM public.tenant_memberships m WHERE m.tenant_id = v_b AND m.user_id = v_bw), 'kellerbuch,ea');
+
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 20);
 END
 $test$;
