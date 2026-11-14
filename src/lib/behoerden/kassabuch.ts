@@ -179,7 +179,8 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
       const re = text(z.verkaufsposten?.rechnungsnummer)
       return storno({
         id: s(z.id), datum: s(z.datum).slice(0, 10), erfasst: s(z.erstellt_am), beleg: re,
-        text: `Zahlungseingang${re ? ` RE ${re}` : ''}`, art: 'Zahlungseingang',
+        // KAN-453 G3c: negative Zahlung = Rückzahlung am Guthaben (Ausgang)
+        text: `${Number(z.betrag) < 0 ? 'Rückzahlung' : 'Zahlungseingang'}${re ? ` RE ${re}` : ''}`, art: Number(z.betrag) < 0 ? 'Rückzahlung' : 'Zahlungseingang',
         betrag: betrag(z.betrag) ?? 0, gegenkonto: null, abgeglichen: !!z.abgeglichen,
       }, z)
     }),

@@ -13,6 +13,8 @@ import { rund } from '../zahl/runden.ts'
 //    buchen. Ist eine davon gesperrt (übermittelte UVA), bleibt alles unverändert (wie bisher) – `gesperrt`.
 //  - Der Verkaufsstorno lässt die Einnahmen stehen (Geld ist eingegangen); erst der Storno der Zahlung (Erstattung)
 //    bucht sie gegen.
+//  - KAN-453 G3c: Eine Rückzahlung am Guthaben ist eine Zahlung mit negativem Betrag – sie bekommt negative Einnahmen
+//    je USt-Satz (Minderung der Bemessungsgrundlage am Tag der Rückzahlung, bei E&A wirkt die Gutschrift erst so).
 
 export type PlanZahlung = { id: string; betrag: number; datum: string; erstelltAm?: string | null }
 export type PlanPosition = { preis_brutto: number | null; menge: number; rabatt_pct?: number | null; sonderrabatt_pct?: number | null; ust_satz?: number | null }
@@ -67,7 +69,9 @@ export function sollJeZahlung(positionen: readonly PlanPosition[], zahlungen: re
     const qNachher = Math.min(summeNachher, brutto) / brutto
     for (const [satz, g] of gruppen) {
       const anteil = cent(cent(g.netto * qNachher) - cent(g.netto * qVorher))
-      if (anteil > 0) erg.push({ zahlung_id: z.id, datum: z.datum, betrag_netto: anteil, ust_satz: satz })
+      // KAN-453 G3c: eine Rückzahlung (negative Zahlung) senkt die Quote – ihr Anteil ist negativ und mindert die Einnahmen
+      // am Tag der Rückzahlung. Überzahlungen bleiben außen vor (Quote höchstens 1), ihre Rückzahlung also auch.
+      if (anteil !== 0) erg.push({ zahlung_id: z.id, datum: z.datum, betrag_netto: anteil, ust_satz: satz })
     }
     summeVorher = summeNachher
   }

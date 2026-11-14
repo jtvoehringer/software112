@@ -710,7 +710,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                     <tr key={z.id} className={`border-b border-s112-border last:border-0 ${z.storniert_am ? 'text-s112-muted' : ''}`}>
                       <td className="px-3 py-2 text-s112-text-1">{new Date(z.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</td>
                       <td className="px-3 py-2">
-                        {ART_LABELS[z.art] ?? z.art}
+                        {ART_LABELS[z.art] ?? z.art}{Number(z.betrag) < 0 ? ' · Rückzahlung' : ''}{/* KAN-453 G3c */}
                         {/* KAN-149 D2b: stornierte Zahlung mit Datum, Benutzer und Grund */}
                         {z.storniert_am && (
                           <span className="block text-[11px] text-s112-err-fg">

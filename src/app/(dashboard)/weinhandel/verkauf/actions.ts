@@ -15,6 +15,7 @@ import { istStornoDatumAblehnung, stornoDatumFehler } from '@/lib/storno/datum'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
 import { GUTSCHRIFT_GRUND_MIN, gutschriftBrutto } from '@/lib/verkauf/gutschrift'
 import { gutschriftAktivitaetBetreff } from '@/lib/verkauf/gutschriftPdf'
+import { RUECKZAHLUNG_ARTEN } from '@/lib/verkauf/rueckzahlung'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
 import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
@@ -1115,6 +1116,58 @@ export async function gutschriftAusstellen(
   }
   await gutschriftInHistorie(supabase, tenantId, String(data))
   return { gutschriftId: String(data) }
+}
+
+// KAN-453 G3c: Rückzahlung am Guthaben einer Rechnung (RPC s112_rueckzahlung_erfassen) – negative Zahlung, höchstens das
+// Guthaben. Darf, wer Zahlungen erfassen darf (Warenwirtschaft oder E&A). Erwartbare Ablehnungen kommen als { error } mit
+// dem Feld zurück (HINT rueckzahlung_betrag → Betrag, storno_datum/periodensperre → Datum). Danach folgt die
+// E&A-Einnahme wie bei jeder Zahlung (negativ, verkaufEinnahmenPlan).
+export async function rueckzahlungErfassen(
+  rechnungId: string,
+  e: { betrag: number; datum: string; art: string; kontoId?: string | null; notizen?: string | null },
+): Promise<{ ok: true } | { error: string; feld?: 'betrag' | 'datum' }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getZahlungsKontext()
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!UUID.test(String(rechnungId))) return { error: 'Rechnung nicht gefunden.' }
+  const betrag = Number.isFinite(e?.betrag) ? rund(e.betrag, 2) : Number.NaN
+  if (!Number.isFinite(betrag) || betrag <= 0) return { error: 'Bitte den Betrag der Rückzahlung angeben (größer als 0).', feld: 'betrag' }
+  const df = stornoDatumFehler(e.datum, { heute: heuteWien() })
+  if (df) return { error: df.replace(/Storno-Datum/g, 'Datum der Rückzahlung'), feld: 'datum' }
+  if (!(RUECKZAHLUNG_ARTEN as readonly string[]).includes(String(e.art))) return { error: 'Unbekannte Zahlungsart der Rückzahlung.' }
+  if (e.kontoId != null && e.kontoId !== '' && !UUID.test(String(e.kontoId))) return { error: 'Das Konto der Rückzahlung ist ungültig.' }
+
+  const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
+  const { data, error } = await rpc('s112_rueckzahlung_erfassen', {
+    p_tenant_id: tenantId, p_rechnung_id: rechnungId, p_betrag: betrag, p_datum: e.datum, p_art: e.art,
+    p_konto_id: e.kontoId || null, p_notizen: typeof e.notizen === 'string' && e.notizen.trim() ? e.notizen.trim() : null,
+  })
+  if (error) {
+    if (erwarteteDbAblehnung(error)) {
+      const meldung = dbFehlerText(error, 'Die Rückzahlung konnte nicht gebucht werden')
+      const hint = (error as { hint?: unknown }).hint
+      if (istStornoDatumAblehnung(hint)) return { error: meldung, feld: 'datum' }
+      if (hint === 'rueckzahlung_betrag') return { error: meldung, feld: 'betrag' }
+      return { error: meldung }
+    }
+    throw new AktionsFehler(dbFehlerText(error, 'Die Rückzahlung konnte nicht gebucht werden'))
+  }
+  // Lieferschein der Rückzahlung (der erste der Rechnung) – an ihm hängt der Abgleich der E&A-Einnahmen
+  // storno-sichtbar: die eben gebuchte Rückzahlung per ID – sie ist nicht storniert
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: z, error: zErr } = await (supabase.from('zahlungen') as any)
+    .select('verkaufsposten_id').eq('id', String(data)).eq('tenant_id', tenantId).maybeSingle()
+  if (zErr || !z?.verkaufsposten_id) {
+    throw new AktionsFehler(`Die Rückzahlung ist gebucht (bitte nicht erneut erfassen), ihre Einnahme in der E&A-Rechnung wurde aber nicht aktualisiert: ${zErr ? dbFehlerText(zErr) : 'Lieferschein nicht gefunden'}. Bitte die E&A-Rechnung prüfen (lassen).`)
+  }
+  const ea = await syncEaEinnahmeFuerVerkauf(String(z.verkaufsposten_id))
+  revalidatePath(`/weinhandel/verkauf/${z.verkaufsposten_id}`)
+  revalidatePath(`/weinhandel/rechnungen/${rechnungId}`)
+  revalidatePath('/weinhandel/offene-posten')
+  revalidatePath('/buchhaltung')
+  revalidatePath('/konten')
+  eaErgebnisPruefen(ea, 'gespeichert')
+  return { ok: true }
 }
 
 // KAN-453 G3b: Gutschrift stornieren (RPC s112_gutschrift_stornieren) – Stornobeleg am Storno-Datum, die Gutschrift bleibt

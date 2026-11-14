@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from '@/components/ui/Link'
 import ZahlungErfassen from '@/components/handel/ZahlungErfassen'
+import RueckzahlungErfassen from '@/components/handel/RueckzahlungErfassen'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { faelligText } from '@/lib/verkauf/faelligkeit'
 
@@ -18,6 +19,10 @@ type Posten = {
   bezahlt_am: string | null
   gesamt: number
   bereitsBezahlt: number
+  /** KAN-453 G3c: Summe der Gutschriften, offener Betrag nach Zahlungen und Gutschriften, Guthaben (auszahlbar) */
+  gutgeschrieben: number
+  offen: number
+  guthaben: number
   kundenName: string
   kontaktId: string | null
   firmaId: string | null
@@ -42,7 +47,9 @@ type Konto = { id: string; name: string }
 
 function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; konten: Konto[] }) {
   const [expanded, setExpanded] = useState(false)
-  const offenerBetrag = Math.max(0, p.gesamt - p.bereitsBezahlt)
+  const [rueckzahlung, setRueckzahlung] = useState(false)
+  // KAN-453: offen nach Zahlungen UND Gutschriften (vorher ohne Gutschriften – der Vorschlag war zu hoch)
+  const offenerBetrag = p.offen
 
   return (
     <>
@@ -76,6 +83,12 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
               {fmt(p.bereitsBezahlt)} bereits erhalten
             </p>
           )}
+          {p.gutgeschrieben > 0 && (
+            <p className="text-[11px] font-normal text-s112-muted mt-0.5">{fmt(p.gutgeschrieben)} gutgeschrieben</p>
+          )}
+          {p.guthaben > 0 && (
+            <p className="text-[11px] font-semibold text-s112-warn-fg mt-0.5">Guthaben {fmt(p.guthaben)}</p>
+          )}
         </td>
         <td className="px-4 py-3 text-center">
           {p.bezahlt ? (
@@ -85,6 +98,13 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                 <p className="text-[11px] text-s112-muted mt-0.5">
                   {new Date(p.bezahlt_am).toLocaleDateString('de-AT')}
                 </p>
+              )}
+              {/* KAN-453 G3c: Guthaben auszahlen */}
+              {writeOk && p.guthaben > 0 && p.rechnungId && (
+                <button onClick={() => setRueckzahlung(v => !v)}
+                  className="mt-1 text-xs font-medium text-s112-warn-fg border border-s112-warn/40 rounded-full px-3 py-0.5 hover:bg-s112-warn-bg transition-colors">
+                  {rueckzahlung ? 'Abbrechen' : 'Rückzahlung erfassen'}
+                </button>
               )}
             </div>
           ) : (
@@ -111,6 +131,14 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
           )}
         </td>
       </tr>
+      {rueckzahlung && writeOk && p.guthaben > 0 && p.rechnungId && (
+        <tr className="border-b border-s112-border last:border-0 bg-s112-bg/40">
+          <td colSpan={5} className="px-4 py-3">
+            <RueckzahlungErfassen rechnungId={p.rechnungId} rechnungsnummer={p.rechnungsnummer} rechnungDatum={p.datum.slice(0, 10)} guthaben={p.guthaben}
+              konten={konten} onAbbrechen={() => setRueckzahlung(false)} onGespeichert={() => setRueckzahlung(false)} />
+          </td>
+        </tr>
+      )}
       {expanded && writeOk && !p.bezahlt && (
         <tr className="border-b border-s112-border last:border-0 bg-s112-bg/40">
           <td colSpan={5} className="px-4 py-3">
