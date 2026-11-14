@@ -57,7 +57,7 @@ Die Datenbank sperrt ganze Zeilen, keine einzelnen Spalten. Wo etwas Verbotenes 
 
 ## So sperrt die Datenbank (R2, KAN-454)
 
-Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich` (nur SELECT, `TO authenticated`). Sie kommt in drei Formen, die `scripts/lesebereich-sql.js` aus der Liste ableitet:
+Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich` (`TO authenticated`; seit KAN-459, Migration `kan459a_lesebereich_schreiben`, für alle Befehle: derselbe Ausdruck als `USING` und `WITH CHECK`). Sie kommt in drei Formen, die `scripts/lesebereich-sql.js` aus der Liste ableitet:
 
 | Form | Tabellen | Bedingung |
 | --- | --- | --- |
@@ -71,6 +71,7 @@ Jede Tabelle außerhalb von `allgemein` hat die RESTRICTIVE-Policy `lesebereich`
 - **Wirkung heute:** keine. Noch hat niemand ein Profil und die App vergibt keines (R5); für Mitglieder ohne Profil ist die Menge der gesperrten Betriebe leer.
 - **Nicht erfasst:** Schreiben (regeln die Schreibmodule), Service-Role und SECURITY-DEFINER-Funktionen – siehe nächster Abschnitt (R3, KAN-455).
 - **Neue Tabelle:** Bereich in `scripts/lesebereiche.json` eintragen (ohne `tenant_id` zusätzlich unter `kinder`) und die Policy `lesebereich` in derselben Migration anlegen. DB-Test 02 prüft jede Tabelle im Katalog und liest als „Extern“ und „Vertrieb“ gegen einen Mitarbeiter ohne Profil.
+- **Schreiben nur mit Leserecht (KAN-459):** Die Schreibmodule eines Profils reichen in Tabellen außerhalb seiner Lesebereiche („Extern“ mit Modul Rieden: 25 Tabellen, u. a. `grundstueck_recht`, Mittel samt Lager, Lese, Kostenstellen; „Vertrieb“: `keller_umzuege`, `traubenverkauf`). Solange die Policy nur für SELECT galt, konnte ein Profil dort über die Datenschnittstelle anlegen und – ohne Filter, also ohne eine Spalte zu lesen – ändern und löschen. Deshalb `FOR ALL`, auch auf `storage.objects`. DB-Test `07_lesebereich_schreiben`.
 
 ## Lesewege an den Policies vorbei (R3, KAN-455)
 

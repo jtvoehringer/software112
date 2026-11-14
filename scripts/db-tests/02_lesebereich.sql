@@ -1,5 +1,5 @@
 -- @bereich: Leserechte je Profil (KAN-454, R2 zu KAN-412) – Sperr-Policies „lesebereich“ auf allen Tabellen
--- @ziel: Jede Tabelle außerhalb des Bereichs „allgemein“ hat genau eine RESTRICTIVE-SELECT-Policy „lesebereich“ für
+-- @ziel: Jede Tabelle außerhalb des Bereichs „allgemein“ hat genau eine RESTRICTIVE-Policy „lesebereich“ (seit KAN-459 für alle Befehle) für
 -- @ziel: authenticated mit ihrem Bereich aus scripts/lesebereiche.json; Tabellen im Bereich „allgemein“ haben keine.
 -- @ziel: Ein Mitarbeiter mit Profil „extern“ bzw. „vertrieb“ sieht in jeder Tabelle genau dann Zeilen des Betriebs,
 -- @ziel: wenn der Bereich der Tabelle zu seinem Profil gehört – verglichen mit einem Mitarbeiter ohne Profil, für
@@ -86,7 +86,7 @@ BEGIN
     v_tab := split_part(v_e, '=', 1);
     v_ber := split_part(v_e, '=', 2);
     v_erg := v_erg || pg_temp.s112_erwarte('policy:' || v_tab,
-      (SELECT concat_ws('|', count(*), bool_and(p.permissive = 'RESTRICTIVE' AND p.cmd = 'SELECT' AND p.roles = '{authenticated}'),
+      (SELECT concat_ws('|', count(*), bool_and(p.permissive = 'RESTRICTIVE' AND p.cmd = 'ALL' AND p.with_check IS NOT DISTINCT FROM p.qual AND p.roles = '{authenticated}'),   -- seit KAN-459 für alle Befehle
                         bool_and(p.qual LIKE '%s112_lesegesperrte_tenants(''' || v_ber || '''::text)%' OR p.qual LIKE 'EXISTS%' OR p.qual LIKE '(EXISTS%'))
          FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = v_tab AND p.policyname = 'lesebereich'),
       '1|t|t');

@@ -139,7 +139,7 @@ BEGIN
       has_function_privilege('service_role', 'public.s112_pruefe_lesen(uuid, text)', 'EXECUTE')), 'f|f|t');
   v_erg := v_erg || pg_temp.s112_erwarte('storage_policy',
     (SELECT concat_ws('|', p.permissive, p.cmd, p.roles::text) FROM pg_policies p WHERE p.schemaname = 'storage' AND p.tablename = 'objects' AND p.policyname = 'lesebereich'),
-    'RESTRICTIVE|SELECT|{authenticated}');
+    'RESTRICTIVE|ALL|{authenticated}');   -- seit KAN-459 für alle Befehle
   FOREACH v_e IN ARRAY c_buckets LOOP
     v_erg := v_erg || pg_temp.s112_erwarte('storage_bucket:' || split_part(v_e, '=', 1),
       (SELECT split_part(split_part(p.qual, 'bucket_id <> ''' || split_part(v_e, '=', 1) || '''', 2), 'bucket_id <> ', 1)
