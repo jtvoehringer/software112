@@ -1,10 +1,27 @@
 -- @bereich: Demo-Musterhof – Flaschenverkäufe des Resets schreiben eine Bestandsbewegung (Datenabgleich 09.10.2026)
 -- @ziel: demo_musterhof_verkauf legt zu jeder Flaschenposition eine Bewegung „verkauf“ mit Verkaufsposten und Bestand
 -- @ziel: vorher/nachher an; ein stornierter Verkauf bekommt Verkauf + Verkaufsstorno, der Bestand bleibt dann gleich.
+-- @ziel: „Heute“ ist der Wiener Tag (Befund 14.11.2026, 00:05 Wien: Verkauf mit dem Wiener Datum still übersprungen, weil
+-- @ziel: die Funktion mit dem UTC-Tag der Sitzung verglich). Der Test verschiebt die Sitzungs-Zeitzone wie Datei 56, damit
+-- @ziel: Sitzungstag ≠ Wiener Tag zu jeder Uhrzeit gilt: vormittags (Sitzung = gestern) muss der Verkauf von heute
+-- @ziel: entstehen, nachmittags (Sitzung = morgen) darf der Verkauf von morgen nicht entstehen.
 -- @mutation ohne_bewegung: Verkaufsbewegungen werden nicht geschrieben (Stand vor dem Fix) | rot: verkauf_bewegung|storno_paar
 -- @mutation falsche_kette: Bestand vorher/nachher um eine Flasche verschoben | rot: bestand_kette
+-- @mutation verkauf_utc: demo_musterhof_verkauf rechnet wieder mit dem Sitzungstag | rot: verkauf_bewegung|zukunft_uebersprungen
 --
--- software:112 – SQL-Testsuite gegen Staging, Datei 77 (Stand 09.10.2026). Alles zurückgerollt.
+-- software:112 – SQL-Testsuite gegen Staging, Datei 77 (Stand 14.11.2026). Alles zurückgerollt.
+
+CREATE FUNCTION pg_temp.t77_ersetze(p_fn regprocedure, p_muster text, p_ersatz text) RETURNS void LANGUAGE plpgsql AS $f$
+DECLARE
+  v_alt text := pg_get_functiondef(p_fn);
+  v_neu text;
+BEGIN
+  v_neu := regexp_replace(v_alt, p_muster, p_ersatz, 'g');
+  IF v_neu = v_alt THEN
+    RAISE EXCEPTION 't77_ersetze: Muster % greift nicht in %', p_muster, p_fn;
+  END IF;
+  EXECUTE v_neu;
+END $f$;
 
 DO $test$
 DECLARE
@@ -16,12 +33,20 @@ DECLARE
   v_alt   integer;
   v_vp    uuid := gen_random_uuid();
   v_vs    uuid := gen_random_uuid();
+  v_vz    uuid := gen_random_uuid();
+  v_tz    text;
   v_heute date;
   v_txt   text;
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
   v_t0 := clock_timestamp();
   v_heute := (now() AT TIME ZONE 'Europe/Vienna')::date;
+
+  -- Sitzungstag ≠ Wiener Tag erzwingen (wie zwischen 00:00 und 02:00 Wiener Zeit mit UTC; siehe Datei 56):
+  -- vormittags (Wien) liegt UTC−12 am Vortag, nachmittags UTC+14 am Folgetag.
+  v_tz := CASE WHEN extract(hour FROM now() AT TIME ZONE 'Europe/Vienna') < 12 THEN 'Etc/GMT+12' ELSE 'Etc/GMT-14' END;
+  PERFORM set_config('TimeZone', v_tz, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('vorbedingung_tag_verschieden', now()::date <> v_heute, true);
 
   PERFORM pg_temp.s112_mutiere('ohne_bewegung', $m$
     CREATE FUNCTION pg_temp.t77_ohne() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN
@@ -31,6 +56,10 @@ BEGIN
     CREATE FUNCTION pg_temp.t77_kette() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN
       NEW.bestand_vorher := NEW.bestand_vorher + 1; NEW.bestand_nachher := NEW.bestand_nachher + 1; RETURN NEW; END $f$;
     CREATE TRIGGER t77_mut BEFORE INSERT ON public.fuellung_bewegungen FOR EACH ROW EXECUTE FUNCTION pg_temp.t77_kette()$m$);
+
+  PERFORM pg_temp.s112_mutiere('verkauf_utc',
+    $m$SELECT pg_temp.t77_ersetze('public.demo_musterhof_verkauf(uuid, integer, date, uuid, uuid, jsonb, jsonb, boolean, text)'::regprocedure,
+         $r$\(now\(\) AT TIME ZONE 'Europe/Vienna'\)::date$r$, $r$(now())::date$r$)$m$);
 
   v_f := public.demo_musterhof_id(19, 12);
   SELECT bestand_flaschen INTO v_alt FROM public.fuellungen WHERE id = v_f AND tenant_id = c_t;
@@ -58,5 +87,11 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('storno_bestand',
     (SELECT bestand_flaschen FROM public.fuellungen WHERE id = v_f)::text, (v_alt - 6)::text);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 4);
+  -- ── 3. Verkauf von morgen (Wiener Zeit): wird übersprungen, auch wenn der Sitzungstag schon morgen ist ─
+  PERFORM public.demo_musterhof_verkauf(v_vz, 9903, v_heute + 1, NULL, NULL, '[{"t":"f","f":12,"m":2}]'::jsonb, NULL, false, 'S112TEST Zukunft');
+  v_erg := v_erg || pg_temp.s112_erwarte('zukunft_uebersprungen',
+    (SELECT count(*) FROM public.verkaufsposten WHERE id = v_vz)::text || '|' ||
+    (SELECT bestand_flaschen FROM public.fuellungen WHERE id = v_f)::text, '0|' || (v_alt - 6));
+
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 6);
 END $test$;

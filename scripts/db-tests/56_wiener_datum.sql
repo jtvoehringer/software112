@@ -1,12 +1,15 @@
 -- @bereich: „Heute“ = Wiener Datum in Funktionen und Spalten-Defaults (Befund test:db 07.10.2026, 00:15 Wien)
--- @ziel: Keine Funktion in public (außer Demo-Daten und Smoke-Test) und kein Spalten-Default rechnet mit dem UTC-Tag der
--- @ziel: Sitzung; der Prüfnummernantrag nimmt das Wiener „heute“ an, lehnt „morgen“ ab und belegt ein fehlendes Datum
+-- @ziel: Keine Funktion in public (seit 14.11.2026 auch Demo-Daten und Smoke-Test) und kein Spalten-Default rechnet mit
+-- @ziel: dem UTC-Tag der Sitzung, keine Funktion liest Jahr oder Tag aus now() ohne Wiener Zeit (Rechnungs- und
+-- @ziel: Chargennummer am 1. Jänner zwischen 0 und 1 Uhr); der Prüfnummernantrag nimmt das Wiener „heute“ an, lehnt „morgen“ ab und belegt ein fehlendes Datum
 -- @ziel: wienerisch; ein Verkauf ohne Datum bekommt das Wiener Datum. Der Test verschiebt dazu die Sitzungs-Zeitzone so,
 -- @ziel: dass der Sitzungstag zu jeder Uhrzeit vom Wiener Tag abweicht (vormittags Etc/GMT+12, nachmittags Etc/GMT-14).
 -- @mutation pn_utc: Prüfnummernantrag rechnet wieder mit dem Sitzungstag | rot: pn_.*
+-- @mutation jahr_utc: s112_rechnungsnummer_ziehen liest das Jahr wieder aus now() (UTC) | rot: keine_utc_jahr
+-- @mutation demo_utc: demo_musterhof_ea vergleicht wieder mit dem Sitzungstag | rot: keine_utc_funktion
 -- @mutation default_utc: Default von verkaufsposten.datum wieder der Sitzungstag | rot: default_verkauf|keine_utc_defaults
 --
--- software:112 – SQL-Testsuite gegen Staging, Datei 56 (Stand 07.10.2026). Alles zurückgerollt.
+-- software:112 – SQL-Testsuite gegen Staging, Datei 56 (Stand 14.11.2026). Alles zurückgerollt.
 
 CREATE FUNCTION pg_temp.t56_ersetze(p_fn regprocedure, p_muster text, p_ersatz text) RETURNS void LANGUAGE plpgsql AS $f$
 DECLARE
@@ -56,6 +59,12 @@ BEGIN
   PERFORM pg_temp.s112_mutiere('pn_utc',
     $m$SELECT pg_temp.t56_ersetze('public.s112_pruefnummernantrag_status_setzen(uuid, uuid, text, date, text, text)'::regprocedure,
          $r$\(now\(\) AT TIME ZONE 'Europe/Vienna'\)::date$r$, $r$(now())::date$r$)$m$);
+  PERFORM pg_temp.s112_mutiere('jahr_utc',
+    $m$SELECT pg_temp.t56_ersetze('public.s112_rechnungsnummer_ziehen(uuid)'::regprocedure,
+         $r$extract\(year from \(now\(\) AT TIME ZONE 'Europe/Vienna'\)\)$r$, $r$extract(year from now())$r$)$m$);
+  PERFORM pg_temp.s112_mutiere('demo_utc',
+    $m$SELECT pg_temp.t56_ersetze('public.demo_musterhof_ea(text, date, text, text, numeric, numeric, uuid, uuid, uuid)'::regprocedure,
+         $r$p_datum > \(now\(\) AT TIME ZONE 'Europe/Vienna'\)::date$r$, 'p_datum > current' || '_date')$m$);
   PERFORM pg_temp.s112_mutiere('default_utc',
     $m$ALTER TABLE public.verkaufsposten ALTER COLUMN datum SET DEFAULT ('now'::text)::date$m$);
 
@@ -63,8 +72,12 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('keine_utc_funktion',
     (SELECT coalesce(string_agg(p.proname, ',' ORDER BY p.proname), '-') FROM pg_proc p
       WHERE p.pronamespace = 'public'::regnamespace AND p.prokind = 'f'
-        AND p.proname NOT LIKE 'demo\_%' AND p.proname <> 's112_smoke_test'
         AND pg_get_functiondef(p.oid) ~* c_utc), '-');
+  -- Jahr oder Tag aus now() ohne Wiener Zeit: to_char(now(), …), extract(… from now()), date_part/date_trunc('…', now())
+  v_erg := v_erg || pg_temp.s112_erwarte('keine_utc_jahr',
+    (SELECT coalesce(string_agg(p.proname, ',' ORDER BY p.proname), '-') FROM pg_proc p
+      WHERE p.pronamespace = 'public'::regnamespace AND p.prokind = 'f'
+        AND p.prosrc ~* '(to_char|extract|date_part|date_trunc)\s*\(([^()]*\mfrom\s+|''[a-z]+''\s*,\s*)?now\(\)\s*[,)]'), '-');
   v_erg := v_erg || pg_temp.s112_erwarte('keine_utc_defaults',
     (SELECT coalesce(string_agg(c.relname || '.' || a.attname, ',' ORDER BY c.relname, a.attname), '-')
        FROM pg_attrdef d JOIN pg_class c ON c.oid = d.adrelid
@@ -90,5 +103,5 @@ BEGIN
   INSERT INTO public.verkaufsposten (tenant_id, notizen) VALUES (v_b, 'S112TEST 56') RETURNING datum INTO v_datum;
   v_erg := v_erg || pg_temp.s112_erwarte('default_verkauf', v_datum = v_heute, true);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 8);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 9);
 END $test$;
