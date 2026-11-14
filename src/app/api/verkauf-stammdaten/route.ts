@@ -9,6 +9,7 @@ import { leseTitel } from '@/lib/wein/lesen'
 import { zahlWert } from '@/lib/format'
 import { dbFehlerText } from '@/lib/fehler'
 import { leseKonflikt } from '@/lib/api/lesebereich'
+import { verkaufTypenErlaubt } from '@/lib/auth/profilGrenzen'
 
 export const dynamic = 'force-dynamic'
 
@@ -219,6 +220,8 @@ export async function GET() {
       lesen,
       // KAN-353: Kunde direkt aus der Partner-Suche anlegen – nur mit Schreibrecht CRM (canWrite nie im Client)
       crm_schreiben: !!membership && canWrite(membership, 'crm'),
+      // KAN-456: Positionstypen, die das Mitglied erfassen kann (Tank nur mit Kellerbuch, Trauben nur mit Lese lesbar)
+      typen_erlaubt: verkaufTypenErlaubt(membership),
       // KAN-411: „Bestellung erkennen“ nur mit aktivem KI-Modul anbieten
       ki_aktiv: (einstellungen as any)?.ki_abfragen_aktiv === true, // eslint-disable-line @typescript-eslint/no-explicit-any
     })

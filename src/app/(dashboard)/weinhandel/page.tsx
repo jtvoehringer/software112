@@ -13,6 +13,7 @@ import { ladeReservierungen } from '@/lib/auftrag/laden'
 import { verfuegbar } from '@/lib/auftrag/regeln'
 import { fuellungStornoSperren, VERKAUFS_BEWEGUNGEN } from '@/lib/handel/fuellungStornoSperre'
 import { requireLesen } from '@/lib/auth/lesen'
+import { canRead } from '@/lib/auth/lesebereiche'
 
 export const metadata: Metadata = { title: 'Warenwirtschaft' }
 export const dynamic = 'force-dynamic'
@@ -45,6 +46,10 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
   const writeOk    = canWrite(role, 'warenwirtschaft')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
+  // KAN-456: Tankwein, Rückverfolgung und Füllen brauchen das Kellerbuch, der Traubenverkauf die Lese. Ohne Leserecht
+  // liefert die Datenbank dort 0 Zeilen – die Abschnitte werden dann nicht gezeigt (statt „keine Chargen“).
+  const kellerLesbar = canRead(membership, 'keller')
+  const leseLesbar   = canRead(membership, 'lese')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
@@ -174,16 +179,16 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
               ? fmtEur(gesamtWertGesamt)
               : '–'}
           </p>
-          <p className="text-xs text-s112-muted mt-1">Lagerwert gesamt (Einstandspreis)</p>
+          <p className="text-xs text-s112-muted mt-1">{kellerLesbar ? 'Lagerwert gesamt (Einstandspreis)' : 'Lagerwert Flaschen und Zukauf (Einstandspreis)'}</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Verkauf</p>
         </Link>
-        <Link href="/weinhandel" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
+        {kellerLesbar && <Link href="/weinhandel" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-2xl sm:text-3xl font-semibold text-s112-blue-700">
             {gesamtLiterTank > 0 ? `${fmtNum(gesamtLiterTank)} L` : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Liter im Tank (Direktverkauf)</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
-        </Link>
+        </Link>}
       </div>
 
       {/* Flaschenbestand */}
@@ -209,9 +214,9 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
             <Package size={32} className="mx-auto mb-2 text-s112-muted" />
             <p className="text-sm text-s112-muted mb-1">Noch keine Füllungen angelegt.</p>
             <p className="text-xs text-s112-muted">
-              Füllungen werden im Kellerbuch unter{' '}
+              {kellerLesbar ? <>Füllungen werden im Kellerbuch unter{' '}
               <Link href="/weinhandel/fuellungen/neu" className="text-s112-blue-700 hover:underline">Neue Füllung</Link>{' '}
-              angelegt.
+              angelegt.</> : 'Füllungen legt die Kellerwirtschaft an; zugekaufte Flaschen kommen über den Zukauf ins Lager.'}
             </p>
           </div>
         ) : (
@@ -246,16 +251,16 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                         {/* UAT 23.10.2026: das Produkt öffnet die Füllung (Reiter Füllung · E-Label · Rückverfolgung); wer nicht
                             bearbeiten darf, landet wie bisher in der Rückverfolgung. Die Lupe führt direkt dorthin. */}
                         <Link
-                          href={writeOk ? `/weinhandel/fuellungen/${f.id}/edit` : `/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
+                          href={writeOk || !kellerLesbar ? `/weinhandel/fuellungen/${f.id}/edit` : `/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
                           title={writeOk ? 'Füllung öffnen (Reiter Füllung, E-Label, Rückverfolgung)' : 'Rückverfolgung anzeigen (Weinbuch, Analysen, Prüfnummer, Herkunft)'}
                           className="font-medium text-s112-text hover:text-s112-blue-700 hover:underline transition-colors"
                         >
                           {f.name}{f.bezeichnung ? ` – ${f.bezeichnung}` : ''}
                         </Link>
-                        <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`} title="Rückverfolgung" aria-label={`Rückverfolgung ${f.name}`}
+                        {kellerLesbar && <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`} title="Rückverfolgung" aria-label={`Rückverfolgung ${f.name}`}
                           className="ml-1.5 inline-flex align-middle text-s112-muted hover:text-s112-blue-700">
                           <Search size={12} />
-                        </Link>
+                        </Link>}
                         {f.zukauf_posten_id && (
                           <span className="ml-2 text-[10px] uppercase tracking-wide bg-s112-bg border border-s112-border text-s112-muted rounded-full px-2 py-0.5"
                             title="Zugekaufte Flaschen (KAN-41) – im Kellerbuch als Zukauf Flaschen gebucht">Handelsware</span>
@@ -312,7 +317,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                               className="text-s112-blue-700 hover:text-s112-blue-700/70">
                               <Pencil size={15} />
                             </Link>
-                            <FuellungLoeschen id={f.id} name={f.name} gesperrt={loeschSperre.get(f.id) ?? null} />
+                            {kellerLesbar && <FuellungLoeschen id={f.id} name={f.name} gesperrt={loeschSperre.get(f.id) ?? null} />}
                           </div>
                         </td>
                       )}
@@ -325,8 +330,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
         )}
       </section>
 
-      {/* Tankverkauf */}
-      <section>
+      {/* Tankverkauf – KAN-456: nur mit Leserecht Kellerbuch */}
+      {kellerLesbar && <section>
         <div className="flex items-center gap-3 mb-3">
           <h2 className="font-semibold text-s112-text flex items-center gap-2"><Truck size={18} /> Tankverkauf (Direktverkauf ab Keller)</h2>
           <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Transportschein erforderlich</span>
@@ -507,11 +512,11 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
             </table>
           </div>
         )}
-      </section>
+      </section>}
 
 
-      {/* Traubenverkauf → jetzt über Standard-Verkaufsformular */}
-      <section>
+      {/* Traubenverkauf → jetzt über Standard-Verkaufsformular – KAN-456: nur mit Leserecht Lese */}
+      {leseLesbar && <section>
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="font-semibold text-s112-text flex items-center gap-2"><Grape size={18} /> Traubenverkauf</h2>
@@ -544,7 +549,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
             </Link>
           </div>
         )}
-      </section>
+      </section>}
 
     </div>
   )

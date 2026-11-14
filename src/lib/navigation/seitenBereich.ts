@@ -42,6 +42,7 @@ export const SEITEN_BEREICH: ReadonlyArray<readonly [string, Lesebereich]> = [
   // Warenwirtschaft
   ['/weinhandel', 'lager'],                            // Warenlager (Füllungen)
   ['/weinhandel/fuellungen', 'lager'],
+  ['/weinhandel/fuellungen/neu', 'keller'],            // KAN-456: Abfüllen aus einer Kellerbuch-Charge
   ['/weinhandel/sonstige-artikel', 'lager'],
   ['/weinhandel/zukauf', 'lager'],
   ['/weinhandel/transportbescheinigungen', 'lager'],

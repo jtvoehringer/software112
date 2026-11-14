@@ -93,7 +93,10 @@ describe('Sweep Namenslinks: Nachtrag (Rückmeldung Jörgen 07.10.2026)', () => 
   test('Zukauf: Rechnungsnummer ist echter Link in der klickbaren Zeile', () => {
     const src = lies('src/app/(dashboard)/weinhandel/zukauf/page.tsx')
     assert.match(src, /<Link href=\{`\/weinhandel\/zukauf\/\$\{p\.id\}\/edit`\}[^>]*>\s*\{p\.eingangsrechnungsnummer \|\| 'ohne Rechnungsnr\.'\}/)
-    assert.match(src, /<ClickableTableRow key=\{p\.id\} href=\{`\/weinhandel\/zukauf\/\$\{p\.id\}\/edit`\}/)
+    // seit KAN-456: Zeile nur anklickbar, wenn der Zukauf bearbeitet werden kann (ZukaufZeile → ClickableTableRow)
+    assert.match(src, /const ziel = bearbeitbar \? `\/weinhandel\/zukauf\/\$\{p\.id\}\/edit` : undefined/)
+    assert.match(src, /<ZukaufZeile key=\{p\.id\} href=\{ziel\}>/)
+    assert.match(src, /\? <ClickableTableRow href=\{href\} className="hover:bg-s112-bg\/50 transition-colors">\{children\}<\/ClickableTableRow>/)
   })
 })
 

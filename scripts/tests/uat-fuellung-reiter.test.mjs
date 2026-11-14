@@ -32,7 +32,8 @@ describe('UAT: Reiter je Füllung', () => {
   })
   test('Warenlager: Produkt öffnet die Füllung (Leser: Rückverfolgung), Lupe führt zur Rückverfolgung', () => {
     const w = quelle('src/app/(dashboard)/weinhandel/page.tsx')
-    assert.match(w, /href=\{writeOk \? `\/weinhandel\/fuellungen\/\$\{f\.id\}\/edit` : `\/kellerbuch\/rueckverfolgung\?fuellung_id=\$\{f\.id\}`\}/)
+    // seit KAN-456: ohne Leserecht Kellerbuch (Profil „Vertrieb“) immer die Füllung – die Rückverfolgung wäre gesperrt
+    assert.match(w, /href=\{writeOk \|\| !kellerLesbar \? `\/weinhandel\/fuellungen\/\$\{f\.id\}\/edit` : `\/kellerbuch\/rueckverfolgung\?fuellung_id=\$\{f\.id\}`\}/)
     assert.match(w, /<Link href=\{`\/kellerbuch\/rueckverfolgung\?fuellung_id=\$\{f\.id\}`\} title="Rückverfolgung" aria-label=/)
   })
 })

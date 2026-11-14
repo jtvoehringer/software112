@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { canWrite, getCurrentMembership, type Membership } from '@/lib/auth/roles'
+import { verkaufTypFehler } from '@/lib/auth/profilGrenzen'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
@@ -242,6 +243,8 @@ async function pruefePositionen(
   positionen.forEach((p, i) => {
     const nr = `Position ${i + 1}${p?.name ? ` („${String(p.name).trim()}“)` : ''}`
     if (!p || !POSITIONS_TYPEN.includes(p.typ)) throw new AktionsFehler(`${nr}: unbekannter Positionstyp`)
+    // KAN-456: Tank bzw. Trauben nur mit Leserecht auf Kellerbuch bzw. Lese (sonst leere Auswahl und blinde Prüfungen)
+    { const grenze = verkaufTypFehler(membership, p.typ); if (grenze) throw new AktionsFehler(`${nr}: ${grenze}`) }
     if (!String(p.name ?? '').trim()) throw new AktionsFehler(`${nr}: Bitte eine Bezeichnung angeben.`)
     const menge = Number(p.menge)
     if (!Number.isFinite(menge)) throw new AktionsFehler(`${nr}: ungültige Menge`)

@@ -251,6 +251,8 @@ export default function NeuerVerkaufPage() {
   const [lesen,           setLesen]           = useState<LeseOption[]>([])
   // KAN-353: Kunde direkt aus der Suche anlegen – Schreibrecht CRM kommt vom Server (/api/verkauf-stammdaten)
   const [crmSchreiben,    setCrmSchreiben]    = useState(false)
+  // KAN-456: Positionstypen laut Server (ohne Leserecht auf Kellerbuch bzw. Lese kein Tank- bzw. Traubenverkauf)
+  const [typenErlaubt,    setTypenErlaubt]    = useState<string[]>(['flasche', 'tank', 'sonstiges', 'trauben'])
   const [grundstuecke,    setGrundstuecke]    = useState<Grundstueck[]>([])
   const [loading,         setLoading]         = useState(true)
   const [ustStandard,     setUstStandard]     = useState(13)
@@ -328,6 +330,7 @@ export default function NeuerVerkaufPage() {
         setLesen(json.lesen ?? [])
         setGrundstuecke(json.grundstuecke ?? [])
         setCrmSchreiben(json.crm_schreiben === true)
+        if (Array.isArray(json.typen_erlaubt)) setTypenErlaubt(json.typen_erlaubt)
         setKiAktiv(json.ki_aktiv === true)
         const ust = json.ust_satz_standard ?? 13
         setUstStandard(ust)
@@ -790,7 +793,7 @@ export default function NeuerVerkaufPage() {
 
               {/* Typ */}
               <div className="flex gap-3 flex-wrap">
-                {(['flasche', 'tank', 'sonstiges', 'trauben'] as const).map(t => (
+                {(['flasche', 'tank', 'sonstiges', 'trauben'] as const).filter(t => typenErlaubt.includes(t) || pos.typ === t).map(t => (
                   <label key={t} className="flex items-center gap-1.5 cursor-pointer max-sm:py-1.5">
                     <input type="radio" name={`typ-${pos.id}`} value={t}
                       checked={pos.typ === t}
