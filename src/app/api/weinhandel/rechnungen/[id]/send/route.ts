@@ -1,6 +1,7 @@
 // POST /api/weinhandel/rechnungen/[id]/send (KAN-379, 27.10.2026)
 // Stornobeleg (rechnungen.art = 'storno') als PDF „Stornorechnung zu Rechnung … vom …“ per E-Mail an den Kunden – über
-// dieselbe Anbindung wie die Rechnung (belegPerMailSenden). Rechnungen selbst versendet weiter
+// dieselbe Anbindung wie die Rechnung (belegPerMailSenden). KAN-453 G3a: ebenso die Gutschrift (art = 'gutschrift') als PDF
+// „Gutschrift – Rechnungskorrektur zu Rechnung … vom …“. Rechnungen selbst versendet weiter
 // /api/weinhandel/verkauf/[id]/send (über einen Lieferschein der Rechnung). Versandvermerk am Stornobeleg, CRM-Aktivität.
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -14,6 +15,7 @@ import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { STORNO_FELDER } from '@/lib/verkauf/rechnungen'
 import { stornobelegPdfInhalt } from '@/lib/verkauf/stornobelegPdf'
+import { gutschriftPdfInhalt } from '@/lib/verkauf/gutschriftPdf'
 import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
 import { belegPerMailSenden } from '@/lib/email/belegVersand'
 import { ereignisMelden } from '@/lib/system/ereignis'
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // storno-sichtbar: der Stornobeleg selbst (art = 'storno') samt Verweis auf die stornierte Rechnung
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('rechnungen') as any)
-      .select(`id, rechnungsnummer, datum, notizen, partner_daten, kontakt_id, firma_id, ${STORNO_FELDER},
+      .select(`id, rechnungsnummer, datum, notizen, partner_daten, kontakt_id, firma_id, aktiv, ${STORNO_FELDER},
         kontakt:kontakte!kontakt_id(titel, vorname, nachname, titel_nachgestellt, email, strasse, plz, ort),
         firma:firmen!firma_id(name, email, strasse, plz, ort),
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt)`)
@@ -67,12 +69,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   ])
   { const ladeFehler = [rohErr, einstErr].find(Boolean)
     if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(ladeFehler)}` }, { status: 500 }) }
-  if (!roh) return NextResponse.json({ error: 'Stornobeleg nicht gefunden' }, { status: 404 })
-  if ((roh as R).art !== 'storno') {
-    return NextResponse.json({ error: 'Hier werden nur Stornobelege versendet – Rechnungen über den Lieferschein senden.' }, { status: 400 })
+  if (!roh) return NextResponse.json({ error: 'Beleg nicht gefunden' }, { status: 404 })
+  const art = String((roh as R).art ?? '')
+  if (art !== 'storno' && art !== 'gutschrift') {
+    return NextResponse.json({ error: 'Hier werden nur Stornobelege und Gutschriften versendet – Rechnungen über den Lieferschein senden.' }, { status: 400 })
   }
+  if ((roh as R).aktiv === false) return NextResponse.json({ error: 'Der Beleg ist nicht mehr aktiv.' }, { status: 400 })
   const beleg = momentaufnahmeAnwenden(roh as R, ['kontakt', 'firma', 'zh_kontakt'])   // KAN-150 F1c
-  const inhalt = stornobelegPdfInhalt(beleg)
+  // KAN-453: Gutschrift mit ihren eigenen Zeilen, Stornobeleg mit den Positionen seines Originals – dasselbe PDF-Gerüst
+  const gs = art === 'gutschrift' ? gutschriftPdfInhalt(beleg) : null
+  const sto = gs ? null : stornobelegPdfInhalt(beleg)
+  const inhalt = (gs ?? sto)!
+  const bezug = gs ? gs.bezug : sto!.storno
+  const wort = gs ? 'Gutschrift' : 'Stornorechnung'
   const einst = (einstRaw ?? {}) as R
 
   const kundeInfo = (beleg.kontakt ?? beleg.firma ?? null) as R | null
@@ -110,18 +119,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       skonto: null,
       bank: { iban: null, bic: null, zahlungszielTage: 0, faelligkeitIso: inhalt.datumIso },
       fusstext: einst.rechnung_fusstext ?? null,
-      storno: inhalt.storno,
+      storno: sto?.storno ?? null,
+      gutschrift: gs?.bezug ?? null,
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unbekannter Fehler bei der PDF-Erzeugung'
     return NextResponse.json({ error: `PDF-Erzeugung fehlgeschlagen: ${msg}` }, { status: 500 })
   }
 
-  const subject = `Stornorechnung ${inhalt.nummer} zu Rechnung ${inhalt.storno.zuNummer} von ${bName}`
+  const subject = `${wort} ${inhalt.nummer} zu Rechnung ${bezug.zuNummer} von ${bName}`
   const mailText = [
     kundeName ? `Sehr geehrte Damen und Herren, ${kundeName},` : 'Sehr geehrte Damen und Herren,',
     '',
-    body.message?.trim() || `anbei erhalten Sie die Stornorechnung ${inhalt.nummer} zu unserer Rechnung ${inhalt.storno.zuNummer}.`,
+    body.message?.trim() || (gs
+      ? `anbei erhalten Sie die Gutschrift ${inhalt.nummer} (Rechnungskorrektur) zu unserer Rechnung ${bezug.zuNummer}.`
+      : `anbei erhalten Sie die Stornorechnung ${inhalt.nummer} zu unserer Rechnung ${bezug.zuNummer}.`),
     '',
     'Freundliche Grüße',
     bName,
@@ -130,12 +142,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const admin = createSupabaseAdminClient()
   const versand = await belegPerMailSenden({
     admin, tenantId, userId: authUser.id, an: recipient, betreff: subject, text: mailText,
-    dateiname: `Stornorechnung-${inhalt.nummer || id}.pdf`, pdf, absenderName: bName,
+    dateiname: `${wort}-${inhalt.nummer || id}.pdf`, pdf, absenderName: bName,
   })
   if (!versand.ok) return NextResponse.json({ error: versand.fehler }, { status: versand.status })
 
   const sentAt = new Date().toISOString()
-  // Versandvermerk am Stornobeleg (Benutzer schreiben rechnungen nicht direkt – Admin-Client nach der Prüfung oben)
+  // Versandvermerk am Beleg (Benutzer schreiben rechnungen nicht direkt – Admin-Client nach der Prüfung oben)
   { type Aktualisieren = { update(v: Record<string, unknown>): { eq(k: string, v: string): { eq(k: string, v: string): PromiseLike<{ error: { message: string } | null }> } } }
     const { error: e } = await (admin.from('rechnungen' as never) as unknown as Aktualisieren)
       .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })
@@ -149,7 +161,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     firma_id: beleg.firma_id ?? null,
     art: 'email',
     betreff: subject,
-    beschreibung: `Stornorechnung ${inhalt.nummer} per E-Mail an ${recipient} versendet`,
+    beschreibung: `${wort} ${inhalt.nummer} per E-Mail an ${recipient} versendet`,
     datum: wienTag(sentAt),
     erledigt: true,
     ganztags: true,

@@ -85,12 +85,12 @@ describe('KAN-379: Stornobeleg als PDF (stornobelegPdfInhalt)', () => {
   })
   test('PDF-Layout: Titel, Bezug, Stornobetrag, Grund, kein Zahlungsteil und kein Skonto', () => {
     const s = quelle('src/lib/pdf/verkaufRechnungPdf.tsx')
-    assert.match(s, /\{storno \? 'STORNORECHNUNG' : 'RECHNUNG'\}/)
+    assert.match(s, /\{gutschrift \? 'GUTSCHRIFT' : storno \? 'STORNORECHNUNG' : 'RECHNUNG'\}/)   // KAN-453: auch Gutschrift
     assert.match(s, /zu Rechnung \{storno\.zuNummer\} vom \{fmtDate\(storno\.zuDatumIso\)\}/)
-    assert.match(s, /\{storno \? 'Stornobetrag' : 'Rechnungsbetrag'\}/)
+    assert.match(s, /\{gutschrift \? 'Gutschriftbetrag' : storno \? 'Stornobetrag' : 'Rechnungsbetrag'\}/)
     assert.match(s, /Grund: \{storno\.grund\}/)
-    assert.match(s, /const skonto = storno \? null : props\.skonto/)
-    assert.match(s, /\{!storno && \(\n\s+<Text style=\{styles\.metaText\}>\n\s+\{bank\.zahlungszielTage === 0/)
+    assert.match(s, /const gegenbeleg = storno \?\? gutschrift\n\s+const skonto = gegenbeleg \? null : props\.skonto/)
+    assert.match(s, /\{!gegenbeleg && \(\n\s+<Text style=\{styles\.metaText\}>\n\s+\{bank\.zahlungszielTage === 0/)
   })
 })
 
@@ -102,8 +102,8 @@ describe('KAN-379: Versand des Stornobelegs', () => {
     assert.match(r, /schreibSperreKonflikt\(membership\)/)
     assert.match(r, /canWrite\(membership, 'warenwirtschaft'\)/)
     assert.match(r, /\.eq\('id', id\)\.eq\('tenant_id', tenantId\)\.maybeSingle\(\)/)
-    assert.match(r, /if \(\(roh as R\)\.art !== 'storno'\)/)
-    assert.match(r, /storno: inhalt\.storno,/)
+    assert.match(r, /if \(art !== 'storno' && art !== 'gutschrift'\) \{/)   // KAN-453: auch Gutschriften, nie Rechnungen
+    assert.match(r, /storno: sto\?\.storno \?\? null,/)
     assert.match(r, /belegPerMailSenden\(\{/)
     const v = quelle('src/app/api/weinhandel/verkauf/[id]/send/route.ts')
     assert.match(v, /belegPerMailSenden\(\{/)

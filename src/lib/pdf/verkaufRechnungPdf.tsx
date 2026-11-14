@@ -109,12 +109,17 @@ export type VerkaufRechnungPdfProps = {
   rechnungstexte?: string[]
   /** KAN-379: Stornobeleg – Bezug auf die Rechnung und Grund; Beträge kommen negativ (stornobelegPdfInhalt) */
   storno?: { zuNummer: string; zuDatumIso: string; grund: string | null } | null
+  /** KAN-453: Gutschrift (Rechnungskorrektur) – Bezug auf die Rechnung und Grund; Beträge kommen negativ (gutschriftPdfInhalt) */
+  gutschrift?: { zuNummer: string; zuDatumIso: string; grund: string | null } | null
 }
 
 export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
   const { betrieb, rechnung, kunde, lieferadresse, positionen, gesamt, gesamtNetto, ustGruppen, bank, fusstext } = props
   const storno = props.storno ?? null
-  const skonto = storno ? null : props.skonto
+  const gutschrift = props.gutschrift ?? null
+  /** Beleg mit negativen Beträgen und ohne Zahlungsteil (Stornobeleg bzw. Gutschrift) */
+  const gegenbeleg = storno ?? gutschrift
+  const skonto = gegenbeleg ? null : props.skonto
   const color = '#2F63AC'
   // react-pdf's <Image> unterstützt zuverlässig nur Raster-Formate (PNG/JPG).
   // SVG-Logos (z. B. das App-Platzhalter-Logo mit eingebettetem <text>) lassen
@@ -144,12 +149,13 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             {betrieb.uid && <Text style={[styles.senderDetail, { marginTop: 4, color: '#999' }]}>UID: {betrieb.uid}</Text>}
           </View>
           <View style={styles.metaBlock}>
-            <Text style={[styles.title, { color }]}>{storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</Text>
+            <Text style={[styles.title, { color }]}>{gutschrift ? 'GUTSCHRIFT' : storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</Text>
             {rechnung.nummer && <Text style={styles.nr}>Nr. {rechnung.nummer}</Text>}
             <Text style={styles.metaText}>Datum: {fmtDate(rechnung.datumIso)}</Text>
             {storno && <Text style={styles.metaText}>zu Rechnung {storno.zuNummer} vom {fmtDate(storno.zuDatumIso)}</Text>}
+            {gutschrift && <Text style={styles.metaText}>Rechnungskorrektur zu Rechnung {gutschrift.zuNummer} vom {fmtDate(gutschrift.zuDatumIso)}</Text>}
             {rechnung.lieferzeitraum && <Text style={styles.metaText}>Lieferzeitraum: {rechnung.lieferzeitraum}</Text>}
-            {!storno && (
+            {!gegenbeleg && (
               <Text style={styles.metaText}>
                 {bank.zahlungszielTage === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${fmtDate(rechnung.faelligkeitIso)}`}
               </Text>
@@ -199,7 +205,7 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
         ))}
 
         <View style={styles.totalsRow}>
-          <Text style={styles.totalsLabel}>{storno ? 'Stornobetrag brutto' : 'Gesamt brutto'}</Text>
+          <Text style={styles.totalsLabel}>{gutschrift ? 'Gutschriftbetrag brutto' : storno ? 'Stornobetrag brutto' : 'Gesamt brutto'}</Text>
           <Text style={[styles.totalsAmount, { color }]}>{fmt(gesamt)}</Text>
         </View>
 
@@ -212,7 +218,7 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             </View>
           ))}
           <View style={styles.ustTotal}>
-            <Text>{storno ? 'Stornobetrag' : 'Rechnungsbetrag'}</Text><Text>{fmtEur(gesamt)}</Text>
+            <Text>{gutschrift ? 'Gutschriftbetrag' : storno ? 'Stornobetrag' : 'Rechnungsbetrag'}</Text><Text>{fmtEur(gesamt)}</Text>
           </View>
         </View>
 
@@ -223,7 +229,15 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
           </Text>
         )}
 
-        {storno ? (
+        {gutschrift ? (
+          <View style={styles.payment}>
+            <Text style={styles.paymentH}>Gutschrift</Text>
+            <Text style={styles.paymentP}>
+              Diese Gutschrift berichtigt die Rechnung {gutschrift.zuNummer} vom {fmtDate(gutschrift.zuDatumIso)}.
+            </Text>
+            {gutschrift.grund && <Text style={styles.paymentP}>Grund: {gutschrift.grund}</Text>}
+          </View>
+        ) : storno ? (
           <View style={styles.payment}>
             <Text style={styles.paymentH}>Storno</Text>
             <Text style={styles.paymentP}>
