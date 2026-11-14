@@ -56,6 +56,31 @@ UNION ALL SELECT 'psm_lager_bewegungen' AS tabelle, x.tenant_id, to_jsonb(x) AS 
 UNION ALL SELECT 'duengemittel_lager_bewegungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.duengemittel_lager_bewegungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'betriebsmittel_lager_bewegungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.betriebsmittel_lager_bewegungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'transaktionszaehler' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.transaktionszaehler x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+-- Nachtrag 14.11.2026: Journal, Abschlüsse und die seit Oktober 2026 neuen Tabellen
+UNION ALL SELECT 'kellerbuch_buchungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.kellerbuch_buchungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'kellerbuch_abschluesse' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.kellerbuch_abschluesse x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'rechnungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.rechnungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'sonstige_artikel_bewegungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.sonstige_artikel_bewegungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'auftraege' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.auftraege x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'auftrag_positionen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.auftrag_positionen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'auftrag_lieferungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.auftrag_lieferungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'export_nachweise' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.export_nachweise x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'verkauf_ki_begriffe' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.verkauf_ki_begriffe x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'elabels' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.elabels x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'elabel_umleitungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.elabel_umleitungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'fuellung_etikettierungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.fuellung_etikettierungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'lohnversektungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.lohnversektungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'produktionen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.produktionen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'produktion_eingaenge' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.produktion_eingaenge x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'kellermittel_buchungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.kellermittel_buchungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'keller_verarbeitungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.keller_verarbeitungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'keller_zugangskorrekturen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.keller_zugangskorrekturen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'charge_umstufungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.charge_umstufungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'pruefnummer_chargen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.pruefnummer_chargen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'pruefnummer_ereignisse' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.pruefnummer_ereignisse x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'psm_uebermittlungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.psm_uebermittlungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'reifemessungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.reifemessungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'ernte_gst_abgeschlossen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.ernte_gst_abgeschlossen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'verschneidung_quellen', p.tenant_id, to_jsonb(k) FROM public.verschneidung_quellen k JOIN public.verschneidungen p ON p.id = k.verschneidung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'pressung_behaelter', p.tenant_id, to_jsonb(k) FROM public.pressung_behaelter k JOIN public.pressungen p ON p.id = k.pressung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'pressung_weingaerten', p.tenant_id, to_jsonb(k) FROM public.pressung_weingaerten k JOIN public.pressungen p ON p.id = k.pressung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
@@ -110,6 +135,30 @@ UNION ALL SELECT 'psm_lager_bewegungen' AS tabelle FROM public.psm_lager_bewegun
 UNION ALL SELECT 'duengemittel_lager_bewegungen' AS tabelle FROM public.duengemittel_lager_bewegungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'betriebsmittel_lager_bewegungen' AS tabelle FROM public.betriebsmittel_lager_bewegungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'transaktionszaehler' AS tabelle FROM public.transaktionszaehler x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'kellerbuch_buchungen' AS tabelle FROM public.kellerbuch_buchungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'kellerbuch_abschluesse' AS tabelle FROM public.kellerbuch_abschluesse x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'rechnungen' AS tabelle FROM public.rechnungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'sonstige_artikel_bewegungen' AS tabelle FROM public.sonstige_artikel_bewegungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'auftraege' AS tabelle FROM public.auftraege x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'auftrag_positionen' AS tabelle FROM public.auftrag_positionen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'auftrag_lieferungen' AS tabelle FROM public.auftrag_lieferungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'export_nachweise' AS tabelle FROM public.export_nachweise x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'verkauf_ki_begriffe' AS tabelle FROM public.verkauf_ki_begriffe x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'elabels' AS tabelle FROM public.elabels x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'elabel_umleitungen' AS tabelle FROM public.elabel_umleitungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'fuellung_etikettierungen' AS tabelle FROM public.fuellung_etikettierungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'lohnversektungen' AS tabelle FROM public.lohnversektungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'produktionen' AS tabelle FROM public.produktionen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'produktion_eingaenge' AS tabelle FROM public.produktion_eingaenge x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'kellermittel_buchungen' AS tabelle FROM public.kellermittel_buchungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'keller_verarbeitungen' AS tabelle FROM public.keller_verarbeitungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'keller_zugangskorrekturen' AS tabelle FROM public.keller_zugangskorrekturen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'charge_umstufungen' AS tabelle FROM public.charge_umstufungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'pruefnummer_chargen' AS tabelle FROM public.pruefnummer_chargen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'pruefnummer_ereignisse' AS tabelle FROM public.pruefnummer_ereignisse x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'psm_uebermittlungen' AS tabelle FROM public.psm_uebermittlungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'reifemessungen' AS tabelle FROM public.reifemessungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'ernte_gst_abgeschlossen' AS tabelle FROM public.ernte_gst_abgeschlossen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'verschneidung_quellen' FROM public.verschneidung_quellen k JOIN public.verschneidungen p ON p.id = k.verschneidung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'pressung_behaelter' FROM public.pressung_behaelter k JOIN public.pressungen p ON p.id = k.pressung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'pressung_weingaerten' FROM public.pressung_weingaerten k JOIN public.pressungen p ON p.id = k.pressung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
@@ -163,6 +212,30 @@ SELECT * FROM public.psm_lager_bewegungen WHERE tenant_id IN ('097f67ed-381e-4bb
 SELECT * FROM public.duengemittel_lager_bewegungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.betriebsmittel_lager_bewegungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.transaktionszaehler WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.kellerbuch_buchungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.kellerbuch_abschluesse WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.rechnungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.sonstige_artikel_bewegungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.auftraege WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.auftrag_positionen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.auftrag_lieferungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.export_nachweise WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.verkauf_ki_begriffe WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.elabels WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.elabel_umleitungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.fuellung_etikettierungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.lohnversektungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.produktionen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.produktion_eingaenge WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.kellermittel_buchungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.keller_verarbeitungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.keller_zugangskorrekturen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.charge_umstufungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.pruefnummer_chargen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.pruefnummer_ereignisse WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.psm_uebermittlungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.reifemessungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.ernte_gst_abgeschlossen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT p.tenant_id AS betrieb, k.* FROM public.verschneidung_quellen k JOIN public.verschneidungen p ON p.id = k.verschneidung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY 1;
 SELECT p.tenant_id AS betrieb, k.* FROM public.pressung_behaelter k JOIN public.pressungen p ON p.id = k.pressung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY 1;
 SELECT p.tenant_id AS betrieb, k.* FROM public.pressung_weingaerten k JOIN public.pressungen p ON p.id = k.pressung_id WHERE p.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY 1;
