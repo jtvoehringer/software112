@@ -10,6 +10,27 @@
 import type { Page } from '@playwright/test'
 import { test, expect, schreibend } from './fixtures'
 
+/**
+ * Den eben angelegten Verkauf öffnen (erkennbar an der Notiz `marke`). Die Tests laufen parallel und legen gleichzeitig
+ * Verkäufe an – der neueste in der Liste ist deshalb nicht sicher der eigene (Befund 14.11.2026: zwei Läufe rot, weil der
+ * zweite Test dieser Datei dazwischen einen Verkauf anlegte). Geprüft werden die obersten Zeilen der Liste.
+ */
+async function oeffneVerkauf(page: Page, marke: string): Promise<void> {
+  for (let i = 0; i < 6; i++) {
+    await page.goto('/weinhandel/verkauf')
+    const link = page.locator('tbody tr').nth(i).getByRole('link').first()
+    if (!(await link.isVisible().catch(() => false))) {
+      await expect(page.locator('tbody tr').first(), 'Verkaufsliste leer').toBeVisible()
+      if (!(await link.isVisible().catch(() => false))) break
+    }
+    await link.click()
+    await page.waitForURL(url => /^\/weinhandel\/verkauf\/[0-9a-f-]{36}$/.test(url.pathname), { timeout: 20_000 })
+    const sichtbar = await page.getByText(marke).first().waitFor({ state: 'visible', timeout: 6_000 }).then(() => true, () => false)
+    if (sichtbar) return
+  }
+  expect(false, `Verkauf mit der Notiz „${marke}“ nicht unter den neuesten sechs gefunden`).toBe(true)
+}
+
 /** Bestand einer Füllung aus der Auswahlliste von „Neuer Verkauf“ („… · Bestand: 42“) – wie e2e/verkauf.spec.ts */
 async function bestandLaut(page: Page, fuellungId: string): Promise<number> {
   await page.goto('/weinhandel/verkauf/neu')
@@ -50,8 +71,7 @@ test.describe('Gutschrift zur Rechnung (schreibend)', () => {
     await page.waitForURL(url => url.pathname === '/weinhandel/verkauf', { timeout: 30_000 })
 
     // neuester Verkauf = der eben angelegte (Notiz prüfen, bevor etwas geändert wird)
-    await page.locator('tbody tr').first().getByRole('link').first().click()
-    await expect(page.getByText(marke).first(), 'Detailseite gehört nicht zum angelegten Verkauf').toBeVisible()
+    await oeffneVerkauf(page, marke)
     const verkauf = page.url()
 
     // vom Verkauf zur Rechnung
@@ -150,8 +170,7 @@ test.describe('Gutschrift zur Rechnung (schreibend)', () => {
     await page.getByRole('button', { name: 'Verkauf anlegen' }).click()
     await page.waitForURL(url => url.pathname === '/weinhandel/verkauf', { timeout: 30_000 })
 
-    await page.locator('tbody tr').first().getByRole('link').first().click()
-    await expect(page.getByText(marke).first(), 'Detailseite gehört nicht zum angelegten Verkauf').toBeVisible()
+    await oeffneVerkauf(page, marke)
     const verkauf = page.url()
     expect(await bestandLaut(page, fuellungId), 'Bestand nach dem Verkauf').toBe(vorher - 1)
 
