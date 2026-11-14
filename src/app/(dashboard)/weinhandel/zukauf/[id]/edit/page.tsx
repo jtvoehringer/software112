@@ -1,7 +1,9 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { zukaufArtFehler } from '@/lib/auth/profilGrenzen'
+import { KEIN_LESERECHT_ZIEL } from '@/lib/auth/lesen'
 import ZukaufEditForm from './ZukaufEditForm'
 import { folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText } from '../../sperren'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
@@ -42,6 +44,9 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
 
   if (!data) notFound()
   const z = data as R
+  // KAN-456: Wein/Most bzw. Trauben/Maische nur mit Leserecht auf Kellerbuch bzw. Lese – ohne die Daten wären die
+  // Sperren dieser Seite (Folgebuchungen der Charge, verpresst/verkauft) blind bzw. die Seite bräche ab
+  if (zukaufArtFehler(membership, z.art)) redirect(KEIN_LESERECHT_ZIEL)
 
   // Hängen an der verknüpften Kellerbuch-Charge bereits Folgebuchungen (Umzug, Schwund,
   // Verschnitt, Füllung, Tankverkauf, Behandlung, Analyse, DAC – KAN-35, siehe sperren.ts)?

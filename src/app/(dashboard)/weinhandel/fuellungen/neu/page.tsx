@@ -3,6 +3,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
+import { requireLesen } from '@/lib/auth/lesen'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { createFuellung } from '../../actions'
@@ -27,6 +28,7 @@ export default async function NeueFuellungPage({
 }: {
   searchParams: Promise<{ charge?: string; lohnversektung?: string }>
 }) {
+  await requireLesen('keller')   // KAN-456: Eine Füllung entsteht aus einer Kellerbuch-Charge – ohne Leserecht dort keine Auswahl
   const role = await getCurrentUserRole()
   if (!canWrite(role, 'warenwirtschaft')) redirect('/weinhandel')
 

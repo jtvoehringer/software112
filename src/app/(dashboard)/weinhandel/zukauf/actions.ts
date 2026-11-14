@@ -1,7 +1,8 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
+import { zukaufArtFehler } from '@/lib/auth/profilGrenzen'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
@@ -56,7 +57,7 @@ const runde = (v: number) => rund(v, 4)
 /** Aktiver Mandant + Schreibrecht Warenwirtschaft. RLS prüft zusätzlich – hier für eine
  *  klare Meldung statt eines still weggefilterten Updates. KAN-193: darfKellerbuch für den Verschnitt beim Zukauf
  *  und dessen Storno (die RPC bzw. RLS prüfen das Kellerbuch selbst – hier für eine klare Meldung vorab). */
-async function schreibKontext(): Promise<{ tenantId: string; darfKellerbuch: boolean }> {
+async function schreibKontext(): Promise<{ tenantId: string; darfKellerbuch: boolean; membership: Membership }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
@@ -64,7 +65,16 @@ async function schreibKontext(): Promise<{ tenantId: string; darfKellerbuch: boo
   if (!canWrite(membership, 'warenwirtschaft')) {
     throw new AktionsFehler('Keine Berechtigung: Zukäufe erfassen, ändern und löschen dürfen nur Betriebs-Manager und Mitarbeiter mit Freigabe für die Warenwirtschaft.')
   }
-  return { tenantId: membership.tenantId, darfKellerbuch: canWrite(membership, 'kellerbuch') }
+  return { tenantId: membership.tenantId, darfKellerbuch: canWrite(membership, 'kellerbuch'), membership }
+}
+
+/** KAN-456: Zukauf-Arten, die Daten aus Kellerbuch bzw. Lese brauchen, nur mit Leserecht dort – sonst fielen die
+ *  Sperren („schon verpresst“, Folgebuchungen der Charge) mit 0 gelesenen Zeilen still falsch aus. */
+function pruefeZukaufArt(membership: Membership, ...arten: (string | null | undefined)[]): void {
+  for (const art of arten) {
+    const f = zukaufArtFehler(membership, art)
+    if (f) throw new AktionsFehler(f)
+  }
 }
 
 async function createZukaufCharge(
@@ -364,8 +374,9 @@ export type ZukaufVerschnitt = {
 // (aus Österreich), rotweiss_bestaetigt=1; gegen jede andere Charge im Gebinde weiterhin abgelehnt.
 export async function createZukauf(formData: FormData): Promise<{ bestaetigung?: string; verschnitt?: ZukaufVerschnitt } | void> {
   const supabase = await createSupabaseServerClient()
-  const { tenantId, darfKellerbuch } = await schreibKontext()
+  const { tenantId, darfKellerbuch, membership } = await schreibKontext()
   const f = parseZukaufFormData(formData)
+  pruefeZukaufArt(membership, f.art)   // KAN-456
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
   await pruefeWare(supabase, tenantId, f)
@@ -507,8 +518,9 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
 
 export async function updateZukauf(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const { tenantId } = await schreibKontext()
+  const { tenantId, membership } = await schreibKontext()
   const f = parseZukaufFormData(formData)
+  pruefeZukaufArt(membership, f.art)   // KAN-456
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
   await pruefeWare(supabase, tenantId, f)
@@ -522,6 +534,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   if (altErr) throw new AktionsFehler(dbFehlerText(altErr, 'Zukauf konnte nicht gelesen werden'))
   if (!alt) throw new AktionsFehler('Zukauf nicht gefunden – er wurde inzwischen gelöscht.')
   const a = alt as AR
+  pruefeZukaufArt(membership, a.art)   // KAN-456: auch die bisherige Art (Wechsel weg von Trauben)
   // KAN-130 Etappe 3: Mostgewicht einer neu angelegten Zielcharge – das übermittelte, sonst das
   // gespeicherte des Zukaufs (Messwert und Einheit wie gespeichert, nichts neu gerechnet)
   const mostgewichtCharge: Mostgewicht | null = f.mostgewichtUebermittelt
@@ -772,18 +785,19 @@ async function verschnittDesZukaufs(supabase: any, tenantId: string, chargeId: s
 // wenn die Ziel-Charge seither bewegt wurde), danach der Zukauf wie bisher.
 export async function deleteZukauf(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
-  const { tenantId, darfKellerbuch } = await schreibKontext()
+  const { tenantId, darfKellerbuch, membership } = await schreibKontext()
   const grundFehler = stornoGrundFehler(grund)
   if (grundFehler) throw new AktionsFehler(grundFehler)
 
   const { data: zukauf, error: zErr } = await (supabase.from('zukauf_posten') as any)
-    .select('id, ziel_weinausbau_id, datum, menge')
+    .select('id, ziel_weinausbau_id, datum, menge, art')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .maybeSingle()
   if (zErr) throw new AktionsFehler(dbFehlerText(zErr, 'Zukauf konnte nicht gelesen werden'))
   if (!zukauf) throw new AktionsFehler('Zukauf nicht gefunden – er wurde bereits gelöscht.')
+  pruefeZukaufArt(membership, (zukauf as AR).art)   // KAN-456: ohne Leserecht wären die Sperren unten blind
   const weinausbauId: string | null = (zukauf as AR).ziel_weinausbau_id ?? null
 
   const sperre = loeschSperreText(await zukaufVerweise(supabase, id, tenantId))

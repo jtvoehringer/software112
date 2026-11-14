@@ -91,6 +91,8 @@ export default function ZukaufNeuPage() {
   const [laender,       setLaender]       = useState<Land[]>([])
   // KAN-353: Lieferant direkt aus der Suche anlegen – Schreibrecht CRM kommt vom Server (/api/zukauf-stammdaten)
   const [crmSchreiben,  setCrmSchreiben]  = useState(false)
+  // KAN-456: Arten laut Server (ohne Leserecht auf Kellerbuch bzw. Lese nur Flaschen)
+  const [artenErlaubt,  setArtenErlaubt]  = useState<string[] | null>(null)
   // Eigene Weinbaugebiete des Betriebs (wie am GST, ladeCustomWeinbaugebiete) – null = noch nicht geladen
   const [eigeneGebiete, setEigeneGebiete] = useState<CustomWeinbaugebiet[] | null>(null)
   const [anreicherung,  setAnreicherung]  = useState(false)
@@ -140,7 +142,10 @@ export default function ZukaufNeuPage() {
         // werden seit 17.9.2026 serverseitig gesucht (PartnerSuche) - hier nur noch
         // Behälter/Chargen laden.
         const r2 = await fetch('/api/zukauf-stammdaten')
-        if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []); setLaender(j2.laender ?? []); setCrmSchreiben(j2.crm_schreiben === true) }
+        if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []); setLaender(j2.laender ?? []); setCrmSchreiben(j2.crm_schreiben === true)
+          if (Array.isArray(j2.arten_erlaubt)) { setArtenErlaubt(j2.arten_erlaubt); 
+            // Vorauswahl „Wein“ nicht erlaubt: erste erlaubte Art samt ihrer Einheit (wie handleArtChange, noch ohne Eingaben)
+            if (!j2.arten_erlaubt.includes('wein') && j2.arten_erlaubt.length > 0) { setArt(j2.arten_erlaubt[0]); setEinheit(DEFAULT_EINHEIT[j2.arten_erlaubt[0]] ?? 'kg'); setZielBehaelter('') } } }
       } catch { /* ignore */ } finally { setLoading(false) }
     }
     load()
@@ -314,7 +319,7 @@ export default function ZukaufNeuPage() {
           <div>
             <label className={labelCls}>Art *</label>
             <div className="flex gap-4 mt-1.5">
-              {ART_OPTIONS.map(({ value, label }) => (
+              {ART_OPTIONS.filter(o => artenErlaubt === null || artenErlaubt.includes(o.value)).map(({ value, label }) => (
                 <label key={value} className="flex items-center gap-1.5 cursor-pointer">
                   <input required type="radio" name="art" value={value} checked={art === value}
                     onChange={() => handleArtChange(value)} className="accent-s112-teal" />

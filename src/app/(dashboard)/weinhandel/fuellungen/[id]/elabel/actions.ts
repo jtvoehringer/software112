@@ -7,6 +7,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
+import { canRead } from '@/lib/auth/lesebereiche'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
@@ -32,6 +33,11 @@ async function kontext(): Promise<Membership> {
   await pruefeSchreibzugriff(membership)   // KAN-5
   if (!(canWrite(membership, 'kellerbuch') || canWrite(membership, 'warenwirtschaft'))) {
     throw new AktionsFehler('Keine Berechtigung für E-Labels – dafür ist das Modul Kellerbuch oder Warenwirtschaft nötig.')
+  }
+  // KAN-456: Zutaten und Allergene kommen aus den Kellerbehandlungen, die Nährwerte aus den Analysen – ohne Leserecht
+  // dort wäre der Vorschlag leer und eine Freigabe mit unvollständiger Zutatenliste möglich
+  if (!canRead(membership, 'keller')) {
+    throw new AktionsFehler('E-Labels können hier nicht bearbeitet oder freigegeben werden – dafür fehlt dir das Leserecht für den Bereich Kellerbuch (Zutaten aus den Kellerbehandlungen, Nährwerte aus den Analysen).')
   }
   return membership
 }

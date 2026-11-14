@@ -5,7 +5,8 @@
 // Seite dazu oder ändern sich Sichtbarkeitsregeln, zieht der Smoke-Test automatisch mit.
 
 import { buildNav, type ModulKey, type NavBranding } from '../src/lib/navigation'
-import { module, ROLLEN, type Rolle } from './umgebung'
+import { PROFILE } from '../src/lib/auth/lesebereiche'
+import { istProfilRolle, module, ROLLEN, type Rolle } from './umgebung'
 
 const ALLE_MODULE: ModulKey[] = ['modul_ea', 'modul_sumup', 'modul_export', 'modul_controlling']
 
@@ -16,13 +17,16 @@ function branding(): NavBranding {
 
 /** Eindeutige Seitenpfade der Navigation für eine Rolle (ohne Sandbox-Sonderseiten) */
 export function navPfade(rolle: Rolle): string[] {
+  // Profil (KAN-456): Mitarbeiter mit den Lesebereichen und Schreibmodulen des Profils
+  const profil = istProfilRolle(rolle) ? PROFILE[rolle] : null
   const gruppen = buildNav({
-    role: rolle,
+    role: profil ? 'winzer' : rolle as Exclude<Rolle, 'extern' | 'vertrieb'>,
+    ...(profil ? { lesbar: profil.lesen } : {}),
     branding: branding(),
     isSandbox: false,
     sandboxAdminUnlock: false,
     // Controlling/„Frag dein Weingut“ zeigen; ohne Recht leitet der Layout-Guard um
-    auswertungenSichtbar: true,
+    auswertungenSichtbar: profil ? (profil.schreibmodule as readonly string[]).includes('auswertungen') : true,
   })
   const pfade = gruppen.flatMap(g => g.items.filter(it => !it.phase || it.phase < 2).map(it => it.href))
   return [...new Set(pfade)]
