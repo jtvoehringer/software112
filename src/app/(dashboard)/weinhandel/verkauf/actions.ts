@@ -13,7 +13,9 @@ import { AktionsFehler, dbFehlerText, erwarteteDbAblehnung, fehlerText, LESE_WAE
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { istStornoDatumAblehnung, stornoDatumFehler } from '@/lib/storno/datum'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
-import { GUTSCHRIFT_GRUND_MIN } from '@/lib/verkauf/gutschrift'
+import { GUTSCHRIFT_GRUND_MIN, gutschriftBrutto } from '@/lib/verkauf/gutschrift'
+import { gutschriftAktivitaetBetreff } from '@/lib/verkauf/gutschriftPdf'
+import { ereignisMelden } from '@/lib/system/ereignis'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
 import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
 import { alle } from '@/lib/supabase/alle'
@@ -1111,7 +1113,32 @@ export async function gutschriftAusstellen(
     revalidatePath('/weinhandel')
     revalidatePath('/weinhandel/sonstige-artikel')
   }
+  await gutschriftInHistorie(supabase, tenantId, String(data))
   return { gutschriftId: String(data) }
+}
+
+// KAN-453 G3a (Entscheidung 2A): Eintrag in der CRM-Historie des Kunden beim Ausstellen. Die Gutschrift ist gebucht –
+// scheitert der Eintrag (z. B. Mitarbeiter ohne CRM-Recht), bleibt sie stehen; der Fehler geht ins Systemprotokoll.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function gutschriftInHistorie(supabase: any, tenantId: string, gutschriftId: string): Promise<void> {
+  const melden = (meldung: string) => { void ereignisMelden({ art: 'db', quelle: 'gutschrift/aktivitaeten', meldung }) }
+  try {
+    // storno-sichtbar: die eben ausgestellte Gutschrift per ID – sie ist nicht storniert
+    const { data: g, error: gErr } = await supabase.from('rechnungen')
+      .select('id, rechnungsnummer, datum, kontakt_id, firma_id, gutschrift_positionen, gutschrift_zu:gutschrift_zu_id(rechnungsnummer)')
+      .eq('id', gutschriftId).eq('tenant_id', tenantId).eq('art', 'gutschrift').maybeSingle()
+    if (gErr) { melden(gErr.message); return }
+    if (!g || (!g.kontakt_id && !g.firma_id)) return
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('aktivitaeten').insert({
+      tenant_id: tenantId, kontakt_id: g.kontakt_id ?? null, firma_id: g.firma_id ?? null, art: 'verkauf',
+      betreff: gutschriftAktivitaetBetreff(String(g.rechnungsnummer ?? ''), gutschriftBrutto(g), g.gutschrift_zu?.rechnungsnummer ?? null),
+      beschreibung: `Gutschrift: ${g.id}`, datum: g.datum, erledigt: true, erstellt_von: user?.id ?? null,
+    })
+    if (error) melden(error.message)
+  } catch (e) {
+    melden(e instanceof Error ? e.message : String(e))
+  }
 }
 
 // KAN-356: Verkauf samt Rechnung stornieren – eine Transaktion (RPC s112_verkauf_samt_rechnung_stornieren): Rechnung
