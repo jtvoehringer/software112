@@ -263,19 +263,6 @@
   ],
   "spaltenfaelle": [
     {
-      "tabelle": "grundstuecke",
-      "profil": "extern",
-      "spalten": [
-        "rechtsverhaeltnis",
-        "einheitswert",
-        "einheitswert_bescheid",
-        "einheitswert_quelle",
-        "svs_zurechnung"
-      ],
-      "grund": "Pacht- bzw. Eigentumsverhältnis und Einheitswert („Rieden ohne Pacht und Kosten“)",
-      "vorschlag": "Tabelle für Extern lesbar lassen und die Spalten in Kauf nehmen – oder Grundstücke für Extern nur über eine Funktion mit den erlaubten Spalten"
-    },
-    {
       "tabelle": "pflanzenschutzmittel",
       "profil": "extern",
       "spalten": [
