@@ -1063,9 +1063,11 @@ export async function rechnungStornieren(
 // freier Bruttobetrag. Preise, Restmengen, Obergrenze und Zeitraum prüft die Datenbank; ihre erwartbaren Ablehnungen
 // kommen als { error } mit dem Feld zurück (HINT storno_datum/periodensperre → Datum, gutschrift_menge → Positionen,
 // gutschrift_betrag → Betrag).
+// KAN-452 G2: je Position ruecknahme – die Datenbank bucht die Menge am Datum der Gutschrift zurück in den Bestand
+// (Flaschen, Produkte mit Lagerbestand) bzw. lehnt ab (HINT ruecknahme → Positionen; Kellerbuch abgeschlossen → Datum).
 export async function gutschriftAusstellen(
   rechnungId: string,
-  e: { datum: string; grund: string; positionen: { position_id: string; menge: number }[]; betrag: number; betragText?: string | null },
+  e: { datum: string; grund: string; positionen: { position_id: string; menge: number; ruecknahme?: boolean }[]; betrag: number; betragText?: string | null },
 ): Promise<{ gutschriftId: string } | { error: string; feld?: 'datum' | 'grund' | 'positionen' | 'betrag' }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
@@ -1076,7 +1078,8 @@ export async function gutschriftAusstellen(
   const grund = typeof e.grund === 'string' ? e.grund.trim() : ''
   if (grund.length < GUTSCHRIFT_GRUND_MIN) return { error: `Bitte einen Grund für die Gutschrift angeben (mindestens ${GUTSCHRIFT_GRUND_MIN} Zeichen).`, feld: 'grund' }
   const positionen = Array.isArray(e.positionen) ? e.positionen : []
-  if (positionen.length > 150 || positionen.some(p => !UUID.test(String(p?.position_id)) || !Number.isFinite(p?.menge) || p.menge <= 0)) {
+  if (positionen.length > 150 || positionen.some(p => !UUID.test(String(p?.position_id)) || !Number.isFinite(p?.menge) || p.menge <= 0
+      || (p.ruecknahme !== undefined && typeof p.ruecknahme !== 'boolean'))) {
     return { error: 'Die Positionen der Gutschrift sind ungültig.', feld: 'positionen' }
   }
   const betrag = Number.isFinite(e.betrag) ? rund(e.betrag, 2) : Number.NaN
@@ -1086,7 +1089,7 @@ export async function gutschriftAusstellen(
   const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
   const { data, error } = await rpc('s112_gutschrift_anlegen', {
     p_tenant_id: tenantId, p_rechnung_id: rechnungId, p_datum: e.datum, p_grund: grund,
-    p_positionen: positionen.map(p => ({ position_id: p.position_id, menge: String(rund(p.menge, 4)) })),
+    p_positionen: positionen.map(p => ({ position_id: p.position_id, menge: String(rund(p.menge, 4)), ruecknahme: p.ruecknahme === true })),
     p_betrag: betrag > 0 ? betrag : null, p_betrag_text: typeof e.betragText === 'string' && e.betragText.trim() ? e.betragText.trim() : null,
   })
   if (error) {
@@ -1094,7 +1097,7 @@ export async function gutschriftAusstellen(
       const meldung = dbFehlerText(error, 'Die Gutschrift konnte nicht ausgestellt werden')
       const hint = (error as { hint?: unknown }).hint
       if (istStornoDatumAblehnung(hint)) return { error: meldung, feld: 'datum' }
-      if (hint === 'gutschrift_menge') return { error: meldung, feld: 'positionen' }
+      if (hint === 'gutschrift_menge' || hint === 'ruecknahme') return { error: meldung, feld: 'positionen' }
       if (hint === 'gutschrift_betrag') return { error: meldung, feld: 'betrag' }
       return { error: meldung }
     }
@@ -1104,6 +1107,10 @@ export async function gutschriftAusstellen(
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath('/buchhaltung')
+  if (positionen.some(p => p.ruecknahme === true)) {
+    revalidatePath('/weinhandel')
+    revalidatePath('/weinhandel/sonstige-artikel')
+  }
   return { gutschriftId: String(data) }
 }
 

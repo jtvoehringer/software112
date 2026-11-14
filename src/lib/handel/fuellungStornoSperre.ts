@@ -10,7 +10,8 @@
 // @ts-expect-error TS5097 – node:test lädt ohne Bundler, die Endung .ts ist nötig
 import { fmtNum } from '../format.ts'
 
-/** Bewegungsarten, die zu einem Verkauf gehören – sie sperren nicht zusätzlich (der Verkauf selbst zählt) */
+/** Bewegungsarten, die zu einem Verkauf gehören – sie sperren nicht zusätzlich (der Verkauf selbst zählt).
+ *  KAN-452: Die Rücknahme zu einer Gutschrift ('ruecknahme') gehört bewusst nicht dazu – sie zählt als Bestandsbuchung. */
 export const VERKAUFS_BEWEGUNGEN = ['verkauf', 'verkauf_storno'] as const
 
 export type FuellungFolgen = {

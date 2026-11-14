@@ -83,11 +83,40 @@ export function betragAufteilen(betrag: number, positionen: readonly R[]): { ust
   return aus
 }
 
+// ── KAN-452 G2: Rücknahme in den Bestand ──────────────────────────────────────────────────────────────────────────
+// Je Position der Gutschrift wählbar: „Ware kommt zurück“. Dann bucht die Datenbank die ganze gutgeschriebene Menge der
+// Position am Datum der Gutschrift wieder ein (Flaschen: fuellung_bewegungen art 'ruecknahme' samt Journal; Produkte mit
+// Lagerbestand: sonstige_artikel_bewegungen art 'ruecknahme'), mit Verweis gutschrift_id. Nicht für Tankwein,
+// Weintrauben, freie Positionen und Produkte ohne Lagerbestand; nicht in eine stornierte Füllung bzw. ein deaktiviertes
+// Produkt. Dieselben Regeln wie s112_gutschrift_anlegen.
+
+export type RuecknahmeArt = 'flasche' | 'produkt'
+
+/** Kann die Position zurück in den Bestand? Position mit typ, fuellung_id, sonstige_artikel_id, bestand_fuehren (des Produkts) */
+export function ruecknahmeArt(p: R): RuecknahmeArt | null {
+  if (p.typ === 'flasche' && p.fuellung_id) return 'flasche'
+  if (p.typ === 'sonstiges' && p.sonstige_artikel_id && p.bestand_fuehren === true) return 'produkt'
+  return null
+}
+
+/** Warum die Rücknahme trotz passender Position nicht geht (Füllung storniert, Produkt deaktiviert) – null = möglich */
+export function ruecknahmeSperre(p: R): string | null {
+  const art = ruecknahmeArt(p)
+  if (art === 'flasche' && (p.fuellung_aktiv === false || !!p.fuellung_storniert_am)) return 'Füllung storniert – keine Rücknahme in den Bestand'
+  if (art === 'produkt' && p.artikel_aktiv === false) return 'Produkt deaktiviert – keine Rücknahme in den Bestand'
+  return null
+}
+
+/** Hat die Gutschrift (bzw. eine ihrer Zeilen) Ware in den Bestand zurückgenommen? */
+export function mitRuecknahme(g: R): boolean {
+  return gutschriftZeilen(g).some(z => z.ruecknahme === true)
+}
+
 export type GutschriftEingabe = {
   datum: unknown
   grund: unknown
-  /** gewählte Positionen mit Menge (0 bzw. leer = nicht gewählt) */
-  positionen: readonly { position_id: string; menge: number }[]
+  /** gewählte Positionen mit Menge (0 bzw. leer = nicht gewählt); ruecknahme = die Menge kommt zurück in den Bestand */
+  positionen: readonly { position_id: string; menge: number; ruecknahme?: boolean }[]
   /** freier Bruttobetrag (0 = keiner) */
   betrag: number
   betragText?: unknown
@@ -96,7 +125,8 @@ export type GutschriftEingabe = {
 export type GutschriftRahmen = {
   rechnungDatum: string | null
   heute: string
-  /** Positionen der Rechnung (id, name, menge, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz) */
+  /** Positionen der Rechnung (id, name, menge, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz; für die Rücknahme
+   *  typ, fuellung_id, sonstige_artikel_id, bestand_fuehren, fuellung_aktiv, fuellung_storniert_am, artikel_aktiv) */
   positionen: readonly R[]
   /** bisherige Gutschriften der Rechnung */
   gutschriften: readonly R[]
@@ -139,6 +169,13 @@ export function gutschriftEingabeFehler(e: GutschriftEingabe, r: GutschriftRahme
     if (!Number.isFinite(z.menge) || z.menge <= 0) return { feld: 'positionen', text: `Position „${p.name ?? ''}“: Die Menge muss größer als 0 sein.` }
     const rest = restMenge(p, bisher)
     if (z.menge > rest) return { feld: 'positionen', text: `Position „${p.name ?? ''}“: höchstens ${String(rest).replace('.', ',')} gutschreibbar.` }
+    if (z.ruecknahme) {
+      const art = ruecknahmeArt(p)
+      if (!art) return { feld: 'positionen', text: `Position „${p.name ?? ''}“: Eine Rücknahme in den Bestand gibt es nur für Flaschen und für Produkte mit Lagerbestand.` }
+      const sperre = ruecknahmeSperre(p)
+      if (sperre) return { feld: 'positionen', text: `Position „${p.name ?? ''}“: ${sperre}. Die Gutschrift lässt sich ohne Rücknahme ausstellen.` }
+      if (art === 'flasche' && !Number.isInteger(z.menge)) return { feld: 'positionen', text: `Position „${p.name ?? ''}“: Flaschen lassen sich nur in ganzen Stück zurücknehmen.` }
+    }
   }
   const neu = neueGutschriftBrutto(e, r.positionen)
   if (neu <= 0) return { feld: 'positionen', text: 'Die Gutschrift hat keinen Betrag.' }

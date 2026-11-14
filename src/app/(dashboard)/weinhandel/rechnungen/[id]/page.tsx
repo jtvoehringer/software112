@@ -46,7 +46,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
         kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen!firma_id(id, name, email, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
-        ${lieferscheineSelect('id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz, fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum)', 'id, lieferscheinnummer, datum, rechnungstext')}`)
+        ${lieferscheineSelect('id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz, fuellung_id, sonstige_artikel_id, fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum, aktiv, storniert_am), artikel:sonstige_artikel(aktiv, bestand_fuehren)', 'id, lieferscheinnummer, datum, rechnungstext')}`)
       .eq('id', id).eq('tenant_id', tenantId).maybeSingle(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any)
@@ -136,7 +136,11 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
       {!gegenbeleg && !r.storniert && r.verkaufsposten_ids.length > 0 && (
         <GutschriftPanel rechnungId={String(r.id)} rechnungsnummer={String(r.rechnungsnummer ?? '')} rechnungDatum={String(r.datum).slice(0, 10)} heute={heuteWien()}
           positionen={(r.verkauf_positionen as R[]).map(p => ({ id: p.id, name: p.name, menge: p.menge, einheit: p.einheit, preis_brutto: p.preis_brutto,
-            rabatt_pct: p.rabatt_pct, sonderrabatt_pct: p.sonderrabatt_pct, ust_satz: p.ust_satz }))}
+            rabatt_pct: p.rabatt_pct, sonderrabatt_pct: p.sonderrabatt_pct, ust_satz: p.ust_satz,
+            // KAN-452: Angaben für „Ware kommt zurück“ (Flaschen einer Füllung, Produkte mit Lagerbestand)
+            typ: p.typ, fuellung_id: p.fuellung_id ?? null, sonstige_artikel_id: p.sonstige_artikel_id ?? null,
+            bestand_fuehren: (p.artikel as R | null)?.bestand_fuehren === true, artikel_aktiv: (p.artikel as R | null)?.aktiv !== false,
+            fuellung_aktiv: (p.fuellung as R | null)?.aktiv !== false, fuellung_storniert_am: (p.fuellung as R | null)?.storniert_am ?? null }))}
           gutschriften={gutschriften} darfSchreiben={!!membership && canWrite(membership, 'warenwirtschaft')} />
       )}
       {storno && original && (
@@ -210,6 +214,8 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
                     <td className="py-2 pr-2">
                       <div className="font-medium">{p.name}</div>
                       {los && <div className="text-xs text-s112-muted">{los}</div>}
+                      {/* KAN-452 (Entscheidung 5B): der Vermerk steht auch am gedruckten Beleg */}
+                      {gutschrift && p.ruecknahme === true && <div className="text-xs text-s112-text-2">Ware zurückgenommen</div>}
                     </td>
                     <td className="py-2 text-right tabular-nums">{fmtNum(Number(p.menge))} {p.einheit ?? ''}</td>
                     <td className="py-2 text-right tabular-nums">{p.preis_brutto != null ? fmtEur(Number(p.preis_brutto)) : '–'}</td>
