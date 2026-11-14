@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { profilAus, type Profil } from '@/lib/auth/lesebereiche'
 import { geladen } from '@/lib/supabase/geladen'
 import { alleKonten } from '@/lib/auth/einladung'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -137,6 +138,8 @@ export type TenantSettings = {
   mostgewicht_einheit: MostgewichtEinheit
 }
 export type TenantMember = {
+  /** Profil eines Mitarbeiters (KAN-457) */
+  profil: Profil | null
   id: string; userId: string; email: string; role: string; createdAt: string
   fullName: string | null
   confirmed: boolean
@@ -176,7 +179,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', id).maybeSingle(),
     (admin.from('tenant_memberships') as any)
-      .select('id, user_id, role, created_at').eq('tenant_id', id).order('created_at'),
+      .select('id, user_id, role, created_at, profil').eq('tenant_id', id).order('created_at'),
     alleKonten(admin),   // Sweep 102: alle Seiten (vorher nur die ersten 1.000 Konten, Fehler verworfen)
   ])
   const tenantRaw = geladen(tenantRawRes, 'Betrieb')
@@ -332,6 +335,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     userId:    m.user_id,
     email:     emailMap[m.user_id] ?? m.user_id,
     role:      m.role,
+    profil:    profilAus(m.role, m.profil),   // KAN-457
     createdAt: m.created_at,
     fullName:  nameMap[m.user_id] ?? null,
     confirmed: confirmedMap[m.user_id] ?? false,

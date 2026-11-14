@@ -1,5 +1,6 @@
 'use client'
 import ErfolgsMeldung from '@/components/ErfolgsMeldung'
+import { PROFIL_ROLLEN_WAHL, rolleProfilWert } from '@/lib/auth/rolleProfil'
 
 import Link from '@/components/ui/Link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -45,9 +46,11 @@ import { rueckfrage } from '@/lib/ui/rueckfrage'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
+// KAN-457: nach „Mitarbeiter“ je Profil ein Eintrag ('winzer:<profil>') – die Schreibmodule folgen dem Profil
 const ROLLEN = [
   { value: 'tenant_admin', label: 'Betriebs-Manager' },
   { value: 'winzer',       label: 'Mitarbeiter' },
+  ...PROFIL_ROLLEN_WAHL.map(p => ({ value: p.value, label: p.label })),
   { value: 'leser',        label: 'Leser' },
 ]
 
@@ -368,7 +371,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                     </select>
                   ) : (
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
-                      {ROLE_LABELS[m.role] ?? m.role}
+                      {ROLLEN.find(r => r.value === rolleProfilWert(m.role, m.profil))?.label ?? ROLE_LABELS[m.role] ?? m.role}
                     </span>
                   )}
                 </td>
@@ -391,7 +394,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                           Einladung erneut senden
                         </button>
                       )}
-                      <button onClick={() => { setEditingId(m.id); setEditRole(m.role) }}
+                      <button onClick={() => { setEditingId(m.id); setEditRole(rolleProfilWert(m.role, m.profil)) }}
                         className="text-xs text-s112-blue-700 hover:underline font-medium">Rolle</button>
                       <button onClick={() => handleRemove(m)} disabled={pending}
                         className="text-xs text-s112-err hover:text-s112-err-fg disabled:opacity-50">Entfernen</button>

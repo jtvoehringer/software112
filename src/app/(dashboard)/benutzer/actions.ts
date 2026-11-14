@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canManageUsers, isModul, type Modul } from '@/lib/auth/roles'
+import { PROFILE, istProfil, profilAus, type Profil } from '@/lib/auth/lesebereiche'
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
@@ -24,7 +25,18 @@ export type MemberWithEmail = {
   confirmed: boolean
   /** Modulmatrix (Migration 218) – nur für Rolle winzer (Mitarbeiter) relevant */
   schreibmodule: Modul[]
+  /** Profil (KAN-457) – nur für Mitarbeiter: beschränkt das Lesen, die Schreibmodule folgen dem Profil */
+  profil: Profil | null
 }
+
+const ALLE_MODULE: Modul[] = ['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
+
+/** Profil aus dem Client: null = ohne Profil; unbekannter Wert → Fehler (nie still „ohne Profil“ – das gäbe mehr Rechte) */
+function profilAusEingabe(roh: unknown): { profil: Profil | null } | { error: string } {
+  if (roh === null || roh === undefined || roh === '') return { profil: null }
+  return istProfil(roh) ? { profil: roh } : { error: 'Ungültiges Profil' }
+}
+const profilModule = (profil: Profil): Modul[] => [...PROFILE[profil].schreibmodule] as Modul[]
 
 // Modulliste aus dem Client bereinigen: nur bekannte Module, ohne Duplikate
 function moduleBereinigen(module: unknown): Modul[] {
@@ -45,7 +57,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
   // alle-ausnahme: Mitglieder eines Betriebs (Benutzerlimit des Pakets)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: memberships, error: membershipsErr } = await (supabase.from('tenant_memberships') as any)
-    .select('id, user_id, role, created_at, aktiv, schreibmodule')
+    .select('id, user_id, role, created_at, aktiv, schreibmodule, profil')
     .eq('tenant_id', membership.tenantId)
     .order('created_at')
   // KAN-253: sonst sähe die Verwaltung „keine Benutzer“
@@ -71,6 +83,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
     aktiv:      m.aktiv ?? true,
     confirmed:  confirmedMap[m.user_id] ?? false,
     schreibmodule: moduleBereinigen(m.schreibmodule),
+    profil: profilAus(m.role, m.profil),
   }))
 }
 
@@ -86,7 +99,7 @@ const VERGEBBARE_ROLLEN = ['tenant_admin', 'winzer', 'leser']
  *  inviteUserToTenant() dort, aber der Ziel-Betrieb kommt AUSSCHLIESSLICH aus
  *  der aktiven Mitgliedschaft (serverseitig) statt von einem Client-Parameter -
  *  ein Betriebsleiter kann so technisch nie einen fremden Betrieb bestücken. */
-export async function inviteMember(email: string, role: string, fullName: string, module: Modul[] = []) {
+export async function inviteMember(email: string, role: string, fullName: string, module: Modul[] = [], profilRoh: string | null = null) {
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (betriebGewechselt) return { error: betriebGewechselt }
@@ -98,6 +111,10 @@ export async function inviteMember(email: string, role: string, fullName: string
   if (!VERGEBBARE_ROLLEN.includes(role)) {
     return { error: 'Ungültige Rolle' }
   }
+  // KAN-457: Profil nur für Mitarbeiter
+  const p = profilAusEingabe(profilRoh)
+  if ('error' in p) return { error: p.error }
+  if (p.profil && role !== 'winzer') return { error: 'Ein Profil gibt es nur für Mitarbeiter.' }
 
   const name = fullName.trim()
   if (!name) return { error: 'Name ist ein Pflichtfeld.' }
@@ -118,7 +135,8 @@ export async function inviteMember(email: string, role: string, fullName: string
   const ergebnis = await mitgliedEinladen(admin, {
     tenantId: membership.tenantId, email: mail, role, name,
     // Modulmatrix (Migration 218): nur Mitarbeiter (winzer) tragen sie, Admins haben alles, Leser nichts
-    schreibmodule: role === 'winzer' ? moduleBereinigen(module) : null,
+    schreibmodule: role === 'winzer' ? (p.profil ? profilModule(p.profil) : moduleBereinigen(module)) : null,
+    profil: p.profil,
     eingeladenVon: user?.id ?? null,
   })
   if ('error' in ergebnis) return { error: ergebnis.error }
@@ -170,7 +188,7 @@ export async function resendInvite(userId: string) {
 }
 
 /** Rollenänderung */
-export async function updateMemberRole(membershipId: string, newRole: string, module?: Modul[]) {
+export async function updateMemberRole(membershipId: string, newRole: string, module?: Modul[], profilRoh: string | null = null) {
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (betriebGewechselt) return { error: betriebGewechselt }
@@ -180,13 +198,17 @@ export async function updateMemberRole(membershipId: string, newRole: string, mo
     return { error: 'Keine Berechtigung' }
   }
   if (!VERGEBBARE_ROLLEN.includes(newRole)) return { error: 'Ungültige Rolle' }
+  const p = profilAusEingabe(profilRoh)
+  if ('error' in p) return { error: p.error }
+  if (p.profil && newRole !== 'winzer') return { error: 'Ein Profil gibt es nur für Mitarbeiter.' }
 
   // Admin-Client verwenden, damit RLS das Update nicht blockiert
   const admin = createSupabaseAdminClient()
   // Modulmatrix (Migration 218): Wechsel auf Mitarbeiter ohne Angabe → alle Module
   // (Verhalten wie bisher), andere Rollen tragen keine Matrix
-  const patch: R = { role: newRole }
-  if (newRole === 'winzer') patch.schreibmodule = module ? moduleBereinigen(module) : ['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
+  // KAN-457: Das Profil wird immer mitgeschrieben – Wechsel weg vom Mitarbeiter nimmt es weg, mit Profil folgen die Module dem Profil
+  const patch: R = { role: newRole, profil: p.profil }
+  if (newRole === 'winzer') patch.schreibmodule = p.profil ? profilModule(p.profil) : module ? moduleBereinigen(module) : ALLE_MODULE
   else patch.schreibmodule = null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error, count } = await (admin.from('tenant_memberships') as any)
@@ -218,8 +240,35 @@ export async function updateMemberModule(membershipId: string, module: Modul[]) 
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
     .eq('role', 'winzer')
+    .is('profil', null)   // KAN-457: mit Profil sind die Module fest
   if (error) return { error: dbFehlerText(error) }
-  if (count === 0) return { error: 'Nur bei Mitarbeitern lässt sich die Modulmatrix ändern.' }
+  if (count === 0) return { error: 'Die Modulmatrix lässt sich nur bei Mitarbeitern ohne Profil ändern.' }
+  revalidatePath('/benutzer')
+  return { success: true }
+}
+
+/** Profil eines Mitarbeiters setzen oder wegnehmen (KAN-457). Mit Profil folgen die Schreibmodule dem Profil;
+ *  ohne Profil gilt die übergebene Modulmatrix (ohne Angabe: alle Module, wie bei einem neuen Mitarbeiter). */
+export async function updateMemberProfil(membershipId: string, profilRoh: string | null, module?: Modul[]) {
+  const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
+  const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (aboGesperrt) return { error: aboGesperrt }
+  if (!membership || !canManageUsers(membership.role)) {
+    return { error: 'Keine Berechtigung' }
+  }
+  const p = profilAusEingabe(profilRoh)
+  if ('error' in p) return { error: p.error }
+  const admin = createSupabaseAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error, count } = await (admin.from('tenant_memberships') as any)
+    .update({ profil: p.profil, schreibmodule: p.profil ? profilModule(p.profil) : module ? moduleBereinigen(module) : ALLE_MODULE }, { count: 'exact' })
+    .eq('id', membershipId)
+    .eq('tenant_id', membership.tenantId)
+    .eq('role', 'winzer')
+  if (error) return { error: dbFehlerText(error) }
+  if (count === 0) return { error: 'Ein Profil gibt es nur für Mitarbeiter.' }
   revalidatePath('/benutzer')
   return { success: true }
 }
