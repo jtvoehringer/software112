@@ -23,6 +23,7 @@ function migration(name) {
   return quelle(entwurf)
 }
 const M = migration('kan459a_lesebereich_schreiben')
+const M2 = migration('kan459b_schreibwege_lesebereich')
 const LISTE = JSON.parse(quelle('scripts/lesebereiche.json'))
 const { zeilen } = createRequire(import.meta.url)('../lesebereich-sql.js')
 
@@ -42,6 +43,31 @@ describe('KAN-459: Migration kan459a', () => {
     assert.match(M, new RegExp(`IF v_n <> ${n + 1} THEN RAISE EXCEPTION 'KAN-459: % Policies umgestellt \\(erwartet ${n + 1}\\)'`))
     assert.match(M, /p\.cmd = 'ALL' AND p\.permissive = 'RESTRICTIVE' AND p\.roles = '\{authenticated\}'::name\[\] AND p\.qual IS NOT NULL AND p\.with_check IS NOT DISTINCT FROM p\.qual/)
     assert.match(M, /IF v_rest > 0 THEN RAISE EXCEPTION/)
+  })
+})
+
+describe('KAN-459: Migration kan459b – Leseprüfung in schreibenden Funktionen', () => {
+  test('drei Funktionen mit festem Bereich, Prüfung direkt nach der Zugriffsprüfung, genau einmal', () => {
+    const zeilenM = [...M2.matchAll(/^ {4}\('public\.([a-z_0-9]+)\([a-z, ]+\)', '([a-z]+)'\)/gm)].map(m => `${m[1]}=${m[2]}`)
+    assert.deepEqual(zeilenM, ['s112_privat_bloecke=crm', 'setze_kontobewegung_abgeglichen=ea', 's112_fuellung_nachtragen=keller'])
+    assert.match(M2, /IF v_alt ~ 's112_\(pruefe\|darf\)_lesen' THEN RAISE EXCEPTION/)
+    assert.match(M2, /regexp_matches\(v_alt, c_ptz, 'g'\)\) <> 1 THEN RAISE EXCEPTION/)
+    assert.equal([...M2.matchAll(/Prüfung nicht genau einmal eingefügt/g)].length, 2)
+  })
+  test('endgültig löschen: der Bereich je Tabelle stimmt mit scripts/lesebereiche.json überein', () => {
+    const fall = [...M2.matchAll(/WHEN p_tabelle (?:IN \(([^)]*)\)|= (\\'[a-z_]+\\')) THEN \\'([a-z]+)\\'/g)]
+    const zuordnung = {}
+    for (const f of fall) for (const t of (f[1] ?? f[2]).matchAll(/\\'([a-z_]+)\\'/g)) zuordnung[t[1]] = f[3]
+    assert.equal(Object.keys(zuordnung).length, 17)
+    for (const [t, b] of Object.entries(zuordnung)) assert.equal(LISTE.tabellen[t], b, t)
+    assert.match(M2, /ELSE \\'verwaltung\\' END\);/)   // unbekannte Tabelle: für jedes Profil gesperrt
+    assert.ok(!LISTE.profile.extern.includes('verwaltung') && !LISTE.profile.vertrieb.includes('verwaltung'))
+  })
+  test('alle 17 Tabellen der Funktion sind zugeordnet (Liste der Funktion = Liste der Storno-Tabellen im DB-Test 07)', () => {
+    const t = quelle('scripts/db-tests/07_lesewege.sql')
+    for (const e of ['s112_fuellung_nachtragen=keller', 's112_privat_bloecke=crm', 's112_storniert_loeschen=*', 'setze_kontobewegung_abgeglichen=ea']) assert.ok(t.includes(`'${e}'`), e)
+    for (const p of ['extern_privat_bloecke', 'extern_loeschen_mittellager', 'extern_loeschen_massnahme_frei', 'vertrieb_bankabgleich', 'vertrieb_fuellung_nachtragen',
+      'vertrieb_loeschen_umzug', 'vertrieb_loeschen_export_frei', 'vertrieb_privat_bloecke_frei', 'ohne_profil_schreibwege_kein_lesefehler']) assert.ok(t.includes(`'${p}'`), p)
   })
 })
 
