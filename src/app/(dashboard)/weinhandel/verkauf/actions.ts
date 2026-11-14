@@ -1117,6 +1117,41 @@ export async function gutschriftAusstellen(
   return { gutschriftId: String(data) }
 }
 
+// KAN-453 G3b: Gutschrift stornieren (RPC s112_gutschrift_stornieren) – Stornobeleg am Storno-Datum, die Gutschrift bleibt
+// in ihrem Zeitraum stehen; eine Rücknahme in den Bestand wird zurückgebucht. Erwartbare Ablehnungen (Datum, Zeitraum,
+// Ware nicht mehr im Bestand) kommen als { error } an den Knopf.
+export async function gutschriftStornieren(
+  gutschriftId: string, grund: string, _datum: string | null, stornoDatum: string | null,
+): Promise<void | { error: string; feld?: 'datum' }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(gutschriftId))) return { error: 'Gutschrift nicht gefunden.' }
+  const f = stornoGrundFehler(grund)
+  if (f) return { error: f }
+  if (stornoDatum) {
+    const df = stornoDatumFehler(stornoDatum, { heute: heuteWien() })
+    if (df) return { error: df, feld: 'datum' }
+  }
+  const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
+  const { error } = await rpc('s112_gutschrift_stornieren', {
+    p_tenant_id: tenantId, p_gutschrift_id: gutschriftId, p_grund: grund.trim(), ...(stornoDatum ? { p_datum: stornoDatum } : {}),
+  })
+  if (error) {
+    if (erwarteteDbAblehnung(error)) {
+      const meldung = dbFehlerText(error, 'Die Gutschrift konnte nicht storniert werden')
+      return istStornoDatumAblehnung((error as { hint?: unknown }).hint) ? { error: meldung, feld: 'datum' } : { error: meldung }
+    }
+    throw new AktionsFehler(dbFehlerText(error, 'Die Gutschrift konnte nicht storniert werden'))
+  }
+  revalidatePath(`/weinhandel/rechnungen/${gutschriftId}`)
+  revalidatePath('/weinhandel/rechnungen')
+  revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/weinhandel/offene-posten')
+  revalidatePath('/weinhandel')
+  revalidatePath('/weinhandel/sonstige-artikel')
+  revalidatePath('/buchhaltung')
+}
+
 // KAN-453 G3a (Entscheidung 2A): Eintrag in der CRM-Historie des Kunden beim Ausstellen. Die Gutschrift ist gebucht –
 // scheitert der Eintrag (z. B. Mitarbeiter ohne CRM-Recht), bleibt sie stehen; der Fehler geht ins Systemprotokoll.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

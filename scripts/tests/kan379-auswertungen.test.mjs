@@ -60,7 +60,7 @@ describe('KAN-379: Stornobeleg als Beleg (alsBeleg, zaehltMitBetrag)', () => {
     assert.equal(B.zaehltMitBetrag(normal), true)
     // Hotfix 28.10.2026: über die Spalte (verwiesene Zeile) – „rechnungen!storno_von_id“ wäre auf derselben Tabelle die
     // Gegenrichtung (Liste) und machte jeden Stornobeleg zu 0 € (UAT: ST-2026-0002 „zu Rechnung vom –“)
-    assert.match(B.STORNO_FELDER, /storno_von:storno_von_id\(id, rechnungsnummer, datum, storno_positionen\)/)
+    assert.match(B.STORNO_FELDER, /storno_von:storno_von_id\(id, rechnungsnummer, datum, art, gutschrift_zu_id, storno_positionen\)/)   // KAN-453: Art des Originals
     assert.match(B.STORNO_FELDER, /storniert_durch:storniert_durch_id\(id, rechnungsnummer, datum\)/)
     assert.doesNotMatch(B.STORNO_FELDER, /rechnungen!/)
   })
@@ -174,7 +174,7 @@ describe('KAN-379: BMD-Export als Gutschrift', () => {
 describe('KAN-379: Rechnungsseite und Suche', () => {
   test('Rechnungsseite: Stornorechnung mit Verweis, ohne Zahlungsteil; Original verweist auf den Stornobeleg', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx')
-    assert.match(s, /\{storno \? 'STORNORECHNUNG' : 'RECHNUNG'\}/)
+    assert.match(s, /\{zuGutschrift \? 'STORNOBELEG' : storno \? 'STORNORECHNUNG' : 'RECHNUNG'\}/)   // KAN-453: Stornobeleg zu einer Gutschrift
     assert.match(s, /zu Rechnung \{original\.rechnungsnummer\} vom \{d\(original\.datum\)\}/)
     assert.match(s, /\{!storno && <div className="mt-8/)
     assert.match(s, /Stornobeleg <Link href=\{`\/weinhandel\/rechnungen\/\$\{stornoDurch\.id\}`\}/)

@@ -16,7 +16,8 @@ type R = Record<string, any>
 export type StornobelegPdfInhalt = {
   nummer: string
   datumIso: string
-  storno: { zuNummer: string; zuDatumIso: string; grund: string | null }
+  /** zuArt (KAN-453): der Stornobeleg hebt eine Rechnung oder eine Gutschrift auf */
+  storno: { zuNummer: string; zuDatumIso: string; grund: string | null; zuArt: 'rechnung' | 'gutschrift' }
   positionen: { abschnitt: string | null; name: string; sub: string | null; menge: number; einheit: string;
                 preisBrutto: number | null; rabattPct: number; summe: number | null }[]
   gesamt: number
@@ -44,7 +45,7 @@ export function stornobelegPdfInhalt(roh: R): StornobelegPdfInhalt {
     return {
       abschnitt: mehrere && p.lieferscheinnummer ? `Lieferschein ${p.lieferscheinnummer} vom ${datumDe(p.lieferdatum)}` : null,
       name: String(p.name ?? ''),
-      sub: p.typ === 'tank' ? 'Tankverkauf' : null,
+      sub: p.typ === 'tank' ? 'Tankverkauf' : null,   // „Ware zurückgenommen“ steht bewusst nicht am Storno einer Gutschrift – sie ist ja wieder ausgebucht
       menge: Number(p.menge) || 0,
       einheit: String(p.einheit ?? ''),
       preisBrutto: preis,
@@ -58,7 +59,8 @@ export function stornobelegPdfInhalt(roh: R): StornobelegPdfInhalt {
   return {
     nummer: String(roh.rechnungsnummer ?? ''),
     datumIso: String(roh.datum ?? ''),
-    storno: { zuNummer: String(original.rechnungsnummer ?? ''), zuDatumIso: String(original.datum ?? ''), grund: (roh.notizen ?? null) as string | null },
+    storno: { zuNummer: String(original.rechnungsnummer ?? ''), zuDatumIso: String(original.datum ?? ''), grund: (roh.notizen ?? null) as string | null,
+              zuArt: original.art === 'gutschrift' ? 'gutschrift' : 'rechnung' },
     positionen,
     gesamt: s.brutto,
     gesamtNetto: s.netto,

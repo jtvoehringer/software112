@@ -100,7 +100,7 @@ test.describe('Gutschrift zur Rechnung (schreibend)', () => {
   // KAN-452 G2: Flasche verkaufen (Bestand −1), Gutschrift mit „Ware kommt zurück“ → Bestand wieder wie vorher.
   // Nimmt die LETZTE Füllung mit Bestand – e2e/verkauf.spec.ts läuft parallel mit der ersten; gibt es nur eine, entfällt
   // der Test (sonst zählten zwei Tests gleichzeitig am selben Bestand).
-  test('Flasche gutschreiben mit Rücknahme: Bestand wieder wie vor dem Verkauf', async ({ page, rolle }) => {
+  test('Flasche gutschreiben mit Rücknahme, Gutschrift stornieren: Bestand folgt', async ({ page, rolle }) => {
     schreibend()
     test.skip(rolle !== 'tenant_admin', 'als Betriebs-Manager')
     test.setTimeout(180_000)
@@ -153,10 +153,25 @@ test.describe('Gutschrift zur Rechnung (schreibend)', () => {
     await page.waitForURL(url => /^\/weinhandel\/rechnungen\/[0-9a-f-]{36}$/.test(url.pathname) && url.href !== rechnung, { timeout: 40_000 })
 
     // der Beleg trägt den Vermerk, an der Rechnung steht er bei der Gutschrift, der Bestand ist zurück
+    const gutschrift = page.url()
     await expect(page.getByRole('heading', { name: 'GUTSCHRIFT' })).toBeVisible()
     await expect(page.getByText('Ware zurückgenommen').first()).toBeVisible()
     await page.goto(rechnung)
     await expect(page.getByText(/· Ware zurückgenommen/).first()).toBeVisible()
     expect(await bestandLaut(page, fuellungId), 'Bestand nach der Gutschrift mit Rücknahme').toBe(vorher)
+
+    // KAN-453 G3b: Gutschrift stornieren → Stornobeleg, die zurückgenommene Flasche geht wieder ab, die Menge ist wieder frei
+    await page.goto(gutschrift)
+    await page.getByRole('button', { name: 'Gutschrift stornieren' }).first().click()
+    await page.getByLabel(/Grund des Stornos/).fill('E2E-Test: Gutschrift war ein Irrtum')
+    await page.getByRole('button', { name: 'Gutschrift stornieren' }).last().click()
+    await expect(page.getByRole('note').filter({ hasText: /Storniert.*Stornobeleg/ })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('button', { name: 'Gutschrift stornieren' })).toHaveCount(0)
+    await page.getByRole('note').filter({ hasText: /Stornobeleg/ }).getByRole('link', { name: /^ST-\d{4}-\d+$/ }).click()
+    await expect(page.getByRole('heading', { name: 'STORNOBELEG' })).toBeVisible()
+    await expect(page.getByText(/zu Gutschrift GS-/).first()).toBeVisible()
+    await page.goto(rechnung)
+    await expect(page.getByText(/storniert \(/).first(), 'die stornierte Gutschrift steht gekennzeichnet in der Liste').toBeVisible()
+    expect(await bestandLaut(page, fuellungId), 'Bestand nach dem Storno der Gutschrift').toBe(vorher - 1)
   })
 })

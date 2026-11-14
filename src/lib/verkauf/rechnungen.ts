@@ -35,7 +35,8 @@ export function positionenDerRechnung(r: R): R[] {
  * (storno_von_id(…) = verwiesene Zeile); mit Tabellen-Hinweis rechnungen!… wäre es auf derselben Tabelle die Gegenrichtung (Liste).
  */
 export const STORNO_FELDER =
-  'art, storniert_durch_id, storno_von:storno_von_id(id, rechnungsnummer, datum, storno_positionen), storniert_durch:storniert_durch_id(id, rechnungsnummer, datum), ' +
+  // KAN-453: art und gutschrift_zu_id des Originals – ein Stornobeleg kann auch eine Gutschrift aufheben (istGutschriftStorno)
+  'art, storniert_durch_id, storno_von:storno_von_id(id, rechnungsnummer, datum, art, gutschrift_zu_id, storno_positionen), storniert_durch:storniert_durch_id(id, rechnungsnummer, datum), ' +
   // KAN-419: die Gutschrift trägt ihre Zeilen selbst und nennt die berichtigte Rechnung
   // (dieselbe Form wie storno_von – Einbettung über die Spalte = die verwiesene Zeile)
   'gutschrift_zu_id, gutschrift_positionen, gutschrift_zu:gutschrift_zu_id(id, rechnungsnummer, datum)'
@@ -43,6 +44,14 @@ export const STORNO_FELDER =
 /** KAN-379: Stornobeleg (Gegenbuchung zu einer Rechnung)? */
 export function istStornobeleg(r: R): boolean {
   return r.art === 'storno'
+}
+
+/**
+ * KAN-453: Stornobeleg, der eine Gutschrift aufhebt? Die stornierte Gutschrift trägt ihre Zeilen mit negativer Menge in
+ * storno_positionen – alsBeleg() (−1 × Momentaufnahme des Originals) liefert damit positive Beträge, ohne Sonderfall.
+ */
+export function istGutschriftStorno(r: R): boolean {
+  return r.art === 'storno' && r.storno_von?.art === 'gutschrift'
 }
 
 /** KAN-419: Gutschrift (Teilberichtigung einer Rechnung mit eigenen Zeilen)? */

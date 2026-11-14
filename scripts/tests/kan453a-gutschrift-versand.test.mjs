@@ -69,7 +69,7 @@ describe('KAN-453: Versand der Gutschrift', () => {
   })
   test('PDF, Betreff, Dateiname und Aktivität nennen die Gutschrift; Versand nur über den Helfer; Vermerk am Beleg', () => {
     assert.match(r, /storno: sto\?\.storno \?\? null,\n\s+gutschrift: gs\?\.bezug \?\? null,/)
-    assert.match(r, /const subject = `\$\{wort\} \$\{inhalt\.nummer\} zu Rechnung \$\{bezug\.zuNummer\} von \$\{bName\}`/)
+    assert.match(r, /const subject = `\$\{wort\} \$\{inhalt\.nummer\} zu \$\{zu\} \$\{bezug\.zuNummer\} von \$\{bName\}`/)
     assert.match(r, /anbei erhalten Sie die Gutschrift \$\{inhalt\.nummer\} \(Rechnungskorrektur\) zu unserer Rechnung \$\{bezug\.zuNummer\}\./)
     assert.match(r, /dateiname: `\$\{wort\}-\$\{inhalt\.nummer \|\| id\}\.pdf`/)
     assert.equal([...r.matchAll(/belegPerMailSenden\(\{/g)].length, 1)
@@ -79,7 +79,7 @@ describe('KAN-453: Versand der Gutschrift', () => {
   })
   test('Seite der Gutschrift bietet den Versand an – nur mit Schreibrecht Warenwirtschaft', () => {
     const p = quelle('src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx')
-    assert.match(p, /\{gutschrift && membership && canWrite\(membership, 'warenwirtschaft'\) && \(\n\s+<div className="no-print">\n\s+<RechnungVersandPanel pfad=\{`\/api\/weinhandel\/rechnungen\/\$\{r\.id\}\/send`\} titel="Gutschrift"/)
+    assert.match(p, /\{gutschrift && !r\.storniert && membership && canWrite\(membership, 'warenwirtschaft'\) && \(\n\s+<div className="no-print">\n\s+<RechnungVersandPanel pfad=\{`\/api\/weinhandel\/rechnungen\/\$\{r\.id\}\/send`\} titel="Gutschrift"/)
   })
 })
 

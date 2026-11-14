@@ -108,7 +108,7 @@ export type VerkaufRechnungPdfProps = {
   /** KAN-416: Texte auf Rechnung der Lieferscheine (rechnungstexteFuerBeleg) – unter den Positionen, vor dem Fußtext */
   rechnungstexte?: string[]
   /** KAN-379: Stornobeleg – Bezug auf die Rechnung und Grund; Beträge kommen negativ (stornobelegPdfInhalt) */
-  storno?: { zuNummer: string; zuDatumIso: string; grund: string | null } | null
+  storno?: { zuNummer: string; zuDatumIso: string; grund: string | null; zuArt?: 'rechnung' | 'gutschrift' } | null
   /** KAN-453: Gutschrift (Rechnungskorrektur) – Bezug auf die Rechnung und Grund; Beträge kommen negativ (gutschriftPdfInhalt) */
   gutschrift?: { zuNummer: string; zuDatumIso: string; grund: string | null } | null
 }
@@ -120,6 +120,8 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
   /** Beleg mit negativen Beträgen und ohne Zahlungsteil (Stornobeleg bzw. Gutschrift) */
   const gegenbeleg = storno ?? gutschrift
   const skonto = gegenbeleg ? null : props.skonto
+  /** KAN-453: Stornobeleg zu einer Gutschrift – positive Beträge, „Stornobeleg zu Gutschrift …“ */
+  const zuGutschrift = storno?.zuArt === 'gutschrift'
   const color = '#2F63AC'
   // react-pdf's <Image> unterstützt zuverlässig nur Raster-Formate (PNG/JPG).
   // SVG-Logos (z. B. das App-Platzhalter-Logo mit eingebettetem <text>) lassen
@@ -149,10 +151,10 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             {betrieb.uid && <Text style={[styles.senderDetail, { marginTop: 4, color: '#999' }]}>UID: {betrieb.uid}</Text>}
           </View>
           <View style={styles.metaBlock}>
-            <Text style={[styles.title, { color }]}>{gutschrift ? 'GUTSCHRIFT' : storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</Text>
+            <Text style={[styles.title, { color }]}>{gutschrift ? 'GUTSCHRIFT' : zuGutschrift ? 'STORNOBELEG' : storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</Text>
             {rechnung.nummer && <Text style={styles.nr}>Nr. {rechnung.nummer}</Text>}
             <Text style={styles.metaText}>Datum: {fmtDate(rechnung.datumIso)}</Text>
-            {storno && <Text style={styles.metaText}>zu Rechnung {storno.zuNummer} vom {fmtDate(storno.zuDatumIso)}</Text>}
+            {storno && <Text style={styles.metaText}>zu {zuGutschrift ? 'Gutschrift' : 'Rechnung'} {storno.zuNummer} vom {fmtDate(storno.zuDatumIso)}</Text>}
             {gutschrift && <Text style={styles.metaText}>Rechnungskorrektur zu Rechnung {gutschrift.zuNummer} vom {fmtDate(gutschrift.zuDatumIso)}</Text>}
             {rechnung.lieferzeitraum && <Text style={styles.metaText}>Lieferzeitraum: {rechnung.lieferzeitraum}</Text>}
             {!gegenbeleg && (
@@ -241,7 +243,9 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
           <View style={styles.payment}>
             <Text style={styles.paymentH}>Storno</Text>
             <Text style={styles.paymentP}>
-              Diese Stornorechnung hebt die Rechnung {storno.zuNummer} vom {fmtDate(storno.zuDatumIso)} vollständig auf.
+              {zuGutschrift
+                ? `Dieser Stornobeleg hebt die Gutschrift ${storno.zuNummer} vom ${fmtDate(storno.zuDatumIso)} vollständig auf.`
+                : `Diese Stornorechnung hebt die Rechnung ${storno.zuNummer} vom ${fmtDate(storno.zuDatumIso)} vollständig auf.`}
             </Text>
             {storno.grund && <Text style={styles.paymentP}>Grund: {storno.grund}</Text>}
           </View>

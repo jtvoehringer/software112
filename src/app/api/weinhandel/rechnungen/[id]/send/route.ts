@@ -81,7 +81,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sto = gs ? null : stornobelegPdfInhalt(beleg)
   const inhalt = (gs ?? sto)!
   const bezug = gs ? gs.bezug : sto!.storno
-  const wort = gs ? 'Gutschrift' : 'Stornorechnung'
+  const zuGutschrift = sto?.storno.zuArt === 'gutschrift'   // KAN-453: Stornobeleg zu einer Gutschrift
+  const wort = gs ? 'Gutschrift' : zuGutschrift ? 'Stornobeleg' : 'Stornorechnung'
+  const zu = zuGutschrift ? 'Gutschrift' : 'Rechnung'
   const einst = (einstRaw ?? {}) as R
 
   const kundeInfo = (beleg.kontakt ?? beleg.firma ?? null) as R | null
@@ -127,13 +129,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: `PDF-Erzeugung fehlgeschlagen: ${msg}` }, { status: 500 })
   }
 
-  const subject = `${wort} ${inhalt.nummer} zu Rechnung ${bezug.zuNummer} von ${bName}`
+  const subject = `${wort} ${inhalt.nummer} zu ${zu} ${bezug.zuNummer} von ${bName}`
   const mailText = [
     kundeName ? `Sehr geehrte Damen und Herren, ${kundeName},` : 'Sehr geehrte Damen und Herren,',
     '',
     body.message?.trim() || (gs
       ? `anbei erhalten Sie die Gutschrift ${inhalt.nummer} (Rechnungskorrektur) zu unserer Rechnung ${bezug.zuNummer}.`
-      : `anbei erhalten Sie die Stornorechnung ${inhalt.nummer} zu unserer Rechnung ${bezug.zuNummer}.`),
+      : zuGutschrift
+        ? `anbei erhalten Sie den Stornobeleg ${inhalt.nummer} zu unserer Gutschrift ${bezug.zuNummer}.`
+        : `anbei erhalten Sie die Stornorechnung ${inhalt.nummer} zu unserer Rechnung ${bezug.zuNummer}.`),
     '',
     'Freundliche Grüße',
     bName,

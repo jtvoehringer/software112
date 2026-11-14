@@ -127,7 +127,11 @@ export function zmBelege(rechnungen: readonly R[], originale: ReadonlyMap<string
       const o = originale.get(String(r.storno_von_id ?? ''))
       if (!o) continue
       const pos = (o.storno_positionen ?? []) as R[]
-      const f = steuerfallDerMomentaufnahme(pos, verkaeufe)
+      // KAN-453: Stornobeleg zu einer Gutschrift – Steuerfall der berichtigten Rechnung wie bei der Gutschrift selbst;
+      // ihre Zeilen stehen mit negativer Menge in der Momentaufnahme, −wert() ist also positiv
+      const f = o.art === 'gutschrift'
+        ? einordnen(gutschriftFaelle.get(String(o.gutschrift_zu_id ?? '')) ?? [])
+        : steuerfallDerMomentaufnahme(pos, verkaeufe)
       if (f.gemischt) gemischt(`Stornobeleg ${nummer}`)
       if (f.igl) aus.push({ uid: f.uid, betrag: -wert(pos), nummer })
       continue
@@ -194,7 +198,7 @@ export async function ladeZm(supabase: any, tenantId: string, p: ZmParameter): P
   // storno-sichtbar: gesucht sind genau die stornierten Originale der Stornobelege (Momentaufnahme der Positionen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orig = await inBloecken<R>(stornoVon, b => alle<R>((supabase.from('rechnungen') as any)
-    .select('id, storno_positionen')
+    .select('id, art, gutschrift_zu_id, storno_positionen')
     .eq('tenant_id', tenantId).in('id', b).order('id')))
   if (orig.error) throw new AktionsFehler(`Laden fehlgeschlagen (stornierte Rechnungen): ${orig.error.message}`)
   const originale = new Map(orig.data.map(o => [String(o.id), o]))
@@ -210,7 +214,8 @@ export async function ladeZm(supabase: any, tenantId: string, p: ZmParameter): P
   const verkaeufe = new Map<string, ZmVerkauf>(vk.data.map(v => [String(v.id), { steuerfall: v.steuerfall ?? null, kunde_uid: v.kunde_uid ?? null }]))
 
   // KAN-419: Gutschriften des Zeitraums – Steuerfall und UID aus den Lieferscheinen der berichtigten Rechnung
-  const gutschriftZu = [...new Set(rechnungen.filter(r => r.art === 'gutschrift' && r.gutschrift_zu_id).map(r => String(r.gutschrift_zu_id)))]
+  // KAN-453: … und der stornierten Gutschriften hinter den Stornobelegen des Zeitraums
+  const gutschriftZu = [...new Set([...rechnungen, ...orig.data].filter(r => r.art === 'gutschrift' && r.gutschrift_zu_id).map(r => String(r.gutschrift_zu_id)))]
   // storno-sichtbar: Lieferscheine einer Rechnung mit Gutschrift – sie lässt sich nicht mehr stornieren, ihre Lieferscheine hängen an ihr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const gl = await inBloecken<R>(gutschriftZu, b => alle<R>((supabase.from('verkaufsposten') as any)

@@ -287,7 +287,7 @@ export async function ladeOffenePostenListe(
   // KAN-419: Gutschriften mindern den offenen Betrag ihrer Rechnung (auch bezahlter: Guthaben) und sind selbst kein Posten
   const gutgeschrieben = new Map<string, number>()
   for (const g of (data ?? []) as R[]) {
-    if (g.art !== 'gutschrift' || !g.gutschrift_zu_id) continue
+    if (g.art !== 'gutschrift' || !g.gutschrift_zu_id || g.storniert === true) continue   // KAN-453: stornierte Gutschrift mindert nicht mehr
     const k = String(g.gutschrift_zu_id)
     gutgeschrieben.set(k, rund2((gutgeschrieben.get(k) ?? 0) + gutschriftBrutto(g)))
   }
