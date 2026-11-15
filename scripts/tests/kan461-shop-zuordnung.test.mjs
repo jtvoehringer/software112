@@ -158,7 +158,10 @@ DOPPEL['@/lib/auth/modul'] = modul('export const hatModul = async f => (globalTh
 DOPPEL['@/lib/shop/laden'] = modul('export const shopZugangLaden = async t => { (globalThis.__zugangRufe ??= []).push(t); return globalThis.__zugang }')
 DOPPEL['@/lib/shop/woocommerce'] = modul(`
   export const wooProduktLesen = async (z, id) => { (globalThis.__woo ??= []).push(['lesen', id]); return globalThis.__produkt }
-  export const wooSkuSchreiben = async (z, id, sku) => { (globalThis.__woo ??= []).push(['schreiben', id, sku]); return globalThis.__skuErgebnis ?? { ok: true, daten: { sku } } }`)
+  export const wooSkuSchreiben = async (z, id, sku) => { (globalThis.__woo ??= []).push(['schreiben', id, sku]); return globalThis.__skuErgebnis ?? { ok: true, daten: { sku } } }
+  export const wooMetaSchreiben = async () => ({ ok: false, art: 'antwort', meldung: 'in diesem Test nicht erwartet' })`)
+// KAN-462: die Weindaten-Aktionen liegen in derselben Datei – hier nicht geprüft (kan462-shop-weindaten.test.mjs)
+DOPPEL['@/lib/shop/weindatenLaden'] = modul('export const ladeElabelKatalog = async () => []; export const ladeWeindaten = async () => null')
 hooksRegistrieren()
 const actions = hooksMoeglich ? await laden('app/(dashboard)/weinhandel/shop/zuordnung/actions.ts') : null
 
@@ -351,7 +354,8 @@ describe('KAN-461: Seite, Migration und Register', () => {
   test('Register: Lesebereich, Schema, Fremdschlüssel, DB-Test-Sollwerte, Pilot-Abräumen', () => {
     assert.equal(JSON.parse(quelle('scripts/lesebereiche.json')).tabellen.shop_zuordnungen, 'lager')
     assert.deepEqual(JSON.parse(quelle('scripts/schema.json')).shop_zuordnungen,
-      ['id', 'tenant_id', 'fuellung_id', 'woo_produkt_id', 'woo_name', 'woo_sku', 'sku_geschrieben_am', 'erstellt_am', 'erstellt_von', 'aktualisiert_am'])
+      ['id', 'tenant_id', 'fuellung_id', 'woo_produkt_id', 'woo_name', 'woo_sku', 'sku_geschrieben_am', 'erstellt_am', 'erstellt_von', 'aktualisiert_am',
+       'weindaten_am', 'weindaten_pruefsumme', 'weindaten_fehler'])   // + KAN-462
     const fk = JSON.parse(quelle('scripts/fremdschluessel.json')).filter(x => x.t === 'shop_zuordnungen')
     assert.deepEqual(fk.map(x => `${x.s.join(',')}→${x.z}`).sort(), ['fuellung_id→fuellungen', 'tenant_id→tenants'])
     const helfer = quelle('scripts/db-tests/_helfer.sql')

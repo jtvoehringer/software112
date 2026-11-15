@@ -1772,7 +1772,10 @@
 "sku_geschrieben_am",
 "erstellt_am",
 "erstellt_von",
-"aktualisiert_am"
+"aktualisiert_am",
+"weindaten_am",
+"weindaten_pruefsumme",
+"weindaten_fehler"
 ],
 "sonstige_artikel": [
 "id",

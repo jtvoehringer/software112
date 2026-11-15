@@ -171,3 +171,20 @@ export async function wooProduktLesen(z: WooZugang, produktId: number, umgebung:
   const p = alsProdukt(r.daten.json)
   return p && p.id === produktId ? { ok: true, daten: p } : fehler('produkt_fehlt')
 }
+
+// ── Weindaten schreiben (KAN-462) ────────────────────────────────────────────────────────────────────────────────────
+
+export const WOO_META_PRAEFIX = 's112_'
+
+/**
+ * Schreibt Meta-Felder eines Produkts – ausschließlich Felder mit dem Präfix `s112_` (alles andere wird abgelehnt, bevor
+ * der Shop aufgerufen wird). Titel, Texte, Bilder, Preise, Kategorien und Attribute bleiben unberührt.
+ */
+export async function wooMetaSchreiben(z: WooZugang, produktId: number, felder: { key: string; value: string }[], umgebung: WooUmgebung = {}): Promise<WooErgebnis<{ felder: number }>> {
+  if (!Number.isSafeInteger(produktId) || produktId <= 0) return fehler('produkt_fehlt')
+  if (felder.length === 0 || felder.some(f => !/^s112_[a-z0-9_]{1,40}$/.test(f.key) || typeof f.value !== 'string')) return fehler('antwort', '(ungültiges Meta-Feld)')
+  const r = await wooAufruf(z, `/products/${produktId}`, umgebung, { methode: 'PUT', daten: { meta_data: felder.map(f => ({ key: f.key, value: f.value })) } })
+  if (!r.ok) return r
+  if (Number((r.daten.json as { id?: unknown } | null)?.id) !== produktId) return fehler('antwort', '(Produkt nicht bestätigt)')
+  return { ok: true, daten: { felder: felder.length } }
+}

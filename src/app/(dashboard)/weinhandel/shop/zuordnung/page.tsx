@@ -7,7 +7,15 @@ import { requireLesen } from '@/lib/auth/lesen'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { ladeFuellungenUndZuordnungen, shopZugangLaden } from '@/lib/shop/laden'
 import { wooProdukteLaden, type WooProdukt } from '@/lib/shop/woocommerce'
+import { ladeElabelKatalog, ladeWeindaten } from '@/lib/shop/weindatenLaden'
+import { weindatenHtml, weindatenPruefsumme, weindatenStand, type WeindatenStand } from '@/lib/shop/weindaten'
 import ZuordnungClient from './ZuordnungClient'
+
+/** Je Produkt: Stand der Weindaten-Übertragung und Vorschau des Blocks (KAN-462) */
+export type WeindatenAnzeige = { stand: WeindatenStand; am: string | null; fehler: string | null; html: string; ohneElabel: boolean }
+
+const MAX_VORSCHAU = 80
+const PARALLEL = 6
 
 export const metadata: Metadata = { title: 'Shop-Anbindung – Zuordnung' }
 export const dynamic = 'force-dynamic'
@@ -35,6 +43,22 @@ export default async function ShopZuordnungPage() {
   }
   const nurLesen = (await schreibSperre(membership)) !== null
 
+  // KAN-462: heutiger Inhalt je Zuordnung (für „geändert seit der Übertragung“ und die Vorschau) – in kleinen Bündeln,
+  // bei sehr vielen Zuordnungen nur der gespeicherte Stand
+  const weindaten: Record<number, WeindatenAnzeige> = {}
+  const mitVorschau = zuordnungen.length <= MAX_VORSCHAU
+  const katalog = mitVorschau && zuordnungen.length > 0 ? await ladeElabelKatalog(supabase) : []
+  for (let i = 0; i < zuordnungen.length; i += PARALLEL) {
+    await Promise.all(zuordnungen.slice(i, i + PARALLEL).map(async z => {
+      const d = mitVorschau ? await ladeWeindaten(supabase, membership.tenantId, z.fuellung_id, katalog) : null
+      weindaten[z.woo_produkt_id] = {
+        stand: weindatenStand(z, d ? weindatenPruefsumme(d) : null),
+        am: z.weindaten_am, fehler: z.weindaten_fehler,
+        html: d ? weindatenHtml(d) : '', ohneElabel: !!d && !d.elabelUrl,
+      }
+    }))
+  }
+
   return <ZuordnungClient produkte={produkte} fuellungen={fuellungen} zuordnungen={zuordnungen}
-    shopFehler={shopFehler} abgeschnitten={abgeschnitten} nurLesen={nurLesen} />
+    shopFehler={shopFehler} abgeschnitten={abgeschnitten} nurLesen={nurLesen} weindaten={weindaten} />
 }

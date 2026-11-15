@@ -13,7 +13,11 @@ import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { hatModul, modulAusMeldung } from '@/lib/auth/modul'
 import { dbFehlerText, fehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { shopZugangLaden } from '@/lib/shop/laden'
-import { wooProduktLesen, wooSkuSchreiben } from '@/lib/shop/woocommerce'
+import { wooMetaSchreiben, wooProduktLesen, wooSkuSchreiben, type WooZugang } from '@/lib/shop/woocommerce'
+import { ladeElabelKatalog, ladeWeindaten } from '@/lib/shop/weindatenLaden'
+import { weindatenMeta, weindatenPruefsumme } from '@/lib/shop/weindaten'
+import type { KatalogEintrag } from '@/lib/elabel/katalog'
+import { heuteWien } from '@/lib/datum/wien'
 import { skuFuerFuellung } from '@/lib/shop/zuordnung'
 
 type Ergebnis = { success: true; hinweis?: string } | { error: string }
@@ -35,7 +39,9 @@ type Db = {
   }
 }
 
-async function zuordnungKontext(): Promise<{ tenantId: string; db: Db } | { error: string }> {
+type Kontext = { tenantId: string; db: Db; /** derselbe Benutzer-Client, ungetypt – für die Ladefunktionen */ roh: unknown }
+
+async function zuordnungKontext(): Promise<Kontext | { error: string }> {
   const membership = await getCurrentMembership()
   // KAN-30: Seite aus einem anderen Betrieb? (vor den Rechten, sonst gelten die des neuen Betriebs)
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)
@@ -44,7 +50,8 @@ async function zuordnungKontext(): Promise<{ tenantId: string; db: Db } | { erro
   if (aboGesperrt) return { error: aboGesperrt }
   if (!membership || !canAdmin(membership.role)) return { error: 'Keine Berechtigung – die Shop-Anbindung richtet die Betriebsleitung ein.' }
   if (!(await hatModul('modul_shop'))) return { error: modulAusMeldung('modul_shop') }
-  return { tenantId: membership.tenantId, db: (await createSupabaseServerClient()) as unknown as Db }
+  const roh = await createSupabaseServerClient()
+  return { tenantId: membership.tenantId, db: roh as unknown as Db, roh }
 }
 
 const produktNr = (roh: unknown): number | null => {
@@ -76,7 +83,7 @@ async function skuNachziehen(db: Db, tenantId: string, produktId: number, fuellu
   return hinweis
 }
 
-async function zuordnenIntern(k: { tenantId: string; db: Db }, produktRoh: unknown, fuellungRoh: unknown, nameRoh?: unknown): Promise<Ergebnis> {
+async function zuordnenIntern(k: Kontext, produktRoh: unknown, fuellungRoh: unknown, nameRoh?: unknown): Promise<Ergebnis> {
   const produktId = produktNr(produktRoh)
   const fuellungId = typeof fuellungRoh === 'string' ? fuellungRoh.trim() : ''
   if (!produktId) return { error: 'Das Shop-Produkt ist ungültig.' }
@@ -176,4 +183,84 @@ export async function shopSkuErneutSchreiben(produktRoh: number): Promise<Ergebn
   }
   revalidatePath('/weinhandel/shop/zuordnung')
   return hinweis ? { error: hinweis.replace(/^Zuordnung gespeichert, d/, 'D') } : { success: true }
+}
+
+// ── Weindaten übertragen (KAN-462) ───────────────────────────────────────────────────────────────────────────────────
+// Schreibt nur Meta-Felder mit dem Präfix s112_ (lib/shop/weindaten.ts). Der letzte Stand – übertragen am, Prüfsumme,
+// Fehler – steht an der Zuordnung; ein Fehlversuch löscht den vorigen Erfolg nicht.
+
+const MAX_WEINDATEN = 300
+
+/** Überträgt die Weindaten einer Zuordnung; gibt die Fehlermeldung zurück (null = übertragen) */
+async function weindatenFuer(k: Kontext, z: { woo_produkt_id: number; fuellung_id: string }, zugang: WooZugang, katalog: KatalogEintrag[]): Promise<string | null> {
+  let meldung: string | null = null
+  let pruefsumme: string | null = null
+  try {
+    const d = await ladeWeindaten(k.roh, k.tenantId, z.fuellung_id, katalog)
+    if (!d) meldung = 'Die Füllung gibt es nicht mehr.'
+    else {
+      const r = await wooMetaSchreiben(zugang, z.woo_produkt_id, weindatenMeta(d, heuteWien()))
+      if (r.ok) pruefsumme = weindatenPruefsumme(d)
+      else meldung = r.meldung
+    }
+  } catch (e) {
+    meldung = fehlerText(e)
+  }
+  const jetzt = new Date().toISOString()
+  const { data, error } = await k.db.from('shop_zuordnungen')
+    .update(meldung ? { weindaten_fehler: meldung.slice(0, 500), aktualisiert_am: jetzt } : { weindaten_am: jetzt, weindaten_pruefsumme: pruefsumme, weindaten_fehler: null, aktualisiert_am: jetzt })
+    .eq('tenant_id', k.tenantId).eq('woo_produkt_id', z.woo_produkt_id).select('id')
+  if (error) return meldung ?? `Übertragen, aber der Stand konnte nicht gespeichert werden: ${dbFehlerText(error)}`
+  if (data.length === 0) return meldung ?? NICHT_GESPEICHERT
+  return meldung
+}
+
+/** Weindaten eines zugeordneten Produkts in den Shop schreiben */
+export async function shopWeindatenUebertragen(produktRoh: number): Promise<Ergebnis> {
+  const k = await zuordnungKontext()
+  if ('error' in k) return { error: k.error }
+  const produktId = produktNr(produktRoh)
+  if (!produktId) return { error: 'Das Shop-Produkt ist ungültig.' }
+  const { data: z, error: ze } = await k.db.from('shop_zuordnungen')
+    .select('id, fuellung_id, woo_produkt_id').eq('tenant_id', k.tenantId).eq('woo_produkt_id', produktId).maybeSingle()
+  if (ze) return { error: dbFehlerText(ze, 'Die Zuordnung konnte nicht geladen werden') }
+  if (!z) return { error: 'Für dieses Produkt gibt es keine Zuordnung.' }
+  try {
+    const zugang = await shopZugangLaden(k.tenantId)
+    if (!zugang.ok) return { error: zugang.meldung }
+    const katalog = await ladeElabelKatalog(k.roh)
+    const meldung = await weindatenFuer(k, { woo_produkt_id: produktId, fuellung_id: String(z.fuellung_id) }, zugang.zugang, katalog)
+    revalidatePath('/weinhandel/shop/zuordnung')
+    return meldung ? { error: meldung } : { success: true }
+  } catch (e) {
+    return { error: fehlerText(e) }
+  }
+}
+
+/** Weindaten aller zugeordneten Produkte übertragen – je Produkt eigenes Ergebnis, ein Fehler hält die übrigen nicht auf */
+export async function shopWeindatenAlle(): Promise<{ success: true; uebertragen: number; fehler: number; ersterFehler?: string } | { error: string }> {
+  const k = await zuordnungKontext()
+  if ('error' in k) return { error: k.error }
+  // alle-ausnahme: je Betrieb höchstens so viele Zuordnungen wie Shop-Produkte, gedeckelt auf MAX_WEINDATEN + 1
+  const { data: liste, error } = await (k.roh as { from(t: string): { select(s: string): { eq(c: string, v: string): { order(c: string): { limit(n: number): PromiseLike<{ data: Zeile[] | null; error: DbFehler }> } } } } })
+    .from('shop_zuordnungen').select('id, fuellung_id, woo_produkt_id').eq('tenant_id', k.tenantId).order('woo_produkt_id').limit(MAX_WEINDATEN + 1)
+  if (error) return { error: dbFehlerText(error, 'Die Zuordnungen konnten nicht geladen werden') }
+  const zeilen = liste ?? []
+  if (zeilen.length === 0) return { error: 'Es gibt noch keine Zuordnungen.' }
+  if (zeilen.length > MAX_WEINDATEN) return { error: `Mehr als ${MAX_WEINDATEN} Zuordnungen – bitte einzeln übertragen.` }
+  try {
+    const zugang = await shopZugangLaden(k.tenantId)
+    if (!zugang.ok) return { error: zugang.meldung }
+    const katalog = await ladeElabelKatalog(k.roh)
+    let uebertragen = 0, fehler = 0
+    let ersterFehler: string | undefined
+    for (const z of zeilen) {
+      const meldung = await weindatenFuer(k, { woo_produkt_id: Number(z.woo_produkt_id), fuellung_id: String(z.fuellung_id) }, zugang.zugang, katalog)
+      if (meldung) { fehler++; ersterFehler ??= meldung } else uebertragen++
+    }
+    revalidatePath('/weinhandel/shop/zuordnung')
+    return { success: true, uebertragen, fehler, ...(ersterFehler ? { ersterFehler } : {}) }
+  } catch (e) {
+    return { error: fehlerText(e) }
+  }
 }

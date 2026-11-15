@@ -12,7 +12,8 @@ import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { fuellungText, vorschlaege, type FuellungKurz } from '@/lib/shop/zuordnung'
 import type { GespeicherteZuordnung } from '@/lib/shop/laden'
 import type { WooProdukt } from '@/lib/shop/woocommerce'
-import { shopSkuErneutSchreiben, shopVorschlaegeUebernehmen, shopZuordnen, shopZuordnungLoesen } from './actions'
+import { shopSkuErneutSchreiben, shopVorschlaegeUebernehmen, shopWeindatenAlle, shopWeindatenUebertragen, shopZuordnen, shopZuordnungLoesen } from './actions'
+import type { WeindatenAnzeige } from './page'
 
 type Props = {
   produkte: WooProdukt[]
@@ -21,12 +22,16 @@ type Props = {
   shopFehler: string | null
   abgeschnitten: boolean
   nurLesen: boolean
+  weindaten: Record<number, WeindatenAnzeige>
 }
+
+const STAND_TEXT: Record<WeindatenAnzeige['stand'], string> = { nie: 'noch nicht übertragen', aktuell: 'aktuell', geaendert: 'geändert seit der Übertragung', fehler: 'Fehler' }
+const datumZeit = (iso: string) => new Date(iso).toLocaleString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 const knopf = 'border border-s112-border px-3 py-1.5 rounded-lg text-xs font-medium text-s112-text-1 hover:bg-s112-bg disabled:opacity-40'
 const haupt = 'bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-s112-teal/90 disabled:opacity-40'
 
-export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, shopFehler, abgeschnitten, nurLesen }: Props) {
+export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, shopFehler, abgeschnitten, nurLesen, weindaten }: Props) {
   const router = useRouter()
   const [laeuft, setLaeuft] = useState<string | null>(null)
   const [fehler, setFehler] = useState<string | null>(null)
@@ -83,6 +88,20 @@ export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, sho
     return 'error' in r ? { fehler: r.error } : { erfolg: 'Artikelnummer in den Shop geschrieben.' }
   })
 
+  const weindatenSenden = (p: WooProdukt) => ausfuehren(`w${p.id}`, async () => {
+    const r = await shopWeindatenUebertragen(p.id)
+    return 'error' in r ? { fehler: `${p.name}: ${r.error}` } : { erfolg: 'Weindaten in den Shop übertragen.' }
+  })
+
+  const weindatenAlle = () => ausfuehren('walle', async () => {
+    const r = await shopWeindatenAlle()
+    if ('error' in r) return { fehler: r.error }
+    return {
+      erfolg: `Weindaten von ${r.uebertragen} ${r.uebertragen === 1 ? 'Produkt' : 'Produkten'} übertragen.`,
+      hinweise: r.fehler > 0 ? [`${r.fehler} ${r.fehler === 1 ? 'Produkt' : 'Produkte'} nicht übertragen – z. B.: ${r.ersterFehler ?? ''} Der Grund steht je Produkt in der Spalte „Weindaten“.`] : [],
+    }
+  })
+
   const alleUebernehmen = () => ausfuehren('alle', async () => {
     const namen = new Map(produkte.map(p => [p.id, p.name]))
     const r = await shopVorschlaegeUebernehmen(offeneVorschlaege.map(v => ({ produktId: v.produktId, fuellungId: v.fuellungId, produktName: namen.get(v.produktId) })))
@@ -131,6 +150,11 @@ export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, sho
             {laeuft === 'alle' ? 'Wird übernommen…' : `Alle ${offeneVorschlaege.length} Vorschläge übernehmen`}
           </button>
         )}
+        {zuordnungen.length > 0 && (
+          <button type="button" className={knopf} disabled={nurLesen || laeuft !== null} onClick={weindatenAlle}>
+            {laeuft === 'walle' ? 'Wird übertragen…' : 'Weindaten aller Produkte übertragen'}
+          </button>
+        )}
       </div>
 
       <div className="card overflow-x-auto">
@@ -140,12 +164,13 @@ export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, sho
               <th className="px-3 py-2 font-medium">Produkt im Shop</th>
               <th className="px-3 py-2 font-medium">Artikelnummer (SKU)</th>
               <th className="px-3 py-2 font-medium">Füllung in software:112</th>
+              <th className="px-3 py-2 font-medium">Weindaten</th>
               <th className="px-3 py-2 font-medium"><span className="sr-only">Aktionen</span></th>
             </tr>
           </thead>
           <tbody>
             {zeilen.length === 0 && (
-              <tr><td colSpan={4} className="px-3 py-6 text-center text-s112-muted">{shopFehler ? 'Noch keine Zuordnungen gespeichert.' : 'Der Shop hat keine Produkte.'}</td></tr>
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-s112-muted">{shopFehler ? 'Noch keine Zuordnungen gespeichert.' : 'Der Shop hat keine Produkte.'}</td></tr>
             )}
             {zeilen.map(({ p, imShop }) => {
               const z = zuordnungJe.get(p.id)
@@ -184,6 +209,30 @@ export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, sho
                       <option value="">{z ? 'auf andere Füllung umhängen …' : 'Füllung wählen …'}</option>
                       {optionen.map(x => <option key={x.id} value={x.id}>{fuellungText(x)}</option>)}
                     </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    {!z ? <span className="text-s112-muted">–</span> : (() => {
+                      const w = weindaten[p.id]
+                      return (
+                        <div className="space-y-1">
+                          <div className={w?.stand === 'fehler' ? 'text-s112-err' : w?.stand === 'geaendert' ? 'text-s112-warn-fg' : 'text-s112-text-1'}>
+                            {STAND_TEXT[w?.stand ?? 'nie']}{w?.am && w.stand !== 'nie' ? ` · ${datumZeit(w.am)}` : ''}
+                          </div>
+                          {w?.fehler && <div className="text-xs text-s112-err">{w.fehler}</div>}
+                          {w?.ohneElabel && <div className="text-xs text-s112-muted">Kein freigegebenes E-Label – nur Stammdaten.</div>}
+                          <button type="button" className={knopf} disabled={nurLesen || laeuft !== null} onClick={() => weindatenSenden(p)}>
+                            {laeuft === `w${p.id}` ? 'Überträgt…' : w?.stand === 'fehler' ? 'Erneut versuchen' : 'Übertragen'}
+                          </button>
+                          {w?.html && (
+                            <details className="text-xs">
+                              <summary className="cursor-pointer text-s112-blue-700">Vorschau</summary>
+                              {/* eigener, maskierter Block aus lib/shop/weindaten.ts – keine Inhalte aus dem Shop */}
+                              <div className="mt-1 border border-s112-border rounded-lg p-2 [&_th]:text-left [&_th]:pr-3 [&_th]:font-medium" dangerouslySetInnerHTML={{ __html: w.html }} />
+                            </details>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-right space-x-2">
                     {gewaehlt && (

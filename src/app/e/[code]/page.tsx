@@ -12,6 +12,7 @@ import { geringfuegigeMengen } from '@/lib/elabel/naehrwerte'
 import { ELABEL_SPRACHLISTE, elabelSprache, geringfuegigSatz, folgeUmleitung, istElabelCode, zahlText, type Sprache } from '@/lib/elabel/oeffentlich'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { geladen } from '@/lib/supabase/geladen'
+import { ELABEL_FUELLUNG_SPALTEN, ELABEL_INHALT_SPALTEN, ELABEL_KATALOG_SPALTEN } from '@/lib/elabel/spalten'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
   // Öffentliche, unangemeldete Seite → Service-Role; der Code ist global eindeutig (UNIQUE), gelesen wird nur ein
   // freigegebenes E-Label und die Anzeige-Felder seiner Füllung.
   const supabase = createSupabaseAdminClient()
-  const SPALTEN = 'id, umleitung_auf, tenant_id, fuellung_id, zutaten_ids, alkohol_vol, energie_kj, energie_kcal, fett_g, fett_gesaettigt_g, kohlenhydrate_g, zucker_g, eiweiss_g, salz_g'
+  const SPALTEN = `id, umleitung_auf, tenant_id, fuellung_id, ${ELABEL_INHALT_SPALTEN}`   // KAN-462: dieselben Spalten wie die Weindaten im Shop
   // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – Code global eindeutig (UNIQUE)
   // Sweep 86 (KAN-278): Lesefehler nicht als „gibt es nicht“ bzw. Etikett ohne Zutaten/Allergene zeigen – werfen, die
   // Fehlerseite (error.tsx daneben) meldet „vorübergehend nicht verfügbar“
@@ -41,11 +42,11 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
   })
   const [fRes, tRes, kRes] = await Promise.all([
     // tenant-isolation-ignore: Füllung des freigegebenen E-Labels (tenant_id aus dem E-Label)
-    (supabase.from('fuellungen') as R).select('name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, sekt_stufe, flaschengroesse_ml')
+    (supabase.from('fuellungen') as R).select(ELABEL_FUELLUNG_SPALTEN)
       .eq('id', (e as R).fuellung_id).eq('tenant_id', (e as R).tenant_id).maybeSingle(),
     (supabase.from('tenants') as R).select('name').eq('id', (e as R).tenant_id).maybeSingle(),
     // alle-ausnahme: globaler E-Label-Katalog (Zutaten/Zusatzstoffe), wenige Dutzend Einträge
-    (supabase.from('elabel_zutaten') as R).select('id, kategorie, name_de, name_en, e_nummer, allergen, sortierung').order('sortierung').limit(500),
+    (supabase.from('elabel_zutaten') as R).select(ELABEL_KATALOG_SPALTEN).order('sortierung').limit(500),
   ])
   const f = geladen(fRes, 'Füllung') as R | null
   const t = geladen(tRes, 'Betrieb') as R | null

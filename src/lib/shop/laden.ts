@@ -38,6 +38,10 @@ export type GespeicherteZuordnung = {
   woo_name: string | null
   woo_sku: string | null
   sku_geschrieben_am: string | null
+  /** KAN-462: letzter Stand der Weindaten-Übertragung */
+  weindaten_am: string | null
+  weindaten_pruefsumme: string | null
+  weindaten_fehler: string | null
 }
 
 /** Füllungen (aktiv, nicht storniert) und Zuordnungen des Betriebs – vollständig; wirft bei einem Datenbankfehler */
@@ -49,7 +53,7 @@ export async function ladeFuellungenUndZuordnungen(supabase: any, tenantId: stri
       .eq('tenant_id', tenantId).eq('aktiv', true).is('storniert_am', null)
       .order('jahrgang', { ascending: false, nullsFirst: false }).order('name').order('id')),
     alle<Record<string, unknown>>(supabase.from('shop_zuordnungen')
-      .select('id, fuellung_id, woo_produkt_id, woo_name, woo_sku, sku_geschrieben_am')
+      .select('id, fuellung_id, woo_produkt_id, woo_name, woo_sku, sku_geschrieben_am, weindaten_am, weindaten_pruefsumme, weindaten_fehler')
       .eq('tenant_id', tenantId).order('woo_produkt_id').order('id')),
   ])
   if (f.error) throw new AktionsFehler(dbFehlerText(f.error, 'Füllungen konnten nicht geladen werden'))
@@ -63,6 +67,7 @@ export async function ladeFuellungenUndZuordnungen(supabase: any, tenantId: stri
     zuordnungen: z.data.map(r => ({
       id: String(r.id), fuellung_id: String(r.fuellung_id), woo_produkt_id: Number(r.woo_produkt_id),
       woo_name: text(r.woo_name), woo_sku: text(r.woo_sku), sku_geschrieben_am: text(r.sku_geschrieben_am),
+      weindaten_am: text(r.weindaten_am), weindaten_pruefsumme: text(r.weindaten_pruefsumme), weindaten_fehler: text(r.weindaten_fehler),
     })),
   }
 }
