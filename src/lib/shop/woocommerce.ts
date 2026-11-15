@@ -1,5 +1,5 @@
-// Weinshop-Anbindung (KAN-460, 15.11.2026): Aufrufe der WooCommerce REST API v3 – in diesem Teil nur lesend
-// (Verbindungstest). Nur serverseitig verwenden (Schlüssel im Klartext); keine `@/`-Importe, damit node:test die Datei
+// Weinshop-Anbindung (KAN-460/KAN-461, 15.11.2026): Aufrufe der WooCommerce REST API v3 – Verbindungstest, Produkte
+// lesen und (einziger Schreibzugriff) die SKU eines Produkts setzen. Nur serverseitig verwenden (Schlüssel im Klartext); keine `@/`-Importe, damit node:test die Datei
 // direkt lädt. Fehler werden nicht geworfen, sondern als Ergebnis mit verständlicher Meldung zurückgegeben – ein
 // Speichervorgang in software:112 darf nie an der Shop-API scheitern.
 //
@@ -14,6 +14,7 @@ export const WOO_ZEITLIMIT_MS = 15_000
 export type WooZugang = { url: string; key: string; secret: string }
 
 export type WooFehlerArt = 'adresse' | 'nicht_erreichbar' | 'zeit' | 'weiterleitung' | 'kein_woocommerce' | 'schluessel' | 'recht' | 'antwort'
+  | 'schreibrecht' | 'sku_vergeben' | 'produkt_fehlt'
 
 export type WooErgebnis<T> = { ok: true; daten: T } | { ok: false; art: WooFehlerArt; meldung: string }
 
@@ -32,6 +33,9 @@ const MELDUNG: Record<WooFehlerArt, string> = {
   schluessel: 'Der Shop hat den Schlüssel abgelehnt – bitte Consumer Key und Consumer Secret prüfen.',
   recht: 'Der Schlüssel hat keine Berechtigung, Produkte zu lesen – bitte in WooCommerce „Lesen/Schreiben“ vergeben.',
   antwort: 'Der Shop hat unerwartet geantwortet.',
+  schreibrecht: 'Der Schlüssel darf im Shop nicht schreiben – bitte in WooCommerce die Berechtigung „Lesen/Schreiben“ vergeben.',
+  sku_vergeben: 'Diese Artikelnummer (SKU) ist im Shop schon bei einem anderen Produkt vergeben.',
+  produkt_fehlt: 'Das Produkt gibt es im Shop nicht mehr.',
 }
 
 function fehler<T>(art: WooFehlerArt, zusatz?: string): WooErgebnis<T> {
@@ -42,8 +46,8 @@ async function standardAufloesen(host: string): Promise<string[]> {
   return (await dnsLookup(host, { all: true })).map(a => a.address)
 }
 
-/** GET auf einen Pfad der WooCommerce-API (`/products?per_page=1`) – geprüfte Adresse, Basic Auth, ohne Weiterleitung */
-async function wooGet(z: WooZugang, pfad: string, umgebung: WooUmgebung): Promise<WooErgebnis<{ json: unknown; gesamt: number | null }>> {
+/** Aufruf eines Pfads der WooCommerce-API (`/products?per_page=1`) – geprüfte Adresse, Basic Auth, ohne Weiterleitung */
+async function wooAufruf(z: WooZugang, pfad: string, umgebung: WooUmgebung, schreiben?: { methode: 'PUT'; daten: Record<string, unknown> }): Promise<WooErgebnis<{ json: unknown; gesamt: number | null; seiten: number | null }>> {
   const adresseFehler = shopUrlFehler(z.url)
   const basis = shopUrlNormalisiert(z.url)
   if (adresseFehler || !basis) return { ok: false, art: 'adresse', meldung: adresseFehler ?? MELDUNG.adresse }
@@ -58,8 +62,10 @@ async function wooGet(z: WooZugang, pfad: string, umgebung: WooUmgebung): Promis
   let res: Response
   try {
     res = await (umgebung.fetch ?? fetch)(`${basis}/wp-json/wc/v3${pfad}`, {
-      method: 'GET',
+      method: schreiben ? schreiben.methode : 'GET',
+      ...(schreiben ? { body: JSON.stringify(schreiben.daten) } : {}),
       headers: {
+        ...(schreiben ? { 'Content-Type': 'application/json' } : {}),
         Authorization: `Basic ${Buffer.from(`${z.key.trim()}:${z.secret.trim()}`).toString('base64')}`,
         Accept: 'application/json',
         'User-Agent': 'software112-shop/1',
@@ -74,6 +80,15 @@ async function wooGet(z: WooZugang, pfad: string, umgebung: WooUmgebung): Promis
   }
 
   if (res.status >= 300 && res.status < 400) return fehler('weiterleitung')
+  if (schreiben && !res.ok) {
+    // WooCommerce meldet Schreibfehler mit { code, message }: fehlendes Schreibrecht, vergebene SKU, gelöschtes Produkt
+    let code = ''
+    try { code = String(((await res.json()) as { code?: unknown } | null)?.code ?? '') } catch { /* kein JSON */ }
+    if (res.status === 401 || res.status === 403 || /cannot_edit|cannot_create/.test(code)) return fehler(res.status === 401 && !/cannot_/.test(code) ? 'schluessel' : 'schreibrecht')
+    if (/invalid_sku|sku_already|duplicate/.test(code)) return fehler('sku_vergeben')
+    if (res.status === 404 || /invalid_id/.test(code)) return fehler('produkt_fehlt')
+    return fehler('antwort', `(HTTP ${res.status})`)
+  }
   if (res.status === 401) return fehler('schluessel')
   if (res.status === 403) return fehler('recht')
   if (res.status === 404) return fehler('kein_woocommerce')
@@ -81,8 +96,8 @@ async function wooGet(z: WooZugang, pfad: string, umgebung: WooUmgebung): Promis
   if (!/json/i.test(res.headers.get('content-type') ?? '')) return fehler('kein_woocommerce')
   let json: unknown
   try { json = await res.json() } catch { return fehler('kein_woocommerce') }
-  const total = Number.parseInt(res.headers.get('x-wp-total') ?? '', 10)
-  return { ok: true, daten: { json, gesamt: Number.isFinite(total) && total >= 0 ? total : null } }
+  const zahl = (kopf: string) => { const n = Number.parseInt(res.headers.get(kopf) ?? '', 10); return Number.isFinite(n) && n >= 0 ? n : null }
+  return { ok: true, daten: { json, gesamt: zahl('x-wp-total'), seiten: zahl('x-wp-totalpages') } }
 }
 
 /**
@@ -90,7 +105,7 @@ async function wooGet(z: WooZugang, pfad: string, umgebung: WooUmgebung): Promis
  * lesen. Ob er auch schreiben darf, zeigt sich erst beim ersten Schreibzugriff (Zuordnung, KAN-461).
  */
 export async function wooVerbindungTesten(z: WooZugang, umgebung: WooUmgebung = {}): Promise<WooErgebnis<{ produkte: number | null }>> {
-  const r = await wooGet(z, '/products?per_page=1&_fields=id', umgebung)
+  const r = await wooAufruf(z, '/products?per_page=1&_fields=id', umgebung)
   if (!r.ok) return r
   if (!Array.isArray(r.daten.json)) return fehler('kein_woocommerce')
   return { ok: true, daten: { produkte: r.daten.gesamt } }
@@ -100,4 +115,59 @@ export async function wooVerbindungTesten(z: WooZugang, umgebung: WooUmgebung = 
 export function wooVerbindungText(produkte: number | null): string {
   if (produkte === null) return 'Verbindung steht.'
   return `Verbindung steht – ${produkte} ${produkte === 1 ? 'Produkt' : 'Produkte'} im Shop.`
+}
+
+// ── Produkte lesen und SKU schreiben (KAN-461) ───────────────────────────────────────────────────────────────────────
+
+export const WOO_SEITE = 100
+export const WOO_MAX_SEITEN = 10
+
+export type WooProdukt = { id: number; name: string; sku: string | null; status: string | null; typ: string | null }
+
+function alsProdukt(roh: unknown): WooProdukt | null {
+  const r = roh as { id?: unknown; name?: unknown; sku?: unknown; status?: unknown; type?: unknown } | null
+  const id = Number(r?.id)
+  if (!r || !Number.isSafeInteger(id) || id <= 0) return null
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  return { id, name: (text(r.name) ?? `Produkt ${id}`).slice(0, 300), sku: text(r.sku)?.slice(0, 100) ?? null, status: text(r.status), typ: text(r.type) }
+}
+
+/**
+ * Alle Produkte des Shops, seitenweise je 100 – höchstens 1.000 (`abgeschnitten`, wenn der Shop mehr hat).
+ * Scheitert eine Folgeseite, ist das Ergebnis ein Fehler: nie mit einer Teilmenge weiterarbeiten.
+ */
+export async function wooProdukteLaden(z: WooZugang, umgebung: WooUmgebung = {}): Promise<WooErgebnis<{ produkte: WooProdukt[]; abgeschnitten: boolean }>> {
+  const produkte: WooProdukt[] = []
+  let seiten = 1
+  let abgeschnitten = false
+  for (let seite = 1; seite <= seiten; seite++) {
+    if (seite > WOO_MAX_SEITEN) { abgeschnitten = true; break }
+    const r = await wooAufruf(z, `/products?per_page=${WOO_SEITE}&page=${seite}&orderby=id&order=asc&_fields=id,name,sku,status,type`, umgebung)
+    if (!r.ok) return r
+    if (!Array.isArray(r.daten.json)) return fehler('kein_woocommerce')
+    for (const roh of r.daten.json) { const p = alsProdukt(roh); if (p) produkte.push(p) }
+    // Seitenzahl aus dem Kopf der Antwort; fehlt er, weiterlesen, solange die Seite voll ist
+    if (r.daten.seiten !== null) seiten = r.daten.seiten
+    else seiten = r.daten.json.length === WOO_SEITE ? seite + 1 : seite
+  }
+  return { ok: true, daten: { produkte, abgeschnitten } }
+}
+
+/** Setzt die Artikelnummer (SKU) eines Produkts – der einzige Schreibzugriff dieser Stufe; sonst wird nichts geändert */
+export async function wooSkuSchreiben(z: WooZugang, produktId: number, sku: string, umgebung: WooUmgebung = {}): Promise<WooErgebnis<{ sku: string }>> {
+  if (!Number.isSafeInteger(produktId) || produktId <= 0) return fehler('produkt_fehlt')
+  const r = await wooAufruf(z, `/products/${produktId}`, umgebung, { methode: 'PUT', daten: { sku } })
+  if (!r.ok) return r
+  const geschrieben = (r.daten.json as { sku?: unknown } | null)?.sku
+  if (typeof geschrieben !== 'string' || geschrieben.trim().toLowerCase() !== sku.trim().toLowerCase()) return fehler('antwort', '(SKU nicht übernommen)')
+  return { ok: true, daten: { sku: geschrieben.trim() } }
+}
+
+/** Ein Produkt mit aktuellem Namen und aktueller SKU (vor dem Schreiben der SKU: nie eine vorhandene überschreiben) */
+export async function wooProduktLesen(z: WooZugang, produktId: number, umgebung: WooUmgebung = {}): Promise<WooErgebnis<WooProdukt>> {
+  if (!Number.isSafeInteger(produktId) || produktId <= 0) return fehler('produkt_fehlt')
+  const r = await wooAufruf(z, `/products/${produktId}?_fields=id,name,sku,status,type`, umgebung)
+  if (!r.ok) return r.art === 'kein_woocommerce' ? fehler('produkt_fehlt') : r
+  const p = alsProdukt(r.daten.json)
+  return p && p.id === produktId ? { ok: true, daten: p } : fehler('produkt_fehlt')
 }

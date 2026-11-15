@@ -934,6 +934,11 @@ BEGIN
       v_erg := NULL;
     END IF;
     v_w := v_w || jsonb_build_object('verkaufsposten_id', gen_random_uuid(), 'menge', 1, 'zurueckgenommen_am', NULL);
+  ELSIF p_tab = 'shop_zuordnungen' THEN   -- KAN-461: eigene Füllung je Zeile (UNIQUE Betrieb + Füllung bzw. Produkt)
+    IF NOT coalesce(p_werte, '{}'::jsonb) ? 'fuellung_id' THEN
+      v_w := v_w || jsonb_build_object('fuellung_id', pg_temp.s112_beispiel('fuellungen', p_tenant, p_persona) ->> 'id');
+    END IF;
+    v_w := v_w || jsonb_build_object('woo_produkt_id', 1 + floor(random() * 2000000000)::bigint, 'woo_name', 'S112TEST Produkt', 'woo_sku', NULL, 'sku_geschrieben_am', NULL);
   ELSIF p_tab = 'export_registrierungen' THEN   -- KAN-437: CHECK Art (und Bezeichnung bei „sonstige“)
     v_w := v_w || jsonb_build_object('art', 'fda', 'nummer', 'S112TEST-' || left(gen_random_uuid()::text, 8), 'bezeichnung', NULL);
   ELSIF p_tab = 'export_nachweise' THEN   -- KAN-440: CHECK Ablagepfad <betrieb>/<auftrag>/…, Art
@@ -1168,6 +1173,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('stripe_zahlungen_log',          '-',                                      '-',                                      '-'),
     ('sumup_checkouts',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
     ('sumup_terminals',               'SA,TA',                                  'SA,TA',                                  'SA,TA'),
+    ('shop_zuordnungen',              'SA,TA',                                  'SA,TA',                                  'SA,TA'),   -- KAN-461: Zuordnung Füllung ↔ Shop-Produkt, nur Betriebsleitung
     ('sumup_transaktionen',           '-',                                      '-',                                      '-'),
     ('svs_parameter',                 '-',                                      '-',                                      '-'),
     ('system_ereignisse',             '-',                                      '-',                                      '-'),
@@ -1279,7 +1285,7 @@ BEGIN
       'buchhaltung_export_protokoll', 'buchhaltung_kontenmapping', 'ea_anlagen', 'ea_belege', 'ea_dauerauftraege',
       'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'export_dokumente', 'export_nachweise', 'export_registrierungen', 'exportauftraege',
       'exportauftrag_positionen', 'konten', 'konto_umbuchungen', 'kostenarten', 'kosteneintraege',
-      'kosteneintrag_behaelter', 'kosteneintrag_weingaerten', 'kostenstellen', 'sumup_checkouts', 'sumup_terminals']
+      'kosteneintrag_behaelter', 'kosteneintrag_weingaerten', 'kostenstellen', 'shop_zuordnungen', 'sumup_checkouts', 'sumup_terminals']
     WHEN 'tid_ohne_fk' THEN ARRAY['bestandsprotokoll', 'system_ereignisse']
     WHEN 'truncate_authenticated' THEN '{}'::text[]   -- seit KAN-159 (29.09.2026) kein TRUNCATE mehr
     WHEN 'truncate_anon' THEN pg_temp.s112_soll_liste('truncate_authenticated')

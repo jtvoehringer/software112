@@ -69,6 +69,7 @@ UNION ALL SELECT 'verkauf_ki_begriffe' AS tabelle, x.tenant_id, to_jsonb(x) AS z
 UNION ALL SELECT 'elabels' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.elabels x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'elabel_umleitungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.elabel_umleitungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'fuellung_etikettierungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.fuellung_etikettierungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'shop_zuordnungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.shop_zuordnungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'lohnversektungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.lohnversektungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'produktionen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.produktionen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'produktion_eingaenge' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.produktion_eingaenge x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
@@ -147,6 +148,7 @@ UNION ALL SELECT 'verkauf_ki_begriffe' AS tabelle FROM public.verkauf_ki_begriff
 UNION ALL SELECT 'elabels' AS tabelle FROM public.elabels x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'elabel_umleitungen' AS tabelle FROM public.elabel_umleitungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'fuellung_etikettierungen' AS tabelle FROM public.fuellung_etikettierungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'shop_zuordnungen' AS tabelle FROM public.shop_zuordnungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'lohnversektungen' AS tabelle FROM public.lohnversektungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'produktionen' AS tabelle FROM public.produktionen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'produktion_eingaenge' AS tabelle FROM public.produktion_eingaenge x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
@@ -224,6 +226,7 @@ SELECT * FROM public.verkauf_ki_begriffe WHERE tenant_id IN ('097f67ed-381e-4bb3
 SELECT * FROM public.elabels WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.elabel_umleitungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.fuellung_etikettierungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.shop_zuordnungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.lohnversektungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.produktionen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.produktion_eingaenge WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
