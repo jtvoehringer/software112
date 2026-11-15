@@ -39,7 +39,7 @@ describe('KAN-459: Migration kan459a', () => {
   })
   test('Selbstprüfung: Anzahl = Tabellen der Liste + storage.objects, keine Policy in anderer Form', () => {
     // shop_zuordnungen kam nach dieser Migration dazu (KAN-461) und bringt ihre Policy schon für alle Befehle mit
-    const n = zeilen(LISTE).filter(z => z.tabelle !== 'shop_zuordnungen').length
+    const n = zeilen(LISTE).filter(z => !['shop_zuordnungen', 'shop_warteschlange'].includes(z.tabelle)).length
     assert.equal(n, 126)
     assert.match(M, new RegExp(`IF v_n <> ${n + 1} THEN RAISE EXCEPTION 'KAN-459: % Policies umgestellt \\(erwartet ${n + 1}\\)'`))
     assert.match(M, /p\.cmd = 'ALL' AND p\.permissive = 'RESTRICTIVE' AND p\.roles = '\{authenticated\}'::name\[\] AND p\.qual IS NOT NULL AND p\.with_check IS NOT DISTINCT FROM p\.qual/)

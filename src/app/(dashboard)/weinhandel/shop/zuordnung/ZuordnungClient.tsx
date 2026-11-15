@@ -12,7 +12,8 @@ import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { fuellungText, vorschlaege, type FuellungKurz } from '@/lib/shop/zuordnung'
 import type { GespeicherteZuordnung } from '@/lib/shop/laden'
 import type { WooProdukt } from '@/lib/shop/woocommerce'
-import { shopSkuErneutSchreiben, shopVorschlaegeUebernehmen, shopWeindatenAlle, shopWeindatenUebertragen, shopZuordnen, shopZuordnungLoesen } from './actions'
+import type { BestandAnzeige } from '@/lib/shop/warteschlangeRegeln'
+import { shopBestandJetzt, shopSkuErneutSchreiben, shopVorschlaegeUebernehmen, shopWeindatenAlle, shopWeindatenUebertragen, shopZuordnen, shopZuordnungLoesen } from './actions'
 import type { WeindatenAnzeige } from './page'
 
 type Props = {
@@ -23,6 +24,9 @@ type Props = {
   abgeschnitten: boolean
   nurLesen: boolean
   weindaten: Record<number, WeindatenAnzeige>
+  /** KAN-463: Stand der Bestandsübertragung je Produkt; bestandAn = Schalter „Bestand übertragen“ */
+  bestand: Record<number, BestandAnzeige>
+  bestandAn: boolean
 }
 
 const STAND_TEXT: Record<WeindatenAnzeige['stand'], string> = { nie: 'noch nicht übertragen', aktuell: 'aktuell', geaendert: 'geändert seit der Übertragung', fehler: 'Fehler' }
@@ -31,7 +35,7 @@ const datumZeit = (iso: string) => new Date(iso).toLocaleString('de-AT', { timeZ
 const knopf = 'border border-s112-border px-3 py-1.5 rounded-lg text-xs font-medium text-s112-text-1 hover:bg-s112-bg disabled:opacity-40'
 const haupt = 'bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-s112-teal/90 disabled:opacity-40'
 
-export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, shopFehler, abgeschnitten, nurLesen, weindaten }: Props) {
+export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, shopFehler, abgeschnitten, nurLesen, weindaten, bestand, bestandAn }: Props) {
   const router = useRouter()
   const [laeuft, setLaeuft] = useState<string | null>(null)
   const [fehler, setFehler] = useState<string | null>(null)
@@ -91,6 +95,12 @@ export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, sho
   const weindatenSenden = (p: WooProdukt) => ausfuehren(`w${p.id}`, async () => {
     const r = await shopWeindatenUebertragen(p.id)
     return 'error' in r ? { fehler: `${p.name}: ${r.error}` } : { erfolg: 'Weindaten in den Shop übertragen.' }
+  })
+
+  const bestandSenden = (p: WooProdukt) => ausfuehren(`b${p.id}`, async () => {
+    const r = await shopBestandJetzt(p.id)
+    if ('error' in r) return { fehler: `${p.name}: ${r.error}` }
+    return { erfolg: r.menge === null ? 'Bestand an den Shop übertragen.' : `Bestand an den Shop übertragen: ${r.menge} Flaschen.` }
   })
 
   const weindatenAlle = () => ausfuehren('walle', async () => {
@@ -165,12 +175,13 @@ export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, sho
               <th className="px-3 py-2 font-medium">Artikelnummer (SKU)</th>
               <th className="px-3 py-2 font-medium">Füllung in software:112</th>
               <th className="px-3 py-2 font-medium">Weindaten</th>
+              {bestandAn && <th className="px-3 py-2 font-medium">Bestand im Shop</th>}
               <th className="px-3 py-2 font-medium"><span className="sr-only">Aktionen</span></th>
             </tr>
           </thead>
           <tbody>
             {zeilen.length === 0 && (
-              <tr><td colSpan={5} className="px-3 py-6 text-center text-s112-muted">{shopFehler ? 'Noch keine Zuordnungen gespeichert.' : 'Der Shop hat keine Produkte.'}</td></tr>
+              <tr><td colSpan={bestandAn ? 6 : 5} className="px-3 py-6 text-center text-s112-muted">{shopFehler ? 'Noch keine Zuordnungen gespeichert.' : 'Der Shop hat keine Produkte.'}</td></tr>
             )}
             {zeilen.map(({ p, imShop }) => {
               const z = zuordnungJe.get(p.id)
@@ -234,6 +245,25 @@ export default function ZuordnungClient({ produkte, fuellungen, zuordnungen, sho
                       )
                     })()}
                   </td>
+                  {bestandAn && (
+                    <td className="px-3 py-2">
+                      {!z ? <span className="text-s112-muted">–</span> : (() => {
+                        const b = bestand[p.id]
+                        return (
+                          <div className="space-y-1">
+                            <div className="text-s112-text-1">
+                              {b?.am && b.menge !== null ? `${b.menge} Flaschen · ${datumZeit(b.am)}` : 'noch nicht übertragen'}
+                              {b?.wartet ? ' · Änderung wartet' : ''}
+                            </div>
+                            {b?.fehler && <div className="text-xs text-s112-err">{b.fehler}{b.versuche > 0 ? ` (Versuch ${b.versuche})` : ''}</div>}
+                            <button type="button" className={knopf} disabled={nurLesen || laeuft !== null} onClick={() => bestandSenden(p)}>
+                              {laeuft === `b${p.id}` ? 'Überträgt…' : 'Bestand jetzt übertragen'}
+                            </button>
+                          </div>
+                        )
+                      })()}
+                    </td>
+                  )}
                   <td className="px-3 py-2 whitespace-nowrap text-right space-x-2">
                     {gewaehlt && (
                       <button type="button" className={haupt} disabled={nurLesen || laeuft !== null} onClick={() => zuordnen(p, gewaehlt)}>

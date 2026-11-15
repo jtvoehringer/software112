@@ -261,6 +261,8 @@
   {"n":"reifemessungen_weingarten_id_fkey","t":"reifemessungen","s":["weingarten_id"],"z":"weingarten"},
   {"n":"release_notes_gesehen_release_note_id_fkey","t":"release_notes_gesehen","s":["release_note_id"],"z":"release_notes"},
   {"n":"saetze_massnahmen_tenant_id_fkey","t":"saetze_massnahmen","s":["tenant_id"],"z":"tenants"},
+  {"n":"shop_warteschlange_fuellung_id_fkey","t":"shop_warteschlange","s":["fuellung_id"],"z":"fuellungen"},
+  {"n":"shop_warteschlange_tenant_id_fkey","t":"shop_warteschlange","s":["tenant_id"],"z":"tenants"},
   {"n":"shop_zuordnungen_fuellung_id_fkey","t":"shop_zuordnungen","s":["fuellung_id"],"z":"fuellungen"},
   {"n":"shop_zuordnungen_tenant_id_fkey","t":"shop_zuordnungen","s":["tenant_id"],"z":"tenants"},
   {"n":"sonstige_artikel_bewegungen_artikel_id_fkey","t":"sonstige_artikel_bewegungen","s":["artikel_id"],"z":"sonstige_artikel"},

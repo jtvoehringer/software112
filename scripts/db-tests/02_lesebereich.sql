@@ -31,7 +31,7 @@ DECLARE
     'lesen=lese', 'lieferadressen=verkauf', 'lohnversektungen=keller', 'meldung_abgaben=verwaltung', 'morgenberichte=verwaltung', 'pflanzenschutzmittel=betriebsmittel',
     'pipeline_eintraege=crm', 'pipeline_verlauf=crm', 'pressung_behaelter=lese', 'pressung_weingaerten=lese', 'pressungen=lese', 'produktion_eingaenge=keller',
     'produktionen=keller', 'pruefnummer_chargen=keller', 'pruefnummer_ereignisse=keller', 'pruefnummernantraege=keller', 'psm_lager_bewegungen=betriebsmittel', 'psm_uebermittlungen=betriebsmittel',
-    'rabattgruppen=verkauf', 'rechnungen=verkauf', 'reifemessungen=rieden', 'saetze_massnahmen=controlling', 'shop_zuordnungen=lager', 'sonstige_artikel=lager', 'sonstige_artikel_bewegungen=lager',
+    'rabattgruppen=verkauf', 'rechnungen=verkauf', 'reifemessungen=rieden', 'saetze_massnahmen=controlling', 'shop_warteschlange=lager', 'shop_zuordnungen=lager', 'sonstige_artikel=lager', 'sonstige_artikel_bewegungen=lager',
     'stripe_zahlungen_log=verwaltung', 'sumup_checkouts=verkauf', 'sumup_terminals=verkauf', 'sumup_transaktionen=verkauf', 'system_ereignisse=verwaltung', 'transaktionszaehler=verwaltung',
     'transportbescheinigungen=lager', 'traubenverkauf=lese', 'verkauf_ki_begriffe=verkauf', 'verkauf_positionen=verkauf', 'verkaufsposten=verkauf', 'verschneidung_quellen=keller',
     'verschneidungen=keller', 'weinanalysen=keller', 'weinausbau=keller', 'weinausbau_weingaerten=keller', 'weinbaugebiete_custom=rieden', 'weingarten=rieden',
@@ -101,7 +101,7 @@ BEGIN
         AND NOT c.relname = ANY (c_allgemein)
         AND NOT EXISTS (SELECT 1 FROM unnest(c_soll) s WHERE split_part(s, '=', 1) = c.relname)), '');
   v_erg := v_erg || pg_temp.s112_erwarte('policies_gesamt',
-    (SELECT count(*) FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'lesebereich'), 127);   -- +1 KAN-458 (grundstueck_recht), +1 KAN-461 (shop_zuordnungen)
+    (SELECT count(*) FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'lesebereich'), 128);   -- +1 KAN-458 (grundstueck_recht), +1 KAN-461 (shop_zuordnungen), +1 KAN-463 (shop_warteschlange)
 
   -- ── 2. Verhalten je Tabelle: Beispielzeile in B, Sicht des Mitarbeiters ohne Profil als Maßstab ───────────────
   FOR r IN SELECT * FROM pg_temp.s112_mandantentabellen() WHERE klasse IN ('T', 'K') ORDER BY tabelle LOOP

@@ -152,8 +152,13 @@ export default function ShopEinstellungen({ daten, nurLesen }: { daten: ShopDate
             <span>
               Bestand an den Shop übertragen
               <span className="block text-xs text-s112-muted">
-                Ausgeschaltet bekommt der Shop nur Weindaten. Eingeschaltet meldet software:112 je zugeordnetem Produkt die
-                verfügbaren Flaschen abzüglich der Reserve (folgt mit der Bestandsübertragung).
+                Ausgeschaltet bekommt der Shop nur Weindaten. Eingeschaltet schaltet software:112 je zugeordnetem Produkt die
+                Lagerführung im Shop ein und meldet die verfügbaren Flaschen (Bestand abzüglich reservierter Flaschen und
+                Reserve) – nach jeder Bestandsänderung, mit bis zu zehn Minuten Abstand.
+              </span>
+              <span className="block text-xs text-s112-warn-fg mt-1">
+                Erst einschalten, wenn Shop-Bestellungen in software:112 ankommen oder zeitnah nachgebucht werden – sonst
+                überschreibt die Übertragung Verkäufe aus dem Shop.
               </span>
             </span>
           </label>

@@ -7,6 +7,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { warteschlangeAbarbeiten } from '@/lib/shop/warteschlange'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
@@ -260,6 +262,53 @@ export async function shopWeindatenAlle(): Promise<{ success: true; uebertragen:
     }
     revalidatePath('/weinhandel/shop/zuordnung')
     return { success: true, uebertragen, fehler, ...(ersterFehler ? { ersterFehler } : {}) }
+  } catch (e) {
+    return { error: fehlerText(e) }
+  }
+}
+
+// ── Bestand jetzt übertragen (KAN-463) ───────────────────────────────────────────────────────────────────────────────
+// Reiht die Füllung des Produkts ein und arbeitet genau diesen Eintrag sofort ab (Service-Role, nach den Prüfungen
+// oben). Der regelmäßige Weg bleibt die Warteschlange mit dem Cron – das hier ist der Knopf für „gleich prüfen“.
+
+export async function shopBestandJetzt(produktRoh: number): Promise<{ success: true; menge: number | null } | { error: string }> {
+  const k = await zuordnungKontext()
+  if ('error' in k) return { error: k.error }
+  const produktId = produktNr(produktRoh)
+  if (!produktId) return { error: 'Das Shop-Produkt ist ungültig.' }
+  const { data: z, error: ze } = await k.db.from('shop_zuordnungen')
+    .select('id, fuellung_id').eq('tenant_id', k.tenantId).eq('woo_produkt_id', produktId).maybeSingle()
+  if (ze) return { error: dbFehlerText(ze, 'Die Zuordnung konnte nicht geladen werden') }
+  if (!z) return { error: 'Für dieses Produkt gibt es keine Zuordnung.' }
+  const fuellungId = String(z.fuellung_id)
+
+  type Admin = {
+    from(t: 'tenant_einstellungen' | 'shop_warteschlange'): {
+      select(s: string): Filter<Zeile[]>
+      upsert(w: Zeile, o: { onConflict: string }): PromiseLike<{ error: DbFehler }>
+    }
+  }
+  const admin = createSupabaseAdminClient()
+  const a = admin as unknown as Admin
+  const { data: einst, error: ee } = await a.from('tenant_einstellungen')
+    .select('shop_bestand_uebertragen').eq('tenant_id', k.tenantId).maybeSingle()
+  if (ee) return { error: dbFehlerText(ee, 'Die Einstellungen konnten nicht geladen werden') }
+  if (einst?.shop_bestand_uebertragen !== true) return { error: 'Die Bestandsübertragung ist ausgeschaltet – einschalten unter Shop-Anbindung → Einstellungen.' }
+
+  const jetzt = new Date().toISOString()
+  const { error: ue } = await a.from('shop_warteschlange').upsert(
+    { tenant_id: k.tenantId, fuellung_id: fuellungId, art: 'bestand', eingereiht_am: jetzt, versuche: 0, naechster_versuch_am: jetzt, letzter_fehler: null },
+    { onConflict: 'tenant_id,fuellung_id,art' })
+  if (ue) return { error: dbFehlerText(ue, 'Die Übertragung konnte nicht eingereiht werden') }
+  try {
+    const lauf = await warteschlangeAbarbeiten(admin, { nur: { tenantId: k.tenantId, fuellungId, art: 'bestand' } })
+    revalidatePath('/weinhandel/shop/zuordnung')
+    if (lauf.fehler > 0) return { error: lauf.meldungen[0] ?? 'Die Übertragung ist fehlgeschlagen.' }
+    if (lauf.uebertragen === 0) return { error: 'Es wurde nichts übertragen – bitte die Seite neu laden.' }
+    const { data: stand, error: se } = await k.db.from('shop_zuordnungen')
+      .select('id, bestand_menge').eq('tenant_id', k.tenantId).eq('woo_produkt_id', produktId).maybeSingle()
+    if (se) return { success: true, menge: null }
+    return { success: true, menge: stand?.bestand_menge === null || stand?.bestand_menge === undefined ? null : Number(stand.bestand_menge) }
   } catch (e) {
     return { error: fehlerText(e) }
   }

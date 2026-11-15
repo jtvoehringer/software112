@@ -20,6 +20,14 @@
     {
       "path": "/api/cron/smoke-test",
       "schedule": "50 3 * * *"
+    },
+    {
+      "path": "/api/cron/shop",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/shop?abgleich=1",
+      "schedule": "25 4 * * *"
     }
   ]
 }

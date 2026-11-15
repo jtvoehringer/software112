@@ -59,7 +59,7 @@ describe('KAN-455: Stand der Routen', () => {
   })
   test('Ausnahmen: nur Routen ohne Benutzersitzung, im Bereich allgemein oder mit Benutzer-Client unter den Policies', () => {
     const ausnahmen = Object.entries(LISTE.routen).filter(([, e]) => e && typeof e === 'object' && !Array.isArray(e))
-    assert.equal(ausnahmen.length, 26)
+    assert.equal(ausnahmen.length, 27)   // +1 KAN-463: cron/shop (Cron mit Secret)
     for (const [r, e] of ausnahmen) assert.match(e.ausnahme, /ohne Benutzersitzung|Bereich allgemein|Benutzer-Client|OAuth-Rückkehr|Plattform-Admin/, r)
     // Routen mit Benutzer-Client als Ausnahme laden wirklich nicht per Service-Role
     for (const r of ['global-search', 'import']) assert.doesNotMatch(route(r), /createSupabaseAdminClient/, r)

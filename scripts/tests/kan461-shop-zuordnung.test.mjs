@@ -162,6 +162,8 @@ DOPPEL['@/lib/shop/woocommerce'] = modul(`
   export const wooMetaSchreiben = async () => ({ ok: false, art: 'antwort', meldung: 'in diesem Test nicht erwartet' })`)
 // KAN-462: die Weindaten-Aktionen liegen in derselben Datei – hier nicht geprüft (kan462-shop-weindaten.test.mjs)
 DOPPEL['@/lib/shop/weindatenLaden'] = modul('export const ladeElabelKatalog = async () => []; export const ladeWeindaten = async () => null')
+// KAN-463: „Bestand jetzt übertragen“ liegt in derselben Aktionen-Datei – hier nicht geprüft (kan463-shop-bestand.test.mjs)
+DOPPEL['@/lib/shop/warteschlange'] = modul('export const warteschlangeAbarbeiten = async () => ({ geholt: 0, uebertragen: 0, fehler: 0, entfernt: 0, offen: 0, meldungen: [] })')
 hooksRegistrieren()
 const actions = hooksMoeglich ? await laden('app/(dashboard)/weinhandel/shop/zuordnung/actions.ts') : null
 
@@ -355,7 +357,7 @@ describe('KAN-461: Seite, Migration und Register', () => {
     assert.equal(JSON.parse(quelle('scripts/lesebereiche.json')).tabellen.shop_zuordnungen, 'lager')
     assert.deepEqual(JSON.parse(quelle('scripts/schema.json')).shop_zuordnungen,
       ['id', 'tenant_id', 'fuellung_id', 'woo_produkt_id', 'woo_name', 'woo_sku', 'sku_geschrieben_am', 'erstellt_am', 'erstellt_von', 'aktualisiert_am',
-       'weindaten_am', 'weindaten_pruefsumme', 'weindaten_fehler'])   // + KAN-462
+       'weindaten_am', 'weindaten_pruefsumme', 'weindaten_fehler', 'bestand_menge', 'bestand_am', 'bestand_fehler'])   // + KAN-462, KAN-463
     const fk = JSON.parse(quelle('scripts/fremdschluessel.json')).filter(x => x.t === 'shop_zuordnungen')
     assert.deepEqual(fk.map(x => `${x.s.join(',')}→${x.z}`).sort(), ['fuellung_id→fuellungen', 'tenant_id→tenants'])
     const helfer = quelle('scripts/db-tests/_helfer.sql')
@@ -365,5 +367,6 @@ describe('KAN-461: Seite, Migration und Register', () => {
     assert.match(pilot, /\('shop_zuordnungen', 'abräumen', NULL, NULL, 'tenant_id'\)/)
     assert.ok(pilot.indexOf('DELETE FROM public.shop_zuordnungen WHERE tenant_id = v_t;') < pilot.indexOf('DELETE FROM public.fuellung_chargen WHERE tenant_id = v_t;'), 'vor den Füllungen')
     assert.equal((quelle('scripts/pilot-abraeumen-export.sql').match(/public\.shop_zuordnungen/g) ?? []).length, 3)
+    assert.equal((quelle('scripts/pilot-abraeumen-export.sql').match(/public\.shop_warteschlange/g) ?? []).length, 3)   // KAN-463
   })
 })
