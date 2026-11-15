@@ -6,6 +6,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from '@/components/ui/Link'
 import { fehlerText } from '@/lib/fehler'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { shopUrlFehler } from '@/lib/shop/url'
@@ -82,9 +83,13 @@ export default function ShopEinstellungen({ daten, nurLesen }: { daten: ShopDate
     <div className="space-y-5 max-w-3xl">
       <div>
         <h1 className="text-2xl font-semibold text-s112-text">Shop-Anbindung</h1>
-        <p className="text-sm text-s112-muted mt-1">
-          Verbindet software:112 mit deinem WooCommerce-Shop. In diesem Schritt wird nur die Verbindung eingerichtet und
-          geprüft – im Shop wird noch nichts geändert.
+        <nav aria-label="Shop-Anbindung" className="flex gap-4 mt-2 text-sm border-b border-s112-border">
+          <span aria-current="page" className="pb-2 font-medium text-s112-text border-b-2 border-s112-teal">Einstellungen</span>
+          <Link href="/weinhandel/shop/zuordnung" className="pb-2 text-s112-muted hover:text-s112-text">Zuordnung</Link>
+        </nav>
+        <p className="text-sm text-s112-muted mt-3">
+          Verbindet software:112 mit deinem WooCommerce-Shop. Hier richtest du die Verbindung ein und prüfst sie – dabei
+          wird im Shop nichts geändert.
         </p>
       </div>
 

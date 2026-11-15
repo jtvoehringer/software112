@@ -41,12 +41,12 @@ describe('KAN-454: Liste der Sperr-Policies', () => {
   test('jede Tabelle außerhalb von „allgemein“ bekommt genau eine Policy – Sichten keine', () => {
     const erwartet = Object.keys(LISTE.tabellen).filter(t => LISTE.tabellen[t] !== 'allgemein' && !LISTE.sichten.includes(t)).sort()
     assert.deepEqual(z.map(x => x.tabelle), erwartet)
-    assert.equal(z.length, 126)   // 125 aus kan412b + grundstueck_recht (KAN-458)
+    assert.equal(z.length, 127)   // 125 aus kan412b + grundstueck_recht (KAN-458) + shop_zuordnungen (KAN-461)
     assert.equal(new Set(z.map(x => x.tabelle)).size, z.length)
   })
   test('drei Formen: Betrieb (tenant_id), Kind (Elternzeile), Freigabe (beide Betriebe)', () => {
     const anzahl = art => z.filter(x => x.art === art).length
-    assert.deepEqual([anzahl('tenant'), anzahl('kind'), anzahl('freigabe')], [107, 17, 2])   // +1 KAN-458 (grundstueck_recht)
+    assert.deepEqual([anzahl('tenant'), anzahl('kind'), anzahl('freigabe')], [108, 17, 2])   // +1 KAN-458 (grundstueck_recht), +1 KAN-461 (shop_zuordnungen)
     for (const x of z) {
       if (x.art === 'tenant') assert.ok(SCHEMA[x.tabelle].includes('tenant_id'), `${x.tabelle} ohne tenant_id`)
       if (x.art === 'kind') {
@@ -74,7 +74,8 @@ describe('KAN-454: Migration, Liste und DB-Test nennen dieselben Policies', () =
     // Spätere Migrationen haben einzelne Tabellen in einen anderen Bereich verschoben – kan412b enthält den Stand davor:
     //   morgenberichte: ki → verwaltung (kan412d_extern_mittel, KAN-456: der Bericht fasst alle Bereiche zusammen)
     //   grundstueck_recht: neue Tabelle mit eigener Policy in kan458a_grundstueck_recht (KAN-458)
-    const { grundstueck_recht: _spaeter, ...tabellenDamals } = { ...LISTE.tabellen, morgenberichte: 'ki' }
+    //   shop_zuordnungen: neue Tabelle mit eigener Policy in kan461_shop_zuordnungen (KAN-461)
+    const { grundstueck_recht: _spaeter, shop_zuordnungen: _spaeter2, ...tabellenDamals } = { ...LISTE.tabellen, morgenberichte: 'ki' }
     const damals = { ...LISTE, tabellen: tabellenDamals }
     assert.equal(m[1], werteSql(damals))
     assert.equal(LISTE.tabellen.morgenberichte, 'verwaltung')

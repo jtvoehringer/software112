@@ -161,6 +161,7 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   ('elabels', 'abräumen', NULL, NULL, 'tenant_id'),
   ('elabel_umleitungen', 'abräumen', NULL, NULL, 'tenant_id'),
   ('fuellung_etikettierungen', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('shop_zuordnungen', 'abräumen', NULL, NULL, 'tenant_id'),   -- KAN-461: hängt an den Füllungen
   ('lohnversektungen', 'abräumen', NULL, NULL, 'tenant_id'),
   ('produktionen', 'abräumen', NULL, NULL, 'tenant_id'),
   ('produktion_eingaenge', 'abräumen', NULL, NULL, 'tenant_id'),
@@ -488,6 +489,7 @@ BEGIN
     DELETE FROM public.elabel_umleitungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.elabels WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.fuellung_etikettierungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.shop_zuordnungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.fuellung_chargen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.fuellungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.lohnversektungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt

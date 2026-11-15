@@ -1762,6 +1762,21 @@
 "created_at",
 "updated_at"
 ],
+"shop_zuordnungen": [
+"id",
+"tenant_id",
+"fuellung_id",
+"woo_produkt_id",
+"woo_name",
+"woo_sku",
+"sku_geschrieben_am",
+"erstellt_am",
+"erstellt_von",
+"aktualisiert_am",
+"weindaten_am",
+"weindaten_pruefsumme",
+"weindaten_fehler"
+],
 "sonstige_artikel": [
 "id",
 "tenant_id",
