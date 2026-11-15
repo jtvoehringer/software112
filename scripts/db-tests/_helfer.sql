@@ -934,6 +934,11 @@ BEGIN
       v_erg := NULL;
     END IF;
     v_w := v_w || jsonb_build_object('verkaufsposten_id', gen_random_uuid(), 'menge', 1, 'zurueckgenommen_am', NULL);
+  ELSIF p_tab = 'shop_warteschlange' THEN   -- KAN-463: eigene Füllung je Zeile (UNIQUE Betrieb + Füllung + Art)
+    IF NOT coalesce(p_werte, '{}'::jsonb) ? 'fuellung_id' THEN
+      v_w := v_w || jsonb_build_object('fuellung_id', pg_temp.s112_beispiel('fuellungen', p_tenant, p_persona) ->> 'id');
+    END IF;
+    v_w := v_w || jsonb_build_object('art', 'weindaten', 'versuche', 0, 'letzter_fehler', NULL);
   ELSIF p_tab = 'shop_zuordnungen' THEN   -- KAN-461: eigene Füllung je Zeile (UNIQUE Betrieb + Füllung bzw. Produkt)
     IF NOT coalesce(p_werte, '{}'::jsonb) ? 'fuellung_id' THEN
       v_w := v_w || jsonb_build_object('fuellung_id', pg_temp.s112_beispiel('fuellungen', p_tenant, p_persona) ->> 'id');
@@ -1174,6 +1179,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('sumup_checkouts',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
     ('sumup_terminals',               'SA,TA',                                  'SA,TA',                                  'SA,TA'),
     ('shop_zuordnungen',              'SA,TA',                                  'SA,TA',                                  'SA,TA'),   -- KAN-461: Zuordnung Füllung ↔ Shop-Produkt, nur Betriebsleitung
+    ('shop_warteschlange',            '-',                                      '-',                                      '-'),   -- KAN-463: nur Trigger und Cron (Service-Role)
     ('sumup_transaktionen',           '-',                                      '-',                                      '-'),
     ('svs_parameter',                 '-',                                      '-',                                      '-'),
     ('system_ereignisse',             '-',                                      '-',                                      '-'),
@@ -1330,6 +1336,15 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_auftrag_schutz()'),   -- KAN-418: am Auftrag direkt nur Frist und Notiz
     ('intern',        '--S', false, 's112_auftragsnummer_ziehen(p_tenant_id uuid)'),   -- KAN-418: Nummernkreis AB
     ('intern',        '--S', false, 's112_fuellung_reserviert(p_fuellung_id uuid)'),   -- KAN-418: reservierte Flaschen einer Füllung
+    ('intern',        '--S', false, 's112_shop_bestand(p_fuellung_id uuid)'),   -- KAN-463: Menge für den Shop (Cron)
+    ('intern',        '--S', false, 's112_shop_einreihen(p_tenant_id uuid, p_fuellung_id uuid, p_art text)'),   -- KAN-463: nur aus den Triggern
+    ('intern',        '--S', false, 's112_shop_abgleich_einreihen()'),   -- KAN-463: täglicher Abgleich (Cron)
+    ('trigger',       '--S', false, 's112_shop_fuellung_geaendert()'),   -- KAN-463
+    ('trigger',       '--S', false, 's112_shop_auftrag_position_geaendert()'),
+    ('trigger',       '--S', false, 's112_shop_auftrag_geaendert()'),
+    ('trigger',       '--S', false, 's112_shop_elabel_geaendert()'),
+    ('trigger',       '--S', false, 's112_shop_zuordnung_geaendert()'),
+    ('trigger',       '--S', false, 's112_shop_einstellungen_geaendert()'),
     ('mandant',       '-US', true , 's112_auftrag_anlegen(p_tenant_id uuid, p_kopf jsonb, p_positionen jsonb)'),   -- KAN-418
     ('mandant',       '-US', true , 's112_auftrag_stornieren(p_tenant_id uuid, p_auftrag_id uuid, p_grund text)'),   -- KAN-418
     ('mandant',       '-US', true , 's112_auftrag_liefern(p_tenant_id uuid, p_auftrag_id uuid, p_verkaufsposten_id uuid, p_positionen jsonb)'),   -- KAN-418 Teil 2

@@ -126,6 +126,8 @@ DOPPEL['@/lib/shop/weindatenLaden'] = modul(`
   export const ladeElabelKatalog = async () => { globalThis.__katalogRufe = (globalThis.__katalogRufe ?? 0) + 1; return [] }
   export const ladeWeindaten = async (db, tenant, fuellung) => { (globalThis.__geladen ??= []).push([tenant, fuellung]); const d = globalThis.__weindaten[fuellung]; if (d instanceof Error) throw d; return d ?? null }`)
 DOPPEL['@/lib/datum/wien'] = modul("export const heuteWien = () => '2026-11-15'")
+// KAN-463: „Bestand jetzt übertragen“ liegt in derselben Aktionen-Datei – hier nicht geprüft (kan463-shop-bestand.test.mjs)
+DOPPEL['@/lib/shop/warteschlange'] = modul('export const warteschlangeAbarbeiten = async () => ({ geholt: 0, uebertragen: 0, fehler: 0, entfernt: 0, offen: 0, meldungen: [] })')
 hooksRegistrieren()
 const actions = hooksMoeglich ? await laden('app/(dashboard)/weinhandel/shop/zuordnung/actions.ts') : null
 
@@ -243,7 +245,7 @@ describe('KAN-462: gemeinsame Quelle mit dem E-Label, Seite, Migration', () => {
     assert.match(sql, /weindaten_pruefsumme ~ '\^\[0-9a-f\]\{32\}\$'/)
     assert.match(sql, /char_length\(weindaten_fehler\) BETWEEN 1 AND 500/)
     assert.ok(!/GRANT|CREATE POLICY|DROP POLICY/.test(sql))
-    assert.deepEqual(JSON.parse(quelle('scripts/schema.json')).shop_zuordnungen.slice(-3), ['weindaten_am', 'weindaten_pruefsumme', 'weindaten_fehler'])
+    assert.deepEqual(JSON.parse(quelle('scripts/schema.json')).shop_zuordnungen.slice(10, 13), ['weindaten_am', 'weindaten_pruefsumme', 'weindaten_fehler'])
     assert.match(META_HTML, /^s112_/)
   })
 })

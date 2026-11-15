@@ -188,3 +188,19 @@ export async function wooMetaSchreiben(z: WooZugang, produktId: number, felder: 
   if (Number((r.daten.json as { id?: unknown } | null)?.id) !== produktId) return fehler('antwort', '(Produkt nicht bestätigt)')
   return { ok: true, daten: { felder: felder.length } }
 }
+
+// ── Bestand schreiben (KAN-463) ──────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Meldet dem Shop die verfügbare Menge eines Produkts: schaltet „Lagerbestand verwalten“ ein und setzt die Menge –
+ * kein anderes Feld. Die Antwort muss die Menge bestätigen.
+ */
+export async function wooBestandSchreiben(z: WooZugang, produktId: number, menge: number, umgebung: WooUmgebung = {}): Promise<WooErgebnis<{ menge: number }>> {
+  if (!Number.isSafeInteger(produktId) || produktId <= 0) return fehler('produkt_fehlt')
+  if (!Number.isSafeInteger(menge) || menge < 0) return fehler('antwort', '(ungültige Menge)')
+  const r = await wooAufruf(z, `/products/${produktId}`, umgebung, { methode: 'PUT', daten: { manage_stock: true, stock_quantity: menge } })
+  if (!r.ok) return r
+  const antwort = r.daten.json as { id?: unknown; stock_quantity?: unknown } | null
+  if (Number(antwort?.id) !== produktId || Number(antwort?.stock_quantity) !== menge) return fehler('antwort', '(Menge nicht übernommen)')
+  return { ok: true, daten: { menge } }
+}

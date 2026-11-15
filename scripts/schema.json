@@ -1762,6 +1762,16 @@
 "created_at",
 "updated_at"
 ],
+"shop_warteschlange": [
+"id",
+"tenant_id",
+"fuellung_id",
+"art",
+"eingereiht_am",
+"versuche",
+"naechster_versuch_am",
+"letzter_fehler"
+],
 "shop_zuordnungen": [
 "id",
 "tenant_id",
@@ -1775,7 +1785,10 @@
 "aktualisiert_am",
 "weindaten_am",
 "weindaten_pruefsumme",
-"weindaten_fehler"
+"weindaten_fehler",
+"bestand_menge",
+"bestand_am",
+"bestand_fehler"
 ],
 "sonstige_artikel": [
 "id",

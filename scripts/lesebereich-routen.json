@@ -43,6 +43,9 @@
     "cron/musterhof-reset": {
       "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
     },
+    "cron/shop": {
+      "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
+    },
     "cron/smoke-test": {
       "ausnahme": "Cron mit Secret – läuft ohne Benutzersitzung bzw. nur Plattform-Admin"
     },
