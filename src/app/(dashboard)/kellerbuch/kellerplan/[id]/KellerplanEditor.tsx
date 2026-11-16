@@ -125,6 +125,8 @@ export default function KellerplanEditor({
   const [tankPositions, setTankPositions] = useState<Record<string, PosData>>(initialTankPositions)
   const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  // KAN-467 (Abnahme 16.11.2026): der Plan speichert jede Änderung sofort – das soll man auch sehen
+  const [planGespeichert, setPlanGespeichert] = useState(false)
   const [dialogBehaelterId, setDialogBehaelterId] = useState<string | null>(null)
   // KAN-114: „Kellerarbeit“ (Tank auf Tank = Umzug/Verschnitt) bzw. „Plan bearbeiten“ (Position, Größe, Platzieren)
   const [modus, setModus] = useState<'arbeit' | 'plan'>('arbeit')
@@ -171,7 +173,9 @@ export default function KellerplanEditor({
     startTransition(async () => {
       try {
         await upsertKellerplanPosition(plan.id, behaelterId, pos)
+        setPlanGespeichert(true)
       } catch (err) {
+        setPlanGespeichert(false)
         setSaveError(fehlerText(err, 'Speichern fehlgeschlagen'))
       } finally {
         setSaving(false)
@@ -185,7 +189,9 @@ export default function KellerplanEditor({
     startTransition(async () => {
       try {
         await upsertKellerplanTankPosition(plan.id, tankId, pos)
+        setPlanGespeichert(true)
       } catch (err) {
+        setPlanGespeichert(false)
         setSaveError(fehlerText(err, 'Speichern fehlgeschlagen'))
       } finally {
         setSaving(false)
@@ -402,7 +408,9 @@ export default function KellerplanEditor({
     startTransition(async () => {
       try {
         await deleteKellerplanTankPosition(plan.id, tankId)
+        setPlanGespeichert(true)
       } catch (err) {
+        setPlanGespeichert(false)
         // der Tank steht in der Datenbank noch im Plan – wieder anzeigen
         if (vorher) setTankPositions(prev => ({ ...prev, [tankId]: vorher }))
         setSaveError(fehlerText(err, 'Der Tank konnte nicht vom Plan entfernt werden'))
@@ -413,12 +421,18 @@ export default function KellerplanEditor({
   // ── Vom Plan entfernen ───────────────────────────────────────────────────────
 
   function handleRemove(id: string) {
+    const vorher = positions[id]
     setPositions(prev => { const n = { ...prev }; delete n[id]; return n })
+    setSaveError(null)
     startTransition(async () => {
       try {
         await deleteKellerplanPosition(plan.id, id)
+        setPlanGespeichert(true)
       } catch (err) {
-        console.error('Löschen fehlgeschlagen:', err)
+        // das Gebinde steht in der Datenbank noch im Plan – wieder anzeigen und den Fehler melden (vorher nur in der Konsole)
+        if (vorher) setPositions(prev => ({ ...prev, [id]: vorher }))
+        setPlanGespeichert(false)
+        setSaveError(fehlerText(err, 'Das Gebinde konnte nicht vom Plan entfernt werden'))
       }
     })
   }
@@ -450,8 +464,11 @@ export default function KellerplanEditor({
       {saving && (
         <p className="no-print text-xs text-s112-muted mb-1">Wird gespeichert…</p>
       )}
+      {!saving && !saveError && planGespeichert && planModus && (
+        <p role="status" className="no-print text-xs text-s112-ok-fg mb-1">✓ Plan gespeichert – jede Änderung wird sofort übernommen.</p>
+      )}
       {saveError && (
-        <p className="no-print text-xs text-s112-err mb-1">{saveError}</p>
+        <p role="alert" className="no-print text-xs text-s112-err mb-1">{saveError}</p>
       )}
 
       {/* KAN-106: Nur-Lesen-Modus – kein Ziehen */}
@@ -472,7 +489,7 @@ export default function KellerplanEditor({
           <span className="text-xs text-s112-muted">
             {modus === 'arbeit'
               ? 'Tank auf Tank ziehen: leer = Umzug, gleicher Wein = Zusammenführen, anderer Wein = Verschnitt (grün/blau, rot = nicht möglich).'
-              : 'Tanks verschieben, Größe ändern, Behälter aus der Liste platzieren.'}
+              : 'Tanks verschieben, Größe ändern, Behälter aus der Liste platzieren – jede Änderung wird sofort gespeichert, einen Speichern-Knopf braucht es nicht.'}
           </span>
         </div>
       )}
@@ -526,18 +543,20 @@ export default function KellerplanEditor({
               const zielBew = zieh && zieh.zielId === behaelterId ? bewertung(zieh.quelleId, behaelterId) : null
               const istQuelle = zieh?.quelleId === behaelterId
               return (
+                // KAN-467: äußerer Rahmen ohne Beschnitt – die Knöpfe ×, − und + sitzen an seinen Ecken. Vorher lagen sie
+                // im Kreis (overflow hidden, 50 % Radius) und wurden von ihm abgeschnitten: sie waren nie zu sehen.
                 <div
                   key={behaelterId}
+                  className="absolute group"
+                  style={{ left: `${pos.pos_x_pct}%`, top: `${pos.pos_y_pct}%`, width: `${size}%`, height: `${hPct}%` }}
+                >
+                <div
                   role="button"
                   tabIndex={0}
                   aria-label={`${b.name}${wein ? ` – ${wein.name}` : ' – leer'}: Gebinde-Aktionen`}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDialogBehaelterId(behaelterId) } }}
-                  className="absolute overflow-hidden flex flex-col items-center justify-center group focus:outline-hidden focus-visible:ring-4 focus-visible:ring-s112-teal/50"
+                  className="absolute inset-0 overflow-hidden flex flex-col items-center justify-center focus:outline-hidden focus-visible:ring-4 focus-visible:ring-s112-teal/50"
                   style={{
-                    left:            `${pos.pos_x_pct}%`,
-                    top:             `${pos.pos_y_pct}%`,
-                    width:           `${size}%`,
-                    height:          `${hPct}%`,
                     borderRadius:    '50%',
                     backgroundColor: typ.bg,
                     border:          `2px solid ${zielBew ? ZIEL_FARBE[zielBew.art] : fillColor ?? typ.border}`,
@@ -565,40 +584,6 @@ export default function KellerplanEditor({
                         pointerEvents:   'none',
                       }}
                     />
-                  )}
-
-                  {/* Entfernen-Button */}
-                  {planModus && (
-                    <button
-                      className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={e => { e.stopPropagation(); handleRemove(behaelterId) }}
-                      onPointerDown={e => e.stopPropagation()}
-                      title="Vom Plan entfernen"
-                    >
-                      ×
-                    </button>
-                  )}
-
-                  {/* Resize-Buttons − / + */}
-                  {planModus && (
-                    <>
-                      <button
-                        className="no-print absolute bottom-1 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
-                        onClick={e => { e.stopPropagation(); handleResize(behaelterId, -RESIZE_STEP) }}
-                        onPointerDown={e => e.stopPropagation()}
-                        title="Kleiner"
-                      >
-                        −
-                      </button>
-                      <button
-                        className="no-print absolute bottom-1 right-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
-                        onClick={e => { e.stopPropagation(); handleResize(behaelterId, +RESIZE_STEP) }}
-                        onPointerDown={e => e.stopPropagation()}
-                        title="Größer"
-                      >
-                        +
-                      </button>
-                    </>
                   )}
 
                   {/* Inhalt: Name, Füllstand, Wein – über der Fill-Fläche */}
@@ -634,6 +619,43 @@ export default function KellerplanEditor({
                       </p>
                     )}
                   </div>
+                </div>
+                  {/* Entfernen-Button */}
+                  {planModus && (
+                    <button
+                      type="button" aria-label={`${b.name} vom Plan entfernen`}
+                      className="no-print absolute top-0 right-0 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      onClick={e => { e.stopPropagation(); handleRemove(behaelterId) }}
+                      onPointerDown={e => e.stopPropagation()}
+                      title="Vom Plan entfernen"
+                    >
+                      ×
+                    </button>
+                  )}
+
+                  {/* Resize-Buttons − / + */}
+                  {planModus && (
+                    <>
+                      <button
+                        type="button" aria-label={`${b.name} kleiner`}
+                        className="no-print absolute bottom-0 left-0 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        onClick={e => { e.stopPropagation(); handleResize(behaelterId, -RESIZE_STEP) }}
+                        onPointerDown={e => e.stopPropagation()}
+                        title="Kleiner"
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button" aria-label={`${b.name} größer`}
+                        className="no-print absolute bottom-0 right-0 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        onClick={e => { e.stopPropagation(); handleResize(behaelterId, +RESIZE_STEP) }}
+                        onPointerDown={e => e.stopPropagation()}
+                        title="Größer"
+                      >
+                        +
+                      </button>
+                    </>
+                  )}
                 </div>
               )
             })}
