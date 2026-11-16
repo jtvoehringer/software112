@@ -83,6 +83,10 @@ describe('KAN-474: Import „Füllungen (Weinlager)“ entfernt', () => {
     assert.match(route, /const IMPORT_TYPEN = \['kontakte', 'firmen', 'rieden_details', 'grundstuecke', 'gebinde'\] as const/)
     const pruefung = route.indexOf('if (!(IMPORT_TYPEN as readonly string[]).includes(typ)) {')
     assert.ok(pruefung > 0 && pruefung < route.indexOf('.insert('), 'Prüfung vor dem ersten Insert')
+    // Regression 16.11.2026 (E2E „Leser: POST /api/import → 403“): die Typprüfung stand vor dem Schreibrecht – ein Leser bekam 400
+    const recht = route.indexOf("return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })")
+    assert.ok(recht > 0 && recht < pruefung, 'Schreibrecht (403) vor der Typprüfung (400)')
+    assert.ok(route.indexOf("return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })") < pruefung, 'Anmeldung (401) vor der Typprüfung')
     assert.match(route.slice(pruefung, pruefung + 500), /bitte „Eröffnungsbestand Flaschen“ verwenden[\s\S]*Unbekannter Import-Typ[\s\S]*status: 400/)
   })
 })

@@ -171,13 +171,6 @@ export async function POST(req: NextRequest) {
       /** KAN-426: Import aus dem CRM – nur Kontakte/Firmen, Bezeichnung Pflicht */
       crm?: boolean
     }
-    // KAN-474: Nur die bekannten Typen – „fuellungen“ (Füllungen/Weinlager) gibt es nicht mehr: Flaschenbestand kommt über
-    // „Eröffnungsbestand Flaschen“ (mit Stichtag, Qualität und Herkunft). Ein unbekannter Typ lief bisher still durch.
-    if (!(IMPORT_TYPEN as readonly string[]).includes(typ)) {
-      return NextResponse.json({ fehler: typ === ('fuellungen' as string)
-        ? 'Der Import „Füllungen (Weinlager)“ wurde entfernt – bitte „Eröffnungsbestand Flaschen“ verwenden.'
-        : 'Unbekannter Import-Typ.' }, { status: 400 })
-    }
     // KAN-426: Der CRM-Import kennt nur Kontakte und Firmen und verlangt eine Bezeichnung (keine Vorbelegung)
     if (crm === true) {
       if (!istCrmImportTyp(typ)) return NextResponse.json({ fehler: 'Im CRM lassen sich nur Kontakte und Firmen importieren.' }, { status: 400 })
@@ -228,6 +221,15 @@ export async function POST(req: NextRequest) {
     // faelschlichen 403 fuehrte).
     if (!canWrite(activeMembership))
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
+    // Erst nach dem Schreibrecht (E2E „Leser: POST /api/import → 403“, 16.11.2026): Wer nicht importieren darf, erfährt
+    // nichts über gültige Typen und bekommt 403, nicht 400.
+    // KAN-474: Nur die bekannten Typen – „fuellungen“ (Füllungen/Weinlager) gibt es nicht mehr: Flaschenbestand kommt über
+    // „Eröffnungsbestand Flaschen“ (mit Stichtag, Qualität und Herkunft). Ein unbekannter Typ lief bisher still durch.
+    if (!(IMPORT_TYPEN as readonly string[]).includes(typ)) {
+      return NextResponse.json({ fehler: typ === ('fuellungen' as string)
+        ? 'Der Import „Füllungen (Weinlager)“ wurde entfernt – bitte „Eröffnungsbestand Flaschen“ verwenden.'
+        : 'Unbekannter Import-Typ.' }, { status: 400 })
+    }
     // KAN-426: Kontakte und Firmen wie die RLS der Tabellen – Schreibrecht CRM (vorher reichte irgendein Schreibrecht;
     // die Datenbank lehnte dann jede Zeile einzeln ab)
     if (istCrmImportTyp(typ) && !canWrite(activeMembership, 'crm'))
