@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
   if (a === 'behaelter') {
     // eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
     const rows = await ladeBehaelter(s, t, { nurAktiv: true })
-    return NextResponse.json({ behaelter: rows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ })) })
+    return NextResponse.json({ behaelter: rows.map(b => ({ id: b.id, name: b.auswahlName, typ: b.typ })) })
   }
   if (a === 'auswertung') {
     const jahr = req.nextUrl.searchParams.get('jahr') ?? wienJetzt().getFullYear().toString()

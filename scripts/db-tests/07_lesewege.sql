@@ -57,7 +57,7 @@ DECLARE
     's112_gutschrift_anlegen', 's112_gutschrift_stornieren', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_kontakt_personendaten_loeschen',
     's112_lohnversektung_stornieren', 's112_lohnversektung_versenden', 's112_mandant_mitglieder', 's112_paketmodul_frei',
     's112_produktion_buchen', 's112_produktion_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_rechnung_erstellen',
-    's112_rechnung_stornieren', 's112_rueckzahlung_erfassen', 's112_sekt_stufe_setzen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen',
+    's112_rechnung_stornieren', 's112_rueckzahlung_erfassen', 's112_sekt_stufe_setzen', 's112_tank_anlegen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen',
     's112_verarbeitung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren',
     's112_zugangskorrektur_buchen', 's112_zugangskorrektur_stornieren', 's112_zukauf_buchen', 'sperre_ea_monat',
     'sperre_ea_uva', 'user_has_role_in_tenant'];

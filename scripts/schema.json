@@ -182,7 +182,9 @@
 "notizen",
 "lp_pickerl",
 "material",
-"bezeichnung_lang"
+"bezeichnung_lang",
+"tank_id",
+"kammer_nr"
 ],
 "behandlung_grundstuecke": [
 "behandlung_id",
@@ -956,6 +958,17 @@
 "sekt_lagenrein",
 "lohnversektung_id",
 "leergewicht_g"
+],
+"gebinde_tanks": [
+"id",
+"tenant_id",
+"name",
+"typ",
+"material",
+"standort",
+"notizen",
+"created_at",
+"updated_at"
 ],
 "grundstueck_recht": [
 "id",

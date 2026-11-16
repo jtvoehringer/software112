@@ -84,7 +84,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
   const behaelter: { id: string; name: string; kapazitaet_liter: number | null }[] =
     bhRows.map(b => ({
       id:              b.id,
-      name:            b.anzeigeName,
+      name:            b.auswahlName,   // KAN-466: Kammern mit „Kammer n von m“
       kapazitaet_liter: b.volumen_liter ?? null,
     }))
 

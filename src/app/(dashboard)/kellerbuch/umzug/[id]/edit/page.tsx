@@ -105,7 +105,7 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   ])
   const chargenRaw = geladen(chargenRawRes, 'Chargen')
 
-  const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName, aktiv: b.aktiv, volumen_liter: b.volumen_liter })) as R[]
+  const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.auswahlName, aktiv: b.aktiv, volumen_liter: b.volumen_liter })) as R[]
   const chargen = (chargenRaw ?? []) as R[]
 
   return (

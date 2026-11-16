@@ -59,7 +59,7 @@ export default async function NeueProduktionPage({ searchParams }: { searchParam
   // Ziel-Gebinde: nutzbar und ohne aktive Charge (die neue Charge braucht ein leeres Gebinde)
   const belegt = new Set(((chargenRes.data ?? []) as R[]).map(c => c.behaelter_id).filter(Boolean))
   const leer = gebinde.filter(b => !belegt.has(b.id) && (Number(b.eigen_liter) || 0) + (Number(b.fremd_liter) || 0) <= 0.01)
-    .map(b => ({ id: b.id, name: b.anzeigeName, volumen: b.volumen_liter ?? null }))
+    .map(b => ({ id: b.id, name: b.auswahlName, volumen: b.volumen_liter ?? null }))
   const mittel = ((mittelRes.data ?? []) as R[]).map(m => ({ id: String(m.id), name: String(m.name), einheit: String(m.einheit) }))
 
   return (

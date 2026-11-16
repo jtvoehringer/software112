@@ -66,7 +66,7 @@ BEGIN
   -- ── 1. Katalog: jede Sperr-Policy gilt für alle Befehle, Prüfung beim Schreiben = Prüfung beim Lesen ──────────
   v_erg := v_erg || pg_temp.s112_erwarte('katalog_alle_befehle',
     (SELECT concat_ws('|', count(*), count(*) FILTER (WHERE p.cmd = 'ALL' AND p.permissive = 'RESTRICTIVE' AND p.roles = '{authenticated}' AND p.with_check IS NOT DISTINCT FROM p.qual))
-       FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'lesebereich'), '128|128');   -- +1 KAN-461 (shop_zuordnungen), +1 KAN-463 (shop_warteschlange)
+       FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'lesebereich'), '129|129');   -- +1 KAN-461 (shop_zuordnungen), +1 KAN-463 (shop_warteschlange), +1 KAN-466 (gebinde_tanks)
   v_erg := v_erg || pg_temp.s112_erwarte('katalog_storage',
     (SELECT concat_ws('|', count(*), bool_and(p.cmd = 'ALL' AND p.permissive = 'RESTRICTIVE' AND p.roles = '{authenticated}' AND p.with_check IS NOT DISTINCT FROM p.qual))
        FROM pg_policies p WHERE p.schemaname = 'storage' AND p.tablename = 'objects' AND p.policyname = 'lesebereich'), '1|t');

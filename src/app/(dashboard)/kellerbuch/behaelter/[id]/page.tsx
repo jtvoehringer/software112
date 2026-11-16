@@ -101,13 +101,20 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
         <span>/</span>
         <span className="text-s112-text-1 font-medium truncate">{gebinde.anzeigeName}</span>
       </div>
-      <h1 className="text-2xl font-semibold text-s112-text mb-4 break-words">{gebinde.anzeigeName}</h1>
+      <h1 className={`text-2xl font-semibold text-s112-text break-words ${gebinde.tank_id ? 'mb-1' : 'mb-4'}`}>{gebinde.anzeigeName}</h1>
+      {gebinde.tank_id && (
+        <p className="text-sm text-s112-text-2 mb-4">
+          Kammer {gebinde.kammer_nr}{gebinde.tank_kammern && (gebinde.kammer_nr ?? 0) <= gebinde.tank_kammern ? ` von ${gebinde.tank_kammern}` : ''} im Tank{' '}
+          {gebinde.fremd ? <strong>{gebinde.tank_name}</strong> : <Link href={`/kellerbuch/behaelter/tank/${gebinde.tank_id}`} className="font-semibold text-s112-blue-700 hover:underline">{gebinde.tank_name}</Link>}
+        </p>
+      )}
       <Schnellerfassung behaelterId={id} volumenLiter={gebinde.volumen_liter ?? null} chargen={chargen} massnahmen={massnahmen}
         schreiben={schreiben} nurLesenGrund={nurLesenGrund} notizAction={kellerNotizErfassen} schwundAction={schwundBuchen} />
       {stammdaten && (
         <>
           <h2 className="text-base font-semibold text-s112-text mb-3">Stammdaten</h2>
-          <BehaelterForm behaelter={stammdaten as Parameters<typeof BehaelterForm>[0]['behaelter']} action={updateBehaelter.bind(null, id)} partner={partner} />
+          <BehaelterForm behaelter={stammdaten as Parameters<typeof BehaelterForm>[0]['behaelter']} action={updateBehaelter.bind(null, id)} partner={partner}
+            kammer={gebinde.tank_id && gebinde.kammer_nr ? { tankId: gebinde.tank_id, tankName: gebinde.tank_name ?? 'Tank', nr: gebinde.kammer_nr, von: gebinde.tank_kammern } : null} />
         </>
       )}
     </div>

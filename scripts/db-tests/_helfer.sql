@@ -934,6 +934,8 @@ BEGIN
       v_erg := NULL;
     END IF;
     v_w := v_w || jsonb_build_object('verkaufsposten_id', gen_random_uuid(), 'menge', 1, 'zurueckgenommen_am', NULL);
+  ELSIF p_tab = 'gebinde_tanks' THEN   -- KAN-466: Pflichtfelder Name (je Betrieb eindeutig) und Typ (CHECK)
+    v_w := v_w || jsonb_build_object('name', 'S112TEST Tank ' || left(gen_random_uuid()::text, 8), 'typ', 'stahltank');
   ELSIF p_tab = 'shop_warteschlange' THEN   -- KAN-463: eigene Füllung je Zeile (UNIQUE Betrieb + Füllung + Art)
     IF NOT coalesce(p_werte, '{}'::jsonb) ? 'fuellung_id' THEN
       v_w := v_w || jsonb_build_object('fuellung_id', pg_temp.s112_beispiel('fuellungen', p_tenant, p_persona) ->> 'id');
@@ -1065,6 +1067,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('assistent_nachrichten',         'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}',                          '-{kellerbuch}'),
     ('assistent_unterhaltungen',      'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('behaelter',                     'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
+    ('gebinde_tanks',                 'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),   -- KAN-466: Tank mit Kammern (wie behaelter)
     ('behandlung_grundstuecke',       'SA,TA,W*{rieden}',                       '-{rieden}',                              'SA,TA,W*{rieden}'),
     ('behandlungen',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-88: stornieren statt löschen (endgültig nur über s112_storniert_loeschen)
     ('benutzer_dashboard',            'L,SA,TA,W',                              'L,SA,TA,W',                              'L,SA,TA,W'),   -- KAN-388: nur die eigene Zeile
@@ -1327,6 +1330,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
+    ('trigger',       '--S', false, 's112_kammer_vom_tank()'),   -- KAN-466: Kammer übernimmt Typ/Material/Standort vom Tank, Zuordnung fest
+    ('trigger',       '--S', false, 's112_tank_an_kammern()'),   -- KAN-466: geänderte Tank-Stammdaten an die Kammern
+    ('mandant',       '-US', true , 's112_tank_anlegen(p_tenant_id uuid, p_name text, p_typ text, p_material text, p_standort text, p_notizen text, p_kammern jsonb)'),   -- KAN-466: Tank samt Kammern anlegen
     ('trigger',       '--S', false, 's112_mitglied_profil_module()'),   -- KAN-457: Schreibmodule folgen dem Profil
     ('trigger',       '--S', false, 's112_bienenschutz_bestaetigung()'),   -- KAN-325: Bienenschutz-Bestätigung (Zeitpunkt, Benutzer, Name)
     ('trigger',       '--S', false, 's112_lager_einkauf_schutz()'),   -- KAN-326: Einkauf mit Ausgabe nur über die RPCs

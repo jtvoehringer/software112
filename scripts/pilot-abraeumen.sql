@@ -189,6 +189,7 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   ('lagen', 'behalten', NULL, NULL, 'tenant_id'),
   ('weinbaugebiete_custom', 'behalten', NULL, NULL, 'tenant_id'),
   ('behaelter', 'behalten', NULL, NULL, 'tenant_id'),
+  ('gebinde_tanks', 'behalten', NULL, NULL, 'tenant_id'),   -- KAN-466: Tank mit Kammern (Stammdaten)
   ('kellerplaene', 'behalten', NULL, NULL, 'tenant_id'),
   ('kellerplan_positionen', 'behalten', NULL, NULL, 'tenant_id'),
   ('keller_behandlungstypen', 'behalten', NULL, NULL, 'tenant_id'),

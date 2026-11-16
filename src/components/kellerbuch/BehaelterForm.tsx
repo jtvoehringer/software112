@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { hierBleiben, zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { fehlerText } from '@/lib/fehler'
+import Link from '@/components/ui/Link'
 
 type BehaelterRow = {
   id: string; name: string; typ: string | null
@@ -18,9 +19,11 @@ interface Props {
   action: (formData: FormData) => Promise<void>
   /** Partnerbetriebe (Kellergemeinschaft) - zeigt den Freigabe-Schalter; null = keine */
   partner?: string | null
+  /** KAN-466: das Gebinde ist die Kammer eines Tanks – Typ und Standort kommen vom Tank und sind hier gesperrt */
+  kammer?: { tankId: string; tankName: string; nr: number; von: number | null } | null
 }
 
-export default function BehaelterForm({ behaelter, action, partner = null }: Props) {
+export default function BehaelterForm({ behaelter, action, partner = null, kammer = null }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -47,6 +50,13 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
 
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>
+        {kammer && (
+          <p className="text-sm text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2">
+            Kammer {kammer.nr}{kammer.von && kammer.nr <= kammer.von ? ` von ${kammer.von}` : ''} im Tank{' '}
+            <Link href={`/kellerbuch/behaelter/tank/${kammer.tankId}`} className="font-semibold text-s112-blue-700 hover:underline">{kammer.tankName}</Link>
+            {' '}– Typ und Standort kommen vom Tank und werden dort geändert.
+          </p>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -55,7 +65,7 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
           </div>
           <div>
             <label className="form-label">Typ</label>
-            <select aria-label="Typ" name="typ" defaultValue={behaelter?.typ ?? ''} className="form-input">
+            <select aria-label="Typ" name="typ" defaultValue={behaelter?.typ ?? ''} className="form-input" disabled={!!kammer} title={kammer ? 'kommt vom Tank' : undefined}>
               <option value="">– bitte wählen –</option>
               <option value="amphore">Amphore</option>
               <option value="barrique">Barrique</option>
@@ -83,7 +93,7 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
           </div>
           <div>
             <label className="form-label">Standort</label>
-            <input aria-label="Standort" name="standort" type="text" defaultValue={behaelter?.standort ?? ''} className="form-input" placeholder="z.B. Keller Süd" />
+            <input aria-label="Standort" name="standort" type="text" defaultValue={behaelter?.standort ?? ''} className="form-input" placeholder="z.B. Keller Süd" disabled={!!kammer} title={kammer ? 'kommt vom Tank' : undefined} />
           </div>
           <div className="sm:col-span-2">
             <label className="form-label">Notizen</label>
