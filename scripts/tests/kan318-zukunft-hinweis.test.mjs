@@ -50,7 +50,7 @@ describe('ZukunftsDatum', () => {
     }
     const alle = [
       'src/components/kellerbuch/UmziehenFormClient.tsx', 'src/components/kellerbuch/UmziehenWidget.tsx', 'src/components/kellerbuch/VerschneidungForm.tsx',
-      `${D}kellerbuch/umziehen/UmziehenClient.tsx`, `${D}kellerbuch/weinausbau/[id]/SchwundBuchenForm.tsx`, `${D}kellerbuch/behaelter/[id]/behandlungen/page.tsx`,
+      `${D}kellerbuch/umziehen/UmziehenClient.tsx`, `${D}kellerbuch/weinausbau/[id]/SchwundBuchenForm.tsx`, `${D}kellerbuch/_behandlungen/Kellerbehandlungen.tsx`,
       `${D}kellerbuch/weinausbau/[id]/analysen/neu/page.tsx`, `${D}erntemeldung/[id]/ErnteDetailClient.tsx`,
       `${D}erntemeldung/[id]/PressungSection.tsx`, `${D}erntemeldung/[id]/TraubenverkaufSection.tsx`, `${D}weinhandel/fuellungen/neu/FuellungFormClient.tsx`,
       `${D}weinhandel/fuellungen/[id]/edit/page.tsx`, `${D}weinhandel/verkauf/neu/page.tsx`, 'src/components/handel/ZahlungErfassen.tsx',

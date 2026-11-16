@@ -107,6 +107,6 @@ describe('KAN-117: Seite und Aktionen', () => {
     assert.match(k, /navigator\.onLine/)
     assert.match(k, /localStorage\.setItem/)
     assert.match(k, /Keine Verbindung zum Netz – nichts gespeichert/)
-    assert.match(quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx'), /get\('neu'\) === '1'\) openNeu\(\)/)
+    assert.match(quelle('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx'), /get\('neu'\) === '1'\) openNeu\(\)/)
   })
 })

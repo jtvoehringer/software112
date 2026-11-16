@@ -78,7 +78,7 @@ describe('Kellerbuch (Etappe 3)', () => {
     `${KB}/umziehen/UmziehenClient.tsx`,
     'src/components/kellerbuch/UmziehenWidget.tsx',
     'src/components/kellerbuch/UmziehenFormClient.tsx',
-    `${KB}/behaelter/[id]/behandlungen/page.tsx`,
+    `${KB}/_behandlungen/Kellerbehandlungen.tsx`,
     `${KB}/weinausbau/[id]/analysen/neu/page.tsx`,
   ]
   const RASTER = [
@@ -102,13 +102,13 @@ describe('Kellerbuch (Etappe 3)', () => {
     assert.doesNotMatch(widget, /className="form-input"/)
     assert.match(widget, /scrollIntoView\(\{ block: 'start' \}\)/)
     assert.doesNotMatch(quelle(`${KB}/weinausbau/[id]/analysen/neu/page.tsx`), /className="form-input"/)
-    const beh = quelle(`${KB}/behaelter/[id]/behandlungen/page.tsx`)
+    const beh = quelle(`${KB}/_behandlungen/Kellerbehandlungen.tsx`)
     assert.doesNotMatch(beh, /className="input"/)
     assert.equal((beh.match(/className="input /g) ?? []).length, (beh.match(/className="input [^"]*text-base sm:text-sm/g) ?? []).length)
   })
   test('Tabellen scrollen waagrecht statt zu quetschen', () => {
     assert.match(quelle(`${KB}/umziehen/UmziehenClient.tsx`), /card p-0 overflow-x-auto">\s*<table className="w-full min-w-\[640px\]/)
-    assert.match(quelle(`${KB}/behaelter/[id]/behandlungen/page.tsx`), /card p-0 overflow-x-auto">\s*<table className="w-full min-w-\[600px\]/)
+    assert.match(quelle(`${KB}/_behandlungen/Kellerbehandlungen.tsx`), /card p-0 overflow-x-auto">\s*<table className="w-full min-w-\[600px\]/)
     assert.match(quelle(`${KB}/weinausbau/page.tsx`), /<div className="overflow-x-auto">\s*<table className="w-full min-w-\[640px\]/)
   })
 })

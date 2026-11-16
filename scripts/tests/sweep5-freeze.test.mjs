@@ -112,7 +112,7 @@ describe('Sweep 5: Verdrahtung', () => {
     assert.match(f, /<FreezeKorrektur tabelle="fuellungen"/)
     // außerhalb des Formulars (kein verschachteltes <form>)
     assert.ok(f.indexOf('<FreezeKorrektur') > f.indexOf('</FuellungEditFormular>'))
-    const kb = quelle(`${D}/kellerbuch/behaelter/[id]/behandlungen/page.tsx`)
+    const kb = quelle(`${D}/kellerbuch/_behandlungen/Kellerbehandlungen.tsx`)
     assert.match(kb, /korrekturErlaubt\(\)\.then\(setBetriebsleitung\)/)
     assert.match(kb, /betriebsleitung && editId && /)
     // Sweep 119: das Formular trägt data-ungespeichert

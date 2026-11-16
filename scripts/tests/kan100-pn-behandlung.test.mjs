@@ -95,7 +95,7 @@ describe('KAN-100 Einstufung der Behandlungstypen', () => {
 
 describe('KAN-100 Verdrahtung', () => {
   const act = quelle('src/app/(dashboard)/kellerbuch/actions.ts')
-  const seite = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx')
+  const seite = quelle('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx')
   test('Seite schreibt Behandlungen und Typen nur noch über Server Actions', () => {
     assert.doesNotMatch(seite, /from\('keller_behandlungen'\) as any\)\s*\.(insert|update)/)
     assert.doesNotMatch(seite, /from\('keller_behandlungstypen'\) as any\)\s*\.insert/)

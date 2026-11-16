@@ -131,24 +131,24 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
 
   const chargenBasis = ((chargenRaw ?? []) as R[]).filter(c => !c.ist_eroeffnungsbestand && c.aktiv !== false)
   const ids = chargenBasis.map(c => c.id)
-  const behaelterIds = Array.from(new Set(chargenBasis.map(c => c.behaelter_id).filter(Boolean)))
 
   // inBloecken (05.10.2026): Gebeshuber hat 172 Behälter – ab ≈ 350 IDs scheitert die URL. Gebraucht wird nur der
   // jeweils neueste Eintrag je Charge bzw. Behälter; alle Zeilen eines Schlüssels liegen im selben Block.
   const [analysenRes, massnahmenRes] = await Promise.all([
     inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl, kmw, oechsle, mostgewicht_einheit').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(500))),
-    inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).is('storniert_am', null).order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(500))),
+    // KAN-475: je Charge (nicht je Gebinde – dort stand sonst die Maßnahme einer früheren Charge)
+    inBloecken(ids, b => ctx.tf(ctx.q('keller_behandlungen').select('weinausbau_id, datum, typ_name_snapshot, menge, einheit').in('weinausbau_id', b).is('storniert_am', null).order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(500))),
   ])
   const analysenRaw = geladen(analysenRes, 'Analysen')
   const massnahmenRaw = geladen(massnahmenRes, 'Kellerbehandlungen')
   const letzteAnalyse = new Map<string, R>()
   for (const a of (analysenRaw ?? []) as R[]) if (!letzteAnalyse.has(a.weinausbau_id)) letzteAnalyse.set(a.weinausbau_id, a)
   const letzteMassnahme = new Map<string, R>()
-  for (const m of (massnahmenRaw ?? []) as R[]) if (!letzteMassnahme.has(m.behaelter_id)) letzteMassnahme.set(m.behaelter_id, m)
+  for (const m of (massnahmenRaw ?? []) as R[]) if (!letzteMassnahme.has(m.weinausbau_id)) letzteMassnahme.set(m.weinausbau_id, m)
 
   const chargen: Charge[] = chargenBasis.map(c => {
     const a = letzteAnalyse.get(c.id) ?? null
-    const m = c.behaelter_id ? (letzteMassnahme.get(c.behaelter_id) ?? null) : null
+    const m = letzteMassnahme.get(c.id) ?? null
     const tage = a ? tageSeit(a.analyse_datum, ctx.heute) : null   // Sweep 101: Kalendertage statt Millisekunden
     return {
       id: c.id, name: c.name, jahrgang: c.jahrgang ?? null, rebsorte: c.rebsorte ?? null, weinart: c.weinart ?? null,

@@ -125,7 +125,7 @@ describe('KAN-413: Messwert in °C', nurMitHooks, () => {
   test('Einheiten wie bei der Einzelbehandlung, samt °C', async () => {
     const { SAMMEL_EINHEITEN, istMesswertEinheit } = await m()
     assert.deepEqual([...SAMMEL_EINHEITEN], ['kg', 'g', 'L', 'mL', 'mg', '°C', '-'])
-    assert.ok(quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx').includes("const EINHEITEN = ['kg', 'g', 'L', 'mL', 'mg', '°C', '-']"))
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx').includes("const EINHEITEN = ['kg', 'g', 'L', 'mL', 'mg', '°C', '-']"))
     assert.equal(istMesswertEinheit('°C'), true)
     for (const e of ['g', 'kg', '-', '', null, undefined]) assert.equal(istMesswertEinheit(e), false, String(e))
   })

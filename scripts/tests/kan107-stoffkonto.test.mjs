@@ -69,7 +69,7 @@ describe('KAN-107: Datenbank und Verdrahtung', () => {
     assert.match(a, /art: 'verwendung', menge: -rund\(stoff\.menge, 3\)/)   // Sweep 76: kaufmännisch auf 3 Stellen
     assert.match(a, /\} else if \(istStoffkontoTyp\(typ\.name as string\)\) \{/)
     assert.match(a, /art: 'storno', menge: -Number\(b\.menge\),\n\s+storno_von_id: b\.id, keller_behandlung_id: id/)
-    const f = quelle(`${D}/kellerbuch/behaelter/[id]/behandlungen/page.tsx`)
+    const f = quelle(`${D}/kellerbuch/_behandlungen/Kellerbehandlungen.tsx`)
     assert.match(f, /if \(!editId && formStoffId\) \{ fd\.set\('kellermittel_id', formStoffId\)/)
     assert.match(f, /required=\{pflicht\}/)
   })
