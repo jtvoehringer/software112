@@ -58,9 +58,12 @@ describe('Seiten mit druck-formular', () => {
     assert.match(ama, /<PrintButton standard="quer" \/>/)
   })
 
-  test('AMA-Erntemeldung: Weinbaugebiet in derselben Zeile wie die Rebsorte (kein block)', () => {
-    const zeile = ama.split('\n').find(l => l.includes('z.weinbaugebiet ??'))
-    assert.ok(zeile, 'Weinbaugebiet-Zeile fehlt')
+  // KAN-472: Das BKI-Formular hat keine Spalte für das Weinbaugebiet mehr; der Zusatz in der Sortenzelle ist jetzt der
+  // Name der Rebsorte neben dem Kürzel – weiterhin in derselben Zeile (kein block)
+  test('AMA-Erntemeldung: Zusatz in derselben Zeile wie die Rebsorte (kein block)', () => {
+    assert.match(ama, /<ErntemeldungFormular formular=\{ernte\.formular\}/)
+    const zeile = lies('src/components/behoerden/ErntemeldungFormular.tsx').split('\n').find(l => l.includes('z.kuerzel ?? z.rebsorte'))
+    assert.ok(zeile, 'Sortenzelle fehlt')
     assert.doesNotMatch(zeile, /className="block/)
   })
 

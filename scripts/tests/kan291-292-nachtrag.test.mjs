@@ -19,15 +19,21 @@ const require = createRequire(import.meta.url)
 const { pruefeText } = require(path.join(HIER, '..', 'check-zahl-eingabe.js'))
 const quelle = d => readFileSync(path.join(ROOT, d), 'utf8').replace(/\r\n/g, '\n')
 
+// KAN-472 (16.11.2026): Die Erntemeldung druckt jetzt im Aufbau des BKI-Formulars (Liter statt kg/hl) – die Köpfe und
+// Summen stehen in der Komponente ErntemeldungFormular; geprüft wird dasselbe Anliegen (zweizeilige Köpfe unten bündig,
+// Zahlen einzeilig) am neuen Aufbau.
 describe('AMA-Erntemeldung (Druck)', () => {
-  const t = quelle('src/app/(dashboard)/reports/(pflicht)/ama/page.tsx')
+  const t = quelle('src/components/behoerden/ErntemeldungFormular.tsx')
   test('Köpfe zweizeilig mit Einheit, unten bündig', () => {
-    for (const [l, e] of [['Fläche', '(ha)'], ['Menge', '(kg)'], ['davon verkauft', '(kg)'], ['Menge', '(hl)'], ['Ertrag', '(kg/ha)'], ['Übermenge', '(kg)']])
-      assert.ok(t.includes(`whitespace-nowrap">${l}<br />${e}</th>`), `${l} ${e}`)
-    assert.doesNotMatch(t, />Fläche \(ha\)</)
+    assert.match(t, /const kopf = '[^']*align-bottom'/)
+    assert.ok(t.includes('>Selbsteingefüllter Wein<br />in Liter</th>'))
+    assert.ok(t.includes('>Verkaufte Trauben<br /><span className="font-normal">(kg × 0,75 = Liter)</span> in Liter</th>'))
+    assert.ok(t.includes('>Summe in Liter</th>'))
+    assert.doesNotMatch(t, /\(hl\)|\(kg\/ha\)/)
   })
-  test('Summenzeile einzeilig („17.000 kg“)', () => {
-    assert.match(t, /border-s112-line-str text-right tabular-nums whitespace-nowrap">\{fmtNum\(ernte\?\.summe\.mengeKg \?\? 0, 0\)\} kg/)
+  test('Summen und Flächen einzeilig (tabular-nums, ha und ar ohne Umbruch)', () => {
+    assert.match(t, /text-right tabular-nums font-semibold w-\[14%\]`\}>\{fmtNum\(formular\.rlqp\.liter, 0\)\}/)
+    assert.match(t, /className="tabular-nums whitespace-nowrap font-medium">\{wert\.ha\} ha/)
   })
 })
 

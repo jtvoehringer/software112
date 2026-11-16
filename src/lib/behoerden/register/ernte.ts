@@ -3,7 +3,8 @@ import { PROFIL_BKI } from '@/lib/csv'
 import { definiereMeldung, type MeldungenZu } from '../typen'
 import { KATALOG_ERNTE } from '../katalog/ernte'
 import { jahrgangOptional, jahrgangParameter } from '../ernte_hilfen'
-import { jahrgangFinden, ladeErntemeldung, ladeLesedaten, SPALTEN_ERNTEMELDUNG, SPALTEN_LESEDATEN } from '../erntemeldung'
+import { jahrgangFinden, ladeErntemeldung, ladeLesedaten, SPALTEN_LESEDATEN } from '../erntemeldung'
+import { SPALTEN_ERNTE_FORMULAR } from '../erntemeldungFormular'
 import { bestandKennzeichnung, ladeBestandsmeldung, SPALTEN_BESTANDSMELDUNG, stichtagParameter } from '../bestandsmeldung'
 import { ladeBkiTraubenverkauf, SPALTEN_BKI_TRAUBENVERKAUF } from '../traubenverkauf'
 import { bsmJournal, bsmKennzeichnung, bsmParameter, ladeBsm, SPALTEN_BSM, SPALTEN_BSM_JOURNAL } from '../bsm'
@@ -30,9 +31,10 @@ export const MELDUNGEN_ERNTE = {
       const jg = await jahrgangFinden(ctx.supabase, ctx.tenantId, p.jahrgang)
       if (!jg) return leermeldung(p.jahrgang)
       const daten = await ladeErntemeldung(ctx.supabase, ctx.tenantId, jg)
-      return { zeilen: daten.zeilen, warnungen: daten.warnungen }
+      // KAN-472: Zeilen wie am BKI-Formular – je Rebsorte und Qualitätsstufe in Litern (kg × 0,75)
+      return { zeilen: daten.formular.zeilen, warnungen: daten.warnungen }
     },
-    spalten: SPALTEN_ERNTEMELDUNG,
+    spalten: SPALTEN_ERNTE_FORMULAR,
     dateiteile: (p, betrieb) => ['Erntemeldung', betrieb.betriebsnummer, p.jahrgang],
     // KAN-95: Jahr = Stichtag der Erntemeldung (30.11. des Jahrgangs), auch bei Export im Folgejahr
     bki: p => ({ bericht: 'Erntemeldung', jahr: p.jahrgang }),
