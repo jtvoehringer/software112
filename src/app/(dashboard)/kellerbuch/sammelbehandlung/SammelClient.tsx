@@ -3,7 +3,7 @@
 // KAN-413 (11.11.2026): Formular der Sammelmaßnahme – Gebinde ankreuzen, Typ/Datum/Menge erfassen, Vorschau der
 // Aufteilung je Gebinde (derselbe Baustein wie die Server Action: src/lib/kellerbuch/sammelbehandlung.ts).
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import StornoButton from '@/components/StornoButton'
@@ -14,9 +14,12 @@ import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
 import { sammelFehler, sammelSumme, sammelZeilen, type SammelModus, SAMMEL_EINHEITEN, istMesswertEinheit, sammelModusFuer } from '@/lib/kellerbuch/sammelbehandlung'
 import { speichereSammelbehandlung, storniereSammelbehandlung } from './actions'
+import { auswahlStand, type AuswahlStand } from '@/lib/keller/tanks'
 
 export type SammelChargeZeile = {
   id: string; name: string; jahrgang: number | null; rebsorte: string | null; liter: number; behaelterId: string; behaelterName: string
+  /** KAN-468: das Gebinde ist die Kammer eines geteilten Tanks (kammerNr 1 = unterste) */
+  tankId: string | null; tankName: string | null; kammerNr: number | null
 }
 export type Sammlung = {
   id: string; datum: string; typ: string; einheit: string | null; menge: number; anzahl: number; storniert: number; gebinde: string[]
@@ -25,14 +28,26 @@ type Typ = { id: string; name: string; einheit: string | null; pnWirkung: string
 type Stoff = { id: string; name: string; einheit: string }
 
 const EINHEITEN: readonly string[] = SAMMEL_EINHEITEN   // wie die Einzelbehandlung, samt °C
+/** KAN-468: Häkchen „ganzer Tank“ – teilweise gewählt zeigt der Browser als Strich (indeterminate lässt sich nur per DOM setzen) */
+function TankHaekchen({ stand, name, anzahl, disabled, onChange }: { stand: AuswahlStand; name: string; anzahl: number; disabled: boolean; onChange: (an: boolean) => void }) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (ref.current) ref.current.indeterminate = stand === 'teil' }, [stand])
+  return (
+    <input ref={ref} type="checkbox" checked={stand === 'alle'} disabled={disabled} onChange={e => onChange(e.target.checked)}
+      aria-label={`Geteilter Tank ${name}: alle ${anzahl} belegten Kammern${stand === 'teil' ? ' (teilweise gewählt)' : ''}`} className="h-4 w-4" />
+  )
+}
+
 const datumDe = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}` : d)
 
-export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute, writeOk }: {
+export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute, writeOk, vorauswahl = [] }: {
   chargen: SammelChargeZeile[]; typen: Typ[]; stoffe: Stoff[]; sammlungen: Sammlung[]; heute: string; writeOk: boolean
+  /** KAN-468: vorab gewählte Chargen (Einstieg „Behandlung für alle Kammern“ eines geteilten Tanks) */
+  vorauswahl?: string[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [gewaehlt, setGewaehlt] = useState<Set<string>>(new Set())
+  const [gewaehlt, setGewaehlt] = useState<Set<string>>(() => new Set(vorauswahl))
   const [suche, setSuche] = useState('')
   const [datum, setDatum] = useState(heute)
   const [typId, setTypId] = useState('')
@@ -53,7 +68,7 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
   const sichtbar = useMemo(() => {
     const q = suche.trim().toLowerCase()
     if (!q) return chargen
-    return chargen.filter(c => `${c.behaelterName} ${c.name} ${c.jahrgang ?? ''} ${c.rebsorte ?? ''}`.toLowerCase().includes(q))
+    return chargen.filter(c => `${c.tankName ? `geteilter tank ${c.tankName}` : ''} ${c.behaelterName} ${c.name} ${c.jahrgang ?? ''} ${c.rebsorte ?? ''}`.toLowerCase().includes(q))
   }, [chargen, suche])
   const auswahl = useMemo(() => chargen.filter(c => gewaehlt.has(c.id)), [chargen, gewaehlt])
 
@@ -69,6 +84,15 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
 
   function umschalten(id: string) {
     setGewaehlt(alt => { const neu = new Set(alt); if (neu.has(id)) neu.delete(id); else neu.add(id); return neu })
+  }
+  // KAN-468: alle belegten Kammern eines geteilten Tanks (auch die vom Filter ausgeblendeten) an- bzw. abwählen
+  const chargenJeTank = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const c of chargen) if (c.tankId) m.set(c.tankId, [...(m.get(c.tankId) ?? []), c.id])
+    return m
+  }, [chargen])
+  function ganzerTank(tankId: string, an: boolean) {
+    setGewaehlt(alt => { const neu = new Set(alt); for (const id of chargenJeTank.get(tankId) ?? []) { if (an) neu.add(id); else neu.delete(id) } return neu })
   }
   function alleSichtbaren(an: boolean) {
     setGewaehlt(alt => { const neu = new Set(alt); for (const c of sichtbar) { if (an) neu.add(c.id); else neu.delete(c.id) } return neu })
@@ -154,16 +178,33 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
                 </tr>
               </thead>
               <tbody>
-                {sichtbar.map(c => {
+                {sichtbar.flatMap((c, i) => {
                   const z = jeCharge.get(c.id)
                   const an = gewaehlt.has(c.id)
-                  return (
+                  // KAN-468: vor der ersten sichtbaren Kammer eines geteilten Tanks eine Tank-Zeile mit „ganzer Tank“
+                  const tankIds = c.tankId ? chargenJeTank.get(c.tankId) ?? [] : []
+                  const tankKopf = c.tankId && sichtbar[i - 1]?.tankId !== c.tankId ? (
+                    <tr key={`tank-${c.tankId}`} className="border-b border-s112-border bg-s112-blue-50">
+                      <td className="py-1.5 pr-2">
+                        <TankHaekchen stand={auswahlStand(tankIds, gewaehlt)} name={c.tankName ?? ''} anzahl={tankIds.length} disabled={!writeOk}
+                          onChange={wert => ganzerTank(c.tankId as string, wert)} />
+                      </td>
+                      <td className="py-1.5 pr-3 text-xs font-semibold text-s112-text" colSpan={stoff ? 5 : 4}>
+                        Geteilter Tank {c.tankName}
+                        <span className="font-normal text-s112-text-2"> · {tankIds.length} belegte {tankIds.length === 1 ? 'Kammer' : 'Kammern'} · Häkchen wählt den ganzen Tank</span>
+                      </td>
+                    </tr>
+                  ) : null
+                  return [tankKopf, (
                     <tr key={c.id} className={`border-b border-s112-border last:border-0 ${an ? 'bg-s112-bg' : ''}`}>
                       <td className="py-2 pr-2">
                         <input type="checkbox" checked={an} onChange={() => umschalten(c.id)} disabled={!writeOk}
                           aria-label={`${c.behaelterName} – ${c.name}`} className="h-4 w-4" />
                       </td>
-                      <td className="py-2 pr-3 font-medium text-s112-text">{c.behaelterName}</td>
+                      <td className={`py-2 pr-3 font-medium text-s112-text ${c.tankId ? 'pl-4' : ''}`}>
+                        {c.behaelterName}
+                        {c.tankId && c.kammerNr ? <span className="ml-1.5 text-[10.5px] font-normal text-s112-text-2">Kammer {c.kammerNr}</span> : null}
+                      </td>
                       <td className="py-2 pr-3">
                         <Link href={`/kellerbuch/weinausbau/${c.id}`} className="text-s112-blue-700 hover:underline">{c.name}</Link>
                         <span className="text-xs text-s112-muted"> {[c.jahrgang, c.rebsorte].filter(Boolean).join(' · ')}</span>
@@ -172,7 +213,7 @@ export default function SammelClient({ chargen, typen, stoffe, sammlungen, heute
                       <td className="py-2 pr-3 text-right tabular-nums">{an && z?.menge != null && z.menge > 0 ? fmtNum(z.menge, 3) : '–'}</td>
                       {stoff && <td className="py-2 pr-3 text-right tabular-nums">{an && z?.stoffMenge != null && z.stoffMenge > 0 ? fmtNum(z.stoffMenge, 3) : '–'}</td>}
                     </tr>
-                  )
+                  )]
                 })}
                 {sichtbar.length === 0 && (
                   <tr><td colSpan={stoff ? 6 : 5} className="py-4 text-center text-xs text-s112-muted">Kein Gebinde passt zum Filter.</td></tr>

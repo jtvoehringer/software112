@@ -5,6 +5,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
 import { BrotkrumenLink } from '@/components/ui/Link'
@@ -16,7 +17,10 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 // KAN-413 (11.11.2026): Sammelmaßnahme – dieselbe Kellerbehandlung für mehrere Gebinde, Menge anteilig nach Litern.
-export default async function SammelbehandlungPage() {
+// KAN-468: ?tank=<id> wählt die belegten Kammern eines geteilten Tanks vor; die Kammern stehen in der Liste unter ihrem Tank.
+export default async function SammelbehandlungPage({ searchParams }: { searchParams: Promise<{ tank?: string }> }) {
+  const sp = await searchParams
+  const tankWahl = typeof sp.tank === 'string' && /^[0-9a-f-]{36}$/i.test(sp.tank) ? sp.tank : null
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role, 'kellerbuch')
@@ -24,7 +28,9 @@ export default async function SammelbehandlungPage() {
   const tenantId = membership?.tenantId ?? null
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [chargenRes, typenRes, stoffeRes, sammelRes] = await Promise.all([
+  const [gebinde, chargenRes, typenRes, stoffeRes, sammelRes] = await Promise.all([
+    // Gebindeliste (eigene und freigegebene): Tank und Kammer je Gebinde
+    ladeBehaelter(supabase, tenantId),
     alle(nurBelegendeChargen(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, behaelter_id, behaelter:behaelter_id(id, name)')))
       .not('behaelter_id', 'is', null)
@@ -44,7 +50,13 @@ export default async function SammelbehandlungPage() {
   const stoffe = geladen(stoffeRes, 'Stoffe') as R[]
   const sammelRaw = geladen(sammelRes, 'Sammelmaßnahmen') as R[]
 
-  const chargen: SammelChargeZeile[] = chargenRaw.map(w => ({
+  const jeGebinde = new Map(gebinde.map(g => [g.id, g]))
+  const chargen: SammelChargeZeile[] = chargenRaw.map(w => {
+    const g = jeGebinde.get(String((w.behaelter as R | null)?.id ?? w.behaelter_id))
+    return {
+    tankId: g?.tank_id ?? null,
+    tankName: g?.tank_id ? (g.tank_name ?? 'Tank') : null,
+    kammerNr: g?.tank_id ? g.kammer_nr : null,
     id: String(w.id),
     name: (w.name as string | null) ?? '–',
     jahrgang: (w.jahrgang as number | null) ?? null,
@@ -52,7 +64,13 @@ export default async function SammelbehandlungPage() {
     liter: Number(w.menge_liter) || 0,
     behaelterId: String((w.behaelter as R | null)?.id ?? w.behaelter_id),
     behaelterName: ((w.behaelter as R | null)?.name as string | undefined) ?? '?',
-  })).sort((a, b) => a.behaelterName.localeCompare(b.behaelterName, 'de', { numeric: true }) || a.name.localeCompare(b.name, 'de'))
+    }
+  // Kammern eines geteilten Tanks stehen beisammen (oberste Kammer zuerst), der Tank an der Stelle seines Namens
+  }).sort((a, b) => (a.tankName ?? a.behaelterName).localeCompare(b.tankName ?? b.behaelterName, 'de', { numeric: true })
+    || (a.tankId ?? '').localeCompare(b.tankId ?? '')
+    || (b.kammerNr ?? 0) - (a.kammerNr ?? 0)
+    || a.behaelterName.localeCompare(b.behaelterName, 'de', { numeric: true }) || a.name.localeCompare(b.name, 'de'))
+  const vorauswahl = tankWahl ? chargen.filter(c => c.tankId === tankWahl).map(c => c.id) : []
 
   // Letzte Sammelmaßnahmen: je sammel_id eine Zeile (die Abfrage ist nach Datum und Erfassung absteigend sortiert)
   const jeSammel = new Map<string, Sammlung>()
@@ -86,7 +104,7 @@ export default async function SammelbehandlungPage() {
       </div>
       <SammelClient chargen={chargen} typen={typen.map(t => ({ id: String(t.id), name: String(t.name ?? ''), einheit: (t.einheit_standard as string | null) ?? null, pnWirkung: (t.pn_wirkung as string | null) ?? null }))}
         stoffe={stoffe.map(s => ({ id: String(s.id), name: String(s.name ?? ''), einheit: String(s.einheit ?? '') }))}
-        sammlungen={sammlungen} heute={heuteWien()} writeOk={writeOk} />
+        sammlungen={sammlungen} heute={heuteWien()} writeOk={writeOk} vorauswahl={vorauswahl} />
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
 import KellerplanBuchen from './KellerplanBuchen'
 import { bewerteZiel, teilumzugText, vorschlagsMenge, ZIEL_FARBE, type PlanCharge, type PlanGebinde, type ZielBewertung } from '@/lib/keller/kellerplanZiehen'
+import { tankSammelPfad } from '@/lib/keller/tanks'
 import { planHoehe, segmentRechtecke, tankGroesseAendern, tankImPlan, tankSegmente, tankStandardGroesse, zielUnterZeiger } from '@/lib/keller/kellerplanTank'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -419,7 +420,7 @@ export default function KellerplanEditor({
         setPlanGespeichert(false)
         // der Tank steht in der Datenbank noch im Plan – wieder anzeigen
         if (vorher) setTankPositions(prev => ({ ...prev, [tankId]: vorher }))
-        setSaveError(fehlerText(err, 'Der Tank konnte nicht vom Plan entfernt werden'))
+        setSaveError(fehlerText(err, 'Der geteilte Tank konnte nicht vom Plan entfernt werden'))
       }
     })
   }
@@ -447,6 +448,9 @@ export default function KellerplanEditor({
   const dialogBehaelter = dialogBehaelterId ? behaelterMap[dialogBehaelterId] : null
   const dialogWein       = dialogBehaelterId ? weinMap[dialogBehaelterId] ?? null : null
   const dlgBehaelter = useDialog(!!dialogBehaelter, () => setDialogBehaelterId(null), 'Gebinde')
+  // KAN-468: gehört das Gebinde als Kammer zu einem eigenen geteilten Tank? Dann gibt es die Sammelmaßnahme für alle Kammern
+  const dialogTank = dialogBehaelterId ? tanks.find(t => t.kammern.some(k => k.id === dialogBehaelterId)) ?? null : null
+  const dialogTankBelegt = !!dialogTank && dialogTank.kammern.some(k => (chargen[k.id]?.length ?? 0) > 0)
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -677,7 +681,7 @@ export default function KellerplanEditor({
                   key={t.id}
                   className="absolute group"
                   style={{ left: `${pos.pos_x_pct}%`, top: `${pos.pos_y_pct}%`, width: `${pos.breite_pct}%`, height: `${planHoehe(pos.hoehe_pct)}%` }}
-                  title={planModus ? `Tank ${t.name}: Ziehen zum Verschieben, Klick auf eine Kammer für Gebinde-Aktionen` : `Tank ${t.name}`}
+                  title={planModus ? `Geteilter Tank ${t.name}: Ziehen zum Verschieben, Klick auf eine Kammer für Gebinde-Aktionen` : `Geteilter Tank ${t.name}`}
                 >
                   <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: 12, border: `2px solid ${typ.border}`, backgroundColor: typ.bg }}>
                     {segmente.map((s, i) => {
@@ -694,7 +698,7 @@ export default function KellerplanEditor({
                           key={k.id}
                           role="button"
                           tabIndex={0}
-                          aria-label={`${k.name}${wein ? ` – ${wein.name}` : ' – leer'}: Gebinde-Aktionen (Kammer ${k.nr} im Tank ${t.name})`}
+                          aria-label={`${k.name}${wein ? ` – ${wein.name}` : ' – leer'}: Gebinde-Aktionen (Kammer ${k.nr} im geteilten Tank ${t.name})`}
                           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDialogBehaelterId(k.id) } }}
                           onPointerDown={e => handleKammerPointerDown(e, t.id, k.id)}
                           className="absolute left-0 right-0 overflow-hidden flex flex-col items-center justify-center focus:outline-hidden focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-s112-teal/50"
@@ -734,15 +738,15 @@ export default function KellerplanEditor({
                       <button type="button"
                         className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                         onClick={e => { e.stopPropagation(); handleTankRemove(t.id) }} onPointerDown={e => e.stopPropagation()}
-                        title="Tank vom Plan entfernen" aria-label={`Tank ${t.name} vom Plan entfernen`}>×</button>
+                        title="Geteilten Tank vom Plan entfernen" aria-label={`Geteilten Tank ${t.name} vom Plan entfernen`}>×</button>
                       <button type="button"
                         className="no-print absolute -bottom-1.5 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
                         onClick={e => { e.stopPropagation(); handleTankResize(t.id, -RESIZE_STEP) }} onPointerDown={e => e.stopPropagation()}
-                        title="Kleiner" aria-label={`Tank ${t.name} kleiner`}>−</button>
+                        title="Kleiner" aria-label={`Geteilter Tank ${t.name} kleiner`}>−</button>
                       <button type="button"
                         className="no-print absolute -bottom-1.5 right-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
                         onClick={e => { e.stopPropagation(); handleTankResize(t.id, +RESIZE_STEP) }} onPointerDown={e => e.stopPropagation()}
-                        title="Größer" aria-label={`Tank ${t.name} größer`}>+</button>
+                        title="Größer" aria-label={`Geteilter Tank ${t.name} größer`}>+</button>
                     </>
                   )}
                 </div>
@@ -830,10 +834,10 @@ export default function KellerplanEditor({
                       onDragStart={e => handleSidebarDragStart(e, t.id, 'tank_id')}
                       className="flex items-center gap-2 px-2 py-1.5 border-2 rounded-lg text-xs font-medium text-s112-text-1 cursor-grab hover:shadow-xs active:opacity-70 transition-shadow"
                       style={{ backgroundColor: typ.bg, borderColor: typ.border }}
-                      title="Tank in den Plan ziehen"
+                      title="Geteilten Tank in den Plan ziehen"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate">Tank {t.name}</p>
+                        <p className="truncate">Geteilter Tank {t.name}</p>
                         <p className="text-[11px] text-s112-text-2">
                           {t.kammern.length} Kammern{volumen > 0 ? ` · ${fmtNum(volumen)} L` : ''}
                         </p>
@@ -934,6 +938,21 @@ export default function KellerplanEditor({
               >
                 <FlaskConical className="w-4 h-4" /> Kellerbehandlungen
               </Link>
+              {/* KAN-468: dieselbe Kellerbehandlung für alle belegten Kammern des geteilten Tanks */}
+              {dialogTank && writeOk && (dialogTankBelegt ? (
+                <Link
+                  href={tankSammelPfad(dialogTank.id)}
+                  onClick={() => setDialogBehaelterId(null)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-s112-text-1"
+                >
+                  <FlaskConical className="w-4 h-4" /> Behandlung für alle Kammern des geteilten Tanks {dialogTank.name}
+                </Link>
+              ) : (
+                <div title="Keine belegte Kammer – eine Sammelmaßnahme braucht Wein im Gebinde"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border opacity-40 cursor-not-allowed text-sm font-medium text-s112-text-2">
+                  <FlaskConical className="w-4 h-4" /> Behandlung für alle Kammern des geteilten Tanks {dialogTank.name}
+                </div>
+              ))}
               {/* KAN-82: Abstufen der Charge im Gebinde */}
               {dialogWein && dialogWein.weinausbauId && (
                 <Link

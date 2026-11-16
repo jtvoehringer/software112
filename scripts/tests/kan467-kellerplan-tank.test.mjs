@@ -177,8 +177,11 @@ describe('KAN-467: Editor, Seite und Aktionen', () => {
     assert.match(e, /if \(e\.key === 'Enter' \|\| e\.key === ' '\) \{ e\.preventDefault\(\); setDialogBehaelterId\(k\.id\) \}/)
     assert.match(e, /const unplaced     = behaelter\.filter\(b => !placedIds\.has\(b\.id\) && !kammerIds\.has\(b\.id\)\)/)
     assert.match(e, /onDragStart=\{e => handleSidebarDragStart\(e, t\.id, 'tank_id'\)\}/)
-    assert.equal((e.match(/aria-label=\{`Tank \$\{t\.name\} (vom Plan entfernen|kleiner|größer)`\}/g) ?? []).length, 3)
-    assert.match(e, /setSaveError\(fehlerText\(err, 'Der Tank konnte nicht vom Plan entfernt werden'\)\)/)
+    // KAN-468: Bezeichnung „Geteilter Tank“
+    for (const text of ['Geteilten Tank ${t.name} vom Plan entfernen', 'Geteilter Tank ${t.name} kleiner', 'Geteilter Tank ${t.name} größer']) {
+      assert.ok(e.includes('aria-label={`' + text + '`}'), text)
+    }
+    assert.match(e, /setSaveError\(fehlerText\(err, 'Der geteilte Tank konnte nicht vom Plan entfernt werden'\)\)/)
   })
   test('Abnahme 16.11.2026: Knöpfe der runden Gebinde liegen außerhalb des beschnittenen Kreises; der Speicherstand ist sichtbar', () => {
     const e = quelle(`${D}/[id]/KellerplanEditor.tsx`)

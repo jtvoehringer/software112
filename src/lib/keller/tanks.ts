@@ -39,10 +39,10 @@ export type TankEingabe = { name: string; typ: string; kammern: readonly KammerE
 /** Prüfung der Eingabe – Formular und Server Action gleich; die RPC s112_tank_anlegen prüft dasselbe noch einmal */
 export function tankEingabeFehler(e: TankEingabe): string | null {
   const name = e.name.trim()
-  if (!name) return 'Bitte einen Namen für den Tank angeben.'
-  if (name.length > TANK_NAME_MAX) return `Der Name des Tanks darf höchstens ${TANK_NAME_MAX} Zeichen haben.`
-  if (!TANK_TYPEN.some(t => t.wert === e.typ)) return 'Bitte den Typ des Tanks wählen.'
-  if (e.kammern.length < KAMMERN_MIN || e.kammern.length > KAMMERN_MAX) return `Ein Tank mit Kammern braucht ${KAMMERN_MIN} bis ${KAMMERN_MAX} Kammern.`
+  if (!name) return 'Bitte einen Namen für den geteilten Tank angeben.'
+  if (name.length > TANK_NAME_MAX) return `Der Name des geteilten Tanks darf höchstens ${TANK_NAME_MAX} Zeichen haben.`
+  if (!TANK_TYPEN.some(t => t.wert === e.typ)) return 'Bitte den Typ des geteilten Tanks wählen.'
+  if (e.kammern.length < KAMMERN_MIN || e.kammern.length > KAMMERN_MAX) return `Ein geteilter Tank braucht ${KAMMERN_MIN} bis ${KAMMERN_MAX} Kammern.`
   const gesehen = new Set<string>()
   for (let i = 0; i < e.kammern.length; i++) {
     const k = e.kammern[i]
@@ -51,7 +51,7 @@ export function tankEingabeFehler(e: TankEingabe): string | null {
     if (n.length > TANK_NAME_MAX) return `Kammer ${i + 1}: der Name darf höchstens ${TANK_NAME_MAX} Zeichen haben.`
     const s = n.toLocaleLowerCase('de')
     if (gesehen.has(s)) return `Kammer ${i + 1}: der Name „${n}“ kommt doppelt vor – jede Kammer braucht einen eigenen Namen.`
-    if (s === name.toLocaleLowerCase('de')) return `Kammer ${i + 1}: die Kammer darf nicht wie der Tank heißen.`
+    if (s === name.toLocaleLowerCase('de')) return `Kammer ${i + 1}: die Kammer darf nicht wie der geteilte Tank heißen.`
     gesehen.add(s)
     if (k.volumen_liter === null || !Number.isFinite(k.volumen_liter) || k.volumen_liter <= 0) return `Kammer ${i + 1}: bitte das Fassungsvermögen in Litern angeben.`
     if (k.volumen_liter >= 10_000_000) return `Kammer ${i + 1}: das Fassungsvermögen ist zu groß.`
@@ -70,7 +70,7 @@ export function tankZusatz(b: MitTank): string | null {
   const kammer = `Kammer ${b.kammer_nr}${b.tank_kammern && b.kammer_nr <= b.tank_kammern ? ` von ${b.tank_kammern}` : ''}`
   const tank = (b.tank_name ?? '').trim()
   if (!tank || b.name.trim().toLocaleLowerCase('de').startsWith(tank.toLocaleLowerCase('de'))) return kammer
-  return `Tank ${tank}, ${kammer}`
+  return `Geteilter Tank ${tank}, ${kammer}`
 }
 
 export type TankBlock<Z> = { id: string; name: string; kammern: Z[]; volumen: number; anzahl: number }
@@ -100,12 +100,22 @@ export function nachTank<Z extends MitTank & { volumen_liter?: number | null }>(
   return { einzeln, tanks }
 }
 
+/** KAN-468: Stand einer Mehrfachauswahl (z. B. die belegten Kammern eines geteilten Tanks in der Sammelmaßnahme) */
+export type AuswahlStand = 'alle' | 'teil' | 'keine'
+export function auswahlStand(ids: readonly string[], gewaehlt: ReadonlySet<string>): AuswahlStand {
+  const n = ids.filter(id => gewaehlt.has(id)).length
+  return n === 0 ? 'keine' : n === ids.length ? 'alle' : 'teil'
+}
+
+/** Pfad zur Sammelmaßnahme mit den belegten Kammern eines geteilten Tanks als Vorauswahl */
+export const tankSammelPfad = (tankId: string): string => `/kellerbuch/sammelbehandlung?tank=${encodeURIComponent(tankId)}`
+
 /** Meldung der Datenbank (RPC s112_tank_anlegen bzw. Trigger, HINT tank_…) lesbar durchreichen; sonst null */
 export function tankDbFehler(error: unknown): string | null {
   const e = error as { code?: string; message?: string; hint?: string } | null
   if (!e) return null
   if (/^tank_/.test(String(e.hint ?? ''))) return String(e.message ?? '')
-  if (e.code === '23505' && /gebinde_tanks_name_je_betrieb/.test(String(e.message ?? ''))) return 'Einen Tank mit diesem Namen gibt es in diesem Betrieb schon.'
+  if (e.code === '23505' && /gebinde_tanks_name_je_betrieb/.test(String(e.message ?? ''))) return 'Einen geteilten Tank mit diesem Namen gibt es in diesem Betrieb schon.'
   if (e.code === '23505' && /behaelter_name_je_betrieb/.test(String(e.message ?? ''))) return 'Ein Gebinde mit einem dieser Namen gibt es in diesem Betrieb schon – die Bezeichnung muss eindeutig sein.'
   return null
 }

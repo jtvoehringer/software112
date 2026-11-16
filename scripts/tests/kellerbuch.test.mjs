@@ -376,7 +376,7 @@ describe('gebindeverzeichnis', () => {
     const [kopf, ...z] = r.tabelle
     assert.equal(kopf[0], 'Gebinde')
     // KAN-466: nach dem Gebinde die Spalten Tank und Kammer (leer bei eigenständigen Gebinden) – alle weiteren um zwei verschoben
-    assert.deepEqual([kopf[1], kopf[2], kopf[3]], ['Tank', 'Kammer', 'Typ'])
+    assert.deepEqual([kopf[1], kopf[2], kopf[3]], ['Geteilter Tank', 'Kammer', 'Typ'])   // KAN-468: Bezeichnung „Geteilter Tank“
     assert.equal(z.length, 3)
     const t1 = z.find(c => c[0] === 'Tank 1')
     assert.deepEqual([t1[1], t1[2]], ['', ''])
