@@ -118,14 +118,24 @@ describe('KAN-468: Sammelmaßnahme für einen geteilten Tank', () => {
     assert.ok(c.includes('geteilter tank ${c.tankName}'))
     assert.ok(c.includes("fd.set('chargen_json', JSON.stringify(auswahl.map(c => c.id)))"), 'gebucht wird unverändert über die Sammelmaßnahme')
   })
+  test('Sichtprüfung 16.11.2026: Ziel des Knopfs – ab zwei belegten Kammern die Sammelmaßnahme, bei einer die Kellerbehandlung der Kammer, sonst keines', async () => {
+    const { tankBehandlungZiel } = await import('../../src/lib/keller/tanks.ts')
+    // die Sammelmaßnahme lehnt weniger als zwei Gebinde ab – der Knopf darf nicht in ein Formular führen, das sich nicht speichern lässt
+    assert.deepEqual(tankBehandlungZiel('t1', ['k1', 'k2']), { href: '/kellerbuch/sammelbehandlung?tank=t1', text: 'Behandlung für alle Kammern', sammel: true })
+    assert.deepEqual(tankBehandlungZiel('t1', ['k1']), { href: '/kellerbuch/behaelter/k1/behandlungen', text: 'Behandlung für die belegte Kammer', sammel: false })
+    assert.equal(tankBehandlungZiel('t1', []), null)
+    assert.match(quelle('src/lib/kellerbuch/sammelbehandlung.ts'), /if \(p\.chargen\.length < 2\) return 'Bitte mindestens zwei Gebinde wählen/)
+  })
   test('Einstiege nur mit Schreibrecht; ohne belegte Kammer ausgegraut', () => {
     const k = quelle('src/app/(dashboard)/kellerbuch/page.tsx')
-    assert.ok(k.includes('{eigen && writeOk && (t.kammern.some(k => (chargenByBehaelter.get(k.id)?.length ?? 0) > 0)'))
-    assert.ok(k.includes('<Link href={tankSammelPfad(t.id)}'))
+    assert.ok(k.includes('{eigen && writeOk && (() => {'))
+    assert.ok(k.includes('const ziel = tankBehandlungZiel(t.id, t.kammern.filter(k => (chargenByBehaelter.get(k.id)?.length ?? 0) > 0).map(k => k.id))'))
     const t = quelle('src/app/(dashboard)/kellerbuch/behaelter/tank/[id]/page.tsx')
-    assert.ok(t.includes('{darf && (kammern.some(k => k.eigen_liter > 0.005)'))
+    assert.ok(t.includes('const behandlungZiel = tankBehandlungZiel(id, kammern.filter(k => k.eigen_liter > 0.005).map(k => k.id))'))
+    assert.ok(t.includes('{darf && (behandlungZiel'))
     const e = quelle('src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx')
     assert.ok(e.includes('{dialogTank && writeOk && (dialogTankBelegt ? ('))
+    assert.ok(e.includes('const dialogTankBelegt = dialogTankBelegte >= 2'))
     assert.ok(e.includes('href={tankSammelPfad(dialogTank.id)}'))
   })
   test('Bezeichnung „Geteilter Tank“ in Überschriften, Knöpfen und Listen', () => {

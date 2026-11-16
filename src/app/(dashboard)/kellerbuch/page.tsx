@@ -10,7 +10,7 @@ import { Pencil, Boxes, ChevronRight } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { gebindePasst, pickerlText, vorherrschendeWeinart, WEINART_FARBE } from '@/lib/keller/gebindeAnzeige'
 import PickerlEntfernen from './PickerlEntfernen'
-import { nachTank, tankSammelPfad } from '@/lib/keller/tanks'
+import { nachTank, tankBehandlungZiel, TANK_OHNE_BELEGTE_KAMMER } from '@/lib/keller/tanks'
 
 export const metadata: Metadata = { title: 'Kellerbuch' }
 export const dynamic = 'force-dynamic'
@@ -245,9 +245,13 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
                       <span className="text-xs text-s112-text-2">{t.anzahl} {t.anzahl === 1 ? 'Kammer' : 'Kammern'}{t.kammern.length < t.anzahl ? ` · ${t.kammern.length} sichtbar` : ''}</span>
                       <span className="ml-auto text-xs font-mono tabular-nums text-s112-text">{fmtLiter(inhalt)}{t.volumen > 0 ? <span className="text-s112-tertiary"> / {fmtLiter(t.volumen)}</span> : null}</span>
                       {/* KAN-468: dieselbe Kellerbehandlung für alle belegten Kammern (Sammelmaßnahme mit Vorauswahl) */}
-                      {eigen && writeOk && (t.kammern.some(k => (chargenByBehaelter.get(k.id)?.length ?? 0) > 0)
-                        ? <Link href={tankSammelPfad(t.id)} className="text-xs font-medium text-s112-blue-700 hover:underline whitespace-nowrap">Behandlung für alle Kammern</Link>
-                        : <span title="Keine belegte Kammer – eine Sammelmaßnahme braucht Wein im Gebinde" className="text-xs text-s112-tertiary whitespace-nowrap">Behandlung für alle Kammern</span>)}
+                      {eigen && writeOk && (() => {
+                        // zwei oder mehr belegte Kammern → Sammelmaßnahme; genau eine → Kellerbehandlung dieser Kammer
+                        const ziel = tankBehandlungZiel(t.id, t.kammern.filter(k => (chargenByBehaelter.get(k.id)?.length ?? 0) > 0).map(k => k.id))
+                        return ziel
+                          ? <Link href={ziel.href} className="text-xs font-medium text-s112-blue-700 hover:underline whitespace-nowrap">{ziel.text}</Link>
+                          : <span title={TANK_OHNE_BELEGTE_KAMMER} className="text-xs text-s112-tertiary whitespace-nowrap">Behandlung für alle Kammern</span>
+                      })()}
                       {eigen && (
                         <Link href={`/kellerbuch/behaelter/tank/${t.id}`} title={writeOk ? 'Geteilten Tank bearbeiten' : 'Geteilten Tank ansehen'} aria-label={writeOk ? `Geteilten Tank ${t.name} bearbeiten` : `Geteilten Tank ${t.name} ansehen`} className="text-s112-muted hover:text-s112-blue-700">
                           <Pencil className="w-3.5 h-3.5" />

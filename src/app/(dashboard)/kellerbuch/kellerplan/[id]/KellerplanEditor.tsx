@@ -450,7 +450,9 @@ export default function KellerplanEditor({
   const dlgBehaelter = useDialog(!!dialogBehaelter, () => setDialogBehaelterId(null), 'Gebinde')
   // KAN-468: gehört das Gebinde als Kammer zu einem eigenen geteilten Tank? Dann gibt es die Sammelmaßnahme für alle Kammern
   const dialogTank = dialogBehaelterId ? tanks.find(t => t.kammern.some(k => k.id === dialogBehaelterId)) ?? null : null
-  const dialogTankBelegt = !!dialogTank && dialogTank.kammern.some(k => (chargen[k.id]?.length ?? 0) > 0)
+  // die Sammelmaßnahme verlangt mindestens zwei Gebinde – bei nur einer belegten Kammer genügt „Kellerbehandlungen“ darunter
+  const dialogTankBelegte = dialogTank ? dialogTank.kammern.filter(k => (chargen[k.id]?.length ?? 0) > 0).length : 0
+  const dialogTankBelegt = dialogTankBelegte >= 2
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -948,7 +950,7 @@ export default function KellerplanEditor({
                   <FlaskConical className="w-4 h-4" /> Behandlung für alle Kammern des geteilten Tanks {dialogTank.name}
                 </Link>
               ) : (
-                <div title="Keine belegte Kammer – eine Sammelmaßnahme braucht Wein im Gebinde"
+                <div title={dialogTankBelegte === 1 ? 'Nur eine Kammer ist belegt – die Behandlung direkt an der Kammer erfassen (Kellerbehandlungen)' : 'Keine belegte Kammer – eine Kellerbehandlung braucht Wein im Gebinde'}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border opacity-40 cursor-not-allowed text-sm font-medium text-s112-text-2">
                   <FlaskConical className="w-4 h-4" /> Behandlung für alle Kammern des geteilten Tanks {dialogTank.name}
                 </div>

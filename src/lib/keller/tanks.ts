@@ -110,6 +110,18 @@ export function auswahlStand(ids: readonly string[], gewaehlt: ReadonlySet<strin
 /** Pfad zur Sammelmaßnahme mit den belegten Kammern eines geteilten Tanks als Vorauswahl */
 export const tankSammelPfad = (tankId: string): string => `/kellerbuch/sammelbehandlung?tank=${encodeURIComponent(tankId)}`
 
+/**
+ * KAN-468 (Sichtprüfung 16.11.2026): Ziel des Knopfs „Behandlung für alle Kammern“. Die Sammelmaßnahme verlangt mindestens
+ * zwei Gebinde – ist nur eine Kammer belegt, führt der Knopf zur Kellerbehandlung dieser Kammer; ohne belegte Kammer
+ * gibt es kein Ziel (null).
+ */
+export function tankBehandlungZiel(tankId: string, belegteKammerIds: readonly string[]): { href: string; text: string; sammel: boolean } | null {
+  if (belegteKammerIds.length === 0) return null
+  if (belegteKammerIds.length === 1) return { href: `/kellerbuch/behaelter/${belegteKammerIds[0]}/behandlungen`, text: 'Behandlung für die belegte Kammer', sammel: false }
+  return { href: tankSammelPfad(tankId), text: 'Behandlung für alle Kammern', sammel: true }
+}
+export const TANK_OHNE_BELEGTE_KAMMER = 'Keine belegte Kammer – eine Kellerbehandlung braucht Wein im Gebinde'
+
 /** Meldung der Datenbank (RPC s112_tank_anlegen bzw. Trigger, HINT tank_…) lesbar durchreichen; sonst null */
 export function tankDbFehler(error: unknown): string | null {
   const e = error as { code?: string; message?: string; hint?: string } | null
