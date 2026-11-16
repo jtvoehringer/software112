@@ -34,7 +34,7 @@ function TankHaekchen({ stand, name, anzahl, disabled, onChange }: { stand: Ausw
   useEffect(() => { if (ref.current) ref.current.indeterminate = stand === 'teil' }, [stand])
   return (
     <input ref={ref} type="checkbox" checked={stand === 'alle'} disabled={disabled} onChange={e => onChange(e.target.checked)}
-      aria-label={`Geteilter Tank ${name}: alle ${anzahl} belegten Kammern${stand === 'teil' ? ' (teilweise gewählt)' : ''}`} className="h-4 w-4" />
+      aria-label={`Geteilter Tank ${name}: ${anzahl === 1 ? 'die belegte Kammer' : `alle ${anzahl} belegten Kammern`}${stand === 'teil' ? ' (teilweise gewählt)' : ''}`} className="h-4 w-4" />
   )
 }
 

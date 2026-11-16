@@ -6,7 +6,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
-import { nachTank, tankSammelPfad, tankTypLabel } from '@/lib/keller/tanks'
+import { nachTank, tankBehandlungZiel, TANK_OHNE_BELEGTE_KAMMER, tankTypLabel } from '@/lib/keller/tanks'
 import { fmtLiter } from '@/lib/format'
 import TankForm from '@/components/kellerbuch/TankForm'
 import { updateTank } from '../../../actions'
@@ -36,6 +36,8 @@ export default async function TankPage({ params }: { params: Promise<{ id: strin
   const inhalt = kammern.reduce((s, k) => s + k.eigen_liter + k.fremd_liter, 0)
 
   const darf = !!membership && canWrite(membership, 'kellerbuch') && !(await schreibSperre(membership))
+  // KAN-468: zwei oder mehr belegte Kammern → Sammelmaßnahme; genau eine → Kellerbehandlung dieser Kammer
+  const behandlungZiel = tankBehandlungZiel(id, kammern.filter(k => k.eigen_liter > 0.005).map(k => k.id))
 
   return (
     <div className="max-w-3xl">
@@ -52,9 +54,9 @@ export default async function TankPage({ params }: { params: Promise<{ id: strin
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 className="text-base font-semibold text-s112-text">Kammern</h2>
         {/* KAN-468: Sammelmaßnahme mit den belegten Kammern dieses Tanks als Vorauswahl */}
-        {darf && (kammern.some(k => k.eigen_liter > 0.005)
-          ? <Link href={tankSammelPfad(id)} className="btn-primary text-sm">Behandlung für alle Kammern</Link>
-          : <span title="Keine belegte Kammer – eine Sammelmaßnahme braucht Wein im Gebinde" className="text-sm text-s112-tertiary">Behandlung für alle Kammern (keine belegte Kammer)</span>)}
+        {darf && (behandlungZiel
+          ? <Link href={behandlungZiel.href} className="btn-primary text-sm">{behandlungZiel.text}</Link>
+          : <span title={TANK_OHNE_BELEGTE_KAMMER} className="text-sm text-s112-tertiary">Behandlung für alle Kammern (keine belegte Kammer)</span>)}
       </div>
       <div className="card p-0 overflow-hidden mb-6">
         {kammern.length === 0 && <p className="px-4 py-3 text-sm text-s112-muted">Dieser geteilte Tank hat keine Kammern mehr.</p>}
