@@ -91,7 +91,8 @@ describe('KAN-106/KAN-114: Verdrahtung', () => {
   test('Buchen: erst mit „Buchen“, über umziehen(), Rückfragen bestätigt, ganzer Inhalt als Standard', () => {
     const b = quelle(`${D}/KellerplanBuchen.tsx`)
     assert.match(b, /import \{ umziehen \} from '\.\.\/\.\.\/umziehen\/actions'/)
-    assert.match(b, /useState\(quelle \? String\(quelle\.menge_liter\)/)
+    // KAN-469: ganzer Inhalt – oder, wenn er nicht ins Ziel passt, die freie Menge des Ziels (vorschlagsMenge)
+    assert.match(b, /useState\(quelle \? String\(vorschlag\(quelle\)\.menge\)/)
     // KAN-359: Rückfrage über den eigenen Dialog statt window.confirm
     assert.match(b, /if \(!\(await serverRueckfrage\(r\.bestaetigung\)\)\) return\n\s+fd\.set\('pn_bestaetigt', '1'\)\n\s+fd\.set\('rotweiss_bestaetigt', '1'\)/)
     assert.doesNotMatch(b, /window\.confirm/)

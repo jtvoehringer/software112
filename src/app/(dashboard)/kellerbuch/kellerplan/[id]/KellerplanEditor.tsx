@@ -10,7 +10,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
 import KellerplanBuchen from './KellerplanBuchen'
-import { bewerteZiel, ZIEL_FARBE, type PlanCharge, type PlanGebinde, type ZielBewertung } from '@/lib/keller/kellerplanZiehen'
+import { bewerteZiel, teilumzugText, vorschlagsMenge, ZIEL_FARBE, type PlanCharge, type PlanGebinde, type ZielBewertung } from '@/lib/keller/kellerplanZiehen'
 import { planHoehe, segmentRechtecke, tankGroesseAendern, tankImPlan, tankSegmente, tankStandardGroesse, zielUnterZeiger } from '@/lib/keller/kellerplanTank'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -144,10 +144,16 @@ export default function KellerplanEditor({
     id, name: behaelterMap[id]?.name ?? 'Gebinde', volumen_liter: behaelterMap[id]?.volumen_liter ?? null,
     gesperrt: gebindeInfo[id]?.gesperrt ?? false, fremd_betrieb: gebindeInfo[id]?.fremd_betrieb ?? null, fuellung: fillMap[id] ?? 0,
   })
+  // KAN-469: passt der ganze Inhalt nicht, aber im Ziel ist noch Platz, wird mit der freien Menge bewertet (Teilumzug) –
+  // rot bleibt nur, was gar nicht geht (selbes Gebinde, fremd belegt, Ziel voll)
   const bewertung = (quelleId: string, zielId: string): ZielBewertung => {
     const q = chargen[quelleId]?.[0] ?? null
-    return bewerteZiel({ quelle: q, quellGebinde: planGebinde(quelleId), ziel: planGebinde(zielId), zielChargen: chargen[zielId] ?? [], menge: q?.menge_liter ?? 0 })
+    const ziel = planGebinde(zielId)
+    const v = vorschlagsMenge(q, ziel)
+    const b = bewerteZiel({ quelle: q, quellGebinde: planGebinde(quelleId), ziel, zielChargen: chargen[zielId] ?? [], menge: v.menge })
+    return v.teil && b.art !== 'gesperrt' && q ? { ...b, text: `${b.text} – ${teilumzugText(v.menge, q.menge_liter, ziel.name)}` } : b
   }
+  const istTeilumzug = (quelleId: string, zielId: string) => vorschlagsMenge(chargen[quelleId]?.[0] ?? null, planGebinde(zielId)).teil
   const ziehbar = (id: string) => writeOk && (chargen[id]?.length ?? 0) > 0 && !(gebindeInfo[id]?.gesperrt ?? false)
   const placedIds    = new Set(Object.keys(positions))
   // KAN-467: Kammern eigener Tanks stehen nie einzeln im Plan – platziert wird der Tank
@@ -903,7 +909,7 @@ export default function KellerplanEditor({
                     {behaelter.filter(z => z.id !== dialogBehaelter.id).map(z => {
                       const bw = bewertung(dialogBehaelter.id, z.id)
                       return <option key={z.id} value={z.id} disabled={bw.art === 'gesperrt'}>
-                        {z.name} – {bw.art === 'umzug' ? 'leer' : bw.art === 'zusammenfuehren' ? 'zusammenführen' : bw.art === 'verschnitt' ? 'Verschnitt' : 'nicht möglich'}
+                        {z.name} – {bw.art === 'umzug' ? 'leer' : bw.art === 'zusammenfuehren' ? 'zusammenführen' : bw.art === 'verschnitt' ? 'Verschnitt' : 'nicht möglich'}{bw.art !== 'gesperrt' && istTeilumzug(dialogBehaelter.id, z.id) ? ' (Teilmenge)' : ''}
                       </option>
                     })}
                   </select>
