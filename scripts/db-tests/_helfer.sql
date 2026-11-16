@@ -934,6 +934,11 @@ BEGIN
       v_erg := NULL;
     END IF;
     v_w := v_w || jsonb_build_object('verkaufsposten_id', gen_random_uuid(), 'menge', 1, 'zurueckgenommen_am', NULL);
+  ELSIF p_tab = 'kellerplan_positionen' THEN   -- KAN-467: eine Position steht für ein Gebinde ODER einen Tank (CHECK) – Beispiel = Gebinde
+    -- behaelter_id ist seit KAN-467 nicht mehr Pflicht – der allgemeine Weg füllt nur Pflichtspalten; je Gebinde eine Position
+    IF NOT (coalesce(p_werte, '{}'::jsonb) ? 'behaelter_id' OR coalesce(p_werte, '{}'::jsonb) ? 'tank_id') THEN
+      v_w := v_w || jsonb_build_object('behaelter_id', pg_temp.s112_zeile('behaelter', p_tenant) ->> 'id');
+    END IF;
   ELSIF p_tab = 'gebinde_tanks' THEN   -- KAN-466: Pflichtfelder Name (je Betrieb eindeutig) und Typ (CHECK)
     v_w := v_w || jsonb_build_object('name', 'S112TEST Tank ' || left(gen_random_uuid()::text, 8), 'typ', 'stahltank');
   ELSIF p_tab = 'shop_warteschlange' THEN   -- KAN-463: eigene Füllung je Zeile (UNIQUE Betrieb + Füllung + Art)
