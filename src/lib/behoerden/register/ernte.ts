@@ -7,7 +7,8 @@ import { jahrgangFinden, ladeErntemeldung, ladeLesedaten, SPALTEN_LESEDATEN } fr
 import { SPALTEN_ERNTE_FORMULAR } from '../erntemeldungFormular'
 import { bestandKennzeichnung, ladeBestandsmeldung, SPALTEN_BESTANDSMELDUNG, stichtagParameter } from '../bestandsmeldung'
 import { ladeBkiTraubenverkauf, SPALTEN_BKI_TRAUBENVERKAUF } from '../traubenverkauf'
-import { bsmJournal, bsmKennzeichnung, bsmParameter, ladeBsm, SPALTEN_BSM, SPALTEN_BSM_JOURNAL } from '../bsm'
+import { bsmJournal, bsmKennzeichnung, bsmParameter, ladeBsm, SPALTEN_BSM_JOURNAL } from '../bsm'
+import { bsmFormular, SPALTEN_BSM_FORMULAR } from '../bsmFormular'
 
 // Register der Behördenmeldungen – Gruppe „Ernte & Lese“ (Weinerntemeldung, Lesedaten, BKI-Datenblatt Traubenverkauf, Weinbestandsmeldung (KAN-43)).
 // Je Katalog-Eintrag aus katalog/ernte.ts genau ein Eintrag mit CSV (laden + spalten).
@@ -73,9 +74,11 @@ export const MELDUNGEN_ERNTE = {
     parameter: sp => bsmParameter(sp),
     laden: async (ctx, p) => {
       const daten = await ladeBsm(ctx.supabase, ctx.tenantId, p)
-      return { zeilen: daten.summen, warnungen: daten.warnungen }
+      // KAN-473: Zeilen und Spalten wie am BKI-Formular (ganze Liter); die Buchungsarten im Einzelnen liefert das Kontrolljournal
+      const formular = bsmFormular(daten.summen, { von: p.von, bis: p.bis })
+      return { zeilen: formular.zeilen, warnungen: [...daten.warnungen, ...formular.warnungen] }
     },
-    spalten: SPALTEN_BSM,
+    spalten: SPALTEN_BSM_FORMULAR,
     dateiteile: (p, betrieb) => ['BSM', betrieb.betriebsnummer, bsmKennzeichnung(p)],
     bki: p => ({ bericht: 'Bestandsmeldung-BSM', jahr: Number(p.bis.slice(0, 4)), von: p.von, bis: p.bis }),
   }),
