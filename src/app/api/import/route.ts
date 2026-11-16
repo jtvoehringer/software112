@@ -152,12 +152,16 @@ async function generateAccountnummer(
   return data as string | null
 }
 
+/** Import-Typen dieser Route (KAN-474: ohne „fuellungen“) */
+const IMPORT_TYPEN = ['kontakte', 'firmen', 'rieden_details', 'grundstuecke', 'gebinde'] as const
+type ImportTyp = typeof IMPORT_TYPEN[number]
+
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   try {
     const { typ, rows, mapping, istLead, herkunft, zeilenOffset, crm } = await req.json() as {
-      typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
+      typ: ImportTyp
       rows: R[]
       mapping: Record<string, string>
       istLead?: boolean
@@ -166,6 +170,13 @@ export async function POST(req: NextRequest) {
       zeilenOffset?: number
       /** KAN-426: Import aus dem CRM – nur Kontakte/Firmen, Bezeichnung Pflicht */
       crm?: boolean
+    }
+    // KAN-474: Nur die bekannten Typen – „fuellungen“ (Füllungen/Weinlager) gibt es nicht mehr: Flaschenbestand kommt über
+    // „Eröffnungsbestand Flaschen“ (mit Stichtag, Qualität und Herkunft). Ein unbekannter Typ lief bisher still durch.
+    if (!(IMPORT_TYPEN as readonly string[]).includes(typ)) {
+      return NextResponse.json({ fehler: typ === ('fuellungen' as string)
+        ? 'Der Import „Füllungen (Weinlager)“ wurde entfernt – bitte „Eröffnungsbestand Flaschen“ verwenden.'
+        : 'Unbekannter Import-Typ.' }, { status: 400 })
     }
     // KAN-426: Der CRM-Import kennt nur Kontakte und Firmen und verlangt eine Bezeichnung (keine Vorbelegung)
     if (crm === true) {
@@ -427,38 +438,6 @@ export async function POST(req: NextRequest) {
             notizen:            mitHerkunft([mapVal(row, mapping.notizen), emF.fehler ? `Import: E-Mail-Feld unbrauchbar: „${emailRoh}“` : null].filter(Boolean).join('\n') || null),
             ...herkunftFelder,
             aktiv: true, is_lead: leadImport,
-          })
-          if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
-
-        } else if (typ === 'fuellungen') {
-          const bezeichnung = mapVal(row, mapping.bezeichnung)
-          if (!bezeichnung) { details.push(`Zeile ${i+zeilenBasis}: Bezeichnung fehlt – übersprungen`); continue }
-          const bestand = (mapVal(row, mapping.lagerbestand_fl, v => parseDeInt(v) || 0) as number | null) ?? 0
-          const { error } = await (supabase.from('fuellungen') as any).insert({
-            tenant_id:          tenantId,
-            // "fuellungen.name" ist NOT NULL ohne Default und wurde hier bisher
-            // gar nicht gesetzt (nur "bezeichnung", ein separates, nullable
-            // Zusatzfeld) - jede Zeile scheiterte dadurch an der NOT-NULL-
-            // Constraint, unabhängig vom Spalten-Mapping (Rückmeldung 2.9.2026,
-            // "null value in column name"). Die importierte Verkaufsbezeichnung
-            // dient hier zugleich als Name; bezeichnung bleibt für Importe leer,
-            // um keinen doppelten Text ("X – X") in der Übersicht anzuzeigen.
-            name: bezeichnung,
-            jahrgang:           mapVal(row, mapping.jahrgang, v => parseDeInt(v)) ?? null,
-            rebsorte:           mapVal(row, mapping.rebsorte) ?? null,
-            flaschengroesse_ml: mapVal(row, mapping.flaschengroesse_ml, v => parseDeInt(v) || 750) ?? 750,
-            // "anzahl_flaschen" (ursprünglich abgefüllte Menge) ist ebenfalls
-            // NOT NULL ohne Default und wurde bisher gar nicht gesetzt. Die
-            // tatsächliche Füllmenge kennen wir beim Import nicht mehr - wie bei
-            // einer manuellen Neuanlage (siehe weinhandel/actions.ts) auf den
-            // importierten Lagerbestand setzen.
-            anzahl_flaschen:    bestand,
-            bestand_flaschen:   bestand,
-            vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, parseDeZahl) ?? null,
-            einstandspreis:     mapVal(row, mapping.einkaufspreis, parseDeZahl) ?? null,
-            notizen:            mitHerkunft(mapVal(row, mapping.notizen)),
-            ...herkunftFelder,
-            aktiv: true,
           })
           if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
 

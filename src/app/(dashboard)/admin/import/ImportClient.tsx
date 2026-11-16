@@ -19,7 +19,7 @@ import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
 // KAN-42: eroeffnung_tank/eroeffnung_flaschen = Eröffnungsbestand zum Stichtag (eigene Oberfläche, EroeffnungImport.tsx)
-type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde' | 'eroeffnung_tank' | 'eroeffnung_flaschen'
+type ImportTyp = 'kontakte' | 'firmen' | 'rieden_details' | 'grundstuecke' | 'gebinde' | 'eroeffnung_tank' | 'eroeffnung_flaschen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -71,16 +71,6 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean;
     { key: 'zahlungsziel_tage',  label: 'Zahlungsziel (Tage)' },
     { key: 'notizen',            label: 'Notizen' },
   ],
-  fuellungen: [
-    { key: 'bezeichnung',         label: 'Bezeichnung', pflicht: true },
-    { key: 'jahrgang',            label: 'Jahrgang' },
-    { key: 'rebsorte',            label: 'Rebsorte' },
-    { key: 'flaschengroesse_ml',  label: 'Flaschengröße ml' },
-    { key: 'lagerbestand_fl',     label: 'Lagerbestand (Flaschen)' },
-    { key: 'vk_preis_brutto',     label: 'VK-Preis Brutto (€)' },
-    { key: 'einkaufspreis',       label: 'Einkaufspreis (€)' },
-    { key: 'notizen',             label: 'Notizen' },
-  ],
   rieden_details: [
     { key: 'name',       label: 'Bezeichnung', pflicht: true },
     { key: 'ried',       label: 'Ried', hinweis: 'Zuordnung zu einer Ried-Bezeichnung – wird bei Bedarf automatisch angelegt' },
@@ -117,7 +107,6 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean;
 const TYP_LABEL: Record<ImportTyp, string> = {
   kontakte: 'Kontakte',
   firmen:   'Firmen',
-  fuellungen: 'Füllungen (Weinlager)',
   rieden_details: 'Rieden',
   grundstuecke: 'Grundstücke',
   gebinde:  'Gebinde',

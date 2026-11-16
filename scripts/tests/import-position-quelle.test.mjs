@@ -33,7 +33,7 @@ describe('bereinigterText (Formular und Import)', () => {
 
 describe('ImportClient: Kontaktfelder Position und Quelle', () => {
   const kontakte = client.slice(client.indexOf('  kontakte: ['), client.indexOf('  firmen: ['))
-  const firmen = client.slice(client.indexOf('  firmen: ['), client.indexOf('  fuellungen: ['))
+  const firmen = client.slice(client.indexOf('  firmen: ['), client.indexOf('  rieden_details: ['))
   test('Kontakte kennen position und quelle, Firmen nicht', () => {
     assert.match(kontakte, /key: 'position',\s+label: 'Position'/)
     assert.match(kontakte, /key: 'quelle',\s+label: 'Quelle'/)
@@ -53,7 +53,7 @@ describe('ImportClient: Kontaktfelder Position und Quelle', () => {
 
 describe('Import-Route: Kontakt-Insert', () => {
   const kontaktZweig = route.slice(route.indexOf("if (typ === 'kontakte') {"), route.indexOf("} else if (typ === 'firmen') {"))
-  const firmenZweig = route.slice(route.indexOf("} else if (typ === 'firmen') {"), route.indexOf("} else if (typ === 'fuellungen') {"))
+  const firmenZweig = route.slice(route.indexOf("} else if (typ === 'firmen') {"), route.indexOf("} else if (typ === 'rieden_details') {"))
   test('position und quelle mit Höchstlänge und Hinweis', () => {
     assert.match(kontaktZweig, /position:\s+importText\(mapVal\(row, mapping\.position\), 'Position', POSITION_MAX, i\+zeilenBasis, warnungen\)/)
     assert.match(kontaktZweig, /quelle:\s+importText\(mapVal\(row, mapping\.quelle\), 'Quelle', QUELLE_MAX, i\+zeilenBasis, warnungen\)/)
@@ -66,5 +66,23 @@ describe('Import-Route: Kontakt-Insert', () => {
     assert.match(fn, /Array\.from\(wert\)/)
     assert.match(fn, /gekürzt/)
     assert.match(route, /return NextResponse\.json\(\{ ok, fehler: rows\.length - ok - duplikate\.length, duplikate, details, warnungen \}\)/)
+  })
+})
+
+// KAN-474 (16.11.2026, BKI-Sitzung): „Füllungen (Weinlager)“ war ein zweiter Weg zum Flaschenbestand – ohne Stichtag,
+// Qualität und Herkunft (in der Bestandsmeldung ein Flaschenzukauf mit Warnung). Es gibt nur noch „Eröffnungsbestand Flaschen“.
+describe('KAN-474: Import „Füllungen (Weinlager)“ entfernt', () => {
+  test('Auswahl: kein Typ fuellungen mehr, beide Eröffnungsbestände bleiben', () => {
+    assert.doesNotMatch(client, /fuellungen|Füllungen \(Weinlager\)/)
+    assert.match(client, /eroeffnung_tank/)
+    assert.match(client, /eroeffnung_flaschen/)
+  })
+  test('Route: kein Insert in fuellungen; alter und unbekannter Typ werden mit 400 abgelehnt, bevor etwas geschrieben wird', () => {
+    assert.doesNotMatch(route, /from\('fuellungen'\)/)
+    assert.doesNotMatch(route, /typ === 'fuellungen'\) \{/)
+    assert.match(route, /const IMPORT_TYPEN = \['kontakte', 'firmen', 'rieden_details', 'grundstuecke', 'gebinde'\] as const/)
+    const pruefung = route.indexOf('if (!(IMPORT_TYPEN as readonly string[]).includes(typ)) {')
+    assert.ok(pruefung > 0 && pruefung < route.indexOf('.insert('), 'Prüfung vor dem ersten Insert')
+    assert.match(route.slice(pruefung, pruefung + 500), /bitte „Eröffnungsbestand Flaschen“ verwenden[\s\S]*Unbekannter Import-Typ[\s\S]*status: 400/)
   })
 })
