@@ -6,7 +6,8 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { BrotkrumenLink } from '@/components/ui/Link'
-import KellerplanEditor from './KellerplanEditor'
+import KellerplanEditor, { type PlanTank } from './KellerplanEditor'
+import { nachTank } from '@/lib/keller/tanks'
 import { schreibSperre } from '@/lib/auth/sperren'
 import type { PlanCharge } from '@/lib/keller/kellerplanZiehen'
 import PrintButton from './PrintButton'
@@ -57,7 +58,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       .maybeSingle(),
 
     tf((supabase.from('kellerplan_positionen') as any)
-      .select('behaelter_id, pos_x_pct, pos_y_pct, breite_pct, hoehe_pct')
+      .select('behaelter_id, tank_id, pos_x_pct, pos_y_pct, breite_pct, hoehe_pct')
       .eq('kellerplan_id', id)),
 
     // Platzierungen auf ALLEN Kellerplänen – ein Gebinde steht nur einem
@@ -66,7 +67,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
     // Weiterhin auf den aktiven Tenant beschränkt (nicht auf einen einzelnen
     // Kellerplan), damit keine Positionen anderer Betriebe durchsickern.
     tf((supabase.from('kellerplan_positionen') as any)
-      .select('behaelter_id, kellerplan_id')),
+      .select('behaelter_id, tank_id, kellerplan_id')),
 
     // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
     ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
@@ -92,11 +93,22 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
   // Auf einem ANDEREN Kellerplan platzierte Behälter aus der Auswahl ausblenden
   const anderswoPlatziert = new Set(
     ((allePositionenRaw ?? []) as R[])
-      .filter(p => p.kellerplan_id !== id)
+      .filter(p => p.kellerplan_id !== id && p.behaelter_id)
       .map(p => p.behaelter_id)
   )
+  // KAN-467: Tanks, die auf einem anderen Plan stehen – ihre Kammern gehören dann ebenfalls dorthin
+  const tankAnderswo = new Set(
+    ((allePositionenRaw ?? []) as R[])
+      .filter(p => p.kellerplan_id !== id && p.tank_id)
+      .map(p => p.tank_id as string)
+  )
+  // Eigene Tanks mit Kammern: ein Symbol je Tank (Kammern von oben nach unten). Freigegebene Kammern eines
+  // Partnerbetriebs bleiben einzelne Gebinde – der fremde Tank ist hier nicht platzierbar.
+  const tanks: PlanTank[] = nachTank(behaelterRows.filter(b => b.tank_id && !b.fremd && !tankAnderswo.has(b.tank_id))).tanks
+    .map(t => ({ id: t.id, name: t.name, typ: t.kammern[0]?.typ ?? 'sonstiges',
+      kammern: t.kammern.map(k => ({ id: k.id, nr: k.kammer_nr ?? 0, name: k.name, volumen_liter: k.volumen_liter ?? null })) }))
   const behaelter = behaelterRows
-    .filter(b => !anderswoPlatziert.has(b.id))
+    .filter(b => !anderswoPlatziert.has(b.id) && !(b.tank_id && !b.fremd && tankAnderswo.has(b.tank_id)))
     .map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter, fremd: b.fremd, fremd_liter: b.fremd_liter, fremd_betrieb: b.fremd_betrieb })) as R[]
 
   // weinMap: behaelter_id → erste aktive Charge (für Beschriftung + Abfüllen-Sprung)
@@ -130,13 +142,13 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
 
   // Positionen als Map für den Editor
   const posMap: Record<string, { pos_x_pct: number; pos_y_pct: number; breite_pct: number; hoehe_pct: number }> = {}
+  // KAN-467: eine Zeile steht für ein Gebinde ODER für einen Tank mit Kammern
+  const tankPosMap: typeof posMap = {}
   for (const p of positionen) {
-    posMap[p.behaelter_id] = {
-      pos_x_pct: p.pos_x_pct,
-      pos_y_pct: p.pos_y_pct,
-      breite_pct: p.breite_pct,
-      hoehe_pct: p.hoehe_pct,
-    }
+    // numeric kommt als Zahl oder Text – der Editor rechnet damit
+    const platz = { pos_x_pct: Number(p.pos_x_pct), pos_y_pct: Number(p.pos_y_pct), breite_pct: Number(p.breite_pct), hoehe_pct: Number(p.hoehe_pct) }
+    if (p.tank_id) tankPosMap[p.tank_id] = platz
+    else if (p.behaelter_id) posMap[p.behaelter_id] = platz
   }
 
   return (
@@ -174,6 +186,8 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
         nurLesen={nurLesen}
         chargen={chargen}
         gebindeInfo={gebindeInfo}
+        tanks={tanks}
+        initialTankPositions={tankPosMap}
       />
 
       {/* Print-Datum */}

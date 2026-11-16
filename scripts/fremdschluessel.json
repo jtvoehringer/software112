@@ -173,6 +173,7 @@
   {"n":"kellerplaene_tenant_id_fkey","t":"kellerplaene","s":["tenant_id"],"z":"tenants"},
   {"n":"kellerplan_positionen_behaelter_id_fkey","t":"kellerplan_positionen","s":["behaelter_id"],"z":"behaelter"},
   {"n":"kellerplan_positionen_kellerplan_id_fkey","t":"kellerplan_positionen","s":["kellerplan_id"],"z":"kellerplaene"},
+  {"n":"kellerplan_positionen_tank_id_fkey","t":"kellerplan_positionen","s":["tank_id"],"z":"gebinde_tanks"},
   {"n":"kellerplan_positionen_tenant_id_fkey","t":"kellerplan_positionen","s":["tenant_id"],"z":"tenants"},
   {"n":"kontakt_firmen_firma_id_fkey","t":"kontakt_firmen","s":["firma_id"],"z":"firmen"},
   {"n":"kontakt_firmen_kontakt_id_fkey","t":"kontakt_firmen","s":["kontakt_id"],"z":"kontakte"},

@@ -33,13 +33,17 @@ export default async function QrEtikettenPage({ searchParams }: { searchParams: 
     ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('kellerplaene') as any).select('id, name').eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
-    alle<R>((supabase.from('kellerplan_positionen') as R).select('id, kellerplan_id, behaelter_id').eq('tenant_id', tenantId).order('id')),
+    alle<R>((supabase.from('kellerplan_positionen') as R).select('id, kellerplan_id, behaelter_id, tank_id').eq('tenant_id', tenantId).order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenants') as any).select('name, subdomain').eq('id', tenantId).maybeSingle(),
   ])
   const eigene = gebinde.filter(g => !g.fremd)
   const plaene = ((planRes.data ?? []) as R[]).map(p => ({ id: String(p.id), name: String(p.name) }))
-  const auswahl = etikettenAuswahl(eigene, (posRes.data ?? []) as R[], { standort: sp.standort ?? null, plan: sp.plan ?? null })
+  // KAN-467: ein Tank steht als ein Symbol im Plan – seine Kammern zählen zu diesem Plan
+  const plaetze = ((posRes.data ?? []) as R[]).flatMap(p => p.tank_id
+    ? eigene.filter(g => g.tank_id === p.tank_id).map(g => ({ id: `${p.id}:${g.id}`, kellerplan_id: p.kellerplan_id, behaelter_id: g.id }))
+    : [p])
+  const auswahl = etikettenAuswahl(eigene, plaetze, { standort: sp.standort ?? null, plan: sp.plan ?? null })
   const standorte = [...new Set(eigene.map(g => (g.standort ?? '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'))
   const betrieb = (tRes.data as R | null)?.name ?? ''
   const sub = ((tRes.data as R | null)?.subdomain ?? null) as string | null

@@ -4,13 +4,14 @@ import { useState, useRef, useTransition, useCallback } from 'react'
 import Link from '@/components/ui/Link'
 import { mitZurueck } from '@/lib/navigation/zurueck'
 import { ArrowDownWideNarrow, ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
-import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
+import { upsertKellerplanPosition, deleteKellerplanPosition, upsertKellerplanTankPosition, deleteKellerplanTankPosition } from '../actions'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
 import KellerplanBuchen from './KellerplanBuchen'
-import { bewerteZiel, gebindeUnterZeiger, ZIEL_FARBE, type PlanCharge, type PlanGebinde, type ZielBewertung } from '@/lib/keller/kellerplanZiehen'
+import { bewerteZiel, ZIEL_FARBE, type PlanCharge, type PlanGebinde, type ZielBewertung } from '@/lib/keller/kellerplanZiehen'
+import { planHoehe, segmentRechtecke, tankGroesseAendern, tankImPlan, tankSegmente, tankStandardGroesse, zielUnterZeiger } from '@/lib/keller/kellerplanTank'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,9 @@ type Behaelter = {
 }
 
 type WeinInfo = { weinausbauId: string; name: string; jahrgang: number | null; rebsorte: string | null }
+
+/** KAN-467: Tank mit Kammern (eigener Betrieb) – die Kammern sind Gebinde aus `behaelter`, hier von oben nach unten */
+export type PlanTank = { id: string; name: string; typ: string; kammern: { id: string; nr: number; name: string; volumen_liter: number | null }[] }
 
 // ── Füllstand-Farbskala ───────────────────────────────────────────────────────
 
@@ -64,8 +68,8 @@ const A4_RATIO   = 297 / 210
 const A4_PERCENT = A4_RATIO * 100   // paddingBottom für A4-Canvas
 
 // Für visuelle Kreise: Da der Canvas A4 ist (nicht quadratisch), muss
-// height_pct = size_pct * (210/297) damit der Kreis rund wirkt
-const circleHeight = (sizePct: number) => sizePct * (210 / 297)
+// height_pct = size_pct * (210/297) damit der Kreis rund wirkt (dieselbe Rechnung wie für die Höhe eines Tanks)
+const circleHeight = planHoehe
 
 const DEFAULT_SIZE = 10   // % Canvas-Breite (Startgröße)
 const MIN_SIZE     =  4
@@ -88,6 +92,8 @@ export default function KellerplanEditor({
   nurLesen = false,
   chargen = {},
   gebindeInfo = {},
+  tanks = [],
+  initialTankPositions = {},
 }: {
   plan: Plan
   initialPositions: Record<string, PosData>
@@ -100,16 +106,23 @@ export default function KellerplanEditor({
   /** KAN-114: eigene Chargen je Gebinde (größte zuerst) */
   chargen?: Record<string, PlanCharge[]>
   gebindeInfo?: Record<string, { gesperrt: boolean; fremd_betrieb: string | null }>
+  /** KAN-467: eigene Tanks mit Kammern und ihr Platz im Plan (ein Symbol je Tank) */
+  tanks?: PlanTank[]
+  initialTankPositions?: Record<string, PosData>
 }) {
   const canvasRef    = useRef<HTMLDivElement>(null)
   const dragStateRef = useRef<{
     id: string
+    /** KAN-467: verschoben wird ein Gebinde (Kreis) oder ein ganzer Tank; klickId = Gebinde für den Dialog bei einem Klick */
+    art: 'gebinde' | 'tank'
+    klickId: string
     startX: number; startY: number
     origX:  number; origY: number
   } | null>(null)
 
   const [, startTransition]       = useTransition()
   const [positions, setPositions] = useState<Record<string, PosData>>(initialPositions)
+  const [tankPositions, setTankPositions] = useState<Record<string, PosData>>(initialTankPositions)
   const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [dialogBehaelterId, setDialogBehaelterId] = useState<string | null>(null)
@@ -135,7 +148,12 @@ export default function KellerplanEditor({
   }
   const ziehbar = (id: string) => writeOk && (chargen[id]?.length ?? 0) > 0 && !(gebindeInfo[id]?.gesperrt ?? false)
   const placedIds    = new Set(Object.keys(positions))
-  const unplaced     = behaelter.filter(b => !placedIds.has(b.id))
+  // KAN-467: Kammern eigener Tanks stehen nie einzeln im Plan – platziert wird der Tank
+  const kammerIds    = new Set(tanks.flatMap(t => t.kammern.map(k => k.id)))
+  const unplaced     = behaelter.filter(b => !placedIds.has(b.id) && !kammerIds.has(b.id))
+  const unplacedTanks = tanks.filter(t => !tankPositions[t.id])
+  const tankMap      = Object.fromEntries(tanks.map(t => [t.id, t]))
+  const segmenteVon  = (t: PlanTank) => tankSegmente(t.kammern)
 
   // ── Gitter: 1 Gitterzelle = 1 Meter im Raum ──────────────────────────────
   const gridBgStyle = {
@@ -161,10 +179,24 @@ export default function KellerplanEditor({
     })
   }, [plan.id, startTransition])
 
+  const saveTankPos = useCallback((tankId: string, pos: PosData) => {
+    setSaving(true)
+    setSaveError(null)
+    startTransition(async () => {
+      try {
+        await upsertKellerplanTankPosition(plan.id, tankId, pos)
+      } catch (err) {
+        setSaveError(fehlerText(err, 'Speichern fehlgeschlagen'))
+      } finally {
+        setSaving(false)
+      }
+    })
+  }, [plan.id, startTransition])
+
   // ── Platzieren aus Sidebar (HTML5 Drag) ──────────────────────────────────────
 
-  function handleSidebarDragStart(e: React.DragEvent, id: string) {
-    e.dataTransfer.setData('behaelter_id', id)
+  function handleSidebarDragStart(e: React.DragEvent, id: string, art: 'behaelter_id' | 'tank_id' = 'behaelter_id') {
+    e.dataTransfer.setData(art, id)
     e.dataTransfer.effectAllowed = 'copy'
   }
 
@@ -175,12 +207,21 @@ export default function KellerplanEditor({
 
   function handleCanvasDrop(e: React.DragEvent) {
     e.preventDefault()
-    const id = e.dataTransfer.getData('behaelter_id')
-    if (!id || !canvasRef.current) return
-
+    if (!canvasRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
     const rawX = ((e.clientX - rect.left) / rect.width)  * 100
     const rawY = ((e.clientY - rect.top)  / rect.height) * 100
+    // KAN-467: ein Tank mit Kammern wird als Ganzes platziert
+    const tankId = e.dataTransfer.getData('tank_id')
+    if (tankId && tankMap[tankId]) {
+      const g = tankStandardGroesse(tankMap[tankId].kammern.length)
+      const tp = tankImPlan({ pos_x_pct: rawX - g.breite_pct / 2, pos_y_pct: rawY - planHoehe(g.hoehe_pct) / 2, ...g })
+      setTankPositions(prev => ({ ...prev, [tankId]: tp }))
+      saveTankPos(tankId, tp)
+      return
+    }
+    const id = e.dataTransfer.getData('behaelter_id')
+    if (!id) return
     const size = DEFAULT_SIZE
     const pos: PosData = {
       pos_x_pct:  Math.max(0, Math.min(100 - size,              rawX - size / 2)),
@@ -194,29 +235,50 @@ export default function KellerplanEditor({
 
   // ── Verschieben auf Canvas (Pointer Events) ───────────────────────────────────
 
-  function handleBlockPointerDown(e: React.PointerEvent, id: string) {
-    if (!positions[id] || !canvasRef.current) return
-    e.stopPropagation()
+  /** Nur lesen bzw. Kellerarbeit: Klick öffnet den Gebinde-Dialog, ein Gebinde mit eigenem Wein lässt sich ziehen. true = erledigt */
+  function gebindeOhnePlanModus(e: React.PointerEvent, id: string): boolean {
     if (!writeOk) {
       // Read-only: kein Verschieben möglich, aber Klick soll den Gebinde-Dialog öffnen
       setDialogBehaelterId(id)
-      return
+      return true
     }
     if (!planModus) {
       // KAN-114 Kellerarbeit: Tank mit eigenem Wein ziehen; ohne Wein öffnet ein Klick den Gebinde-Dialog
-      if (!ziehbar(id)) { setDialogBehaelterId(id); return }
+      if (!ziehbar(id)) { setDialogBehaelterId(id); return true }
       e.preventDefault()
-      canvasRef.current.setPointerCapture(e.pointerId)
+      canvasRef.current?.setPointerCapture(e.pointerId)
       ziehRef.current = { id, startX: e.clientX, startY: e.clientY }
-      return
+      return true
     }
+    return false
+  }
+
+  function handleBlockPointerDown(e: React.PointerEvent, id: string) {
+    if (!positions[id] || !canvasRef.current) return
+    e.stopPropagation()
+    if (gebindeOhnePlanModus(e, id)) return
     e.preventDefault()
     canvasRef.current.setPointerCapture(e.pointerId)
     dragStateRef.current = {
-      id,
+      id, art: 'gebinde', klickId: id,
       startX: e.clientX, startY: e.clientY,
       origX:  positions[id].pos_x_pct,
       origY:  positions[id].pos_y_pct,
+    }
+  }
+
+  /** KAN-467: Zeiger auf der Kammer eines Tanks – Kellerarbeit wie jedes Gebinde, im Planmodus wird der ganze Tank verschoben */
+  function handleKammerPointerDown(e: React.PointerEvent, tankId: string, kammerId: string) {
+    if (!tankPositions[tankId] || !canvasRef.current) return
+    e.stopPropagation()
+    if (gebindeOhnePlanModus(e, kammerId)) return
+    e.preventDefault()
+    canvasRef.current.setPointerCapture(e.pointerId)
+    dragStateRef.current = {
+      id: tankId, art: 'tank', klickId: kammerId,
+      startX: e.clientX, startY: e.clientY,
+      origX:  tankPositions[tankId].pos_x_pct,
+      origY:  tankPositions[tankId].pos_y_pct,
     }
   }
 
@@ -230,7 +292,10 @@ export default function KellerplanEditor({
         id, cx: (p.pos_x_pct + p.breite_pct / 2) / 100 * rect.width,
         cy: (p.pos_y_pct + circleHeight(p.breite_pct) / 2) / 100 * rect.height, r: p.breite_pct / 2 / 100 * rect.width,
       }))
-      setZieh({ quelleId: zr.id, x: px / rect.width * 100, y: py / rect.height * 100, zielId: gebindeUnterZeiger({ x: px, y: py }, kreise, zr.id) })
+      // KAN-467: Kammern eines Tanks sind Ziele wie jedes Gebinde (Segmente statt Kreis)
+      const flaeche = { breite: rect.width, hoehe: rect.height }
+      const segmente = tanks.flatMap(t => tankPositions[t.id] ? segmentRechtecke(tankPositions[t.id], segmenteVon(t), flaeche) : [])
+      setZieh({ quelleId: zr.id, x: px / rect.width * 100, y: py / rect.height * 100, zielId: zielUnterZeiger({ x: px, y: py }, kreise, segmente, zr.id) })
       return
     }
     const ds = dragStateRef.current
@@ -239,6 +304,13 @@ export default function KellerplanEditor({
     const dx   = ((e.clientX - ds.startX) / rect.width)  * 100
     const dy   = ((e.clientY - ds.startY) / rect.height) * 100
 
+    if (ds.art === 'tank') {
+      setTankPositions(prev => {
+        const pos = prev[ds.id]
+        return pos ? { ...prev, [ds.id]: tankImPlan({ ...pos, pos_x_pct: ds.origX + dx, pos_y_pct: ds.origY + dy }) } : prev
+      })
+      return
+    }
     setPositions(prev => {
       const pos = prev[ds.id]
       if (!pos) return prev
@@ -283,10 +355,15 @@ export default function KellerplanEditor({
 
     if (wasClick) {
       // Kaum/keine Bewegung → als Klick werten und Gebinde-Dialog öffnen (kein Speichern nötig)
-      setDialogBehaelterId(ds.id)
+      setDialogBehaelterId(ds.klickId)
       return
     }
 
+    if (ds.art === 'tank') {
+      const tp = tankPositions[ds.id]
+      if (tp) saveTankPos(ds.id, tp)
+      return
+    }
     const pos = positions[ds.id]
     if (pos) savePos(ds.id, pos)
   }
@@ -307,6 +384,29 @@ export default function KellerplanEditor({
       }
       savePos(id, newPos)
       return { ...prev, [id]: newPos }
+    })
+  }
+
+  // KAN-467: Tank größer/kleiner (Seitenverhältnis bleibt) bzw. vom Plan nehmen
+  function handleTankResize(tankId: string, delta: number) {
+    const pos = tankPositions[tankId]
+    if (!pos) return
+    const neu = tankGroesseAendern(pos, delta)
+    setTankPositions(prev => ({ ...prev, [tankId]: neu }))
+    saveTankPos(tankId, neu)
+  }
+
+  function handleTankRemove(tankId: string) {
+    const vorher = tankPositions[tankId]
+    setTankPositions(prev => { const n = { ...prev }; delete n[tankId]; return n })
+    startTransition(async () => {
+      try {
+        await deleteKellerplanTankPosition(plan.id, tankId)
+      } catch (err) {
+        // der Tank steht in der Datenbank noch im Plan – wieder anzeigen
+        if (vorher) setTankPositions(prev => ({ ...prev, [tankId]: vorher }))
+        setSaveError(fehlerText(err, 'Der Tank konnte nicht vom Plan entfernt werden'))
+      }
     })
   }
 
@@ -538,6 +638,89 @@ export default function KellerplanEditor({
               )
             })}
 
+            {/* KAN-467: Tank mit Kammern – ein abgerundetes Rechteck, die Kammern als Segmente (oberste oben) */}
+            {tanks.map(t => {
+              const pos = tankPositions[t.id]
+              if (!pos) return null
+              const typ = TYP[t.typ] ?? TYP.sonstiges
+              const segmente = segmenteVon(t)
+              return (
+                <div
+                  key={t.id}
+                  className="absolute group"
+                  style={{ left: `${pos.pos_x_pct}%`, top: `${pos.pos_y_pct}%`, width: `${pos.breite_pct}%`, height: `${planHoehe(pos.hoehe_pct)}%` }}
+                  title={planModus ? `Tank ${t.name}: Ziehen zum Verschieben, Klick auf eine Kammer für Gebinde-Aktionen` : `Tank ${t.name}`}
+                >
+                  <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: 12, border: `2px solid ${typ.border}`, backgroundColor: typ.bg }}>
+                    {segmente.map((s, i) => {
+                      const k = t.kammern.find(x => x.id === s.id)
+                      if (!k) return null
+                      const wein = weinMap[k.id] ?? null
+                      const fillLiter = fillMap[k.id] ?? 0
+                      const fillPct = k.volumen_liter && k.volumen_liter > 0 ? fillLiter / k.volumen_liter : null
+                      const fillColor = fillPct !== null ? getFillColor(fillPct) : null
+                      const zielBew = zieh && zieh.zielId === k.id ? bewertung(zieh.quelleId, k.id) : null
+                      const istQuelle = zieh?.quelleId === k.id
+                      return (
+                        <div
+                          key={k.id}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${k.name}${wein ? ` – ${wein.name}` : ' – leer'}: Gebinde-Aktionen (Kammer ${k.nr} im Tank ${t.name})`}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDialogBehaelterId(k.id) } }}
+                          onPointerDown={e => handleKammerPointerDown(e, t.id, k.id)}
+                          className="absolute left-0 right-0 overflow-hidden flex flex-col items-center justify-center focus:outline-hidden focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-s112-teal/50"
+                          style={{
+                            top: `${s.oben}%`, height: `${s.hoehe}%`,
+                            borderTop: i > 0 ? `2px solid ${typ.border}` : undefined,
+                            boxShadow: zielBew ? `inset 0 0 0 4px ${ZIEL_FARBE[zielBew.art]}` : undefined,
+                            opacity: istQuelle ? 0.55 : 1,
+                            cursor: planModus || ziehbar(k.id) ? 'grab' : 'pointer',
+                            touchAction: 'none',
+                          }}
+                          title={zielBew ? zielBew.text : planModus ? undefined : ziehbar(k.id) ? `${k.name}: auf einen anderen Tank ziehen (Umzug bzw. Verschnitt) – Klick für Gebinde-Aktionen` : `${k.name}: Klicken für Gebinde-Aktionen`}
+                        >
+                          {fillColor && (
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${Math.min((fillPct ?? 0) * 100, 100)}%`, backgroundColor: fillColor, opacity: 0.32, zIndex: 0, transition: 'height 0.4s ease', pointerEvents: 'none' }} />
+                          )}
+                          <div className="px-1 text-center w-11/12 pointer-events-none" style={{ position: 'relative', zIndex: 2 }}>
+                            <p className="font-semibold text-s112-text leading-tight truncate w-full text-center" style={{ fontSize: 'clamp(5px, 1.4cqw, 11px)' }}>{k.name}</p>
+                            {k.volumen_liter && (
+                              <p className="text-s112-text-2 leading-tight font-medium" style={{ fontSize: 'clamp(4px, 1.1cqw, 9px)' }}>
+                                {fillLiter > 0 ? `${fmtNum(fillLiter, { max: 0 })} / ${fmtNum(k.volumen_liter)} L` : `${fmtNum(k.volumen_liter)} L`}
+                                {fillPct !== null && fillLiter > 0 && <span style={{ marginLeft: '2px', color: fillColor ?? undefined }}>{` (${Math.round(fillPct * 100)} %)`}</span>}
+                              </p>
+                            )}
+                            {wein && (
+                              <p className="leading-tight truncate w-full text-center font-medium" style={{ fontSize: 'clamp(4px, 1.1cqw, 9px)', color: 'var(--s112-teal, #14b8a6)' }}>
+                                {wein.name}{wein.jahrgang ? ` ${wein.jahrgang}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {planModus && (
+                    <>
+                      <button type="button"
+                        className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                        onClick={e => { e.stopPropagation(); handleTankRemove(t.id) }} onPointerDown={e => e.stopPropagation()}
+                        title="Tank vom Plan entfernen" aria-label={`Tank ${t.name} vom Plan entfernen`}>×</button>
+                      <button type="button"
+                        className="no-print absolute -bottom-1.5 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        onClick={e => { e.stopPropagation(); handleTankResize(t.id, -RESIZE_STEP) }} onPointerDown={e => e.stopPropagation()}
+                        title="Kleiner" aria-label={`Tank ${t.name} kleiner`}>−</button>
+                      <button type="button"
+                        className="no-print absolute -bottom-1.5 right-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        onClick={e => { e.stopPropagation(); handleTankResize(t.id, +RESIZE_STEP) }} onPointerDown={e => e.stopPropagation()}
+                        title="Größer" aria-label={`Tank ${t.name} größer`}>+</button>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+
             {/* KAN-114: gezogener Wein folgt dem Zeiger */}
             {zieh && (
               <div className="absolute pointer-events-none z-30 -translate-x-1/2 -translate-y-1/2 rounded-full bg-s112-teal text-s112-yellow text-[11px] font-semibold px-2 py-1 shadow-md whitespace-nowrap"
@@ -547,7 +730,7 @@ export default function KellerplanEditor({
             )}
 
             {/* Leer-Hinweis */}
-            {Object.keys(positions).length === 0 && planModus && (
+            {Object.keys(positions).length === 0 && Object.keys(tankPositions).length === 0 && planModus && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <p className="text-sm text-s112-tertiary text-center px-8">
                   Behälter aus der Liste rechts in den Grundriss ziehen
@@ -604,10 +787,32 @@ export default function KellerplanEditor({
             <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide mb-2">
               Nicht platziert
             </p>
-            {unplaced.length === 0 ? (
+            {unplaced.length === 0 && unplacedTanks.length === 0 ? (
               <p className="text-xs text-s112-muted italic">Alle Behälter platziert</p>
             ) : (
               <div className="space-y-1.5">
+                {/* KAN-467: Tank mit Kammern – ein Eintrag je Tank */}
+                {unplacedTanks.map(t => {
+                  const typ = TYP[t.typ] ?? TYP.sonstiges
+                  const volumen = t.kammern.reduce((s, k) => s + (k.volumen_liter ?? 0), 0)
+                  return (
+                    <div
+                      key={t.id}
+                      draggable
+                      onDragStart={e => handleSidebarDragStart(e, t.id, 'tank_id')}
+                      className="flex items-center gap-2 px-2 py-1.5 border-2 rounded-lg text-xs font-medium text-s112-text-1 cursor-grab hover:shadow-xs active:opacity-70 transition-shadow"
+                      style={{ backgroundColor: typ.bg, borderColor: typ.border }}
+                      title="Tank in den Plan ziehen"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate">Tank {t.name}</p>
+                        <p className="text-[11px] text-s112-text-2">
+                          {t.kammern.length} Kammern{volumen > 0 ? ` · ${fmtNum(volumen)} L` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
                 {unplaced.map(b => {
                   const typ = TYP[b.typ] ?? TYP.sonstiges
                   return (

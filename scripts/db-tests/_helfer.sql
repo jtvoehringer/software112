@@ -1330,6 +1330,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
+    ('trigger',       '--S', false, 's112_kellerplan_kammer_schutz()'),   -- KAN-467: Kammer eines eigenen Tanks nicht einzeln im Kellerplan
     ('trigger',       '--S', false, 's112_kammer_vom_tank()'),   -- KAN-466: Kammer übernimmt Typ/Material/Standort vom Tank, Zuordnung fest
     ('trigger',       '--S', false, 's112_tank_an_kammern()'),   -- KAN-466: geänderte Tank-Stammdaten an die Kammern
     ('mandant',       '-US', true , 's112_tank_anlegen(p_tenant_id uuid, p_name text, p_typ text, p_material text, p_standort text, p_notizen text, p_kammern jsonb)'),   -- KAN-466: Tank samt Kammern anlegen

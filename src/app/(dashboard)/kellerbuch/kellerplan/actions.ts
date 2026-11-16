@@ -113,6 +113,55 @@ export async function deleteKellerplanPosition(kellerplanId: string, behaelterId
   revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
 }
 
+// ── Tank mit Kammern auf dem Plan (KAN-467) ───────────────────────────────────
+// Ein Tank (gebinde_tanks) steht als ein Symbol im Plan; seine Kammern werden darin gezeichnet und nie einzeln platziert
+// (Trigger a_kammer_schutz). Wie ein Gebinde steht ein Tank nur auf einem Plan (UNIQUE tank_id).
+
+export async function upsertKellerplanTankPosition(
+  kellerplanId: string,
+  tankId: string,
+  pos: { pos_x_pct: number; pos_y_pct: number; breite_pct: number; hoehe_pct: number }
+) {
+  const supabase  = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
+  const werte = [pos.pos_x_pct, pos.pos_y_pct, pos.breite_pct, pos.hoehe_pct]
+  if (!werte.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100)) throw new AktionsFehler('Die Lage des Tanks im Plan ist ungültig – bitte die Seite neu laden.')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing, error: existingErr } = await (supabase.from('kellerplan_positionen') as any)
+    .select('kellerplan_id').eq('tank_id', tankId).eq('tenant_id', tenantId).maybeSingle()
+  if (existingErr) throw new AktionsFehler(dbFehlerText(existingErr, 'Position im Kellerplan konnte nicht geladen werden'))
+  const alterPlanId = (existing as AR | null)?.kellerplan_id ?? null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('kellerplan_positionen') as any)
+    .upsert({
+      tenant_id:     tenantId,
+      kellerplan_id: kellerplanId,
+      tank_id:       tankId,
+      ...pos,
+      aktualisiert_am: new Date().toISOString(),
+    }, { onConflict: 'tank_id' })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Tank konnte nicht im Plan gespeichert werden'))
+  revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
+  if (alterPlanId && alterPlanId !== kellerplanId) revalidatePath(`/kellerbuch/kellerplan/${alterPlanId}`)
+}
+
+export async function deleteKellerplanTankPosition(kellerplanId: string, tankId: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: weg, error } = await (supabase.from('kellerplan_positionen') as any)
+    .delete()
+    .eq('kellerplan_id', kellerplanId)
+    .eq('tank_id', tankId)
+    .eq('tenant_id', tenantId)
+    .select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Tank konnte nicht vom Plan entfernt werden'))
+  if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Der Tank wurde nicht vom Plan entfernt (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
+  revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
+}
+
 // ── Kellerplan löschen ────────────────────────────────────────────────────────
 
 export async function deleteKellerplan(id: string) {
