@@ -939,6 +939,15 @@ BEGIN
     IF NOT (coalesce(p_werte, '{}'::jsonb) ? 'behaelter_id' OR coalesce(p_werte, '{}'::jsonb) ? 'tank_id') THEN
       v_w := v_w || jsonb_build_object('behaelter_id', pg_temp.s112_zeile('behaelter', p_tenant) ->> 'id');
     END IF;
+  ELSIF p_tab = 'keller_behandlungen' THEN   -- KAN-475: eine Kellerbehandlung braucht eine Charge (Trigger a_charge_pflicht)
+    -- behaelter_id ist seit KAN-475 nicht mehr Pflicht – der allgemeine Weg füllt nur Pflichtspalten; das Gebinde bleibt
+    -- als Angabe dabei (viele Prüfungen lesen die Behandlungen über das Gebinde)
+    IF NOT coalesce(p_werte, '{}'::jsonb) ? 'weinausbau_id' THEN
+      v_w := v_w || jsonb_build_object('weinausbau_id', pg_temp.s112_zeile('weinausbau', p_tenant) ->> 'id');
+    END IF;
+    IF NOT coalesce(p_werte, '{}'::jsonb) ? 'behaelter_id' THEN
+      v_w := v_w || jsonb_build_object('behaelter_id', pg_temp.s112_zeile('behaelter', p_tenant) ->> 'id');
+    END IF;
   ELSIF p_tab = 'gebinde_tanks' THEN   -- KAN-466: Pflichtfelder Name (je Betrieb eindeutig) und Typ (CHECK)
     v_w := v_w || jsonb_build_object('name', 'S112TEST Tank ' || left(gen_random_uuid()::text, 8), 'typ', 'stahltank');
   ELSIF p_tab = 'shop_warteschlange' THEN   -- KAN-463: eigene Füllung je Zeile (UNIQUE Betrieb + Füllung + Art)
