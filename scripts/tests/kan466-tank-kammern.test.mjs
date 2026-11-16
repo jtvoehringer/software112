@@ -149,6 +149,17 @@ describe('KAN-468: Sammelmaßnahme für einen geteilten Tank', () => {
   })
 })
 
+describe('Abnahme 16.11.2026: Kellerbehandlung von der Charge aus', () => {
+  test('Chargen-Seite: Knopf „Kellerbehandlung“ führt zu den Behandlungen des Gebindes und zurück zur Charge; ohne Gebinde ausgegraut', () => {
+    const p = quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/page.tsx')
+    assert.ok(p.includes('href={mitZurueck(`/kellerbuch/behaelter/${weinausbau.behaelter_id}/behandlungen`, `/kellerbuch/weinausbau/${weinausbau.id}`)}'))
+    assert.ok(p.includes('<FlaskConical size={13} strokeWidth={1.75} />Kellerbehandlung'))
+    assert.ok(p.includes('{weinausbau.behaelter_id ? ('))
+    assert.ok(p.includes('Die Charge liegt in keinem Gebinde – Kellerbehandlungen werden am Gebinde erfasst'))
+    assert.ok(existsSync(path.join(WURZEL, 'src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx')), 'Zielseite vorhanden')
+  })
+})
+
 describe('KAN-466: Ladefunktion', () => {
   test('Kammer: Tank-Felder, Auswahlname mit Zusatz – name und anzeigeName bleiben für Aufzeichnungen unverändert', () => {
     const b = zuBehaelterZeile(zeile({ tank_id: 'tk', kammer_nr: 1, tank_name: 'A10', tank_kammern: 3 }))
