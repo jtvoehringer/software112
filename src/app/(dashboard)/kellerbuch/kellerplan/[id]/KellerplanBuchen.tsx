@@ -16,7 +16,7 @@ import { wienHeute } from '@/lib/csv'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { useDialog } from '@/components/ui/useDialog'
 import { serverRueckfrage } from '@/lib/ui/rueckfrage'
-import { bewerteZiel, ZIEL_FARBE, type PlanCharge, type PlanGebinde } from '@/lib/keller/kellerplanZiehen'
+import { bewerteZiel, teilumzugText, vorschlagsMenge, ZIEL_FARBE, type PlanCharge, type PlanGebinde } from '@/lib/keller/kellerplanZiehen'
 
 export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zielChargen, onClose, onGebucht }: {
   quellGebinde: PlanGebinde
@@ -31,7 +31,9 @@ export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zie
   const router = useRouter()
   const [chargeId, setChargeId] = useState(quellChargen[0]?.id ?? '')
   const quelle = quellChargen.find(c => c.id === chargeId) ?? null
-  const [mengeText, setMengeText] = useState(quelle ? String(quelle.menge_liter).replace('.', ',') : '')
+  // KAN-469: Standard ist der ganze Inhalt; passt er nicht ins Ziel, die freie Menge des Ziels (Teilumzug)
+  const vorschlag = (c: PlanCharge | null) => vorschlagsMenge(c, ziel)
+  const [mengeText, setMengeText] = useState(quelle ? String(vorschlag(quelle).menge).replace('.', ',') : '')
   const [datum, setDatum] = useState(wienHeute())
   const [notizen, setNotizen] = useState('')
   const [fehler, setFehler] = useState<string | null>(null)
@@ -46,7 +48,7 @@ export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zie
   function chargeWechseln(id: string) {
     setChargeId(id)
     const c = quellChargen.find(x => x.id === id)
-    if (c) setMengeText(String(c.menge_liter).replace('.', ','))   // Standard: ganzer Inhalt
+    if (c) setMengeText(String(vorschlag(c).menge).replace('.', ','))   // Standard: ganzer Inhalt bzw. die freie Menge des Ziels
   }
 
   function buchen(e: React.FormEvent) {
@@ -115,6 +117,9 @@ export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zie
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (L)</label>
             <input aria-label="Menge (L)" inputMode="decimal" value={mengeText} onChange={e => setMengeText(e.target.value)} className={inputCls} />
             {quelle && <p className="text-[11px] text-s112-muted mt-0.5">Inhalt: {fmtNum(quelle.menge_liter, 2)} L</p>}
+            {quelle && vorschlag(quelle).teil && (
+              <p className="text-[11px] text-s112-warn-fg mt-0.5">{teilumzugText(vorschlag(quelle).menge, quelle.menge_liter, ziel.name)} Der Rest bleibt in „{quellGebinde.name}“.</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>

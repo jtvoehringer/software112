@@ -94,6 +94,27 @@ export function bewerteZiel(p: {
   }
 }
 
+/**
+ * KAN-469: Menge, mit der ein Ziel beim Ziehen bewertet und der Buchungsdialog vorbelegt wird. Passt der ganze Inhalt
+ * der Charge, ist es der ganze Inhalt (Entscheidung zu KAN-114). Passt er nicht, im Ziel ist aber noch Platz, ist es die
+ * freie Menge des Ziels (Teilumzug, auf Hundertstel abgerundet – nie mehr als frei). Ist das Ziel voll oder das
+ * Fassungsvermögen unbekannt, bleibt es beim ganzen Inhalt – dann entscheidet fassungsFehler wie bisher.
+ */
+export function vorschlagsMenge(quelle: Pick<PlanCharge, 'menge_liter'> | null, ziel: Pick<PlanGebinde, 'volumen_liter' | 'fuellung'>): { menge: number; teil: boolean } {
+  const ganz = quelle && quelle.menge_liter > 0 ? quelle.menge_liter : 0
+  const vol = ziel.volumen_liter
+  if (!(ganz > 0) || vol === null || !(vol > 0)) return { menge: ganz, teil: false }
+  if (fassungsFehler({ name: '', volumen_liter: vol, inhalt: ziel.fuellung }, ganz) === null) return { menge: ganz, teil: false }
+  const frei = Math.floor((vol - ziel.fuellung) * 100 + 1e-6) / 100
+  return frei >= 0.01 ? { menge: frei, teil: true } : { menge: ganz, teil: false }
+}
+
+/** Text zum Teilumzug für Dialog und Tooltip: „Teilumzug: 255 l von 1.840 l – mehr passt nicht in „A10/1“.“ */
+export function teilumzugText(menge: number, ganz: number, zielName: string): string {
+  const l = (n: number) => `${n.toLocaleString('de-DE', { maximumFractionDigits: 2 })} l`
+  return `Teilumzug: ${l(menge)} von ${l(ganz)} – mehr passt nicht in „${zielName}“.`
+}
+
 /** Gebinde unter dem Zeiger (Kreis: Mittelpunkt und Radius in Pixeln der Zeichenfläche); null = freie Fläche */
 export function gebindeUnterZeiger(
   punkt: { x: number; y: number },

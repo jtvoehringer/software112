@@ -9,11 +9,13 @@ import assert from 'node:assert/strict'
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { hooksRegistrieren, laden, nurMitHooks } from './buchung-attrappe.mjs'
 import {
   SEGMENT_MIN_ANTEIL, TANK_BREITE_MAX, TANK_BREITE_MIN, planHoehe, segmentRechtecke, tankGroesseAendern, tankImPlan, tankSegmente,
   tankStandardGroesse, zielUnterZeiger,
 } from '../../src/lib/keller/kellerplanTank.ts'
 
+hooksRegistrieren()
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const quelle = p => readFileSync(path.join(WURZEL, p), 'utf8').replace(/\r\n/g, '\n')
 const fast = (a, b, eps = 1e-9) => Math.abs(a - b) < eps
@@ -109,6 +111,56 @@ describe('KAN-467: Gebinde unter dem Zeiger', () => {
     const ueber = [{ id: 'C', cx: 550, cy: 200, r: 30 }]
     assert.equal(zielUnterZeiger({ x: 550, y: 200 }, ueber, seg, null), 'C')
     assert.equal(zielUnterZeiger({ x: 550, y: 200 }, ueber, seg, 'C'), 'k3', 'beim Ziehen des Kreises ist die Kammer darunter das Ziel')
+  })
+})
+
+describe('KAN-469: Teilumzug beim Ziehen', nurMitHooks, () => {
+  const charge = (menge, o = {}) => ({ id: 'c1', name: 'GV 2026', menge_liter: menge, jahrgang: 2026, rebsorte: 'Grüner Veltliner', weinart: 'weiss',
+    qualitaetsstufe: null, zusatzbezeichnung: null, erzeugnis: null, herkunft_code: null, ...o })
+  const gebinde = (id, name, vol, fuellung = 0, o = {}) => ({ id, name, volumen_liter: vol, gesperrt: false, fremd_betrieb: null, fuellung, ...o })
+  test('passt der ganze Inhalt, bleibt es beim ganzen Inhalt (wie KAN-114)', async () => {
+    const { vorschlagsMenge } = await laden('lib/keller/kellerplanZiehen.ts')
+    assert.deepEqual(vorschlagsMenge(charge(1840), gebinde('z', 'A10/2', 2000)), { menge: 1840, teil: false })
+    assert.deepEqual(vorschlagsMenge(charge(2000.4), gebinde('z', 'A10/2', 2000)), { menge: 2000.4, teil: false }, 'Toleranz 0,5 l wie beim Buchen')
+    assert.deepEqual(vorschlagsMenge(charge(500), gebinde('z', 'Fass', null, 9999)), { menge: 500, teil: false }, 'Fassungsvermögen unbekannt')
+    assert.deepEqual(vorschlagsMenge(null, gebinde('z', 'A10/2', 2000)), { menge: 0, teil: false })
+  })
+  test('passt er nicht, ist es die freie Menge des Ziels – abgerundet, nie mehr als frei', async () => {
+    const { vorschlagsMenge } = await laden('lib/keller/kellerplanZiehen.ts')
+    assert.deepEqual(vorschlagsMenge(charge(1840), gebinde('z', 'A10/1', 3000, 2745)), { menge: 255, teil: true })
+    assert.deepEqual(vorschlagsMenge(charge(1840), gebinde('z', 'A10/1', 3000, 2745.337)), { menge: 254.66, teil: true })
+    assert.deepEqual(vorschlagsMenge(charge(5000), gebinde('z', 'A10/2', 2000)), { menge: 2000, teil: true })
+  })
+  test('volles Ziel: kein Teilumzug – es bleibt gesperrt', async () => {
+    const { vorschlagsMenge, bewerteZiel } = await laden('lib/keller/kellerplanZiehen.ts')
+    const voll = gebinde('z', 'A10/1', 3000, 3000)
+    assert.deepEqual(vorschlagsMenge(charge(1840), voll), { menge: 1840, teil: false })
+    const b = bewerteZiel({ quelle: charge(1840), quellGebinde: gebinde('q', 'Stahltank 05', 5000, 1840), ziel: voll, zielChargen: [], menge: 1840 })
+    assert.equal(b.art, 'gesperrt')
+  })
+  test('Bewertung mit der Vorschlagsmenge: Umzug bzw. Verschnitt statt gesperrt; fremd belegt und selbes Gebinde bleiben gesperrt', async () => {
+    const { vorschlagsMenge, bewerteZiel, teilumzugText } = await laden('lib/keller/kellerplanZiehen.ts')
+    const q = charge(1840), qg = gebinde('q', 'Stahltank 05', 5000, 1840)
+    const leer = gebinde('z', 'Barrique', 225)
+    assert.equal(bewerteZiel({ quelle: q, quellGebinde: qg, ziel: leer, zielChargen: [], menge: q.menge_liter }).art, 'gesperrt', 'bisher: rot')
+    assert.equal(bewerteZiel({ quelle: q, quellGebinde: qg, ziel: leer, zielChargen: [], menge: vorschlagsMenge(q, leer).menge }).art, 'umzug')
+    const belegt = gebinde('z', 'A10/1', 3000, 2745)
+    const rot = charge(2745, { id: 'c2', name: 'ZW 2026', rebsorte: 'Zweigelt', weinart: 'rot' })
+    assert.equal(bewerteZiel({ quelle: q, quellGebinde: qg, ziel: belegt, zielChargen: [rot], menge: vorschlagsMenge(q, belegt).menge }).art, 'verschnitt')
+    const fremd = gebinde('z', 'a1', 3000, 2745, { gesperrt: true, fremd_betrieb: 'Weingut X' })
+    assert.equal(bewerteZiel({ quelle: q, quellGebinde: qg, ziel: fremd, zielChargen: [], menge: vorschlagsMenge(q, fremd).menge }).art, 'gesperrt')
+    assert.equal(bewerteZiel({ quelle: q, quellGebinde: qg, ziel: qg, zielChargen: [q], menge: vorschlagsMenge(q, qg).menge }).art, 'gesperrt')
+    assert.equal(teilumzugText(255, 1840, 'A10/1'), 'Teilumzug: 255 l von 1.840 l – mehr passt nicht in „A10/1“.')
+  })
+  test('Editor und Dialog verwenden dieselbe Vorschlagsmenge; der Hinweis steht im Dialog', () => {
+    const e = quelle('src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx')
+    assert.ok(e.includes('const v = vorschlagsMenge(q, ziel)'))
+    assert.ok(e.includes('menge: v.menge })'))
+    assert.ok(e.includes("' (Teilmenge)'"))
+    const b = quelle('src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanBuchen.tsx')
+    assert.ok(b.includes("useState(quelle ? String(vorschlag(quelle).menge).replace('.', ',') : '')"))
+    assert.ok(b.includes('{quelle && vorschlag(quelle).teil && ('))
+    assert.ok(b.includes("disabled={pending || bewertung.art === 'gesperrt'}"), 'die Prüfung beim Buchen bleibt')
   })
 })
 
