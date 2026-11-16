@@ -27,7 +27,7 @@ import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { umziehen } from '../../umziehen/actions'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
-import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle, Sparkles } from 'lucide-react'
+import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle, Sparkles, FlaskConical } from 'lucide-react'
 import { rund } from '@/lib/zahl/runden'
 import { bestandsAbweichungDerCharge, ladeBewegungenCharge } from '@/lib/behoerden/bewegungsbuch'
 import { PRODUKTION_ART_LABEL, type ProduktionArt } from '@/lib/kellerbuch/produktion'
@@ -437,6 +437,18 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
             <Microscope size={13} strokeWidth={1.75} />Analysen
           </Link>
+          {/* Abnahme 16.11.2026: Kellerbehandlungen hängen am Gebinde – von der Charge aus fehlte der Weg dorthin */}
+          {weinausbau.behaelter_id ? (
+            <Link href={mitZurueck(`/kellerbuch/behaelter/${weinausbau.behaelter_id}/behandlungen`, `/kellerbuch/weinausbau/${weinausbau.id}`)}
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              <FlaskConical size={13} strokeWidth={1.75} />Kellerbehandlung
+            </Link>
+          ) : (
+            <span title="Die Charge liegt in keinem Gebinde – Kellerbehandlungen werden am Gebinde erfasst"
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-tertiary px-3 py-1 rounded-lg cursor-not-allowed">
+              <FlaskConical size={13} strokeWidth={1.75} />Kellerbehandlung
+            </span>
+          )}
           {writeOk && (
             <Link href={pnOffen ? `/dac/${pnOffen.id}` : `/dac/neu?charge=${weinausbau.id}`}
               className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
