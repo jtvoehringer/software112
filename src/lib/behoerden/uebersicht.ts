@@ -1,9 +1,10 @@
 import 'server-only'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { HINWEIS_BKI_UPLOAD } from '@/lib/csv'
-import { csvPfad, GRUPPEN_LABEL, type MeldungsId } from './katalog'
+import { csvPfad, type MeldungsId } from './katalog'
+import { nachStelle } from './stellen'
 import { meldungFinden } from './register'
-import { istParameterFehler, type KatalogEintrag, type MeldungsGruppe } from './typen'
+import { istParameterFehler, type KatalogEintrag } from './typen'
 import { erlaubteMeldungen } from './zugriff'
 
 // ── Übersicht „Behördenmeldungen (Drucken & CSV)“ (server-only, 24.09.2026) ──────
@@ -40,7 +41,8 @@ export type UebersichtEintrag = {
 }
 
 export type UebersichtGruppe = {
-  gruppe: MeldungsGruppe
+  /** KAN-471: Stelle, die das Dokument verlangt (lib/behoerden/stellen.ts) – nicht mehr die Themengruppe des Katalogs */
+  gruppe: string
   label: string
   eintraege: UebersichtEintrag[]
 }
@@ -84,8 +86,8 @@ function csvMitStandardauswahl(e: KatalogEintrag): string | null {
 }
 
 /**
- * Behördenmeldungen der aktiven Mitgliedschaft, gruppiert wie GRUPPEN_LABEL (leere Gruppen
- * entfallen). null = Übersicht konnte nicht geladen werden (Datenbankfehler, protokolliert) –
+ * Behördenmeldungen der aktiven Mitgliedschaft, gegliedert nach der Stelle, die sie verlangt (KAN-471: BKI,
+ * Bundesamt für Weinbau, AMA, Bio-Kontrollstelle … – leere Stellen entfallen, Pflichtmeldungen zuerst). null = Übersicht konnte nicht geladen werden (Datenbankfehler, protokolliert) –
  * die aufrufende Seite bleibt benutzbar und zeigt einen Hinweis.
  */
 export async function behoerdenUebersicht(): Promise<UebersichtGruppe[] | null> {
@@ -104,21 +106,15 @@ export async function behoerdenUebersicht(): Promise<UebersichtGruppe[] | null> 
     return null
   }
 
-  return (Object.keys(GRUPPEN_LABEL) as MeldungsGruppe[])
-    .map(gruppe => ({
-      gruppe,
-      label: GRUPPEN_LABEL[gruppe],
-      eintraege: erlaubt.filter(e => e.gruppe === gruppe).map(e => ({
-        id: e.id,
-        titel: e.titel,
-        behoerde: e.behoerde,
-        pflicht: e.pflicht === true,
-        beschreibung: e.beschreibung ?? null,
-        rechtsgrundlage: e.rechtsgrundlage ?? null,
-        seite: seiteFuer(e),
-        csv: csvMitStandardauswahl(e),
-        csvHinweis: meldungFinden(e.id)?.profil?.name === 'BKI' ? HINWEIS_BKI_UPLOAD : null,
-      })),
-    }))
-    .filter(g => g.eintraege.length > 0)
+  return nachStelle(erlaubt.map(e => ({
+    id: e.id,
+    titel: e.titel,
+    behoerde: e.behoerde,
+    pflicht: e.pflicht === true,
+    beschreibung: e.beschreibung ?? null,
+    rechtsgrundlage: e.rechtsgrundlage ?? null,
+    seite: seiteFuer(e),
+    csv: csvMitStandardauswahl(e),
+    csvHinweis: meldungFinden(e.id)?.profil?.name === 'BKI' ? HINWEIS_BKI_UPLOAD : null,
+  })))
 }
