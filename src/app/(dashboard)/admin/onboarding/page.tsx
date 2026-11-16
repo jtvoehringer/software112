@@ -76,7 +76,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     gruppe: 'Datenimport (optional)',
     schritte: [
       { id: 'di1', pflicht: false, titel: 'Bestandskunden per CSV importieren', beschreibung: 'Administration > Datenimport > Kontakte: CSV vorbereiten (Spalte "Nachname" Pflicht), hochladen, Spalten zuordnen, importieren. Danach im CRM prüfen.', link: '/admin/import', linkLabel: 'Datenimport öffnen' },
-      { id: 'di2', pflicht: false, titel: 'Flaschenlager importieren', beschreibung: 'Administration > Datenimport > Füllungen: bestehenden Lagerbestand importieren (Spalte "Bezeichnung" Pflicht, "Lagerbestand" = aktuelle Flaschenanzahl).', link: '/admin/import', linkLabel: 'Datenimport öffnen' },
+      { id: 'di2', pflicht: false, titel: 'Flaschenlager importieren', beschreibung: 'Administration > Datenimport > Eröffnungsbestand Flaschen: bestehenden Lagerbestand zum Stichtag importieren (Vorlage herunterladen, ausfüllen, prüfen lassen, importieren).', link: '/admin/import', linkLabel: 'Datenimport öffnen' },
     ],
   },
   {
