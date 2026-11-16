@@ -104,7 +104,7 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
       <h1 className={`text-2xl font-semibold text-s112-text break-words ${gebinde.tank_id ? 'mb-1' : 'mb-4'}`}>{gebinde.anzeigeName}</h1>
       {gebinde.tank_id && (
         <p className="text-sm text-s112-text-2 mb-4">
-          Kammer {gebinde.kammer_nr}{gebinde.tank_kammern && (gebinde.kammer_nr ?? 0) <= gebinde.tank_kammern ? ` von ${gebinde.tank_kammern}` : ''} im Tank{' '}
+          Kammer {gebinde.kammer_nr}{gebinde.tank_kammern && (gebinde.kammer_nr ?? 0) <= gebinde.tank_kammern ? ` von ${gebinde.tank_kammern}` : ''} im geteilten Tank{' '}
           {gebinde.fremd ? <strong>{gebinde.tank_name}</strong> : <Link href={`/kellerbuch/behaelter/tank/${gebinde.tank_id}`} className="font-semibold text-s112-blue-700 hover:underline">{gebinde.tank_name}</Link>}
         </p>
       )}

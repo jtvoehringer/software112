@@ -10,7 +10,7 @@ import { Pencil, Boxes, ChevronRight } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { gebindePasst, pickerlText, vorherrschendeWeinart, WEINART_FARBE } from '@/lib/keller/gebindeAnzeige'
 import PickerlEntfernen from './PickerlEntfernen'
-import { nachTank } from '@/lib/keller/tanks'
+import { nachTank, tankSammelPfad } from '@/lib/keller/tanks'
 
 export const metadata: Metadata = { title: 'Kellerbuch' }
 export const dynamic = 'force-dynamic'
@@ -111,7 +111,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
   const cmpName = (x: BehaelterZeile, y: BehaelterZeile) => x.name.localeCompare(y.name, 'de', { numeric: true, sensitivity: 'base' })
   const gruppenMap = new Map<string, BehaelterZeile[]>()
   const trifft = (b: BehaelterZeile) => gebindePasst(suche, [
-    b.name, b.standort, b.lp_pickerl, b.fremd_betrieb, b.tank_name ? `Tank ${b.tank_name}` : null,
+    b.name, b.standort, b.lp_pickerl, b.fremd_betrieb, b.tank_name ? `Geteilter Tank ${b.tank_name}` : null,
     ...(chargenByBehaelter.get(b.id) ?? []).flatMap((w: R) => [w.name, w.rebsorte, w.jahrgang != null ? String(w.jahrgang) : null]),
   ])
   for (const b of behaelter.filter(b => b.aktiv && trifft(b))) {
@@ -241,11 +241,15 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
                 return (
                   <div key={t.id} className="rounded-lg border border-s112-blue-700/30 overflow-hidden">
                     <div className="flex items-center gap-3 px-3 py-1.5 bg-s112-blue-50 text-sm">
-                      <span className="font-semibold text-s112-text">Tank {t.name}</span>
+                      <span className="font-semibold text-s112-text">Geteilter Tank {t.name}</span>
                       <span className="text-xs text-s112-text-2">{t.anzahl} {t.anzahl === 1 ? 'Kammer' : 'Kammern'}{t.kammern.length < t.anzahl ? ` · ${t.kammern.length} sichtbar` : ''}</span>
                       <span className="ml-auto text-xs font-mono tabular-nums text-s112-text">{fmtLiter(inhalt)}{t.volumen > 0 ? <span className="text-s112-tertiary"> / {fmtLiter(t.volumen)}</span> : null}</span>
+                      {/* KAN-468: dieselbe Kellerbehandlung für alle belegten Kammern (Sammelmaßnahme mit Vorauswahl) */}
+                      {eigen && writeOk && (t.kammern.some(k => (chargenByBehaelter.get(k.id)?.length ?? 0) > 0)
+                        ? <Link href={tankSammelPfad(t.id)} className="text-xs font-medium text-s112-blue-700 hover:underline whitespace-nowrap">Behandlung für alle Kammern</Link>
+                        : <span title="Keine belegte Kammer – eine Sammelmaßnahme braucht Wein im Gebinde" className="text-xs text-s112-tertiary whitespace-nowrap">Behandlung für alle Kammern</span>)}
                       {eigen && (
-                        <Link href={`/kellerbuch/behaelter/tank/${t.id}`} title={writeOk ? 'Tank bearbeiten' : 'Tank ansehen'} aria-label={writeOk ? `Tank ${t.name} bearbeiten` : `Tank ${t.name} ansehen`} className="text-s112-muted hover:text-s112-blue-700">
+                        <Link href={`/kellerbuch/behaelter/tank/${t.id}`} title={writeOk ? 'Geteilten Tank bearbeiten' : 'Geteilten Tank ansehen'} aria-label={writeOk ? `Geteilten Tank ${t.name} bearbeiten` : `Geteilten Tank ${t.name} ansehen`} className="text-s112-muted hover:text-s112-blue-700">
                           <Pencil className="w-3.5 h-3.5" />
                         </Link>
                       )}

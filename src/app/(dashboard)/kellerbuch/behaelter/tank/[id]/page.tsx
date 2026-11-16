@@ -6,12 +6,12 @@ import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
-import { nachTank, tankTypLabel } from '@/lib/keller/tanks'
+import { nachTank, tankSammelPfad, tankTypLabel } from '@/lib/keller/tanks'
 import { fmtLiter } from '@/lib/format'
 import TankForm from '@/components/kellerbuch/TankForm'
 import { updateTank } from '../../../actions'
 
-export const metadata: Metadata = { title: 'Tank mit Kammern' }
+export const metadata: Metadata = { title: 'Geteilter Tank' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,16 +42,22 @@ export default async function TankPage({ params }: { params: Promise<{ id: strin
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
         <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-s112-text-1 font-medium truncate">Tank {tank.name}</span>
+        <span className="text-s112-text-1 font-medium truncate">Geteilter Tank {tank.name}</span>
       </div>
-      <h1 className="text-2xl font-semibold text-s112-text mb-1 break-words">Tank {tank.name}</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-1 break-words">Geteilter Tank {tank.name}</h1>
       <p className="text-sm text-s112-text-2 mb-6">
         {tankTypLabel(tank.typ)} · {kammern.length} {kammern.length === 1 ? 'Kammer' : 'Kammern'} · <span className="tabular-nums">{fmtLiter(inhalt)} / {fmtLiter(volumen)}</span>
       </p>
 
-      <h2 className="text-base font-semibold text-s112-text mb-3">Kammern</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h2 className="text-base font-semibold text-s112-text">Kammern</h2>
+        {/* KAN-468: Sammelmaßnahme mit den belegten Kammern dieses Tanks als Vorauswahl */}
+        {darf && (kammern.some(k => k.eigen_liter > 0.005)
+          ? <Link href={tankSammelPfad(id)} className="btn-primary text-sm">Behandlung für alle Kammern</Link>
+          : <span title="Keine belegte Kammer – eine Sammelmaßnahme braucht Wein im Gebinde" className="text-sm text-s112-tertiary">Behandlung für alle Kammern (keine belegte Kammer)</span>)}
+      </div>
       <div className="card p-0 overflow-hidden mb-6">
-        {kammern.length === 0 && <p className="px-4 py-3 text-sm text-s112-muted">Dieser Tank hat keine Kammern mehr.</p>}
+        {kammern.length === 0 && <p className="px-4 py-3 text-sm text-s112-muted">Dieser geteilte Tank hat keine Kammern mehr.</p>}
         <div className="divide-y divide-s112-line">
           {kammern.map(k => (
             <div key={k.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
@@ -71,7 +77,7 @@ export default async function TankPage({ params }: { params: Promise<{ id: strin
 
       {darf ? (
         <>
-          <h2 className="text-base font-semibold text-s112-text mb-3">Stammdaten des Tanks</h2>
+          <h2 className="text-base font-semibold text-s112-text mb-3">Stammdaten des geteilten Tanks</h2>
           <TankForm tank={tank as Parameters<typeof TankForm>[0]['tank']} action={updateTank.bind(null, id)} />
         </>
       ) : (

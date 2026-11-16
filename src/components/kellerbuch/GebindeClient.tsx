@@ -46,7 +46,7 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
             <h3 className="font-semibold text-s112-text mb-4">Gebinde bearbeiten</h3>
             {gebinde.tank_id && (
               <p className="mb-3 text-xs text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2">
-                Kammer {gebinde.kammer_nr} im Tank {gebinde.tank_name} – Typ, Standort und Material kommen vom Tank und werden dort geändert.
+                Kammer {gebinde.kammer_nr} im geteilten Tank {gebinde.tank_name} – Typ, Standort und Material kommen vom geteilten Tank und werden dort geändert.
               </p>
             )}
             <form data-ungespeichert action={handleSubmit} className="space-y-3">

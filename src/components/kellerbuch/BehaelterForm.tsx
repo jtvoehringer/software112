@@ -52,9 +52,9 @@ export default function BehaelterForm({ behaelter, action, partner = null, kamme
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>
         {kammer && (
           <p className="text-sm text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2">
-            Kammer {kammer.nr}{kammer.von && kammer.nr <= kammer.von ? ` von ${kammer.von}` : ''} im Tank{' '}
+            Kammer {kammer.nr}{kammer.von && kammer.nr <= kammer.von ? ` von ${kammer.von}` : ''} im geteilten Tank{' '}
             <Link href={`/kellerbuch/behaelter/tank/${kammer.tankId}`} className="font-semibold text-s112-blue-700 hover:underline">{kammer.tankName}</Link>
-            {' '}– Typ und Standort kommen vom Tank und werden dort geändert.
+            {' '}– Typ und Standort kommen vom geteilten Tank und werden dort geändert.
           </p>
         )}
 
@@ -65,7 +65,7 @@ export default function BehaelterForm({ behaelter, action, partner = null, kamme
           </div>
           <div>
             <label className="form-label">Typ</label>
-            <select aria-label="Typ" name="typ" defaultValue={behaelter?.typ ?? ''} className="form-input" disabled={!!kammer} title={kammer ? 'kommt vom Tank' : undefined}>
+            <select aria-label="Typ" name="typ" defaultValue={behaelter?.typ ?? ''} className="form-input" disabled={!!kammer} title={kammer ? 'kommt vom geteilten Tank' : undefined}>
               <option value="">– bitte wählen –</option>
               <option value="amphore">Amphore</option>
               <option value="barrique">Barrique</option>
@@ -93,7 +93,7 @@ export default function BehaelterForm({ behaelter, action, partner = null, kamme
           </div>
           <div>
             <label className="form-label">Standort</label>
-            <input aria-label="Standort" name="standort" type="text" defaultValue={behaelter?.standort ?? ''} className="form-input" placeholder="z.B. Keller Süd" disabled={!!kammer} title={kammer ? 'kommt vom Tank' : undefined} />
+            <input aria-label="Standort" name="standort" type="text" defaultValue={behaelter?.standort ?? ''} className="form-input" placeholder="z.B. Keller Süd" disabled={!!kammer} title={kammer ? 'kommt vom geteilten Tank' : undefined} />
           </div>
           <div className="sm:col-span-2">
             <label className="form-label">Notizen</label>

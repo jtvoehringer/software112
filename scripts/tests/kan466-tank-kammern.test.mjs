@@ -27,18 +27,18 @@ describe('KAN-466: Eingaberegeln', () => {
     assert.deepEqual([KAMMERN_MIN, KAMMERN_MAX], [2, 12])
   })
   test('Name und Typ des Tanks', () => {
-    assert.match(tankEingabeFehler({ name: '  ', typ: 'stahltank', kammern: kammern(1, 1) }), /Namen für den Tank/)
+    assert.match(tankEingabeFehler({ name: '  ', typ: 'stahltank', kammern: kammern(1, 1) }), /Namen für den geteilten Tank/)
     assert.match(tankEingabeFehler({ name: 'x'.repeat(51), typ: 'stahltank', kammern: kammern(1, 1) }), /höchstens 50 Zeichen/)
-    assert.match(tankEingabeFehler({ name: 'A10', typ: 'barrique', kammern: kammern(1, 1) }), /Typ des Tanks/)
-    assert.match(tankEingabeFehler({ name: 'A10', typ: 'presse', kammern: kammern(1, 1) }), /Typ des Tanks/)
-    assert.match(tankEingabeFehler({ name: 'A10', typ: '', kammern: kammern(1, 1) }), /Typ des Tanks/)
+    assert.match(tankEingabeFehler({ name: 'A10', typ: 'barrique', kammern: kammern(1, 1) }), /Typ des geteilten Tanks/)
+    assert.match(tankEingabeFehler({ name: 'A10', typ: 'presse', kammern: kammern(1, 1) }), /Typ des geteilten Tanks/)
+    assert.match(tankEingabeFehler({ name: 'A10', typ: '', kammern: kammern(1, 1) }), /Typ des geteilten Tanks/)
   })
   test('Anzahl, Namen und Volumen der Kammern', () => {
     assert.match(tankEingabeFehler({ name: 'A10', typ: 'stahltank', kammern: kammern(1) }), /2 bis 12 Kammern/)
     assert.match(tankEingabeFehler({ name: 'A10', typ: 'stahltank', kammern: kammern(...Array(13).fill(1)) }), /2 bis 12 Kammern/)
     assert.match(tankEingabeFehler({ name: 'A10', typ: 'stahltank', kammern: [{ name: '', volumen_liter: 1 }, { name: 'b', volumen_liter: 1 }] }), /Kammer 1: bitte einen Namen/)
     assert.match(tankEingabeFehler({ name: 'A10', typ: 'stahltank', kammern: [{ name: 'Oben', volumen_liter: 1 }, { name: ' oben ', volumen_liter: 1 }] }), /Kammer 2: der Name „oben“ kommt doppelt vor/)
-    assert.match(tankEingabeFehler({ name: 'A10', typ: 'stahltank', kammern: [{ name: 'a10', volumen_liter: 1 }, { name: 'b', volumen_liter: 1 }] }), /nicht wie der Tank/)
+    assert.match(tankEingabeFehler({ name: 'A10', typ: 'stahltank', kammern: [{ name: 'a10', volumen_liter: 1 }, { name: 'b', volumen_liter: 1 }] }), /nicht wie der geteilte Tank/)
     for (const v of [null, 0, -5, NaN, Infinity]) {
       assert.match(tankEingabeFehler({ name: 'A10', typ: 'stahltank', kammern: [{ name: 'a', volumen_liter: 1 }, { name: 'b', volumen_liter: v }] }), /Kammer 2: bitte das Fassungsvermögen/, String(v))
     }
@@ -60,7 +60,7 @@ describe('KAN-466: Namen und Anzeige', () => {
   test('Zusatz in Auswahllisten: Tank-Name nur, wenn er nicht schon im Namen der Kammer steht', () => {
     assert.equal(tankZusatz({ name: 'A10/1', tank_id: 'x', tank_name: 'A10', kammer_nr: 1, tank_kammern: 3 }), 'Kammer 1 von 3')
     assert.equal(tankZusatz({ name: 'a10 unten', tank_id: 'x', tank_name: 'A10', kammer_nr: 1, tank_kammern: 3 }), 'Kammer 1 von 3')
-    assert.equal(tankZusatz({ name: 'Unten', tank_id: 'x', tank_name: 'A10', kammer_nr: 1, tank_kammern: 3 }), 'Tank A10, Kammer 1 von 3')
+    assert.equal(tankZusatz({ name: 'Unten', tank_id: 'x', tank_name: 'A10', kammer_nr: 1, tank_kammern: 3 }), 'Geteilter Tank A10, Kammer 1 von 3')   // KAN-468: Bezeichnung „Geteilter Tank“
     assert.equal(tankZusatz({ name: 'A10/3', tank_id: 'x', tank_name: 'A10', kammer_nr: 3, tank_kammern: 2 }), 'Kammer 3', 'nach dem Löschen einer mittleren Kammer ohne „von“')
     assert.equal(tankZusatz({ name: 'A10/1', tank_id: 'x', tank_name: 'A10', kammer_nr: 1, tank_kammern: null }), 'Kammer 1')
     assert.equal(tankZusatz({ name: 'T5', tank_id: null, kammer_nr: null }), null)
@@ -85,10 +85,57 @@ describe('KAN-466: Namen und Anzeige', () => {
   })
   test('Meldungen der Datenbank: HINT tank_… wird durchgereicht, doppelte Namen übersetzt', () => {
     assert.equal(tankDbFehler({ code: '22023', message: 'Ein Tank mit Kammern braucht 2 bis 12 Kammern.', hint: 'tank_kammern' }), 'Ein Tank mit Kammern braucht 2 bis 12 Kammern.')
-    assert.match(tankDbFehler({ code: '23505', message: 'duplicate key value violates unique constraint "gebinde_tanks_name_je_betrieb"' }), /Tank mit diesem Namen/)
+    assert.match(tankDbFehler({ code: '23505', message: 'duplicate key value violates unique constraint "gebinde_tanks_name_je_betrieb"' }), /geteilten Tank mit diesem Namen/)
     assert.match(tankDbFehler({ code: '23505', message: 'duplicate key value violates unique constraint "behaelter_name_je_betrieb"' }), /Gebinde mit einem dieser Namen/)
     assert.equal(tankDbFehler({ code: '42501', message: 'permission denied' }), null)
     assert.equal(tankDbFehler(null), null)
+  })
+})
+
+describe('KAN-468: Sammelmaßnahme für einen geteilten Tank', () => {
+  test('Stand der Auswahl: alle, teilweise, keine', async () => {
+    const { auswahlStand, tankSammelPfad } = await import('../../src/lib/keller/tanks.ts')
+    assert.equal(auswahlStand(['a', 'b', 'c'], new Set(['a', 'b', 'c', 'x'])), 'alle')
+    assert.equal(auswahlStand(['a', 'b', 'c'], new Set(['b'])), 'teil')
+    assert.equal(auswahlStand(['a', 'b', 'c'], new Set(['x'])), 'keine')
+    assert.equal(auswahlStand([], new Set(['x'])), 'keine')
+    assert.equal(tankSammelPfad('25286978-c78a-4ac5-acf9-1359de58046c'), '/kellerbuch/sammelbehandlung?tank=25286978-c78a-4ac5-acf9-1359de58046c')
+  })
+  test('Seite: Vorauswahl nur mit gültiger Tank-ID, Kammern beisammen (oberste zuerst), Tank über die Gebindeliste', () => {
+    const p = quelle('src/app/(dashboard)/kellerbuch/sammelbehandlung/page.tsx')
+    assert.ok(p.includes("typeof sp.tank === 'string' && /^[0-9a-f-]{36}$/i.test(sp.tank) ? sp.tank : null"))
+    assert.ok(p.includes('const vorauswahl = tankWahl ? chargen.filter(c => c.tankId === tankWahl).map(c => c.id) : []'))
+    assert.ok(p.includes('|| (b.kammerNr ?? 0) - (a.kammerNr ?? 0)'))
+    assert.ok(p.includes('ladeBehaelter(supabase, tenantId),'))
+    assert.ok(!p.includes("from('gebinde_tanks')"), 'keine eigene Abfrage auf die Tank-Tabelle')
+  })
+  test('Liste: Tank-Zeile mit „ganzer Tank“ (teilweise = Strich), wirkt auf alle belegten Kammern auch bei Filter; Suche nach dem Tank', () => {
+    const c = quelle('src/app/(dashboard)/kellerbuch/sammelbehandlung/SammelClient.tsx')
+    assert.ok(c.includes("ref.current.indeterminate = stand === 'teil'"))
+    assert.ok(c.includes('for (const c of chargen) if (c.tankId) m.set(c.tankId, [...(m.get(c.tankId) ?? []), c.id])'), 'aus allen Chargen, nicht nur den sichtbaren')
+    assert.ok(c.includes('const tankKopf = c.tankId && sichtbar[i - 1]?.tankId !== c.tankId ? ('))
+    assert.ok(c.includes('useState<Set<string>>(() => new Set(vorauswahl))'))
+    assert.ok(c.includes('geteilter tank ${c.tankName}'))
+    assert.ok(c.includes("fd.set('chargen_json', JSON.stringify(auswahl.map(c => c.id)))"), 'gebucht wird unverändert über die Sammelmaßnahme')
+  })
+  test('Einstiege nur mit Schreibrecht; ohne belegte Kammer ausgegraut', () => {
+    const k = quelle('src/app/(dashboard)/kellerbuch/page.tsx')
+    assert.ok(k.includes('{eigen && writeOk && (t.kammern.some(k => (chargenByBehaelter.get(k.id)?.length ?? 0) > 0)'))
+    assert.ok(k.includes('<Link href={tankSammelPfad(t.id)}'))
+    const t = quelle('src/app/(dashboard)/kellerbuch/behaelter/tank/[id]/page.tsx')
+    assert.ok(t.includes('{darf && (kammern.some(k => k.eigen_liter > 0.005)'))
+    const e = quelle('src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx')
+    assert.ok(e.includes('{dialogTank && writeOk && (dialogTankBelegt ? ('))
+    assert.ok(e.includes('href={tankSammelPfad(dialogTank.id)}'))
+  })
+  test('Bezeichnung „Geteilter Tank“ in Überschriften, Knöpfen und Listen', () => {
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/page.tsx').includes('>Geteilter Tank {t.name}</span>'))
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/gebinde/page.tsx').includes('>Geteilten Tank anlegen</Link>'))
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/behaelter/tank/neu/page.tsx').includes('Neuer geteilter Tank</h1>'))
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/behaelter/tank/[id]/page.tsx').includes('>Geteilter Tank {tank.name}</h1>'))
+    assert.ok(quelle('src/components/kellerbuch/TankForm.tsx').includes("'Geteilten Tank anlegen'"))
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx').includes('<p className="truncate">Geteilter Tank {t.name}</p>'))
+    assert.ok(quelle('src/lib/behoerden/gebindeverzeichnis.ts').includes("{ kopf: 'Geteilter Tank', typ: 'text', wert: z => z.tank },"))
   })
 })
 
@@ -127,7 +174,7 @@ describe('KAN-466: Seiten, Aktionen und Meldung', () => {
   })
   test('Gebindeverzeichnis: Spalten Tank und Kammer nach dem Gebinde, je Kammer eine Zeile mit eigenem Nennvolumen', () => {
     const v = quelle('src/lib/behoerden/gebindeverzeichnis.ts')
-    assert.match(v, /\{ kopf: 'Gebinde', typ: 'text', wert: z => z\.gebinde \},\n[^\n]*\n\s+\{ kopf: 'Tank', typ: 'text', wert: z => z\.tank \},\n\s+\{ kopf: 'Kammer', typ: 'ganzzahl', wert: z => z\.kammer \},\n\s+\{ kopf: 'Typ'/)
+    assert.match(v, /\{ kopf: 'Gebinde', typ: 'text', wert: z => z\.gebinde \},\n[^\n]*\n\s+\{ kopf: 'Geteilter Tank', typ: 'text', wert: z => z\.tank \},\n\s+\{ kopf: 'Kammer', typ: 'ganzzahl', wert: z => z\.kammer \},\n\s+\{ kopf: 'Typ'/)
     assert.match(v, /tank: g\.tank_id \? text\(g\.tank_name\) : null,\n\s+kammer: g\.tank_id \? g\.kammer_nr : null,/)
     assert.ok(!/gebinde_tanks/.test(v), 'der Tank selbst ist keine Zeile')
     assert.ok(!/tank/i.test(quelle('src/lib/behoerden/bki-stammdaten.ts')), 'BKI-EDV-Liste unverändert')

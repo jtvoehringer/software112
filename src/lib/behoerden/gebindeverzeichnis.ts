@@ -134,7 +134,7 @@ export async function ladeGebindeverzeichnis(
 export const SPALTEN_GEBINDEVERZEICHNIS: CsvSpalte<GebindeverzeichnisZeile>[] = [
   { kopf: 'Gebinde', typ: 'text', wert: z => z.gebinde },
   // KAN-466: Tank mit Kammern – jede Kammer ist ein eigenes Gebinde mit eigenem Nennvolumen, der Tank selbst keine Zeile
-  { kopf: 'Tank', typ: 'text', wert: z => z.tank },
+  { kopf: 'Geteilter Tank', typ: 'text', wert: z => z.tank },
   { kopf: 'Kammer', typ: 'ganzzahl', wert: z => z.kammer },
   { kopf: 'Typ', typ: 'text', wert: z => z.typ },
   { kopf: 'Nennvolumen (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.nennvolumen },

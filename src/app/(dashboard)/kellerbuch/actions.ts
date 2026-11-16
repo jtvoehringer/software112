@@ -300,7 +300,7 @@ export async function createTank(formData: FormData) {
     p_notizen: String(formData.get('notizen') ?? '').trim() || null,
     p_kammern: kammern,
   })
-  if (error) throw new AktionsFehler(tankDbFehler(error) ?? dbFehlerText(error, 'Der Tank konnte nicht angelegt werden'))
+  if (error) throw new AktionsFehler(tankDbFehler(error) ?? dbFehlerText(error, 'Der geteilte Tank konnte nicht angelegt werden'))
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/gebinde')
 }
@@ -311,9 +311,9 @@ export async function updateTank(id: string, formData: FormData) {
 
   const name = String(formData.get('name') ?? '').trim()
   const typ = String(formData.get('typ') ?? '')
-  if (!name) throw new AktionsFehler('Bitte einen Namen für den Tank angeben.')
-  if (name.length > TANK_NAME_MAX) throw new AktionsFehler(`Der Name des Tanks darf höchstens ${TANK_NAME_MAX} Zeichen haben.`)
-  if (!TANK_TYPEN.some(t => t.wert === typ)) throw new AktionsFehler('Bitte den Typ des Tanks wählen.')
+  if (!name) throw new AktionsFehler('Bitte einen Namen für den geteilten Tank angeben.')
+  if (name.length > TANK_NAME_MAX) throw new AktionsFehler(`Der Name des geteilten Tanks darf höchstens ${TANK_NAME_MAX} Zeichen haben.`)
+  if (!TANK_TYPEN.some(t => t.wert === typ)) throw new AktionsFehler('Bitte den Typ des geteilten Tanks wählen.')
 
   // Der Tank darf nicht wie ein Gebinde heißen (die Datenbank prüft nur Tank gegen Tank)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -331,7 +331,7 @@ export async function updateTank(id: string, formData: FormData) {
       notizen: String(formData.get('notizen') ?? '').trim() || null,
     })
     .eq('id', id).eq('tenant_id', tenantId).select('id')
-  if (error) throw new AktionsFehler(tankDbFehler(error) ?? dbFehlerText(error, 'Der Tank konnte nicht gespeichert werden'))
+  if (error) throw new AktionsFehler(tankDbFehler(error) ?? dbFehlerText(error, 'Der geteilte Tank konnte nicht gespeichert werden'))
   if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/gebinde')
