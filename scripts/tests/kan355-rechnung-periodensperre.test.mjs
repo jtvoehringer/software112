@@ -207,12 +207,13 @@ describe('KAN-355: Formulare und weitere Wege (statisch)', () => {
   test('Traubenverkauf (Weinhandel und Erntemeldung) prüft das Rechnungsdatum vor dem ersten Schreiben', () => {
     const tv = quelle('src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts')
     const neu = tv.indexOf("rechnungsdatumFehler(supabase, tenantId, datum, heuteWien())")
-    assert.ok(neu > 0 && neu < tv.indexOf("'get_next_liefernummer'"), 'Neuanlage: vor Liefernummer und Insert')
+    assert.ok(neu > 0 && neu < tv.indexOf('await traubenverkaufAnlegen('), 'Neuanlage: vor Liefernummer und Insert (KAN-476: beides in der RPC)')
+    assert.ok(!tv.includes("'get_next_liefernummer'"), 'keine Liefernummer mehr außerhalb der Transaktion')
     assert.match(tv, /if \(!altPostenId \|\| altDatum !== datum\)/)
     assert.ok(tv.indexOf('altDatum !== datum') < tv.indexOf(".update(payload)"), 'Bearbeiten: vor dem Update')
     const em = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
     const i = em.indexOf('rechnungsdatumFehler(supabase, tenantId, datum, heuteWien())')
-    assert.ok(i > 0 && i < em.indexOf("'get_next_liefernummer'", i - 2000), 'createTraubenverkauf: vor Liefernummer')
+    assert.ok(i > 0 && i < em.indexOf('await traubenverkaufAnlegen(', i), 'createTraubenverkauf: vor Liefernummer und Insert (KAN-476: beides in der RPC)')
   })
 })
 

@@ -8,7 +8,7 @@ import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, herkunftFuerSortenverschnitt, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { istTraubenArt, pressungObergrenze } from '@/lib/zukauf/ware'
-import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
+import { ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
 import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
 import { getCurrentMembership, canAdmin, canWrite, type Membership, type Modul } from '@/lib/auth/roles'
@@ -36,6 +36,7 @@ import { gstAktivAm, gstImJahr } from '@/lib/wein/grundstueckAktiv'
 import { leseHerkunftFehler, leseHerkunftObergrenze, leseObergrenze, leseStufeFehler, leseStufeGedeckelt, pressungLeseGrenze, type LeseStufenEintrag } from '@/lib/wein/leseAbstufung'
 import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
+import { traubenverkaufAnlegen } from '@/lib/verkauf/traubenverkaufAnlegen'
 import { pressungSortenverschnitt } from '@/lib/wein/sortenangabe'
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 import { rund } from '@/lib/zahl/runden'
@@ -1905,7 +1906,13 @@ export async function deleteJahrgang(id: string) {
 
 export async function createTraubenverkauf(fd: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId(TRAUBENVERKAUF_MODULE)
+  const membership = await getMembership(TRAUBENVERKAUF_MODULE)
+  const tenantId = membership.tenantId
+  // KAN-476: Mit dem Traubenverkauf entstehen Verkauf und Rechnung (Freigabe Warenwirtschaft) – ohne sie vorab ablehnen,
+  // sonst scheiterte erst der Rechnungsteil an der Datenbank
+  if (!canWrite(membership, 'warenwirtschaft')) {
+    throw new AktionsFehler('Mit einem Traubenverkauf werden Verkauf und Rechnung angelegt – das dürfen nur Betriebs-Manager und Mitarbeiter mit Freigabe Warenwirtschaft. Es wurde nichts gespeichert.')
+  }
   // KAN-73: Trauben-Qualität = Stufen der Lese (traubenverkauf hat keinen CHECK) – vor jedem
   // Schreiben und vor der Liefernummer prüfen (keine Lücke im Nummernkreis)
   const qualitaetsstufe = (fd.get('qualitaetsstufe') as string) || null
@@ -1942,12 +1949,6 @@ export async function createTraubenverkauf(fd: FormData) {
   { const sperre = await rechnungsdatumFehler(supabase, tenantId, datum, heuteWien())
     if (sperre) throw new AktionsFehler(sperre) }
 
-  // Liefernummer auto-generieren – erst nach allen Prüfungen (keine Lücke im Nummernkreis)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lnData, error: lnErr } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
-  if (lnErr) throw new AktionsFehler(dbFehlerText(lnErr, 'Liefernummer konnte nicht vergeben werden'))
-  const liefernummer = lnData as string | null
-
   const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId, tenantId)
 
   const payload: AR = {
@@ -1967,21 +1968,11 @@ export async function createTraubenverkauf(fd: FormData) {
     gesundheit:      (fd.get('gesundheit') as string) || 'G',
     herkunft_code:   (fd.get('herkunft_code') as string) || null,
     notizen:         (fd.get('notizen') as string) || null,
-    liefernummer,
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error } = await (supabase.from('traubenverkauf') as any).insert(payload).eq('tenant_id', tenantId).select('id').single()
-  if (error) throw new AktionsFehler((error as AR).message)
-
-  // Verkaufsposten anlegen, damit der Traubenverkauf auch in der Buchhaltung/Rechnungsübersicht auftaucht
-  // (dieselbe Logik wie weinhandel/traubenverkauf, damit beide Erfassungswege konsistent sind)
-  const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, {
-    datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg,
-  })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { const { data: geaendert, error: e } = await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', (inserted as AR).id).eq('tenant_id', tenantId).select('id')
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`)
-    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
+  // KAN-476: Liefernummer, Verkauf (damit der Traubenverkauf in Rechnungsübersicht und Buchhaltung auftaucht),
+  // Rechnungsposition und Traubenverkauf in EINER Transaktion – derselbe Weg wie Warenwirtschaft › Traubenverkauf.
+  // Die Liefernummer zieht die Funktion erst nach allen Prüfungen (keine Lücke im Nummernkreis).
+  await traubenverkaufAnlegen(supabase, tenantId, payload, weingartenName)
 
   if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/erntemeldung')
