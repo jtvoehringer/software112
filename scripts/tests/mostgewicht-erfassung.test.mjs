@@ -183,7 +183,7 @@ describe('Verdrahtung Traubenverkauf (Quelltext)', () => {
     const a = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
     const f = a.slice(a.indexOf('export async function createTraubenverkauf('), a.indexOf('export async function updateTraubenverkauf('))
     assert.match(f, /mostgewichtAusFormular\(fd, 'mostgewicht', \{ altesFeld: 'kmw_grad' \}\)/)
-    assert.ok(f.indexOf('mostgewichtAusFormular') < f.indexOf('get_next_liefernummer'))   // vor der Liefernummer
+    assert.ok(f.indexOf('mostgewichtAusFormular') > 0 && f.indexOf('mostgewichtAusFormular') < f.indexOf('await traubenverkaufAnlegen('))   // vor der Liefernummer (KAN-476: zieht die RPC)
     const page = (quelle('src/app/(dashboard)/erntemeldung/[id]/page.tsx') + quelle('src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts'))   /* Laden seit dem Pilottest in leseKontext.ts */
     assert.match(page, /klosterneuburger: p\.klosterneuburger, oechsle: p\.oechsle, mostgewicht_einheit: p\.mostgewicht_einheit/)
     assert.match(page, /qualitaetsstufe, kmw, oechsle, mostgewicht_einheit,/)

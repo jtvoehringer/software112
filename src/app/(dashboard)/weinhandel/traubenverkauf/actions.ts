@@ -15,6 +15,9 @@ import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
 import { heuteWien } from '@/lib/datum/wien'
+import { traubenverkaufAnlegen } from '@/lib/verkauf/traubenverkaufAnlegen'
+import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
+import { ladePartner } from '@/lib/handel/partnerLaden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -333,32 +336,22 @@ export async function upsertTraubenverkauf(formData: FormData) {
     }
   } else {
     if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+    // KAN-476: Mit dem Traubenverkauf entstehen Verkauf und Rechnung (verkaufsposten/verkauf_positionen: Freigabe
+    // Warenwirtschaft) – ohne diese Freigabe vorab ablehnen, wie beim Bearbeiten
+    if (!canWrite(membership, 'warenwirtschaft')) {
+      throw new AktionsFehler('Mit einem Traubenverkauf werden Verkauf und Rechnung angelegt – das dürfen nur Betriebs-Manager und Mitarbeiter mit Freigabe Warenwirtschaft. Es wurde nichts gespeichert.')
+    }
+    // KAN-208: Abnehmer samt Betriebsnummer Pflicht (Empfänger der Transportbescheinigung) – wie in der Lese
+    { const partner = await ladePartner(supabase, tenantId, kontaktId, firmaId)
+      const f = verkaufKundeFehler({ typen: ['trauben'], kunde: partner.vorhanden, betriebNr: partner.betriebNr, kundeName: partner.name })
+      if (f) throw new AktionsFehler(f) }
     // KAN-355: Der Traubenverkauf legt eine Rechnung mit seinem Datum an – vor jedem Schreibzugriff gegen den offenen
-    // Zeitraum prüfen (sonst bliebe der Traubenverkauf ohne Rechnung stehen)
+    // Zeitraum prüfen
     { const sperre = await rechnungsdatumFehler(supabase, tenantId, datum, heuteWien())
       if (sperre) throw new AktionsFehler(sperre) }
-    // Liefernummer bei Neuanlage auto-generieren
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lnData, error: lnErr } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
-    if (lnErr) throw new AktionsFehler(dbFehlerText(lnErr, 'Liefernummer konnte nicht vergeben werden'))
-    if (lnData) payload.liefernummer = lnData
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inserted, error } = await (supabase.from('traubenverkauf') as any)
-      .insert(payload)
-      .select('id')
-      .single()
-    if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (traubenverkauf)'))
-
-    const newId    = (inserted as AR).id as string
-    const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { data: geaendert, error: e } = await (supabase.from('traubenverkauf') as any)
-      .update({ verkaufsposten_id: postenId })
-      .eq('id', newId)
-      .eq('tenant_id', tenantId).select('id')
-      if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (traubenverkauf)'))
-      if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
+    // KAN-476: Liefernummer, Verkauf, Rechnungsposition und Traubenverkauf in EINER Transaktion (alles oder nichts) –
+    // bisher blieb der Traubenverkauf stehen, wenn die Rechnung scheiterte
+    await traubenverkaufAnlegen(supabase, tenantId, payload, weingartenName)
   }
 
   revalidatePath('/weinhandel/traubenverkauf')
