@@ -18,6 +18,8 @@ import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { ladeKonzentratBestaende } from '@/lib/behoerden/besondereKonten'
+import { bsmFormular } from '@/lib/behoerden/bsmFormular'
+import BsmFormularTabelle from '@/components/behoerden/BsmFormularTabelle'
 import { AktionsFehler } from '@/lib/fehler'
 
 export const metadata: Metadata = { title: 'Bestandsmeldung (BSM)' }
@@ -67,6 +69,9 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
   if (stFehler) throw new AktionsFehler(`Betriebsdaten konnten nicht geladen werden: ${stFehler.message}`)
   const s = (settingsRaw as R | null) ?? {}
   const journal = bsmJournal(daten, p.arten)
+  // KAN-473: dieselben Summen im Aufbau des BKI-Formulars (ganze Liter) – Grundlage von Druck und CSV „bsm“
+  const formular = bsmFormular(daten.summen, zeitraum)
+  const hinweise = [...daten.warnungen, ...formular.warnungen]
   const spalten: SpalteSchluessel[] = daten.spalten
   const spaltenLabel = (k: SpalteSchluessel) => (k === 'ohne' ? SPALTE_OHNE_LABEL : BSM_SPALTEN.find(x => x.key === k)?.label ?? k)
   const zeitraumParam = { von: p.von, bis: p.bis }
@@ -119,11 +124,11 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
         </div>
       )}
 
-      {daten.warnungen.length > 0 && (
+      {hinweise.length > 0 && (
         <div className="print:hidden rounded-xl border border-s112-border bg-s112-bg px-4 py-3 text-xs text-s112-text-2">
           <p className="font-semibold text-s112-text mb-1">Hinweise und Plausibilitätsprüfung</p>
           <ul className="list-disc pl-4 space-y-0.5">
-            {daten.warnungen.map((w, i) => <li key={i}>{w}</li>)}
+            {hinweise.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>
       )}
@@ -146,6 +151,13 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
           </div>
         </div>
 
+        {/* KAN-473: Aufbau des BKI-Formulars „Bestandsmeldung“ – die Aufgliederung nach Buchungsarten folgt darunter */}
+        <section aria-labelledby="bsm-formular" className="mb-8">
+          <h2 id="bsm-formular" className="text-base font-semibold text-s112-text mb-2">Bestandsmeldung (Aufbau des Formulars der Bundeskellereiinspektion)</h2>
+          <BsmFormularTabelle formular={formular} konzentrate={konzentrate} stichtag={datumAT(p.bis)} />
+        </section>
+
+        <h2 className="text-base font-semibold text-s112-text mb-1">Aufgliederung nach Buchungsarten und Herkunft</h2>
         <p className="text-xs text-s112-text-2 mb-1">
           § 29 Weingesetz 2009 · Weinwirtschaftsjahr 1. August – 31. Juli · Stichtag 31. Juli · Meldefrist 15. August · Weindatenbank: online.wein.bmluk.gv.at
         </p>
