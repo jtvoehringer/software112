@@ -128,6 +128,24 @@ describe('KAN-467: Editor, Seite und Aktionen', () => {
     assert.equal((e.match(/aria-label=\{`Tank \$\{t\.name\} (vom Plan entfernen|kleiner|größer)`\}/g) ?? []).length, 3)
     assert.match(e, /setSaveError\(fehlerText\(err, 'Der Tank konnte nicht vom Plan entfernt werden'\)\)/)
   })
+  test('Abnahme 16.11.2026: Knöpfe der runden Gebinde liegen außerhalb des beschnittenen Kreises; der Speicherstand ist sichtbar', () => {
+    const e = quelle(`${D}/[id]/KellerplanEditor.tsx`)
+    // äußerer Rahmen (group, ohne overflow) → Kreis (overflow hidden) → danach die Knöpfe als Geschwister des Kreises
+    const rahmen = e.indexOf('className="absolute group"\n                  style={{ left: `${pos.pos_x_pct}%`')
+    const kreis = e.indexOf('className="absolute inset-0 overflow-hidden flex flex-col items-center justify-center focus:outline-hidden', rahmen)
+    const inhalt = e.indexOf('{/* Inhalt: Name, Füllstand, Wein – über der Fill-Fläche */}', kreis)
+    const knopf = e.indexOf('{/* Entfernen-Button */}', kreis)
+    assert.ok(rahmen > 0 && kreis > rahmen && inhalt > kreis, 'Rahmen und Kreis')
+    assert.ok(knopf > inhalt, 'die Knöpfe stehen nach dem Inhalt des Kreises – also außerhalb der beschnittenen Fläche')
+    for (const name of ['vom Plan entfernen', 'kleiner', 'größer']) {
+      assert.ok(e.includes('aria-label={`${b.name} ' + name + '`}'), `Knopf „${name}“ mit Namen`)
+    }
+    assert.ok(!e.includes('absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity"\n                      onClick={e => { e.stopPropagation(); handleRemove('), 'kein Knopf mehr im Kreis')
+    assert.ok(e.includes('✓ Plan gespeichert – jede Änderung wird sofort übernommen.'))
+    assert.equal(e.split('setPlanGespeichert(true)').length - 1, 4, 'Gebinde und Tank: speichern und entfernen')
+    assert.ok(e.includes("setSaveError(fehlerText(err, 'Das Gebinde konnte nicht vom Plan entfernt werden'))"))
+    assert.ok(!e.includes("console.error('Löschen fehlgeschlagen"), 'Fehler beim Entfernen wird gemeldet, nicht nur protokolliert')
+  })
   test('Seite: eigene Tanks als Symbol, fremde Kammern bleiben Gebinde; Position je Gebinde oder Tank', () => {
     const p = quelle(`${D}/[id]/page.tsx`)
     assert.match(p, /nachTank\(behaelterRows\.filter\(b => b\.tank_id && !b\.fremd && !tankAnderswo\.has\(b\.tank_id\)\)\)\.tanks/)
