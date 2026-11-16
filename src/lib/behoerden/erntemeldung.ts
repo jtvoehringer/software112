@@ -28,6 +28,7 @@ import { Hinweise, datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from 
 import { gemessenInText, mostgewichtFuerExport, type MostgewichtExport } from './mostgewicht_export'
 import { ohneStornierte } from './traubenverkauf'
 import { gstImJahr } from '../wein/grundstueckAktiv'
+import { ernteFormular, type ErnteFormular, type FormularVerkauf } from './erntemeldungFormular'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -488,6 +489,9 @@ export type ErntemeldungDaten = {
   /** Summen der gerundeten Zeilenwerte (Ausdruck) */
   summe: { flaecheHa: number; mengeKg: number; verkauftKg: number; mengeHl: number }
   hektarhoechstertrag: HektarhoechstertragStatus
+  /** KAN-472: Aufbau des BKI-Formulars – je Rebsorte und Qualitätsstufe in Litern (kg × 0,75), aus den Lesedaten bis
+   *  zum Stichtag und den Traubenverkäufen; Grundlage von Druck und CSV */
+  formular: ErnteFormular
   warnungen: string[]
 }
 
@@ -566,12 +570,12 @@ export function summeErnte(zeilen: readonly ErnteZeile[]): ErntemeldungDaten['su
  * Verkäufe mit stornierter Rechnung zählen nicht – dieselbe Regel wie im BKI-Datenblatt
  * (ohneStornierte() aus traubenverkauf.ts), sonst würde ein neu erfasster Ersatz doppelt gezählt.
  */
-async function ladeVerkaufteTraubenJeRebsorte(supabase: Client, tenantId: string, jahrgangId: string): Promise<{ je: Map<string, number>; hinweis: string | null }> {
+async function ladeVerkaufteTraubenJeRebsorte(supabase: Client, tenantId: string, jahrgangId: string): Promise<{ je: Map<string, number>; einzeln: FormularVerkauf[]; hinweis: string | null }> {
   const { data, error } = await alle<R>(
     // storno-sichtbar: stornierte Traubenverkäufe (KAN-148) und stornierte Rechnungen filtert ohneStornierte() mit Hinweis
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
-      .select('id, datum, liefernummer, menge_kg, weingarten_id, storniert_am, herkunft_code, weingarten:weingarten_id(rebsorte, weinbaugebiet, trauben_herkunft_code), grundstueck:grundstueck_id(rebsorte, trauben_herkunft_code), verkaufsposten:verkaufsposten_id(storniert, rechnungsnummer)')
+      .select('id, datum, liefernummer, menge_kg, qualitaetsstufe, weingarten_id, storniert_am, herkunft_code, weingarten:weingarten_id(rebsorte, weinbaugebiet, trauben_herkunft_code), grundstueck:grundstueck_id(rebsorte, trauben_herkunft_code), verkaufsposten:verkaufsposten_id(storniert, rechnungsnummer)')
       .eq('tenant_id', tenantId)
       .eq('jahrgang_id', jahrgangId)
       .order('id'),
@@ -580,12 +584,15 @@ async function ladeVerkaufteTraubenJeRebsorte(supabase: Client, tenantId: string
   const eigene = data.filter(v => !!v.weingarten_id)   // Zukauf-Trauben sind keine eigene Ernte
   const { gueltig, hinweis } = ohneStornierte(eigene)
   const je = new Map<string, number>()
+  const einzeln: FormularVerkauf[] = []
   for (const v of gueltig) {
     const sorte = textOderNull(v.grundstueck?.rebsorte) ?? textOderNull(v.weingarten?.rebsorte) ?? REBSORTE_UNBEKANNT
     const key = positionsKey(gebietDerLese(v, v.weingarten ?? null, v.grundstueck ?? null).weinbaugebiet, sorte)
     je.set(key, (je.get(key) ?? 0) + (zahlOderNull(v.menge_kg) ?? 0))
+    // KAN-472: je Verkauf mit seiner Qualitätsstufe (Zeile des Formulars = Rebsorte und Stufe)
+    einzeln.push({ rebsorte: sorte, qualitaetsstufe: textOderNull(v.qualitaetsstufe), mengeKg: zahlOderNull(v.menge_kg) })
   }
-  return { je, hinweis: hinweis ? `„davon als Trauben verkauft“: ${hinweis}` : null }
+  return { je, einzeln, hinweis: hinweis ? `„davon als Trauben verkauft“: ${hinweis}` : null }
 }
 
 function fmtKg(n: number): string {
@@ -746,10 +753,21 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
     }
   }
 
+  // KAN-472: Formular je Rebsorte und Qualitätsstufe in Litern – immer aus dem Lesegut bis zum Stichtag 30.11.
+  const formular = ernteFormular(
+    stichtag.bis.map(z => ({
+      rebsorte: z.rebsorte, qualitaetsstufe: z.qualitaetsstufe, mengeKg: z.mengeKg, kmw: z.mostgewicht ? z.mostgewicht.kmw : z.kmw,
+      flaechenKey: z.grundstueckId ? `gst:${z.grundstueckId}` : `wg:${z.weingartenId ?? ''}`,
+      flaecheHa: z.grundstueckId ? z.grundstueckFlaecheHa : z.weingartenFlaecheHa,
+    })),
+    verkaufRes.einzeln, flaecheBetrieb)
+  warnungen.push(...formular.warnungen)
+
   return {
     jahrgang: jg,
     quelle: meldung ? 'meldung' : 'lesedaten',
     status: meldung ? textOderNull(meldung.status) : null,
+    formular,
     zeilen,
     gebiete: [...new Set(zeilen.map(z => z.weinbaugebiet).filter((g): g is string => !!g))],
     summe: summeErnte(zeilen),

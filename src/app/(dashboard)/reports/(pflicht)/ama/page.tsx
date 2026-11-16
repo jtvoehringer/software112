@@ -7,11 +7,12 @@ import Image from 'next/image'
 import PrintButton from '../../PrintButton'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { HEKTARHOECHSTERTRAG_KG_HA, HOECHSTERTRAG_RECHTSFOLGE, ladeErntemeldung, type ErnteZeile } from '@/lib/behoerden/erntemeldung'
+import { HEKTARHOECHSTERTRAG_KG_HA, HOECHSTERTRAG_RECHTSFOLGE, ladeErntemeldung } from '@/lib/behoerden/erntemeldung'
+import ErntemeldungFormular from '@/components/behoerden/ErntemeldungFormular'
+import { bioBetrieb } from '@/lib/behoerden/bki-stammdaten'
 import { HL_STELLEN_BESTAND, ladeBestandsmeldung, standardStichtag, stichtagParameter, type BestandZeile } from '@/lib/behoerden/bestandsmeldung'
 import { istParameterFehler } from '@/lib/behoerden/typen'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { AktionsFehler } from '@/lib/fehler'
@@ -48,14 +49,19 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
     return <div className="card p-10 text-center text-s112-muted text-sm">Nicht angemeldet.</div>
   }
 
-  const [{ data: jahrgaengeRaw, error: jgFehler }, { data: settingsRaw, error: stFehler }] = await Promise.all([
+  const [{ data: jahrgaengeRaw, error: jgFehler }, { data: settingsRaw, error: stFehler }, { data: betriebRaw, error: bioFehler }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weinjahrgaenge') as any).select('id, jahrgang').eq('tenant_id', tenantId).order('jahrgang', { ascending: false }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any)
-      .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url, modul_controlling')
+      .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, betrieb_betriebsnummer, betrieb_telefon, logo_url, modul_controlling')
       .eq('tenant_id', tenantId).maybeSingle(),
+    // KAN-472: Ankreuzfeld „Biobetrieb“ des Formulars
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
   ])
+  if (bioFehler) throw new AktionsFehler(`Betrieb konnte nicht geladen werden: ${bioFehler.message}`)
+  const biobetrieb = bioBetrieb((betriebRaw as R | null)?.bio_status ?? null)
   if (jgFehler) throw new AktionsFehler(`Jahrgänge konnten nicht geladen werden: ${jgFehler.message}`)
   if (stFehler) throw new AktionsFehler(`Betriebsdaten konnten nicht geladen werden: ${stFehler.message}`)
 
@@ -73,7 +79,6 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
     aktJahrgang ? ladeErntemeldung(supabase, tenantId, { id: aktJahrgang.id, jahrgang: Number(aktJahrgang.jahrgang) }) : Promise.resolve(null),
     ladeBestandsmeldung(supabase, tenantId, { stichtag, heute: heuteIso }),
   ])
-  const zeilen: ErnteZeile[] = ernte?.zeilen ?? []
   const hht = ernte?.hektarhoechstertrag ?? null
   const heute = datumAT(heuteIso)
   const stichtagText = datumAT(stichtag)
@@ -137,72 +142,28 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
             {s.logo_url && <Image unoptimized src={s.logo_url} alt="" width={150} height={40} className="object-contain object-left max-h-10 mb-2" />}
             <p className="font-semibold text-s112-text">{s.betrieb_name ?? 'software:112'}</p>
             <p className="text-sm text-s112-text-2">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
+            {/* KAN-472: Kopf wie am Formular – Betriebsnummer und Telefonnummer */}
+            <p className="text-sm text-s112-text-2">
+              Betriebsnummer: <span className="font-medium text-s112-text tabular-nums">{s.betrieb_betriebsnummer || '–'}</span>
+              {s.betrieb_telefon && <span className="ml-3">Telefon: {s.betrieb_telefon}</span>}
+            </p>
             {s.betrieb_uid && <p className="text-xs text-s112-tertiary">UID: {s.betrieb_uid}</p>}
           </div>
           <div className="text-right">
-            <h1 className="text-lg font-semibold text-s112-text">AMA Weinerntemeldung</h1>
-            <p className="text-2xl font-semibold text-s112-blue-700">Jahrgang {aktJahrgang?.jahrgang ?? '–'}</p>
+            <h1 className="text-lg font-semibold text-s112-text">Erntemeldung</h1>
+            <p className="text-2xl font-semibold text-s112-blue-700">Erntejahr {aktJahrgang?.jahrgang ?? '–'}</p>
             <p className="text-xs text-s112-tertiary mt-1">Erstellt: {heute}</p>
           </div>
         </div>
 
-        {/* Erntemeldung-Tabelle (je Rebsorte) */}
-        <table className="w-full text-sm border-collapse mb-3">
-          <thead>
-            <tr className="bg-[#F2F3F5] border border-s112-line-str">
-              <th className="text-left align-bottom px-3 py-2 border border-s112-line-str font-semibold">Rebsorte</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Fläche<br />(ha)</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Menge<br />(kg)</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">davon verkauft<br />(kg)</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Menge<br />(hl)</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">°KMW</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">°Oe</th>
-              <th className="text-left align-bottom px-3 py-2 border border-s112-line-str font-semibold">Qualitätsstufe</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Ertrag<br />(kg/ha)</th>
-              <th className="text-right align-bottom px-3 py-2 border border-s112-line-str font-semibold whitespace-nowrap">Übermenge<br />(kg)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {zeilen.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="px-3 py-4 text-center text-s112-tertiary text-sm italic border border-s112-line">
-                  Keine Erntemeldung vorhanden – bitte auf der Lese-Seite &quot;AMA-Meldung erstellen&quot; klicken
-                </td>
-              </tr>
-            ) : zeilen.map((z, i) => (
-              <tr key={i} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
-                <td className="px-3 py-2 border border-s112-line font-medium">
-                  {sorteMitKuerzel(z.rebsorte, z.kuerzel)}
-                  {/* KAN-165: bei Rieden aus mehreren Bundesländern eine Position je Weinbaugebiet */}
-                  {(ernte?.gebiete.length ?? 0) > 1 && <span className="text-xs font-normal text-s112-tertiary"> · {z.weinbaugebiet ?? 'ohne Weinbaugebiet'}</span>}
-                </td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(z.flaecheHa, 4)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap font-medium">{zahl(z.mengeKg, 0)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(z.verkauftKg, 0)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap" title={z.hlGeschaetzt ? 'aus Menge (kg) ÷ 130 umgerechnet' : undefined}>
-                  {zahl(z.mengeHl, 2)}
-                </td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap" title="Mostgewicht, mengengewichtetes Mittel der Lesen (abgerundet)">{z.kmw === null ? '–' : fmtNum(z.kmw, { min: 1, max: 2 })}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap" title="Mostgewicht in °Oe, aus dem °KMW-Mittel umgerechnet">{z.oechsle === null ? '–' : fmtNum(z.oechsle, { min: 1, max: 1 })}</td>
-                <td className="px-3 py-2 border border-s112-line">{qualitaetLabel(z.qualitaetsstufe)}</td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(z.ertragKgHa, 0)}</td>
-                <td className={`px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap ${(z.uebermengeKg ?? 0) > 0 ? 'text-s112-err-fg font-semibold' : ''}`}>
-                  {zahl(z.uebermengeKg, 0)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
-              <td className="px-3 py-2 border border-s112-line-str">GESAMT</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{ernte ? fmtNum(ernte.summe.flaecheHa, 4) : ''}</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(ernte?.summe.mengeKg ?? 0, 0)} kg</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(ernte?.summe.verkauftKg ?? 0, 0)} kg</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(ernte?.summe.mengeHl ?? 0, 2)} hl</td>
-              <td className="px-3 py-2 border border-s112-line-str" colSpan={5} />
-            </tr>
-          </tfoot>
-        </table>
+        {/* KAN-472: Aufbau des BKI-Formulars – je Rebsorte und Qualitätsstufe in Litern (kg × 0,75), dieselben Werte wie die CSV */}
+        {ernte ? (
+          <div className="mb-4"><ErntemeldungFormular formular={ernte.formular} biobetrieb={biobetrieb} /></div>
+        ) : (
+          <p className="px-3 py-4 text-center text-s112-tertiary text-sm italic border border-s112-line mb-4">
+            Für diesen Betrieb ist noch kein Jahrgang angelegt – ohne Ernte bitte die Leermeldung über „Erntemeldung als CSV“ erzeugen.
+          </p>
+        )}
 
         {/* Hektarhöchstertrag (betriebsweit, maßgeblich) */}
         {hht && hht.gesamtKg > 0 && (
@@ -210,10 +171,9 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
             Hektarhöchstertrag betriebsweit (alle Lesen, § 23 WeinG): {fmtNum(hht.gesamtKg, 0)} kg von max. {fmtNum(hht.maxKg, 0)} kg
             {' '}({fmtNum(HEKTARHOECHSTERTRAG_KG_HA, 0)} kg/ha × {fmtNum(hht.gesamtFlaecheHaBetrieb, 4)} ha Weingartenfläche lt. AMA) –{' '}
             {hht.ueberschritten ? `überschritten um ${fmtNum(hht.ueberschreitungKg, 0)} kg. ${HOECHSTERTRAG_RECHTSFOLGE}` : 'eingehalten'}.
-            {' '}Die Spalte „Übermenge“ zeigt die rechnerische Überschreitung je Sorte.
           </p>
         )}
-        {ernte?.quelle === 'lesedaten' && zeilen.length > 0 && (
+        {ernte?.quelle === 'lesedaten' && ernte.formular.zeilen.length > 0 && (
           <p className="text-xs text-s112-warn-fg mb-6 print:hidden">
             Vorschau aus den Lesedaten – für diesen Jahrgang ist noch keine AMA-Meldung erstellt (Lese-Seite: „AMA-Meldung erstellen“).
           </p>

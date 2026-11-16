@@ -28,7 +28,7 @@ describe('Sweep 114: Hauptüberschriften', () => {
       'src/app/(dashboard)/weinhandel/rechnungen/[id]/page.tsx': "<h1 className=\"text-3xl font-semibold\">{zuGutschrift ? 'STORNOBELEG' : storno ? 'STORNORECHNUNG' : 'RECHNUNG'}</h1>",
       'src/app/(dashboard)/kellerbuch/fuellung/[id]/blend-protokoll/page.tsx': 'Blend-Protokoll\n            </h1>',
       'src/app/(dashboard)/kellerbuch/weinausbau/[id]/blend-protokoll/page.tsx': 'Blend-Protokoll\n            </h1>',
-      [R + 'ama/page.tsx']: '>AMA Weinerntemeldung</h1>',
+      [R + 'ama/page.tsx']: '>Erntemeldung</h1>',   // KAN-472: Titel wie am BKI-Formular
       [R + 'bestandsmeldung-bsm/page.tsx']: '>Weinbestandsmeldung nach Buchungsarten</h1>',
       [R + 'cu-bilanz/page.tsx']: '>Kupfer-Bilanz (Cu-Bilanz)</h1>',
       [R + 'naehrstoffbilanz/page.tsx']: '>Nährstoffbilanz (Stickstoff/Phosphor)</h1>',
