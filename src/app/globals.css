@@ -252,6 +252,12 @@
     border: 1px solid #D6D8DD !important;
     break-inside: avoid;
   }
+  /* KAN-467 (Befund 16.11.2026, Gebindeliste): eine Karte mit einer Tabelle darf umbrechen – sonst rutscht eine Liste,
+     die nicht mehr auf die erste Seite passt, als Ganzes auf Seite 2 und Seite 1 bleibt bis auf die Überschrift leer.
+     Die Zeilen selbst bleiben zusammen (tr), der Tabellenkopf wiederholt sich (thead). */
+  .card:has(table) {
+    break-inside: auto;
+  }
 
   /* Waagrechte Scroll-Container (overflow-x-auto) aufheben: im Druck schnitten sie breite Tabellen rechts ab
      (Rückmeldung 30.09.2026, Rückverfolgung Weingarten) – der Inhalt muss auf die Seite umbrechen */

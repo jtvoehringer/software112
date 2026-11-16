@@ -1264,7 +1264,8 @@
 "breite_pct",
 "hoehe_pct",
 "erstellt_am",
-"aktualisiert_am"
+"aktualisiert_am",
+"tank_id"
 ],
 "kontakt_firmen": [
 "id",
