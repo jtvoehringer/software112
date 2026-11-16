@@ -375,20 +375,32 @@ describe('gebindeverzeichnis', () => {
     const r = await ausfuehren('gebindeverzeichnis', '', sb)
     const [kopf, ...z] = r.tabelle
     assert.equal(kopf[0], 'Gebinde')
+    // KAN-466: nach dem Gebinde die Spalten Tank und Kammer (leer bei eigenständigen Gebinden) – alle weiteren um zwei verschoben
+    assert.deepEqual([kopf[1], kopf[2], kopf[3]], ['Tank', 'Kammer', 'Typ'])
     assert.equal(z.length, 3)
     const t1 = z.find(c => c[0] === 'Tank 1')
+    assert.deepEqual([t1[1], t1[2]], ['', ''])
     // 889,50 eigen + 200 fremd = 1089,50 von 5000 l = 21,8 %
-    assert.deepEqual([t1[1], t1[2], t1[4], t1[6], t1[8], t1[9], t1[11], t1[12], t1[13], t1[14], t1[15]],
+    assert.deepEqual([t1[3], t1[4], t1[6], t1[8], t1[10], t1[11], t1[13], t1[14], t1[15], t1[16], t1[17]],
       ['Stahltank', '5000,00', 'Ja', 'GV 2025', 'Grüner Veltliner', 'GV', '889,50', '1089,50', '21,8', '200,00', 'Weingut Partner'])
     const leer = z.find(c => c[0] === 'Barrique 7')
-    assert.deepEqual([leer[1], leer[6], leer[11], leer[12]], ['Barrique', '', '', '0,00'])
+    assert.deepEqual([leer[3], leer[8], leer[13], leer[14]], ['Barrique', '', '', '0,00'])
     const fremd = z.find(c => c[0] === 'Tank 9')
-    assert.deepEqual([fremd[4], fremd[5]], ['Nein', 'Weingut Partner'])
+    assert.deepEqual([fremd[6], fremd[7]], ['Nein', 'Weingut Partner'])
     assert.ok(r.warnungen.some(w => w.includes('Kellergemeinschaft')))
     assert.ok(r.warnungen.some(w => w.includes('keinem Gebinde zugeordnet')))
     const aktiv = await ausfuehren('gebindeverzeichnis', 'aktiv=1', attrappe(kellerDaten(), gebindeRpc(gebindeKeller)))
     assert.equal(aktiv.zeilen, 2)
     assert.equal(aktiv.dateiname.utf8, 'Gebindeverzeichnis_1234567_aktive_2026-09-24.csv')
+  })
+  test('KAN-466: Kammern eines Tanks stehen einzeln mit eigenem Nennvolumen, der Tank selbst ist keine Zeile', async () => {
+    const TK = '00000000-0000-4000-8000-00000000a466'
+    const kammer = (id, nr, vol) => gebinde(id, `A10/${nr}`, { volumen_liter: vol, tank_id: TK, kammer_nr: nr, tank_name: 'A10', tank_kammern: 3 })
+    const liste = [kammer('00000000-0000-4000-8000-0000000a4661', 1, 3000), kammer('00000000-0000-4000-8000-0000000a4662', 2, 2000), kammer('00000000-0000-4000-8000-0000000a4663', 3, 2000)]
+    const r = await ausfuehren('gebindeverzeichnis', '', attrappe(kellerDaten(), gebindeRpc(liste)))
+    const [, ...z] = r.tabelle
+    assert.deepEqual(z.map(c => [c[0], c[1], c[2], c[4]]), [['A10/1', 'A10', '1', '3000,00'], ['A10/2', 'A10', '2', '2000,00'], ['A10/3', 'A10', '3', '2000,00']])
+    assert.ok(!z.some(c => c[0] === 'A10'), 'keine Zeile für den Tank')
   })
 })
 

@@ -391,7 +391,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       })
     }
   }
-  const behOptions: BehOption[] = behRows.map(b => ({ id: b.id, name: b.anzeigeName, volumen_liter: b.volumen_liter ?? null }))
+  const behOptions: BehOption[] = behRows.map(b => ({ id: b.id, name: b.auswahlName, volumen_liter: b.volumen_liter ?? null }))
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))
 
   // Traubenverkauf

@@ -17,6 +17,7 @@ import { pickerlFehler, schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
 import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
+import { KAMMERN_MAX, TANK_NAME_MAX, TANK_TYPEN, tankDbFehler, tankEingabeFehler, type KammerEingabe } from '@/lib/keller/tanks'
 import { pruefeFassung } from '@/lib/keller/fassungsvermoegen'
 import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
@@ -238,7 +239,7 @@ export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: geloescht, error } = await (supabase.from('behaelter') as any)
-    .delete().eq('id', id).eq('tenant_id', tenantId).select('id')
+    .delete().eq('id', id).eq('tenant_id', tenantId).select('id, tank_id')
   if (error) {
     // 23503 = foreign_key_violation (NO ACTION) – u. a. Chargen oder Kellerbehandlungen eines
     // Partnerbetriebs (Kellergemeinschaft, per RLS unsichtbar), Umzug- oder Pressungszeilen.
@@ -248,9 +249,92 @@ export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
   if (!geloescht || (geloescht as R[]).length === 0) {
     return { error: 'Gebinde nicht gefunden oder keine Berechtigung zum Löschen.' }
   }
+  // KAN-466: war das die letzte Kammer eines Tanks, verschwindet auch der (leere) Tank
+  const tankId = ((geloescht as R[])[0]?.tank_id as string | null | undefined) ?? null
+  if (tankId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rest = await (supabase.from('behaelter') as any).select('id', { count: 'exact', head: true }).eq('tank_id', tankId).eq('tenant_id', tenantId)
+    if (!rest.error && (rest.count ?? 0) === 0) {
+      // loeschen-ohne-pruefung: leerer Tank nach der letzten Kammer – bleibt er bei einem Fehler stehen, stört er nicht
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: tankErr } = await (supabase.from('gebinde_tanks') as any).delete().eq('id', tankId).eq('tenant_id', tenantId)
+      if (tankErr) console.error('[deleteBehaelter] leerer Tank konnte nicht entfernt werden:', (tankErr as R).message)
+    } else if (rest.error) {
+      console.error('[deleteBehaelter] Kammern des Tanks konnten nicht gezählt werden:', (rest.error as R).message)
+    }
+  }
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/gebinde')
   return {}
+}
+
+// TANK MIT KAMMERN (KAN-466)
+// Ein Tank (gebinde_tanks) ist kein Gebinde – befüllt werden seine Kammern, jede eine Zeile in behaelter. Angelegt wird
+// beides in einer Transaktion über die RPC s112_tank_anlegen; Typ, Material und Standort pflegt man nur am Tank
+// (Trigger geben sie an die Kammern weiter).
+export async function createTank(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+
+  const name = String(formData.get('name') ?? '').trim()
+  const typ = String(formData.get('typ') ?? '')
+  const anzahl = Math.trunc(zahlAus(formData.get('kammern')) ?? 0)
+  const mitFreigabe = formData.has('gemeinsam_sichtbar')
+  const kammern: KammerEingabe[] = []
+  for (let i = 1; i <= Math.min(Math.max(anzahl, 0), KAMMERN_MAX); i++) {
+    const vol = zahlAus(formData.get(`kammer_${i}_volumen`))
+    kammern.push({
+      name: String(formData.get(`kammer_${i}_name`) ?? '').trim(),
+      volumen_liter: vol === null ? null : rund2(vol),
+      ...(mitFreigabe ? { gemeinsam: formData.get(`kammer_${i}_gemeinsam`) === 'true' } : {}),
+    })
+  }
+  const fehler = tankEingabeFehler({ name, typ, kammern })
+  if (fehler) throw new AktionsFehler(fehler)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_tank_anlegen', {
+    p_tenant_id: tenantId, p_name: name, p_typ: typ,
+    p_material: materialFelder(formData.get('material'), null, typ).material,
+    p_standort: String(formData.get('standort') ?? '').trim() || null,
+    p_notizen: String(formData.get('notizen') ?? '').trim() || null,
+    p_kammern: kammern,
+  })
+  if (error) throw new AktionsFehler(tankDbFehler(error) ?? dbFehlerText(error, 'Der Tank konnte nicht angelegt werden'))
+  revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/gebinde')
+}
+
+export async function updateTank(id: string, formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+
+  const name = String(formData.get('name') ?? '').trim()
+  const typ = String(formData.get('typ') ?? '')
+  if (!name) throw new AktionsFehler('Bitte einen Namen für den Tank angeben.')
+  if (name.length > TANK_NAME_MAX) throw new AktionsFehler(`Der Name des Tanks darf höchstens ${TANK_NAME_MAX} Zeichen haben.`)
+  if (!TANK_TYPEN.some(t => t.wert === typ)) throw new AktionsFehler('Bitte den Typ des Tanks wählen.')
+
+  // Der Tank darf nicht wie ein Gebinde heißen (die Datenbank prüft nur Tank gegen Tank)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: gleich, error: gleichErr } = await (supabase.from('behaelter') as any)
+    .select('id').eq('tenant_id', tenantId).ilike('name', name.replace(/[\\%_]/g, '\\$&')).limit(1)
+  if (gleichErr) throw new AktionsFehler(dbFehlerText(gleichErr, 'Die Namen der Gebinde konnten nicht geprüft werden'))
+  if (((gleich ?? []) as R[]).length > 0) throw new AktionsFehler(`Ein Gebinde mit der Bezeichnung „${name}“ gibt es in diesem Betrieb schon.`)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: geaendert, error } = await (supabase.from('gebinde_tanks') as any)
+    .update({
+      name, typ,
+      material: materialFelder(formData.get('material'), null, typ).material,
+      standort: String(formData.get('standort') ?? '').trim() || null,
+      notizen: String(formData.get('notizen') ?? '').trim() || null,
+    })
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
+  if (error) throw new AktionsFehler(tankDbFehler(error) ?? dbFehlerText(error, 'Der Tank konnte nicht gespeichert werden'))
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)
+  revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/gebinde')
 }
 
 // WEINAUSBAU

@@ -37,7 +37,7 @@ export async function GET() {
     { const ladeFehler = [weinausbauErr, laenderErr].find(Boolean)
       if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
 
-    const behaelter = behaelterRows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter }))
+    const behaelter = behaelterRows.map(b => ({ id: b.id, name: b.auswahlName, typ: b.typ, volumen_liter: b.volumen_liter }))
     // KAN-353: crm_schreiben – Lieferant direkt aus der Partner-Suche anlegen nur mit Schreibrecht CRM (canWrite nie im Client)
     return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [], laender: laender ?? [], crm_schreiben: !!membership && canWrite(membership, 'crm'),
       // KAN-456: Zukauf-Arten, die das Mitglied erfassen kann (Wein/Most nur mit Kellerbuch, Trauben/Maische nur mit Lese lesbar)

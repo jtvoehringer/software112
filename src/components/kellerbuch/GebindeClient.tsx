@@ -44,6 +44,11 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
           <div {...dialog} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-s112-text mb-4">Gebinde bearbeiten</h3>
+            {gebinde.tank_id && (
+              <p className="mb-3 text-xs text-s112-text-2 bg-s112-bg border border-s112-line rounded-lg px-3 py-2">
+                Kammer {gebinde.kammer_nr} im Tank {gebinde.tank_name} – Typ, Standort und Material kommen vom Tank und werden dort geändert.
+              </p>
+            )}
             <form data-ungespeichert action={handleSubmit} className="space-y-3">
               <div>
                 <label className={labelCls}>Bezeichnung *</label>
@@ -51,7 +56,7 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
               </div>
               <div>
                 <label className={labelCls}>Typ</label>
-                <select aria-label="Typ" name="typ" defaultValue={gebinde.typ ?? ''} className={inputCls}>
+                <select aria-label="Typ" name="typ" defaultValue={gebinde.typ ?? ''} className={inputCls} disabled={!!gebinde.tank_id}>
                   <option value="">– kein –</option>
                   <option value="amphore">Amphore</option>
                   <option value="barrique">Barrique</option>
@@ -75,12 +80,12 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
               </div>
               <div>
                 <label className={labelCls}>Standort</label>
-                <input aria-label="Standort" name="standort" defaultValue={gebinde.standort ?? ''} className={inputCls} />
+                <input aria-label="Standort" name="standort" defaultValue={gebinde.standort ?? ''} className={inputCls} disabled={!!gebinde.tank_id} />
               </div>
               {/* KAN-48 AP11: BKI-Gebindeverzeichnis – Material (Vorschläge, ohne Angabe aus dem Typ) und Langbezeichnung */}
               <div>
                 <label className={labelCls}>Material</label>
-                <input aria-label="Material" name="material" maxLength={255} list={`gebinde-materialien-${gebinde.id}`} defaultValue={gebinde.material ?? ''} placeholder="leer = aus dem Typ" className={inputCls} />
+                <input aria-label="Material" name="material" maxLength={255} list={`gebinde-materialien-${gebinde.id}`} defaultValue={gebinde.material ?? ''} placeholder="leer = aus dem Typ" className={inputCls} disabled={!!gebinde.tank_id} />
                 <datalist id={`gebinde-materialien-${gebinde.id}`}>{GEBINDE_MATERIALIEN.map(m => <option key={m} value={m} />)}</datalist>
               </div>
               <div>

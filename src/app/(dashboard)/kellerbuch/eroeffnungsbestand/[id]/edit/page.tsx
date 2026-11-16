@@ -83,7 +83,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
     : gebindeFolge.length > 0 ? text(gebindeFolge) : null
 
   // Das aktuell zugeordnete Gebinde bleibt wählbar, auch wenn es inzwischen gesperrt wäre
-  const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName })) as R[]
+  const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.auswahlName })) as R[]
   const rdOnly = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-text-2 cursor-not-allowed'
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'

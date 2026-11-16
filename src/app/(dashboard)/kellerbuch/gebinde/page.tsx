@@ -219,6 +219,10 @@ export default async function GebindePage({
               <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
                 + Neues Gebinde anlegen
               </summary>
+              {/* KAN-466: Tank mit übereinander liegenden Kammern – eigene Seite, jede Kammer wird ein Gebinde */}
+              <p className="mt-3 text-xs text-s112-text-2">
+                Tank mit mehreren Kammern? <Link href="/kellerbuch/behaelter/tank/neu" className="font-semibold text-s112-blue-700 hover:underline">Tank mit Kammern anlegen</Link>
+              </p>
               <form data-ungespeichert action={createBehaelter} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Bezeichnung *</label>
@@ -325,6 +329,9 @@ export default async function GebindePage({
                     <tr key={g.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!g.aktiv ? 'opacity-40' : ''}`}>
                       <td className="px-4 py-2.5 font-medium text-s112-text">
                         {g.name}
+                        {g.tank_id && (g.fremd
+                          ? <span className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Tank {g.tank_name} · Kammer {g.kammer_nr}</span>
+                          : <Link href={`/kellerbuch/behaelter/tank/${g.tank_id}`} title="Zum Tank" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700 hover:underline">Tank {g.tank_name} · Kammer {g.kammer_nr}</Link>)}
                         {g.fremd && <span title={`Gebinde von ${g.eigentuemer_name}`} className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{g.eigentuemer_name}</span>}
                         {!g.fremd && istEigentuemer && !g.gemeinsam && <span title="Nicht für Partnerbetriebe freigegeben" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">nur eigen</span>}
                         {g.stapler && <span title="mit Stapler versetzbar" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
@@ -433,7 +440,7 @@ export default async function GebindePage({
                   <select aria-label="Gebinde" name="behaelter_id" required className={inputCls}>
                     <option value="">– bitte wählen –</option>
                     {gebinde.filter(g => g.aktiv && !g.gesperrt).map(g => (
-                      <option key={g.id} value={g.id}>{g.anzeigeName}</option>
+                      <option key={g.id} value={g.id}>{g.auswahlName}</option>
                     ))}
                   </select>
                 </div>

@@ -44,6 +44,9 @@ export type GebindeEintrag = {
 
 export type GebindeverzeichnisZeile = {
   gebinde: string
+  /** KAN-466: Tank, zu dem das Gebinde als Kammer gehört (Kammer 1 = unterste); null = eigenständiges Gebinde */
+  tank: string | null
+  kammer: number | null
   typ: string | null
   nennvolumen: number | null
   standort: string | null
@@ -91,6 +94,8 @@ export async function ladeGebindeverzeichnis(
     const g = e.gebinde
     const basis = {
       gebinde: g.name,
+      tank: g.tank_id ? text(g.tank_name) : null,
+      kammer: g.tank_id ? g.kammer_nr : null,
       typ: gebindeTypLabel(g.typ),
       nennvolumen: g.volumen_liter === null ? null : runden(g.volumen_liter, STELLEN.liter),
       standort: text(g.standort),
@@ -128,6 +133,9 @@ export async function ladeGebindeverzeichnis(
 
 export const SPALTEN_GEBINDEVERZEICHNIS: CsvSpalte<GebindeverzeichnisZeile>[] = [
   { kopf: 'Gebinde', typ: 'text', wert: z => z.gebinde },
+  // KAN-466: Tank mit Kammern – jede Kammer ist ein eigenes Gebinde mit eigenem Nennvolumen, der Tank selbst keine Zeile
+  { kopf: 'Tank', typ: 'text', wert: z => z.tank },
+  { kopf: 'Kammer', typ: 'ganzzahl', wert: z => z.kammer },
   { kopf: 'Typ', typ: 'text', wert: z => z.typ },
   { kopf: 'Nennvolumen (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.nennvolumen },
   { kopf: 'Standort', typ: 'text', wert: z => z.standort },

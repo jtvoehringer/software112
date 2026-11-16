@@ -11,6 +11,8 @@
 
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { AktionsFehler } from '../fehler.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { tankZusatz } from './tanks.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -41,6 +43,17 @@ export type BehaelterZeile = {
   /** KAN-48 AP11: Material (Edelstahl, Holz …) und Langbezeichnung – BKI-Gebindeverzeichnis */
   material: string | null
   bezeichnung_lang: string | null
+  /** KAN-466: Kammer eines Tanks (gebinde_tanks) – kammer_nr 1 = unterste; null = eigenständiges Gebinde */
+  tank_id: string | null
+  kammer_nr: number | null
+  tank_name: string | null
+  /** Kammern des Tanks insgesamt */
+  tank_kammern: number | null
+  /**
+   * Name für Auswahllisten: anzeigeName, bei Kammern mit Zusatz („A10/1 · Kammer 1 von 3“). Nur für die Auswahl –
+   * Aufzeichnungen und Meldungen verwenden weiter name bzw. anzeigeName.
+   */
+  auswahlName: string
 }
 
 const num = (v: unknown) => v === null || v === undefined ? 0 : Number(v) || 0
@@ -48,6 +61,15 @@ const num = (v: unknown) => v === null || v === undefined ? 0 : Number(v) || 0
 export function zuBehaelterZeile(r: R): BehaelterZeile {
   const fremdLiter = num(r.fremd_liter)
   const fremd = !!r.fremd
+  const anzeigeName = fremd ? `${r.name} · ${r.eigentuemer_name ?? 'Partnerbetrieb'}` : r.name
+  // KAN-466: vor der Migration fehlen die Spalten – dann wie ein eigenständiges Gebinde
+  const tank = {
+    tank_id: (r.tank_id as string | null | undefined) ?? null,
+    kammer_nr: r.kammer_nr === null || r.kammer_nr === undefined ? null : Number(r.kammer_nr),
+    tank_name: (r.tank_name as string | null | undefined) ?? null,
+    tank_kammern: r.tank_kammern === null || r.tank_kammern === undefined ? null : Number(r.tank_kammern),
+  }
+  const zusatz = tankZusatz({ name: r.name, ...tank })
   return {
     id: r.id, tenant_id: r.tenant_id, name: r.name, typ: r.typ ?? null,
     volumen_liter: r.volumen_liter === null || r.volumen_liter === undefined ? null : Number(r.volumen_liter),
@@ -56,9 +78,11 @@ export function zuBehaelterZeile(r: R): BehaelterZeile {
     eigentuemer_name: r.eigentuemer_name ?? '', fremd,
     eigen_liter: num(r.eigen_liter), fremd_liter: fremdLiter, fremd_betrieb: r.fremd_betrieb ?? null,
     gesperrt: fremdLiter > 0,
-    anzeigeName: fremd ? `${r.name} · ${r.eigentuemer_name ?? 'Partnerbetrieb'}` : r.name,
+    anzeigeName,
     lp_pickerl: r.lp_pickerl ?? null,
     material: r.material ?? null, bezeichnung_lang: r.bezeichnung_lang ?? null,
+    ...tank,
+    auswahlName: zusatz ? (fremd ? `${r.name} · ${zusatz} · ${r.eigentuemer_name ?? 'Partnerbetrieb'}` : `${r.name} · ${zusatz}`) : anzeigeName,
   }
 }
 

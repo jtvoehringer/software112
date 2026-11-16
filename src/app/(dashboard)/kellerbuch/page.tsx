@@ -10,6 +10,7 @@ import { Pencil, Boxes, ChevronRight } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { gebindePasst, pickerlText, vorherrschendeWeinart, WEINART_FARBE } from '@/lib/keller/gebindeAnzeige'
 import PickerlEntfernen from './PickerlEntfernen'
+import { nachTank } from '@/lib/keller/tanks'
 
 export const metadata: Metadata = { title: 'Kellerbuch' }
 export const dynamic = 'force-dynamic'
@@ -110,7 +111,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
   const cmpName = (x: BehaelterZeile, y: BehaelterZeile) => x.name.localeCompare(y.name, 'de', { numeric: true, sensitivity: 'base' })
   const gruppenMap = new Map<string, BehaelterZeile[]>()
   const trifft = (b: BehaelterZeile) => gebindePasst(suche, [
-    b.name, b.standort, b.lp_pickerl, b.fremd_betrieb,
+    b.name, b.standort, b.lp_pickerl, b.fremd_betrieb, b.tank_name ? `Tank ${b.tank_name}` : null,
     ...(chargenByBehaelter.get(b.id) ?? []).flatMap((w: R) => [w.name, w.rebsorte, w.jahrgang != null ? String(w.jahrgang) : null]),
   ])
   for (const b of behaelter.filter(b => b.aktiv && trifft(b))) {
@@ -122,14 +123,18 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
     .sort(([a], [b]) => a === 'Ohne Standort' ? 1 : b === 'Ohne Standort' ? -1 : a.localeCompare(b, 'de', { numeric: true, sensitivity: 'base' }))
     .map(([name, liste]) => ({
       name,
-      belegt: liste.filter(istBelegt).sort(cmpName),
-      leer: liste.filter(b => !istBelegt(b)).sort(cmpName),
+      // KAN-466: Kammern stehen im Block ihres Tanks (von oben nach unten), nicht in den Listen belegt/leer
+      tanks: nachTank(liste).tanks,
+      gesamt: liste.length,
+      belegtAnzahl: liste.filter(istBelegt).length,
+      belegt: liste.filter(b => !b.tank_id && istBelegt(b)).sort(cmpName),
+      leer: liste.filter(b => !b.tank_id && !istBelegt(b)).sort(cmpName),
       liter: liste.reduce((sum, b) => sum + Math.max(0, literVon(b)), 0),
       kapazitaet: liste.reduce((sum, b) => sum + (b.volumen_liter ?? 0), 0),
     }))
 
   // KAN-174 E: ein belegtes Gebinde je Zeile – Kreis (Füllstand, Farbe des Inhalts), Name, Chargen, Liter, Aktionen
-  const zeile = (b: BehaelterZeile) => {
+  const zeile = (b: BehaelterZeile, kammer = false) => {
     const chargen = chargenByBehaelter.get(b.id) ?? []
     // Event-basierter Füllstand aus View (je Betrieb, Migration 204) + fremd belegte Liter eines Partnerbetriebs
     const literImBehaelter = literVon(b)
@@ -146,6 +151,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
         {/* KAN-285: Gebindename führt zu den Bewegungen (ersetzt den Knopf „Bewegungen →“) */}
         <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} title={`${b.name} – Bewegungen`} className="font-semibold text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
         <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          {kammer && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Kammer {b.kammer_nr}</span>}
           {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
           {b.gesperrt && <span title="Ein anderer Betrieb hat Wein in diesem Gebinde – kein Ziel für Umzüge" className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">belegt · {b.fremd_betrieb} · {fmtLiter(b.fremd_liter)}</span>}
           {lp && (writeOk && !b.fremd ? <PickerlEntfernen behaelterId={b.id} text={lp} /> : <span className="text-[10.5px] font-semibold px-1.5 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">{lp}</span>)}
@@ -163,7 +169,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
               </span>
             )
           })}
-          {chargen.length === 0 && !b.gesperrt && <span className="text-xs text-s112-muted italic">Kein eigener Wein</span>}
+          {chargen.length === 0 && !b.gesperrt && <span className="text-xs text-s112-muted italic">{kammer && literImBehaelter <= 0.01 ? 'leer' : 'Kein eigener Wein'}</span>}
         </span>
         <span className={`text-xs tabular-nums whitespace-nowrap ${literImBehaelter < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}
           title={literImBehaelter < 0 ? 'Negativer Bestand – Buchungsfehler prüfen' : undefined}>
@@ -224,12 +230,32 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
             <summary className="cursor-pointer select-none flex items-center gap-3 px-4 py-3 bg-s112-bg border-b border-s112-border list-none [&::-webkit-details-marker]:hidden">
               <ChevronRight className="w-4 h-4 text-s112-tertiary transition-transform group-open:rotate-90 shrink-0" />
               <span className="font-semibold text-s112-text text-sm">{g.name}</span>
-              <span className="text-xs text-s112-text-2">{g.belegt.length} von {g.belegt.length + g.leer.length} Gebinden belegt</span>
+              <span className="text-xs text-s112-text-2">{g.belegtAnzahl} von {g.gesamt} Gebinden belegt</span>
               <span className="ml-auto text-xs font-mono tabular-nums text-s112-text">{fmtLiter(g.liter)}{g.kapazitaet > 0 ? <span className="text-s112-tertiary"> / {fmtLiter(g.kapazitaet)}</span> : null}</span>
             </summary>
             <div className="p-3 space-y-3">
+              {/* KAN-466: Tank mit Kammern – ein Block je Tank, oberste Kammer oben, Kammer 1 unten */}
+              {g.tanks.map(t => {
+                const inhalt = t.kammern.reduce((s, k) => s + Math.max(0, literVon(k)), 0)
+                const eigen = t.kammern.some(k => !k.fremd)
+                return (
+                  <div key={t.id} className="rounded-lg border border-s112-blue-700/30 overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-1.5 bg-s112-blue-50 text-sm">
+                      <span className="font-semibold text-s112-text">Tank {t.name}</span>
+                      <span className="text-xs text-s112-text-2">{t.anzahl} {t.anzahl === 1 ? 'Kammer' : 'Kammern'}{t.kammern.length < t.anzahl ? ` · ${t.kammern.length} sichtbar` : ''}</span>
+                      <span className="ml-auto text-xs font-mono tabular-nums text-s112-text">{fmtLiter(inhalt)}{t.volumen > 0 ? <span className="text-s112-tertiary"> / {fmtLiter(t.volumen)}</span> : null}</span>
+                      {eigen && (
+                        <Link href={`/kellerbuch/behaelter/tank/${t.id}`} title={writeOk ? 'Tank bearbeiten' : 'Tank ansehen'} aria-label={writeOk ? `Tank ${t.name} bearbeiten` : `Tank ${t.name} ansehen`} className="text-s112-muted hover:text-s112-blue-700">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Link>
+                      )}
+                    </div>
+                    <div className="divide-y divide-s112-line">{t.kammern.map(k => zeile(k, true))}</div>
+                  </div>
+                )
+              })}
               {g.belegt.length > 0 && <div className="rounded-lg border border-s112-line divide-y divide-s112-line">{g.belegt.map(b => zeile(b))}</div>}
-              {g.belegt.length === 0 && <p className="px-1 text-xs text-s112-muted italic">Kein Gebinde in diesem Keller belegt</p>}
+              {g.belegt.length === 0 && g.belegtAnzahl === 0 && <p className="px-1 text-xs text-s112-muted italic">Kein Gebinde in diesem Keller belegt</p>}
               {g.leer.length > 0 && (
                 <>
                   <p className="px-1 pt-1 text-[10.5px] font-mono uppercase tracking-[.04em] text-s112-tertiary">Leer · {g.leer.length}</p>

@@ -128,7 +128,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   if (!weinausbau) notFound()
 
   const weingaerten = (wgRaw ?? []) as NameRow[]
-  const behaelter   = bhRows.filter(b => !b.gesperrt).map(b => ({ id: b.id, name: b.anzeigeName, volumen_liter: b.volumen_liter })) as (NameRow & { volumen_liter: number | null })[]
+  const behaelter   = bhRows.filter(b => !b.gesperrt).map(b => ({ id: b.id, name: b.auswahlName, volumen_liter: b.volumen_liter })) as (NameRow & { volumen_liter: number | null })[]
   const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
 
   const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; behaelter_id: string | null; rebsorte?: string | null; weinart?: string | null }[]
