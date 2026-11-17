@@ -2,7 +2,6 @@ import 'server-only'
 import { definiereMeldung, istParameterFehler, MeldungsFehler, parameterFehler, type MeldungenZu } from '../typen'
 import { KATALOG_KELLERBUCH } from '../katalog/kellerbuch'
 import { jahrgangOptional, textOptional, uuidAus, uuidOptional, zeitraumAus, zeitraumTeil, type Zeitraum } from '../kellerbuch-hilfen'
-import { bewegungsbuchZeilen, ladeBewegungsbuch, SPALTEN_BEWEGUNGSBUCH } from '../bewegungsbuch'
 import { ladeKellerBehandlungen, SPALTEN_KELLER_BEHANDLUNGEN } from '../keller-behandlungen'
 import { ladeGebindeverzeichnis, SPALTEN_GEBINDEVERZEICHNIS } from '../gebindeverzeichnis'
 import { ladeWeinbuch, ladeWeinbuchSammlung, SPALTEN_WEINBUCH } from '../weinbuch'
@@ -30,25 +29,6 @@ type Anzeige = { anzeige: { name: string | null } }
 const anzeige = (): Anzeige['anzeige'] => ({ name: null })
 
 export const MELDUNGEN_KELLERBUCH = {
-  bewegungsbuch: definiereMeldung<{ behaelterId: string } & Zeitraum & Anzeige, ReturnType<typeof bewegungsbuchZeilen>[number]>(KATALOG_KELLERBUCH.bewegungsbuch, {
-    parameter: sp => {
-      const behaelterId = uuidAus(sp, 'behaelter', 'Gebinde')
-      if (istParameterFehler(behaelterId)) return behaelterId
-      const z = zeitraumAus(sp)
-      if (istParameterFehler(z)) return z
-      return { behaelterId, ...z, anzeige: anzeige() }
-    },
-    laden: async (ctx, p) => {
-      const bb = await ladeBewegungsbuch(ctx.supabase, ctx.tenantId, p)
-      if (!bb) throw new MeldungsFehler(404, 'Gebinde nicht gefunden.')
-      p.anzeige.name = bb.behaelter.name
-      return { zeilen: bewegungsbuchZeilen(bb), warnungen: bb.warnungen }
-    },
-    spalten: SPALTEN_BEWEGUNGSBUCH,
-    dateiteile: (p, betrieb) => ['Bewegungsbuch', betrieb.betriebsnummer, p.anzeige.name, zeitraumTeil(p)],
-    bki: p => ({ bericht: ['Bewegungsbuch', p.anzeige.name], von: p.von, bis: p.bis }),
-  }),
-
   // je Charge (Pflicht-Parameter charge, seit KAN-479) – jedes Mitglied, wie die Chargen-Seite
   'keller-behandlungen': definiereMeldung(KATALOG_KELLERBUCH['keller-behandlungen'], {
     parameter: sp => {

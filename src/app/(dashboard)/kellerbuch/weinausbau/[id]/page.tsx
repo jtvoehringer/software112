@@ -326,12 +326,6 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           <a href="#bewegungsbuch" className="mt-1.5 inline-block text-xs font-medium underline hover:no-underline">
             Zum Bewegungsbuch der Charge ↓
           </a>
-          {weinausbau.behaelter_id && (
-            <Link href={`/kellerbuch/behaelter/${weinausbau.behaelter_id}/bewegungen`}
-              className="mt-1.5 ml-4 inline-block text-xs font-medium underline hover:no-underline">
-              Bewegungsbuch des Gebindes →
-            </Link>
-          )}
         </div>
       )}
 

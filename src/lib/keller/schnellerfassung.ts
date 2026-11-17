@@ -36,8 +36,10 @@ type Roh = Record<string, unknown>
 const text = (x: unknown) => (typeof x === 'string' && x.trim() ? x.trim() : null)
 
 /**
- * Die letzten n Maßnahmen am Gebinde, neueste zuerst: Behandlungen (inkl. Notizen), Umzüge, Filtrationen und
- * Schwund dieses Gebindes sowie Analysen seiner Chargen. Stornierte Zeilen erwartet die Funktion schon gefiltert.
+ * Die letzten n Maßnahmen der Chargen, die jetzt im Gebinde liegen, neueste zuerst: Behandlungen, Umzüge,
+ * Filtrationen, Schwund und Analysen dieser Chargen sowie die Gebindepflege ohne Charge (KAN-478: keine Historie
+ * früherer Chargen am Gebinde). Die Einträge führen zur Charge (Kellerbehandlungen bzw. Weinbuch), die Gebindepflege
+ * zur Gebindepflege. Stornierte Zeilen erwartet die Funktion schon gefiltert.
  * Bei gleichem Datum gehen Behandlungen vor Umzügen vor Analysen (stabile Reihenfolge).
  */
 export function letzteMassnahmen(
@@ -47,7 +49,15 @@ export function letzteMassnahmen(
   analysen: readonly Roh[],
   n = 5,
   fmtLiter: (l: number) => string = l => `${l} L`,
+  /** Chargen, die jetzt im Gebinde liegen – bestimmt, zu welcher Charge ein Umzug führt */
+  chargenImGebinde: ReadonlySet<string> = new Set(),
 ): Massnahme[] {
+  const chargeVon = (u: Roh): string | null => {
+    const nach = text(u.nach_weinausbau_id), von = text(u.von_weinausbau_id)
+    if (nach && chargenImGebinde.has(nach)) return nach
+    if (von && chargenImGebinde.has(von)) return von
+    return null
+  }
   const liste: (Massnahme & { rang: number })[] = []
   for (const b of behandlungen) {
     const typ = text((b.typ as Roh | null)?.name) ?? text(b.typ_name_snapshot) ?? 'Behandlung'
@@ -55,7 +65,7 @@ export function letzteMassnahmen(
     liste.push({
       key: `b-${b.id}`, datum: String(b.datum ?? ''), art: 'behandlung', titel: typ,
       detail: [menge, text(b.notizen)].filter(Boolean).join(' · ') || null,
-      href: `/kellerbuch/behaelter/${behaelterId}/behandlungen`, rang: 0,
+      href: text(b.weinausbau_id) ? `/kellerbuch/weinausbau/${b.weinausbau_id}/behandlungen` : `/kellerbuch/behaelter/${behaelterId}/behandlungen`, rang: 0,
     })
   }
   for (const u of umzuege) {
@@ -67,7 +77,7 @@ export function letzteMassnahmen(
     liste.push({
       key: `u-${u.id}`, datum: String(u.datum ?? ''), art, titel,
       detail: [liter > 0 ? fmtLiter(liter) : null, text(u.notizen)].filter(Boolean).join(' · ') || null,
-      href: `/kellerbuch/behaelter/${behaelterId}/bewegungen`, rang: 1,
+      href: chargeVon(u) ? `/kellerbuch/weinausbau/${chargeVon(u)}/buch` : `/kellerbuch/behaelter/${behaelterId}`, rang: 1,
     })
   }
   for (const a of analysen) {

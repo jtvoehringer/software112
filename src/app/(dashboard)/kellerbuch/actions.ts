@@ -1189,7 +1189,7 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   if (behaelterId) {
     revalidatePath(`/kellerbuch/behaelter/${behaelterId}`)
     revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
-    revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
+    revalidatePath(`/kellerbuch/behaelter/${behaelterId}`)
   }
   if (weinausbauId) {
     revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}`)
@@ -1356,7 +1356,7 @@ export async function deleteKellerbehandlung(id: string, grund: string): Promise
   if ((kb ?? []).length) revalidatePath('/kellerbuch/besondere-konten')
 
   revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/behandlungen`)
-  revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/bewegungen`)
+  revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}`)
   if (zeile.weinausbau_id) revalidatePath(`/kellerbuch/weinausbau/${zeile.weinausbau_id}/buch`)
   revalidatePath('/kellerbuch')
 }

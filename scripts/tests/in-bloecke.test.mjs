@@ -109,7 +109,6 @@ const UMGESTELLT = [
   // Wächter IN_OHNE_BLOECKE (05.10.2026): Listen, die mit der Zeit unbegrenzt wachsen
   ['src/app/(dashboard)/behandlungen/actions.ts', 'grundstueck_id', 'Maßnahme über alle Rieden: Abwählen hunderter Grundstücke scheiterte'],
   ['src/app/(dashboard)/erntemeldung/actions.ts', 'pressung_id', 'Lesemengen-/Verpressungs-Prüfung bei vielen Pressungen eines Jahrgangs'],
-  ['src/app/(dashboard)/kellerbuch/behaelter/[id]/umzuege/page.tsx', 'umzug_batch_id', 'Umzüge eines Behälters über die Jahre'],
   ['src/lib/behoerden/bewegungsbuch.ts', 'umzug_batch_id', 'Bewegungsbuch eines Gebindes über die Jahre'],
   ['src/lib/behoerden/keller-auswertungen.ts', 'umzug_batch_id', 'Keller-Auswertung über einen langen Zeitraum'],
   ['src/lib/wein/leseBilanz.ts', 'pressung_id', 'kg-Bilanz je Lese bei vielen Pressungen'],

@@ -133,13 +133,16 @@ describe('KAN-376: Bestandskorrektur aus dem Abgleich im Behälter-Bewegungsbuch
   })
 })
 
-describe('KAN-376: Schwund im Behälter-Bewegungsbuch mindert immer den Bestand', () => {
-  const seite = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/bewegungen/page.tsx')
+describe('KAN-376: Schwund am Gebinde mindert immer den Bestand', () => {
+  // KAN-478: das Bewegungsbuch je Gebinde gibt es nicht mehr – Schwund am Gebinde bucht die Schnellerfassung der Gebinde-Seite
+  const seite = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/page.tsx')
   const actions = quelle('src/app/(dashboard)/kellerbuch/actions.ts')
   test('Seite nutzt schwundBuchen (Chargen-Weg) samt Formular mit Begründung, keine Nachbuchung mehr', () => {
-    assert.match(seite, /import \{ schwundBuchen \} from '\.\.\/\.\.\/\.\.\/actions'/)
-    assert.match(seite, /<SchwundBuchenForm key=\{c\.id\}/)
-    assert.match(seite, /action=\{schwundBuchen\.bind\(null, c\.id as string\)\}/)
+    assert.match(seite, /import \{ updateBehaelter, kellerNotizErfassen, schwundBuchen \} from '\.\.\/\.\.\/actions'/)
+    assert.match(seite, /schwundAction=\{schwundBuchen\}/)
+    const alt = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/bewegungen/page.tsx')
+    assert.match(alt, /redirect\(`\/kellerbuch\/behaelter\/\$\{encodeURIComponent\(id\)\}`\)/)
+    assert.doesNotMatch(alt, /supabase|schwund/i, 'die alte Seite lädt und bucht nichts mehr')
     assert.doesNotMatch(seite, /manuellSchwundBuchen|Nachbuchung\)|Schwund nachbuchen|ändert sich\s+dabei nicht/)
   })
   test('manuellSchwundBuchen entfernt; kein schwund_buchen mit p_bestand_mindern: false mehr in der App', () => {

@@ -42,7 +42,7 @@ async function kontext(): Promise<string> {
 function aktualisiere(zeilen: { behaelterId: string | null; chargeId: string | null }[], stoff: boolean) {
   for (const b of new Set(zeilen.map(z => z.behaelterId).filter(Boolean))) {
     revalidatePath(`/kellerbuch/behaelter/${b}/behandlungen`)
-    revalidatePath(`/kellerbuch/behaelter/${b}/bewegungen`)
+    revalidatePath(`/kellerbuch/behaelter/${b}`)
   }
   for (const c of new Set(zeilen.map(z => z.chargeId).filter(Boolean))) {
     revalidatePath(`/kellerbuch/weinausbau/${c}`)

@@ -9,9 +9,10 @@ import { readFileSync } from 'node:fs'
 
 const p = readFileSync(new URL('../../src/app/(dashboard)/kellerbuch/page.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
-test('Gebindename verlinkt auf die Bewegungen (belegt und leer), kein Knopf „Bewegungen →“ mehr', () => {
-  const links = p.match(/<Link href=\{`\/kellerbuch\/behaelter\/\$\{b\.id\}\/bewegungen`\} title=\{`\$\{b\.name\} – Bewegungen`\}[^>]*>\{b\.name\}<\/Link>/g) ?? []
+test('Gebindename verlinkt auf das Gebinde (belegt und leer; seit KAN-478 kein Bewegungsbuch je Gebinde), kein Knopf „Bewegungen →“ mehr', () => {
+  const links = p.match(/<Link href=\{`\/kellerbuch\/behaelter\/\$\{b\.id\}`\} title=\{`\$\{b\.name\} – Gebinde öffnen`\}[^>]*>\{b\.name\}<\/Link>/g) ?? []
   assert.equal(links.length, 2)
+  assert.ok(!p.includes('/bewegungen'), 'kein Verweis mehr auf das Bewegungsbuch je Gebinde')
   assert.doesNotMatch(p, />Bewegungen →<\/Link>/)
   assert.equal((p.match(/aria-label="Bearbeiten"/g) ?? []).length, 2, 'Stift zum Bearbeiten bleibt')
 })

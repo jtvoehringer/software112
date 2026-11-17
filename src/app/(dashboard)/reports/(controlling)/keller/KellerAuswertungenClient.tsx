@@ -252,7 +252,7 @@ export default function KellerAuswertungenClient({ daten, zeitraumHinweise = [] 
                   return (
                     <tr key={b.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                       <td className="px-4 py-2.5 font-medium text-s112-text">
-                        <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="flex items-center gap-2 hover:text-s112-blue-700">
+                        <Link href={`/kellerbuch/behaelter/${b.id}`} className="flex items-center gap-2 hover:text-s112-blue-700">
                           {b.name}
                         </Link>
                       </td>
@@ -326,7 +326,7 @@ export default function KellerAuswertungenClient({ daten, zeitraumHinweise = [] 
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2 text-sm">
                       {c.behaelterId && c.behaelter ? (
-                        <Link href={`/kellerbuch/behaelter/${c.behaelterId}/bewegungen`} className="hover:text-s112-blue-700">
+                        <Link href={`/kellerbuch/behaelter/${c.behaelterId}`} className="hover:text-s112-blue-700">
                           {c.behaelter}
                         </Link>
                       ) : <span className="text-s112-warn-fg text-xs">kein Behälter</span>}

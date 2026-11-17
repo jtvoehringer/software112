@@ -148,8 +148,8 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
         <span title={auslastung === null ? 'ohne Kapazität' : `${Math.round(auslastung)} % gefüllt`}>
           <FuellKreis pct={auslastung} farbe={farbe} negativ={literImBehaelter < 0} />
         </span>
-        {/* KAN-285: Gebindename führt zu den Bewegungen (ersetzt den Knopf „Bewegungen →“) */}
-        <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} title={`${b.name} – Bewegungen`} className="font-semibold text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
+        {/* KAN-285/KAN-478: Gebindename führt zum Gebinde (was jetzt drin liegt) – kein Bewegungsbuch je Gebinde mehr */}
+        <Link href={`/kellerbuch/behaelter/${b.id}`} title={`${b.name} – Gebinde öffnen`} className="font-semibold text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
         <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-0.5">
           {kammer && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Kammer {b.kammer_nr}</span>}
           {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
@@ -270,7 +270,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
                   <div className="rounded-lg border border-s112-line divide-y divide-s112-line">
                     {g.leer.map(b => (
                       <div key={b.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
-                        <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} title={`${b.name} – Bewegungen`} className="font-medium text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
+                        <Link href={`/kellerbuch/behaelter/${b.id}`} title={`${b.name} – Gebinde öffnen`} className="font-medium text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
                         {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
                         <span className="text-xs text-s112-text-2 capitalize">{b.typ ?? '–'}</span>
                         <span className="text-xs text-s112-text-2 font-mono tabular-nums">{b.volumen_liter ? fmtLiter(b.volumen_liter) : '–'}</span>

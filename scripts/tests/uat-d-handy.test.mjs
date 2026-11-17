@@ -92,9 +92,11 @@ describe('KAN-372: Gebinde – Neue Behandlung und Schnellerfassung', () => {
   })
   test('Unterseiten verlinken die Schnellerfassung (Gebindeseite)', () => {
     // KAN-475: die Behandlungsliste ist eine gemeinsame Komponente (Charge bzw. Gebindepflege)
-    for (const [f, idVar] of [['behandlungen', 'behaelterId'], ['bewegungen', 'id'], ['umzuege', 'id']]) {
-      const s = quelle(f === 'behandlungen' ? 'src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx' : `src/app/(dashboard)/kellerbuch/behaelter/[id]/${f}/page.tsx`)
-      assert.match(s, new RegExp(`<Link href=\\{\`/kellerbuch/behaelter/\\$\\{${idVar}\\}\`\\} data-schnellerfassung[\\s\\S]{0,250}Schnellerfassung\\n`), f)
+    const s = quelle('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx')
+    assert.match(s, /<Link href=\{`\/kellerbuch\/behaelter\/\$\{behaelterId\}`\} data-schnellerfassung[\s\S]{0,250}Schnellerfassung\n/)
+    // KAN-478: Bewegungen und Umzüge am Gebinde führen direkt zur Gebindeseite (Schnellerfassung)
+    for (const f of ['bewegungen', 'umzuege']) {
+      assert.match(quelle(`src/app/(dashboard)/kellerbuch/behaelter/[id]/${f}/page.tsx`), /redirect\(`\/kellerbuch\/behaelter\/\$\{encodeURIComponent\(id\)\}`\)/, f)
     }
     assert.match(quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/page.tsx'), /<Schnellerfassung /)
   })
