@@ -55,7 +55,7 @@ export const EINSTIEG: Readonly<Record<string, { pfad: string; label: string }>>
   '/weinexport/[id]': { pfad: '/weinexport', label: 'Auftrag wählen' },
   '/weinexport/[id]/emcs-datenblatt': { pfad: '/weinexport', label: 'Auftrag wählen' },
   '/kellerbuch/behaelter/[id]/bewegungen': { pfad: '/kellerbuch', label: 'Gebinde wählen' },
-  '/kellerbuch/behaelter/[id]/behandlungen': { pfad: '/kellerbuch', label: 'Gebinde wählen' },
+  '/kellerbuch/weinausbau/[id]/behandlungen': { pfad: '/kellerbuch/weinausbau', label: 'Charge wählen' },
   '/kellerbuch/weinausbau/[id]/buch': { pfad: '/kellerbuch/weinausbau', label: 'Charge wählen' },
   '/kellerbuch/fuellung/[id]/blend-protokoll': { pfad: '/kellerbuch/rueckverfolgung', label: 'Füllung wählen' },
 }

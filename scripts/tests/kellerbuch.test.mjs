@@ -341,29 +341,49 @@ describe('bewegungsbuch', () => {
 // ── Kellerbehandlungen ───────────────────────────────────────────────────────
 
 describe('keller-behandlungen', () => {
-  test('je Gebinde: Charge erfasst bzw. aus Belegung, Dosierung, Menge mit 3 Stellen', async () => {
-    const sb = attrappe(kellerDaten(), gebindeRpc(gebindeKeller))
-    const r = await ausfuehren('keller-behandlungen', `behaelter=${G1}`, sb)
+  // KAN-479 (BKI-Sitzung 16.11.2026): je Charge, das Gebinde wird nicht mehr ausgewiesen
+  test('je Charge: nur ihre Behandlungen, Charge zuerst, kein Gebinde, Dosierung, Menge mit 3 Stellen', async () => {
+    const daten = kellerDaten()
+    daten.keller_behandlungen.push({ id: 'k4', tenant_id: T, behaelter_id: null, weinausbau_id: C1, datum: '2025-12-01', created_at: '2025-12-01T08:00:00Z', menge: '0.005', einheit: 'kg', volumen_liter_ist: null, notizen: null, typ_name_snapshot: 'Bentonit', typ: null, weinausbau: { name: 'GV 2025' } })
+    const r = await ausfuehren('keller-behandlungen', `charge=${C1}`, attrappe(daten, gebindeRpc(gebindeKeller)))
     const [kopf, ...z] = r.tabelle
-    assert.deepEqual(kopf, ['Datum', 'Gebinde', 'Charge', 'Zuordnung Charge', 'Behandlung / Verfahren', 'Menge', 'Einheit', 'Dosierung (g/hl)', 'Volumen Ist (l)', 'Notizen'])
-    assert.deepEqual(z.map(c => c[0]), ['01.08.2025', '01.10.2025', '05.11.2025'])
-    assert.deepEqual(z[0].slice(2, 7), ['', 'keine Charge im Gebinde', 'Reinigung', '', ''])
-    assert.deepEqual(z[1].slice(2, 9), ['GV 2025', 'an der Behandlung erfasst', 'Schwefelung', '50,000', 'g', '5,0', '1000,00'])
-    assert.deepEqual(z[2].slice(2, 7), ['GV 2025', 'aus dem Belegungszeitraum des Gebindes', 'Bentonit', '0,005', 'kg'])
-    assert.ok(r.warnungen.some(w => w.startsWith('1 Behandlung ist ohne erfasste Charge')))
-    assert.ok(r.warnungen.some(w => w.startsWith('1 Behandlung hat keine Charge')))
-    assert.equal(r.dateiname.utf8, 'Kellerbehandlungen_1234567_Tank-1_2026-09-24.csv')
+    assert.deepEqual(kopf, ['Charge', 'Datum', 'Behandlung / Verfahren', 'Menge', 'Einheit', 'Dosierung (g/hl)', 'Volumen Ist (l)', 'Notizen'])
+    assert.ok(!kopf.some(k => /Gebinde|Zuordnung/.test(k)))
+    assert.deepEqual(z.map(c => c.slice(0, 2)), [['GV 2025', '01.10.2025'], ['GV 2025', '01.12.2025']])
+    assert.deepEqual(z[0].slice(2, 7), ['Schwefelung', '50,000', 'g', '5,0', '1000,00'])
+    assert.deepEqual(z[1].slice(2, 5), ['Bentonit', '0,005', 'kg'])
+    assert.deepEqual(r.warnungen, [], 'Einträge ohne Charge gehören nicht zur Charge – kein Hinweis')
+    assert.equal(r.dateiname.utf8, 'Kellerbehandlungen_1234567_GV-2025_2026-09-24.csv')
   })
-  test('ohne Gebinde → Parameterfehler (die Liste aller Gebinde ist eine eigene Meldung)', async () => {
-    const r = await ausfuehren('keller-behandlungen', 'von=2025-10-01', attrappe(kellerDaten(), gebindeRpc(gebindeKeller)))
-    assert.match(r.parameterFehler, /Gebinde fehlt/)
+  test('ohne Charge → Parameterfehler; der alte Parameter „behaelter“ zählt nicht; fremde/unbekannte Charge → 404', async () => {
+    const sb = () => attrappe(kellerDaten(), gebindeRpc(gebindeKeller))
+    assert.match((await ausfuehren('keller-behandlungen', 'von=2025-10-01', sb())).parameterFehler, /Charge fehlt/)
+    assert.match((await ausfuehren('keller-behandlungen', `behaelter=${G1}`, sb())).parameterFehler, /Charge fehlt/)
+    await assert.rejects(ausfuehren('keller-behandlungen', 'charge=c0000000-0000-4000-8000-00000000dead', sb()), e => e.status === 404)
   })
-  test('alle Gebinde mit Zeitraum (Keller-Auswertungen, Zugriff Controlling)', async () => {
+  test('alle Chargen mit Zeitraum (Keller-Auswertungen, Zugriff Controlling): Gebindepflege ohne Charge nur als Hinweis', async () => {
     assert.equal(M['keller-behandlungen-alle'].zugriff, 'auswertungen')
-    const sb = attrappe(kellerDaten(), gebindeRpc(gebindeKeller))
-    const r = await ausfuehren('keller-behandlungen-alle', 'von=2025-10-01&bis=2025-10-31', sb)
+    const r = await ausfuehren('keller-behandlungen-alle', 'von=2025-08-01&bis=2025-11-30', attrappe(kellerDaten(), gebindeRpc(gebindeKeller)))
     assert.equal(r.zeilen, 1)
-    assert.equal(r.dateiname.utf8, 'Kellerbehandlungen_1234567_alle-Gebinde_2025-10-01_bis_2025-10-31_2026-09-24.csv')
+    assert.deepEqual(r.tabelle[1].slice(0, 3), ['GV 2025', '01.10.2025', 'Schwefelung'])
+    assert.deepEqual(r.warnungen, ['2 Einträge ohne Charge (Gebindepflege: Reinigen, Konservieren, Notiz) sind nicht enthalten – sie stehen am Gebinde.'])
+    assert.equal(r.dateiname.utf8, 'Kellerbehandlungen_1234567_alle-Chargen_2025-08-01_bis_2025-11-30_2026-09-24.csv')
+  })
+  test('Verdrahtung: Meldung an der Chargen-Seite, CSV-Knopf mit Charge, Gebinde-Seite ohne Meldung, Auswertung mit Spalte Charge', () => {
+    const lies = p => readFileSync(new URL('../../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+    assert.equal(M['keller-behandlungen'].druckPfad, '/kellerbuch/weinausbau/[id]/behandlungen')
+    assert.ok(lies('src/app/(dashboard)/kellerbuch/weinausbau/[id]/behandlungen/page.tsx').startsWith('// behoerdenmeldung: keller-behandlungen\n'))
+    assert.ok(!lies('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx').includes('// behoerdenmeldung:'))
+    const k = lies('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx')
+    assert.ok(k.includes("{zeitraumOk && modus === 'charge' && chargeId && <CsvExportKnopf href={csvPfad('keller-behandlungen', { charge: chargeId, von, bis })} />}"))
+    assert.ok(!k.includes('behaelter: behaelterId, von, bis'))
+    assert.ok(lies('src/lib/behoerden/uebersicht.ts').includes("'/kellerbuch/weinausbau/[id]/behandlungen': { pfad: '/kellerbuch/weinausbau', label: 'Charge wählen' }"))
+    const c = lies('src/app/(dashboard)/reports/(controlling)/keller/KellerAuswertungenClient.tsx')
+    assert.ok(c.includes('href={`/kellerbuch/weinausbau/${b.chargeId}/behandlungen`}') && !c.includes('b.gebinde'))
+    // die Ladefunktion kennt kein Gebinde mehr und sortiert Vorgänge desselben Tages fest (KAN-384)
+    const l = lies('src/lib/behoerden/keller-behandlungen.ts')
+    assert.ok(!/behaelter|ladeBelegungen|chargeAmTag/.test(l))
+    assert.ok(l.includes(".order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true })"))
   })
 })
 

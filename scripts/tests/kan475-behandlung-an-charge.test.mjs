@@ -48,7 +48,8 @@ describe('KAN-475: Seiten', () => {
     assert.match(quelle(`${KB}/weinausbau/[id]/behandlungen/page.tsx`), /<Kellerbehandlungen modus="charge" id=\{params\.id as string\} \/>/)
     const alt = quelle(`${KB}/behaelter/[id]/behandlungen/page.tsx`)
     assert.match(alt, /<Kellerbehandlungen modus="gebinde" id=\{params\.id as string\} \/>/)
-    assert.ok(alt.startsWith('// behoerdenmeldung: keller-behandlungen'))
+    // seit KAN-479 läuft die Behördenmeldung je Charge – die Gebinde-Seite trägt keinen Marker mehr
+    assert.ok(alt.startsWith("'use client'"))
     assert.ok(existsSync(path.join(WURZEL, KB, 'weinausbau/[id]/behandlungen/layout.tsx')), 'Seitentitel')
   })
   test('an der Charge: Liste nach Charge (in welchem Gebinde auch immer); am Gebinde nur Einträge ohne Charge', () => {

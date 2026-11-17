@@ -56,6 +56,13 @@ befunde as (
     from public.fuellungen f
    where f.storniert_am is null and f.qualitaet in ('qualitaetswein', 'dac') and nullif(btrim(f.pruefnummer), '') is null and f.dac_antrag_id is null
   union all
+  -- KAN-475/KAN-479: Kellerbehandlungen gehören zur Charge; ohne Charge gibt es nur Gebindepflege. Die Meldung
+  -- „Kellerbehandlungen“ läuft je Charge – ein Eintrag ohne Charge fehlte dort.
+  select k.tenant_id, 'fehler', 'kellerbehandlung_ohne_charge', 'Kellerbehandlung ohne Charge (keine Gebindepflege)',
+         coalesce(t.name, k.typ_name_snapshot, 'Behandlung') || ' am ' || to_char(k.datum, 'DD.MM.YYYY')
+    from public.keller_behandlungen k left join public.keller_behandlungstypen t on t.id = k.typ_id
+   where k.storniert_am is null and k.weinausbau_id is null and coalesce(t.gebindepflege, false) = false
+  union all
   select b.tenant_id, 'pflege', 'gebinde_ohne_material', 'Gebinde ohne Material (BKI-Gebindeverzeichnis)', b.name
     from public.behaelter b where b.aktiv and nullif(btrim(b.material), '') is null
   union all

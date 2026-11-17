@@ -467,8 +467,8 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
         </div>
         <div className="flex items-start gap-2">
           <DruckKnopf />
-          {/* KAN-475: Die Behördenmeldung läuft bis KAN-479 je Gebinde – an der Charge gibt es bis dahin Druck, die CSV über „alle im Zeitraum“ */}
-          {zeitraumOk && !chargeId && behaelterId && <CsvExportKnopf href={csvPfad('keller-behandlungen', { behaelter: behaelterId, von, bis })} />}
+          {/* KAN-479: Die Behördenmeldung läuft je Charge; die Gebindepflege (ohne Charge) ist keine Meldung – dort nur Druck */}
+          {zeitraumOk && modus === 'charge' && chargeId && <CsvExportKnopf href={csvPfad('keller-behandlungen', { charge: chargeId, von, bis })} />}
         </div>
       </div>
 
