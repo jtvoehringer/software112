@@ -2,8 +2,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
+import { ladeMaischen, offeneMaischeJeGebinde } from '@/lib/kellerbuch/maischen'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
-import { fmtLiter } from '@/lib/format'
+import { fmtLiter, fmtNum } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Pencil, Boxes, ChevronRight } from 'lucide-react'
@@ -69,6 +70,8 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
       .select('behaelter_id, liter_aktuell')),
   ])
   const weinausbauRaw = geladen(weinausbauRawRes, 'Chargen')
+  // KAN-480: offene Maischen je Gebinde (Kennzeichen bei den Gebinden ohne Charge)
+  const maischeJeGebinde = tenantId ? offeneMaischeJeGebinde(await ladeMaischen(supabase, tenantId)) : new Map()
   const fuellstandRaw = geladen(fuellstandRawRes, 'Füllstände')
 
   const weinausbau = (weinausbauRaw ?? []) as R[]
@@ -272,6 +275,12 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
                       <div key={b.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
                         <Link href={`/kellerbuch/behaelter/${b.id}`} title={`${b.name} – Gebinde öffnen`} className="font-medium text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">{b.name}</Link>
                         {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
+                        {/* KAN-480: Gebinde ohne Charge, aber mit Maische – belegt bis zum Abpressen */}
+                        {maischeJeGebinde.get(b.id) && (
+                          <span className="text-[10.5px] font-semibold px-1.5 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">
+                            Maische {maischeJeGebinde.get(b.id)?.nummer ?? ''} · {fmtNum(maischeJeGebinde.get(b.id)?.kg ?? 0, 0)} kg
+                          </span>
+                        )}
                         <span className="text-xs text-s112-text-2 capitalize">{b.typ ?? '–'}</span>
                         <span className="text-xs text-s112-text-2 font-mono tabular-nums">{b.volumen_liter ? fmtLiter(b.volumen_liter) : '–'}</span>
                         {b.stapler && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}

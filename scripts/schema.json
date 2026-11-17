@@ -1607,7 +1607,11 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"maische_nr",
+"maische_beginn",
+"maische_behaelter_id",
+"maische_offen"
 ],
 "profiles": [
 "id",

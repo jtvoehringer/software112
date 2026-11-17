@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { fmtNum } from '@/lib/format'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
+import { maischeNummer } from '@/lib/wein/maische'
 import { ernteAnteile, ernteNummer, type MostZeile, type TraubenZeile } from '@/lib/kellerbuch/chargeErnten'
 import { AktionsFehler } from '@/lib/fehler'
 import { alle, inBloecken } from '@/lib/supabase/alle'
@@ -22,9 +23,14 @@ export default async function ErntenKarte({ supabase, tenantId, chargeId }: { su
   const kandidaten = [...new Set(eigene.data.map(z => String(z.pressung_id)))]
   if (kandidaten.length === 0) return null
   const pr = await inBloecken<R>(kandidaten, bl => (supabase.from('pressungen') as any)
-    .select('id, datum').in('id', bl).eq('tenant_id', tenantId).is('storniert_am', null).order('id'))
+    .select('id, datum, maische_nr, maische_beginn, jahrgang:jahrgang_id(jahrgang)').in('id', bl).eq('tenant_id', tenantId).is('storniert_am', null).order('id'))
   if (pr.error) throw new AktionsFehler(`Pressungen der Charge konnten nicht geladen werden (${pr.error.message})`)
   const pressungen = pr.data.map(p => String(p.id))
+  // KAN-480: Der Most kam über eine Maische (Ernten gemeinsam gemaischt, später abgepresst)
+  const maischen = pr.data.filter(p => p.maische_beginn).map(p => ({
+    nummer: maischeNummer((p.jahrgang as R | null)?.jahrgang ?? null, p.maische_nr as number | null),
+    beginn: String(p.maische_beginn).slice(0, 10), abgepresst: String(p.datum).slice(0, 10),
+  }))
   if (pressungen.length === 0) return null
 
   const [mostRes, traubenRes] = await Promise.all([
@@ -83,6 +89,11 @@ export default async function ErntenKarte({ supabase, tenantId, chargeId }: { su
           </tbody>
         </table>
       </div>
+      {maischen.length > 0 && (
+        <p className="text-xs text-s112-text-2 mt-2">
+          Gemeinsam gemaischt: {maischen.map(m => `Maische ${m.nummer ?? ''} (angesetzt ${datumAT(m.beginn)}, abgepresst ${datumAT(m.abgepresst)})`).join('; ')}.
+        </p>
+      )}
       {ergebnis.ohneErnteKg > 0 && (
         <p className="text-xs text-s112-text-2 mt-2">
           Weitere {fmtNum(ergebnis.ohneErnteKg, { max: 1 })} kg ohne zugeordnete Ernte (Zukauf bzw. Pressung vor der Einführung der Ernte-Nummer).

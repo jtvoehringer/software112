@@ -25,6 +25,7 @@ import { datumText, lesedatumFehler, lesetageFuerOrt, vorbelegterLesetag, type L
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
+import { MAISCHE_GEBINDE_FEHLT } from '@/lib/wein/maische'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,8 @@ export type Pressung = {
   weingaerten: PressungWG[]; behaelter: PressungBeh[]
   /** KAN-148 C1c: storniert – Vermerk statt Aktionen, zählt in keiner Summe */
   storno?: { am: string; von: string | null; grund: string | null } | null
+  /** KAN-480: Maische (Pressung in zwei Schritten); offen = angesetzt, noch nicht abgepresst */
+  maische?: { nummer: string | null; beginn: string; offen: boolean; behaelter_id: string | null; behaelter_name: string | null } | null
 }
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
 export type BehOption = { id: string; name: string; volumen_liter?: number | null }
@@ -135,7 +138,9 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, verfuegbareKgByRied, zukaufTrauben, behaelterMitCharge, vorauswahl, onDone, onWarnung }: {
+function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, verfuegbareKgByRied, zukaufTrauben, behaelterMitCharge, vorauswahl, abpressen, onDone, onWarnung }: {
+  /** KAN-480: offene Maische mit „Abpressen“ geöffnet – das Formular zeigt Pressdatum, Mostausbeute und Gebinde */
+  abpressen?: boolean
   /** KAN-359: Hinweis nach teilweisem Speichern – bleibt in der Pressungs-Karte stehen, wenn das Formular schließt */
   onWarnung: (text: string) => void
   /** KAN-394: Options-IDs der vorbelegten Traubenzeile (erster Treffer) – nur beim Anlegen */
@@ -148,7 +153,8 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; onDone: () => void
 }) {
-  const [datum, setDatum]                   = useState(pressung?.datum ?? heuteWien())
+  // KAN-480: mit „Abpressen“ geöffnet → Pressdatum heute vorschlagen (bis dahin steht dort der Beginn der Maische)
+  const [datum, setDatum]                   = useState(pressung?.maische?.offen && abpressen ? heuteWien() : pressung?.datum ?? heuteWien())
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
@@ -188,6 +194,16 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
     })) ?? [emptyBeh()]
   )
   const [fehler, setFehler] = useState<string | null>(null)
+  // KAN-480: Maische – neu: „Maische ansetzen“ (ohne Most und Gebinde der Chargen); offene Maische: weiter offen
+  // (Traubenzeilen ändern) oder „Jetzt abpressen“
+  const offeneMaische = pressung?.maische?.offen === true
+  const [maische, setMaische] = useState(offeneMaische && !abpressen)
+  const [maischeBehaelter, setMaischeBehaelter] = useState(pressung?.maische?.behaelter_id ?? '')
+  function maischeUmschalten(an: boolean) {
+    setMaische(an)
+    // offene Maische: beim Abpressen das Pressdatum (heute) vorschlagen, sonst gilt wieder der feste Beginn
+    if (offeneMaische && pressung?.maische) setDatum(an ? pressung.maische.beginn : heuteWien())
+  }
 
   async function entferneBehRow(i: number) {
     const row = behRows[i]
@@ -385,7 +401,13 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
     if (leseId && !pressung) fd.append('lese_id', leseId)
     if (pressung) fd.append('existing_id', pressung.id)
     fd.append('datum', datum)
-    fd.append('most_liter_gesamt', mostLiter)
+    if (maische) {
+      // KAN-480: Maische – noch keine Mostausbeute und keine Behälterzeilen
+      if (!offeneMaische && !maischeBehaelter) { setFehler(MAISCHE_GEBINDE_FEHLT); return }
+      fd.append('maische', '1')
+      fd.append('maische_behaelter_id', maischeBehaelter)
+    }
+    fd.append('most_liter_gesamt', maische ? '' : mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
     fd.append('kmw_grad', kmwGrad)
     // KAN-81/KAN-126: nur eine bewusste Abstufung schicken – ohne leitet der Server die Stufe aus den °KMW ab
@@ -409,7 +431,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
       }))
     ))
     fd.append('behaelter_json', JSON.stringify(
-      behRows.filter(r => r.id || r.behaelter_id || r.weinausbau_id).map(r => ({
+      (maische ? [] : behRows).filter(r => r.id || r.behaelter_id || r.weinausbau_id).map(r => ({
         id: r.id || undefined,
         behaelter_id: r.behaelter_id || undefined,
         weinausbau_id: r.weinausbau_id || undefined,
@@ -514,15 +536,47 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
 
   return (
     <form data-ungespeichert onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-s112-text">{pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}</h3>
+      <h3 className="text-sm font-semibold text-s112-text">
+        {offeneMaische ? (maische ? `Maische ${pressung?.maische?.nummer ?? ''} bearbeiten` : `Maische ${pressung?.maische?.nummer ?? ''} abpressen`)
+          : maische ? 'Maische ansetzen' : pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}
+      </h3>
+
+      {/* KAN-480: Maische als eigene Stufe (Rotwein) – neu: ansetzen statt gleich pressen; offene Maische: abpressen */}
+      {(!pressung || offeneMaische) && (
+        <div className="rounded-lg border border-s112-border bg-white px-3 py-2 space-y-2">
+          <label className="flex items-start gap-2 text-sm text-s112-text cursor-pointer">
+            <input type="checkbox" className="accent-s112-teal mt-0.5" checked={offeneMaische ? !maische : maische}
+              onChange={e => maischeUmschalten(offeneMaische ? !e.target.checked : e.target.checked)} />
+            <span>
+              {offeneMaische ? 'Jetzt abpressen' : 'Maische ansetzen – erst später abpressen (Rotwein)'}
+              <span className="block text-[11px] text-s112-muted">
+                {offeneMaische
+                  ? `Angesetzt am ${pressung?.maische?.beginn.split('-').reverse().join('.')}${pressung?.maische?.behaelter_name ? ` in ${pressung.maische.behaelter_name}` : ''}. Beim Abpressen kommen Pressdatum, Mostausbeute und die Gebinde der Chargen dazu; die Maische ist danach abgeschlossen.`
+                  : 'Die gewählten Ernten kommen gemeinsam in ein Gebinde. Most und Chargen entstehen erst beim Abpressen; bis dahin gilt das Gebinde als belegt.'}
+              </span>
+            </span>
+          </label>
+          {maische && !offeneMaische && (
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Gebinde der Maische *</label>
+              <select aria-label="Gebinde der Maische" value={maischeBehaelter} onChange={e => setMaischeBehaelter(e.target.value)} required className={inp}>
+                <option value="">– bitte wählen –</option>
+                {behOptions.map(b => <option key={b.id} value={b.id}>{b.name}{b.volumen_liter ? ` (${fmtNum(b.volumen_liter, { max: 0 })} L)` : ''}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KAN-329 (UAT 11.10.2026): Reihenfolge des Arbeitsablaufs – zuerst die Eingaben (Datum, gelesene GST mit kg,
           Lesedatum und Mostgewicht je Zeile), danach Mostausbeute und die daraus berechneten Angaben (Ø Mostgewicht,
           Qualitätsstufe, Bezeichnung → Charge) und zuletzt das Ziel-Gebinde */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">{maische ? 'Beginn der Maische *' : offeneMaische ? 'Pressdatum *' : 'Datum *'}</label>
+          {/* KAN-480: der Beginn einer angesetzten Maische steht fest (Storno und neu ansetzen) */}
+          <ZukunftsDatum aria-label={maische ? 'Beginn der Maische' : 'Datum'} value={datum} onChange={e => setDatum(e.target.value)} required
+            disabled={maische && offeneMaische} className={inp} />
         </div>
       </div>
 
@@ -647,6 +701,8 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
         )}
       </div>
 
+      {/* KAN-480: Mostausbeute, Qualität und Gebinde der Chargen gibt es erst beim Abpressen */}
+      {!maische && (<>
       {/* Mostausbeute und Live-Kalkulation (Trauben → Most → Ausbeute) */}
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -838,6 +894,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
           ))}
         </div>
       </div>
+      </>)}
 
       {/* Notizen */}
       <div>
@@ -851,7 +908,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
-          {pending ? 'Speichert…' : 'Speichern'}
+          {pending ? 'Speichert…' : maische && !offeneMaische ? 'Maische ansetzen' : offeneMaische && !maische ? 'Abpressen' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">
           Abbrechen
@@ -881,6 +938,8 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
 }) {
   const [showForm, setShowForm]    = useState(writeOk && !!vorauswahl)
   const [editId, setEditId]        = useState<string | null>(null)
+  // KAN-480: offene Maische mit „Abpressen“ geöffnet (sonst „Bearbeiten“ = Maische bleibt offen)
+  const [abpressenId, setAbpressenId] = useState<string | null>(null)
   const [collapsed, setCollapsed]  = useState(false)
   // KAN-359: Hinweis nach teilweise gespeicherter Pressung (bleibt stehen, bis man ihn schließt)
   const [warnung, setWarnung]      = useState<string | null>(null)
@@ -987,8 +1046,8 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                   <PressungForm pressung={p} jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions}
                     behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege}
                     verfuegbareKgByGST={verfuegbareKgByGST} verfuegbareKgByRied={verfuegbareKgByRied} zukaufTrauben={zukaufTrauben}
-                    behaelterMitCharge={undefined}
-                    onDone={() => setEditId(null)} onWarnung={setWarnung} />
+                    behaelterMitCharge={undefined} abpressen={abpressenId === p.id}
+                    onDone={() => { setEditId(null); setAbpressenId(null) }} onWarnung={setWarnung} />
                 ) : (
                   <div className={`group border border-s112-border rounded-xl p-3 ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
                     {/* Kopfzeile bricht um, statt bei langer Qualität („abgestuft von …“) über den rechten Rand zu laufen */}
@@ -996,6 +1055,12 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-s112-text text-sm">{fmtDate(p.datum)}</span>
+                          {/* KAN-480: Maische – offen (angesetzt, noch kein Most) bzw. abgepresst */}
+                          {p.maische && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.maische.offen ? 'bg-s112-warn-bg text-s112-warn-fg' : 'bg-s112-bg text-s112-text-2 border border-s112-border'}`}>
+                              Maische {p.maische.nummer ?? ''}{p.maische.offen ? ' · offen' : ` · angesetzt ${fmtDate(p.maische.beginn)}`}{p.maische.behaelter_name ? ` · ${p.maische.behaelter_name}` : ''}
+                            </span>
+                          )}
                           {p.weinbezeichnung && (
                             <span className="bg-s112-teal/10 text-s112-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
                               {p.weinbezeichnung}
@@ -1030,7 +1095,11 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                           </span>
                         )}
                         <span className="flex items-center gap-2 shrink-0">
-                          {writeOk && !p.storno && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
+                          {writeOk && !p.storno && p.maische?.offen && (
+                            <button onClick={() => { setAbpressenId(p.id); setEditId(p.id) }}
+                              className="text-xs font-medium border border-s112-teal text-s112-blue-700 px-2 py-0.5 rounded-lg hover:bg-s112-teal/5">Abpressen</button>
+                          )}
+                          {writeOk && !p.storno && <button onClick={() => { setAbpressenId(null); setEditId(p.id) }} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
                           {/* KAN-148 C1c: stornieren statt löschen – wer Pressungen bearbeiten darf (KAN-166) */}
                           {writeOk && !p.storno && (
                             <StornoButton action={grund => stornoPressung(p.id, jahrgangId, grund)} hinweis={stornoHinweis(p)} />

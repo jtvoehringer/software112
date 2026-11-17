@@ -35,6 +35,8 @@ import { bestandAmStichtag, fruehesterTag, standardStichtag, type MengenBuchung,
 import { istTag, tag } from './kellerbuch-hilfen'
 import { parameterFehler, type ParameterFehler } from './typen'
 import { AktionsFehler } from '@/lib/fehler'
+import { ladeMaischen, maischenOffenAm } from '@/lib/kellerbuch/maischen'
+import { maischeBestandHinweis } from '@/lib/wein/maische'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -291,6 +293,13 @@ export async function ladeBestandsmeldung(
   }
   if (stichtag.slice(5) !== '07-31') {
     warnungen.push(`Stichtag ${datumAT(stichtag)} – die Weinbestandsmeldung (§ 29 Weingesetz 2009) verlangt den Bestand zum 31. Juli.`)
+  }
+
+  // KAN-480: Maische ist kein Weinbestand (noch keine Charge) – lag am Stichtag eine unverpresst im Keller, steht das hier
+  {
+    const offen = maischenOffenAm(await ladeMaischen(supabase, tenantId), stichtag)
+    const h = maischeBestandHinweis(offen.length, datumAT(stichtag))
+    if (h) warnungen.push(`${h} (${offen.map(m => `${m.nummer ?? 'Maische'}${m.behaelterName ? ` in ${m.behaelterName}` : ''}, ${fmtNum(m.kg, 0)} kg`).join('; ')})`)
   }
 
   // ── B: Chargen ──────────────────────────────────────────────────────────────────────────────────────

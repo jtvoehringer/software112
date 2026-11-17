@@ -228,6 +228,7 @@
   {"n":"pressung_weingaerten_weingarten_id_fkey","t":"pressung_weingaerten","s":["weingarten_id"],"z":"weingarten"},
   {"n":"pressung_weingaerten_zukauf_posten_id_fkey","t":"pressung_weingaerten","s":["zukauf_posten_id"],"z":"zukauf_posten"},
   {"n":"pressungen_jahrgang_id_fkey","t":"pressungen","s":["jahrgang_id"],"z":"weinjahrgaenge"},
+  {"n":"pressungen_maische_behaelter_id_fkey","t":"pressungen","s":["maische_behaelter_id"],"z":"behaelter"},
   {"n":"pressungen_lese_fkey","t":"pressungen","s":["lese_id","jahrgang_id","tenant_id"],"z":"lesen"},
   {"n":"pressungen_tenant_id_fkey","t":"pressungen","s":["tenant_id"],"z":"tenants"},
   {"n":"produktion_eingaenge_kellermittel_id_fkey","t":"produktion_eingaenge","s":["kellermittel_id"],"z":"kellermittel"},

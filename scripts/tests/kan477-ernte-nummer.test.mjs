@@ -69,7 +69,7 @@ describe('KAN-477: Verdrahtung', () => {
   test('Chargen-Seite: Karte „Ernten dieser Charge“ – nur eigene, nicht stornierte Pressungen, Mostzeilen und Traubenzeilen', () => {
     assert.ok(quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/page.tsx').includes('<ErntenKarte supabase={supabase} tenantId={tenantId} chargeId={weinausbau.id} />'))
     const k = quelle('src/app/(dashboard)/kellerbuch/weinausbau/[id]/ErntenKarte.tsx')
-    assert.ok(k.includes(".select('id, datum').in('id', bl).eq('tenant_id', tenantId).is('storniert_am', null).order('id'))"))
+    assert.ok(k.includes(".select('id, datum, maische_nr, maische_beginn, jahrgang:jahrgang_id(jahrgang)').in('id', bl).eq('tenant_id', tenantId).is('storniert_am', null).order('id'))"))   // KAN-480: Maische der Pressung
     // vollständig und in Blöcken – ein Teilergebnis ergäbe falsche Anteile
     assert.equal((k.match(/inBloecken<R>\(/g) ?? []).length, 3)
     assert.ok(k.includes('const eigene = await alle<R>('))

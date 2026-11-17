@@ -86,9 +86,10 @@ describe('KAN-328: Lesedaten – Mostgewicht rutscht nicht mehr unter die Aktion
 describe('KAN-329: Pressungsformular in der Reihenfolge des Arbeitsablaufs', () => {
   test('Datum → gelesene GST (kg, Lesedatum, Mostgewicht) → Mostausbeute → Ø Mostgewicht/Qualität/Bezeichnung → Gebinde', () => {
     const k = quelle('src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx')
-    const form = k.slice(k.indexOf("{pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}"))
+    const form = k.slice(k.indexOf("pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}"))   // KAN-480: Überschrift kennt auch die Maische
+    assert.ok(form.length < k.length && form.length > 1000)
     const pos = [
-      'aria-label="Datum"',
+      "aria-label={maische ? 'Beginn der Maische' : 'Datum'}",
       '>Gelesene GST</label>',
       'aria-label={`Lesedatum Traubenzeile',
       'label="Mostgewicht" startwert={row.mgStart}',
