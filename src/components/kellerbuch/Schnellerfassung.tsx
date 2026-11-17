@@ -277,8 +277,11 @@ export default function Schnellerfassung({
           </ul>
         )}
         <div className="flex gap-4 mt-2 text-sm">
-          <Link href={`/kellerbuch/behaelter/${behaelterId}/behandlungen`} className="text-s112-blue-700 hover:underline">Alle Behandlungen</Link>
-          <Link href={`/kellerbuch/behaelter/${behaelterId}/bewegungen`} className="text-s112-blue-700 hover:underline">Bewegungsbuch</Link>
+          {/* KAN-478: keine Historie am Gebinde – die Geschichte steht im Weinbuch der Charge, die jetzt drin liegt */}
+          {chargen.map(c => (
+            <Link key={c.id} href={`/kellerbuch/weinausbau/${c.id}/buch`} className="text-s112-blue-700 hover:underline">Weinbuch{chargen.length > 1 && c.name ? ` ${c.name}` : ''}</Link>
+          ))}
+          <Link href={`/kellerbuch/behaelter/${behaelterId}/behandlungen`} className="text-s112-blue-700 hover:underline">Gebindepflege</Link>
         </div>
       </div>
     </section>

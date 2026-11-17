@@ -119,8 +119,31 @@ function zellen(text) {
 }
 
 /** Meldung wie die Route ausführen: parameter → laden → csvDatei → Dateiname */
+// KAN-478: Das „Bewegungsbuch je Gebinde“ ist keine Meldung mehr. Die Rechnung dahinter (ladeBewegungsbuch: Zu-/Abgänge,
+// Storno-Gegenbuchungen, Saldo, Übertrag) bleibt Baustein für Belegungszeiträume, Bestandsmeldung und Chargen-Saldo –
+// die Tests prüfen sie weiter über dieselbe Tabelle wie früher die CSV.
+const INTERN = {
+  bewegungsbuch: {
+    parameter: sp => {
+      const behaelterId = hilfen.uuidAus(sp, 'behaelter', 'Gebinde')
+      if (typen.istParameterFehler(behaelterId)) return behaelterId
+      const z = hilfen.zeitraumAus(sp)
+      if (typen.istParameterFehler(z)) return z
+      return { behaelterId, ...z, anzeige: { name: null } }
+    },
+    laden: async (ctx, p) => {
+      const bb = await bewegungsbuch.ladeBewegungsbuch(ctx.supabase, ctx.tenantId, p)
+      if (!bb) throw new typen.MeldungsFehler(404, 'Gebinde nicht gefunden.')
+      p.anzeige.name = bb.behaelter.name
+      return { zeilen: bewegungsbuch.bewegungsbuchZeilen(bb), warnungen: bb.warnungen }
+    },
+    spalten: bewegungsbuch.SPALTEN_BEWEGUNGSBUCH,
+    dateiteile: (p, betrieb) => ['Bewegungsbuch', betrieb.betriebsnummer, p.anzeige.name, hilfen.zeitraumTeil(p)],
+  },
+}
+
 async function ausfuehren(id, query, supabase, membership = { tenantId: T, role: 'tenant_admin', schreibmodule: [] }) {
-  const m = M[id]
+  const m = M[id] ?? INTERN[id]
   const p = m.parameter(new URLSearchParams(query))
   if (typen.istParameterFehler(p)) return { parameterFehler: p.fehler }
   const e = await m.laden({ supabase, tenantId: T, membership, betrieb: BETRIEB }, p)
@@ -210,7 +233,13 @@ describe('Katalog und Register', () => {
     assert.equal(M['weinbuch-sammlung'].pflicht, true)
     assert.equal(M['keller-auswertungen'].zugriff, 'auswertungen')
     assert.equal(M.aenderungsprotokoll.zugriff, 'verwaltung')
-    for (const id of ['bewegungsbuch', 'keller-behandlungen', 'gebindeverzeichnis', 'weinbuch', 'rueckverfolgung', 'blend-protokoll']) assert.equal(M[id].zugriff, 'mitglied', id)
+    for (const id of ['keller-behandlungen', 'gebindeverzeichnis', 'weinbuch', 'rueckverfolgung', 'blend-protokoll']) assert.equal(M[id].zugriff, 'mitglied', id)
+    // KAN-478: kein Bewegungsbuch je Gebinde mehr – weder Meldung noch Stelle noch Einstieg
+    assert.equal(M.bewegungsbuch, undefined)
+    const lies = p => readFileSync(new URL('../../' + p, import.meta.url), 'utf8')
+    assert.ok(!lies('src/lib/behoerden/stellen.ts').includes('bewegungsbuch'))
+    assert.ok(!lies('src/lib/behoerden/uebersicht.ts').includes('/bewegungen'))
+    assert.ok(!lies('src/lib/behoerden/katalog/kellerbuch.ts').includes("druckPfad: '/kellerbuch/behaelter/"))
   })
 })
 

@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { useRouter } from 'next/navigation'
-import { FlaskConical, BarChart3, ArrowLeftRight, Pencil } from 'lucide-react'
+import { FlaskConical, Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
@@ -430,20 +430,7 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
         </p>
       )}
 
-      {/* Tabs (nur am Gebinde) */}
-      {!chargeId && <div className="flex gap-1 overflow-x-auto sm:overflow-visible whitespace-nowrap border-b border-s112-border print:hidden">
-        <Link href={`/kellerbuch/behaelter/${behaelterId}/bewegungen`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors inline-flex items-center gap-1.5">
-          <BarChart3 size={14} strokeWidth={1.75} />Bewegungsbuch
-        </Link>
-        <Link href={`/kellerbuch/behaelter/${behaelterId}/umzuege`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors inline-flex items-center gap-1.5">
-          <ArrowLeftRight size={14} strokeWidth={1.75} />Umziehen
-        </Link>
-        <span className="px-4 py-2 text-sm font-medium text-s112-blue-700 border-b-2 border-s112-teal -mb-px inline-flex items-center gap-1.5">
-          <FlaskConical size={14} strokeWidth={1.75} />Gebindepflege
-        </span>
-      </div>}
+      {/* KAN-478: keine Reiter „Bewegungsbuch“/„Umziehen“ mehr am Gebinde – die Historie steht im Weinbuch der Charge */}
 
       {/* Aufzeichnung: Zeitraum, Druck und CSV (dieselben Behandlungen, Charge je Behandlung) */}
       <div className="flex items-end justify-between gap-3 flex-wrap print:hidden">
@@ -729,7 +716,7 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
                           className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
                         {/* KAN-145 B3: stornieren mit Grund statt löschen */}
                         <StornoButton action={grund => deleteKellerbehandlung(b.id, grund)} danach={() => loadData()}
-                          hinweis="Die Kellerbehandlung bleibt als storniert im Bewegungsbuch und Weinbuch stehen und zählt in keiner Auswertung." />
+                          hinweis="Die Kellerbehandlung bleibt als storniert im Weinbuch stehen und zählt in keiner Auswertung." />
                       </div>
                       )}
                     </td>

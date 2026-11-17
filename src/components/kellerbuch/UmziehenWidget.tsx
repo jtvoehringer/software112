@@ -167,7 +167,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
       <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-lg px-4 py-3 text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-semibold">Umzug gebucht: {fmtNum(erfolg.liter, { max: 2 })} L nach {erfolg.gebindeName}.</span>
         <span>Der Vorgang ist abgeschlossen – es ist nichts weiter zu speichern.</span>
-        <Link href={`/kellerbuch/behaelter/${erfolg.gebindeId}/bewegungen`} className="underline">Ziel-Gebinde ansehen</Link>
+        <Link href={`/kellerbuch/behaelter/${erfolg.gebindeId}`} className="underline">Ziel-Gebinde ansehen</Link>
         <button type="button" onClick={() => setErfolg(null)} className="ml-auto text-xs underline">Schließen</button>
       </div>
     )

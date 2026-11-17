@@ -54,17 +54,25 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
   const chargen = ((chargenRaw ?? []) as R[]).map(c => ({ id: String(c.id), name: c.name ?? null, menge_liter: c.menge_liter })) as SchnellCharge[]
   const chargenIds = chargen.map(c => c.id)
 
+  // KAN-478: Ein Gebinde zeigt nur, was jetzt drin liegt – Behandlungen, Umzüge und Analysen der Chargen, die jetzt im
+  // Gebinde liegen, dazu die Gebindepflege ohne Charge. Frühere Chargen des Gebindes erscheinen hier nicht mehr (ihre
+  // Geschichte steht in ihrem Weinbuch); ein leeres Gebinde zeigt nur die Gebindepflege.
+  const liste = chargenIds.join(',')
   const [behRes, umzRes, anaRes] = await Promise.all([
+    // alle-ausnahme: nur die letzten 5 Einträge der höchstens 50 Chargen eines Gebindes bzw. seiner Gebindepflege
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('keller_behandlungen') as any)
-      .select('id, datum, typ_name_snapshot, menge, einheit, notizen, typ:typ_id(name)')
-      .eq('tenant_id', tenantId).eq('behaelter_id', id).is('storniert_am', null)
+      .select('id, datum, typ_name_snapshot, menge, einheit, notizen, weinausbau_id, typ:typ_id(name)')
+      .eq('tenant_id', tenantId).is('storniert_am', null)
+      .or(chargenIds.length > 0 ? `weinausbau_id.in.(${liste}),and(weinausbau_id.is.null,behaelter_id.eq.${id})` : `and(weinausbau_id.is.null,behaelter_id.eq.${id})`)
       .order('datum', { ascending: false }).order('id').limit(5),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, notizen, von_behaelter_id, nach_behaelter_id')
-      .eq('tenant_id', tenantId).is('storniert_am', null).or(`von_behaelter_id.eq.${id},nach_behaelter_id.eq.${id}`)
-      .order('datum', { ascending: false }).order('id').limit(5),
+    chargenIds.length === 0 ? Promise.resolve({ data: [] }) :
+      // alle-ausnahme: nur die letzten 5 Umzüge der höchstens 50 Chargen eines Gebindes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('keller_umzuege') as any)
+        .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, notizen, von_behaelter_id, nach_behaelter_id, von_weinausbau_id, nach_weinausbau_id')
+        .eq('tenant_id', tenantId).is('storniert_am', null).or(`von_weinausbau_id.in.(${liste}),nach_weinausbau_id.in.(${liste})`)
+        .order('datum', { ascending: false }).order('id').limit(5),
     chargenIds.length === 0 ? Promise.resolve({ data: [] }) :
       // alle-ausnahme: Chargen eines einzelnen Gebindes (höchstens 50), nur die letzten 5 Analysen
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +81,7 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
         .eq('tenant_id', tenantId).in('weinausbau_id', chargenIds).is('storniert_am', null)
         .order('analyse_datum', { ascending: false }).order('id').limit(5),
   ])
-  const massnahmen = letzteMassnahmen(id, (behRes.data ?? []) as R[], (umzRes.data ?? []) as R[], (anaRes.data ?? []) as R[], 5, fmtLiter)
+  const massnahmen = letzteMassnahmen(id, (behRes.data ?? []) as R[], (umzRes.data ?? []) as R[], (anaRes.data ?? []) as R[], 5, fmtLiter, new Set(chargenIds))
 
   const darf = !!membership && canWrite(membership, 'kellerbuch')
   const gesperrt = darf ? !!(await schreibSperre(membership)) : false

@@ -95,7 +95,7 @@ describe('KAN-95 Auswahl der BKI-Berichte', () => {
     }
     const liste = Object.keys(M).filter(id => M[id].bki).sort()
     assert.deepEqual(liste, [
-      'aenderungsprotokoll', 'besondere-konten', 'bestandsmeldung', 'bewegungsbuch', 'bki-besondere-konten', 'bki-betriebsdaten', 'bki-buchungsarten', 'bki-einkauf', 'bki-erzeugnisse', 'bki-gebindeverzeichnis',   // KAN-48: Betriebsdaten/Gebinde; KAN-50: Kataloge
+      'aenderungsprotokoll', 'besondere-konten', 'bestandsmeldung', 'bki-besondere-konten', 'bki-betriebsdaten', 'bki-buchungsarten', 'bki-einkauf', 'bki-erzeugnisse', 'bki-gebindeverzeichnis',   // KAN-48: Betriebsdaten/Gebinde; KAN-50: Kataloge
       'bki-lagerbewegungen', 'bki-lagerstand', 'bki-qualitaetsstufen', 'bki-rv-ausgang', 'bki-rv-eingang', 'bki-tbs', 'bki-traubenverkauf', 'bki-verkauf', 'bki-weingaerten',   // KAN-44: Lagerstand/Lagerbewegungen; KAN-107: besondere Konten
       'blend-protokoll', 'bsm', 'bsm-kontrolljournal', 'erntemeldung',
       'gebindeverzeichnis', 'keller-auswertungen', 'keller-behandlungen', 'keller-behandlungen-alle', 'lesedaten',

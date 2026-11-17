@@ -51,7 +51,6 @@ export const STELLE_JE_MELDUNG: Record<MeldungsId, Stelle> = {
   exportauftraege: 'zoll',
   'zusammenfassende-meldung': 'finanzamt',
   // Kellerbuch
-  bewegungsbuch: 'bki',
   'keller-behandlungen': 'bki',
   'keller-behandlungen-alle': 'bki',
   gebindeverzeichnis: 'bki',

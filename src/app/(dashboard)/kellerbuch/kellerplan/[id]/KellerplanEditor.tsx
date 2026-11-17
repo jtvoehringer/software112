@@ -927,7 +927,7 @@ export default function KellerplanEditor({
             )}
             <div className="space-y-2">
               <Link
-                href={`/kellerbuch/behaelter/${dialogBehaelter.id}/umzuege`}
+                href={`/kellerbuch/umziehen?neu=1&von=${dialogBehaelter.id}`}
                 onClick={() => setDialogBehaelterId(null)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-s112-text-1"
               >

@@ -1,4 +1,4 @@
-// Katalog der Behördenmeldungen – Gruppe „Kellerbuch“ (Bewegungsbuch, Kellerbehandlungen,
+// Katalog der Behördenmeldungen – Gruppe „Kellerbuch“ (Kellerbehandlungen,
 // Gebindeverzeichnis, Weinbuch, Weinbuch-Sammlung, Rückverfolgung, Blend-Protokoll,
 // BKI-Lagerstand und -Lagerbewegungen, Keller-Auswertungen, Änderungsprotokoll).
 // Isomorph (auch in Client-Komponenten nutzbar). Je Eintrag: Schlüssel = id (URL /meldungen/<id>/csv).
@@ -21,14 +21,8 @@ const abJahresbeginn = () => ({ von: `${wienHeute().slice(0, 4)}-01-01` })
 const KELLERBUCH_RECHT = 'Weingesetz 2009 (Kellerbuch/Weinbuchführung) und VO (EU) 2018/273 Art. 28 ff. (Ein- und Ausgangsbücher) – zu prüfen'
 
 export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
-  bewegungsbuch: {
-    titel: 'Bewegungsbuch je Gebinde (Ein- und Ausgangsbuch)',
-    behoerde: 'BKI (Kellerbuchprüfung)',
-    zugriff: 'mitglied',
-    druckPfad: '/kellerbuch/behaelter/[id]/bewegungen',
-    rechtsgrundlage: KELLERBUCH_RECHT,
-    beschreibung: 'Zu- und Abgänge eines Gebindes mit laufendem Saldo, Zeitraum frei wählbar (Übertrag am Anfang).',
-  },
+  // KAN-478 (BKI-Sitzung 16.11.2026): Das „Bewegungsbuch je Gebinde“ gibt es nicht mehr – ein Gebinde hat keine
+  // Historie; das Ein- und Ausgangsbuch ist das Weinbuch der Charge (Eintrag „weinbuch“) bzw. die Weinbuch-Sammlung.
   'keller-behandlungen': {
     titel: 'Kellerbehandlungen (önologische Verfahren)',
     behoerde: 'BKI (Kellerbuchprüfung)',

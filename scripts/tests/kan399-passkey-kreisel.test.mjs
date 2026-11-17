@@ -101,6 +101,6 @@ describe('KAN-399: Ladekreisel in CD-Blau', () => {
         assert.doesNotMatch(m[1], /<Link[\s>]/, `${path.relative(WURZEL, p)}: Breadcrumb mit <Link> statt <BrotkrumenLink>`)
       }
     }
-    assert.ok(leisten >= 17, `nur ${leisten} Breadcrumb-Leisten gefunden`)
+    assert.ok(leisten >= 16, `nur ${leisten} Breadcrumb-Leisten gefunden`)   // KAN-478: Bewegungen/Umzüge am Gebinde entfallen
   })
 })

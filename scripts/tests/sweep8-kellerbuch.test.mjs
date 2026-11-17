@@ -83,13 +83,15 @@ describe('KAN-174: Verdrahtung', () => {
   })
   test('E (Abnahme 07.10.2026): Gebindename breit genug, voller Name als Tooltip – belegt und leer', () => {
     const p = quelle(`${D}/kellerbuch/page.tsx`)
-    // KAN-285: der Name ist seit 10.10.2026 ein Link auf die Bewegungen – Breite und voller Name im Tooltip bleiben
-    assert.equal(p.match(/<Link href=\{`\/kellerbuch\/behaelter\/\$\{b\.id\}\/bewegungen`\} title=\{`\$\{b\.name\} – Bewegungen`\} className="font-(semibold|medium) text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">\{b\.name\}<\/Link>/g)?.length, 2)
+    // KAN-285/KAN-478: der Name ist ein Link auf das Gebinde – Breite und voller Name im Tooltip bleiben
+    assert.equal(p.match(/<Link href=\{`\/kellerbuch\/behaelter\/\$\{b\.id\}`\} title=\{`\$\{b\.name\} – Gebinde öffnen`\} className="font-(semibold|medium) text-s112-text hover:text-s112-blue-700 hover:underline w-32 sm:w-56 shrink-0 truncate">\{b\.name\}<\/Link>/g)?.length, 2)
     assert.doesNotMatch(p, /w-24 shrink-0[^"]*">\{b\.name\}/)
   })
   test('B: „Umziehen“ vom Gebinde mit von=<Behälter>, Quelle vorbelegt', () => {
-    assert.match(quelle(`${D}/kellerbuch/behaelter/[id]/umzuege/page.tsx`), /\/kellerbuch\/umziehen\?neu=1&von=\$\{id\}/)
-    assert.match(quelle(`${D}/kellerbuch/behaelter/[id]/bewegungen/page.tsx`), /\/kellerbuch\/umziehen\?neu=1&von=\$\{id\}/)
+    // KAN-478: die Historien-Seiten am Gebinde sind Weiterleitungen – „Umziehen“ kommt von der Gebinde-Seite
+    // (Kachel der Schnellerfassung) und aus dem Kellerplan
+    assert.match(quelle('src/lib/keller/schnellerfassung.ts'), /umziehen: `\/kellerbuch\/umziehen\?neu=1&von=\$\{behaelterId\}`/)
+    assert.match(quelle(`${D}/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx`), /href=\{`\/kellerbuch\/umziehen\?neu=1&von=\$\{dialogBehaelter\.id\}`\}/)
     assert.match(quelle(`${D}/kellerbuch/umziehen/page.tsx`), /vonBehaelter=\{vonBehaelter\}/)
     assert.match(quelle(`${D}/kellerbuch/umziehen/UmziehenClient.tsx`), /quellen\.find\(q => q\.behaelter_id === vonBehaelter\)\?\.charge_id/)
   })
