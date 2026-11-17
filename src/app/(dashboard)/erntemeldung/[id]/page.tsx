@@ -32,6 +32,8 @@ export type ErnteParzelle = {
   herkunft_code?: string | null; lese_art?: string | null
   /** KAN-129: Lese des Eintrags („2026/1 Hauptlese“) und ihre Nummer – Gruppierung der Lesedaten */
   lese_titel: string | null; lese_nr: number | null
+  /** KAN-477: Nummer der Ernte („2026/2-03“) für die Rückverfolgung */
+  ernte_nr: string | null
   /** KAN-148 C1b: storniert – Vermerk statt Aktionen, zählt in keiner Summe */
   storno: { am: string; von: string | null; grund: string | null } | null
 }

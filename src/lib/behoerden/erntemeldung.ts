@@ -28,6 +28,7 @@ import { Hinweise, datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from 
 import { gemessenInText, mostgewichtFuerExport, type MostgewichtExport } from './mostgewicht_export'
 import { ohneStornierte } from './traubenverkauf'
 import { gstImJahr } from '../wein/grundstueckAktiv'
+import { ernteNummer } from '../kellerbuch/chargeErnten'
 import { ernteFormular, type ErnteFormular, type FormularVerkauf } from './erntemeldungFormular'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +91,8 @@ export async function jahrgangPflicht(supabase: Client, tenantId: string, jahrga
 
 export type LeseZeile = {
   id: string
+  /** KAN-477: Nummer der Ernte je Lese, Anzeige „2026/2-03“ (Jahrgang/Lese-Ernte); null vor der Migration */
+  ernteNr: string | null
   /** Lese des Eintrags (KAN-129, lesen.id) */
   leseId: string | null
   /** „2026/1 Hauptlese“ (KAN-129, CSV-Spalte „Lese“) */
@@ -141,11 +144,14 @@ export type LeseZeile = {
   storniertVon: string | null
 }
 
-function leseFelder(l: R | null): { lese: string | null; leseNr: number | null } {
+function leseFelder(l: R | null, ernteLfdNr: number | null = null): { lese: string | null; leseNr: number | null; ernteNr: string | null } {
   const nr = zahlOderNull(l?.lfd_nr)
   const jahr = zahlOderNull((l?.jahrgang as R | null)?.jahrgang)
-  if (nr === null) return { lese: null, leseNr: null }
-  return { lese: jahr === null ? String(nr) : leseTitel(jahr, { lfd_nr: nr, art: textOderNull(l?.art) ?? '', bezeichnung: null }), leseNr: nr }
+  if (nr === null) return { lese: null, leseNr: null, ernteNr: null }
+  return {
+    lese: jahr === null ? String(nr) : leseTitel(jahr, { lfd_nr: nr, art: textOderNull(l?.art) ?? '', bezeichnung: null }), leseNr: nr,
+    ernteNr: ernteNummer(jahr, nr, ernteLfdNr),   // KAN-477
+  }
 }
 
 /**
@@ -174,7 +180,7 @@ function zuLeseZeile(p: R): LeseZeile {
   return {
     id: p.id,
     leseId: textOderNull(p.lese_id),
-    ...leseFelder(p.lese as R | null),
+    ...leseFelder(p.lese as R | null, zahlOderNull(p.lfd_nr)),
     weingartenId: p.weingarten_id ?? null,
     ried: textOderNull(wg?.name),
     weingartenRebsorte,
@@ -227,7 +233,7 @@ export async function ladeLesedaten(
 ): Promise<{ zeilen: LeseZeile[]; warnungen: string[] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let abfrage = (supabase.from('ernte_parzellen') as any)
-    .select('id, lese_id, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)), weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, storniert_am, storno_grund, storniert_von_name, herkunft_code, weingarten:weingarten_id(name, rebsorte, flaeche_ha, weinbaugebiet, trauben_herkunft_code), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha, trauben_herkunft_code)')
+    .select('id, lfd_nr, lese_id, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)), weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, storniert_am, storno_grund, storniert_von_name, herkunft_code, weingarten:weingarten_id(name, rebsorte, flaeche_ha, weinbaugebiet, trauben_herkunft_code), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha, trauben_herkunft_code)')
     .eq('jahrgang_id', jahrgangId)
     // storno-sichtbar: stornierte nur mit opt.mitStornierten (gekennzeichnet in Druck, CSV und Liste)
   if (!opt.mitStornierten) abfrage = abfrage.is('storniert_am', null)
@@ -270,6 +276,8 @@ export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   // KAN-364 (Entscheidung Jörgen 27.10.2026): Weinbaugebiet der Lese – genauestes Gebiet (Weinbaugebiet am Ried, sonst aus
   // dem Herkunft-Code, sonst das Bundesland), wie im Kopf der AMA-Meldung; hinten angefügt, die bisherigen Spalten bleiben
   { kopf: 'Weinbaugebiet', typ: 'text', wert: z => z.gebietGenau },
+  // KAN-477 (BKI-Sitzung 16.11.2026): Nummer der Ernte für die Rückverfolgung – hinten angefügt, die bisherigen Spalten bleiben
+  { kopf: 'Ernte-Nr.', typ: 'code', wert: z => z.ernteNr },
 ]
 
 /** KAN-148 C1b: nur nicht stornierte Lesedaten (Summen, Meldungen) */

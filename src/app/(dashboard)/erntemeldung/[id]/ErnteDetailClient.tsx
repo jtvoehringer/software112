@@ -1067,6 +1067,8 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                     <tr className={`group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 ${editId === p.id ? 'bg-s112-teal/5' : ''} ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
                       <td className="px-3 py-2 font-medium text-s112-text">
                         <RiedName p={p} href={pressenLink(p)} />
+                        {/* KAN-477: Nummer der Ernte (Rückverfolgung bis zur Charge) */}
+                        {p.ernte_nr && <span className="block text-[11px] font-normal font-mono text-s112-text-2" title="Nummer der Ernte: Jahrgang/Lese-Ernte">Ernte {p.ernte_nr}</span>}
                         {p.storno && (
                           <span className="block text-[11px] font-normal text-s112-warn-fg">
                             storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}
