@@ -33,20 +33,20 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     titel: 'Kellerbehandlungen (önologische Verfahren)',
     behoerde: 'BKI (Kellerbuchprüfung)',
     zugriff: 'mitglied',
-    druckPfad: '/kellerbuch/behaelter/[id]/behandlungen',
+    druckPfad: '/kellerbuch/weinausbau/[id]/behandlungen',
     rechtsgrundlage: KELLERBUCH_RECHT,
-    beschreibung: 'Behandlungen eines Gebindes im Zeitraum, mit Charge, Menge, Dosierung und Volumen.',
+    beschreibung: 'Behandlungen einer Charge im Zeitraum, mit Menge, Dosierung und Volumen – unabhängig vom Gebinde (KAN-479).',
   },
-  // Die gebindeübergreifende Liste war Teil der Controlling-Auswertung /reports/keller und bleibt
+  // Die chargenübergreifende Liste war Teil der Controlling-Auswertung /reports/keller und bleibt
   // dort (Entscheidung 24.09.2026: übrige Reports hinter Controlling + Auswertungsrecht).
   'keller-behandlungen-alle': {
-    titel: 'Kellerbehandlungen aller Gebinde',
+    titel: 'Kellerbehandlungen aller Chargen',
     behoerde: 'BKI (Kellerbuchprüfung)',
     zugriff: 'auswertungen',
     druckPfad: '/reports/keller',
     standardParameter: abJahresbeginn,
     rechtsgrundlage: KELLERBUCH_RECHT,
-    beschreibung: 'Behandlungen aller Gebinde im gewählten Zeitraum (Keller-Auswertungen), gleiche Spalten wie je Gebinde.',
+    beschreibung: 'Behandlungen aller Chargen im gewählten Zeitraum (Keller-Auswertungen), gleiche Spalten wie je Charge.',
   },
   gebindeverzeichnis: {
     titel: 'Gebindeverzeichnis',

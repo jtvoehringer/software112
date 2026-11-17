@@ -49,19 +49,19 @@ export const MELDUNGEN_KELLERBUCH = {
     bki: p => ({ bericht: ['Bewegungsbuch', p.anzeige.name], von: p.von, bis: p.bis }),
   }),
 
-  // je Gebinde (Pflicht-Parameter behaelter) – jedes Mitglied, wie die Gebinde-Seite
+  // je Charge (Pflicht-Parameter charge, seit KAN-479) – jedes Mitglied, wie die Chargen-Seite
   'keller-behandlungen': definiereMeldung(KATALOG_KELLERBUCH['keller-behandlungen'], {
     parameter: sp => {
-      const behaelterId = uuidAus(sp, 'behaelter', 'Gebinde')
-      if (istParameterFehler(behaelterId)) return behaelterId
+      const chargeId = uuidAus(sp, 'charge', 'Charge')
+      if (istParameterFehler(chargeId)) return chargeId
       const z = zeitraumAus(sp)
       if (istParameterFehler(z)) return z
-      return { behaelterId, ...z, anzeige: anzeige() } as { behaelterId: string } & Zeitraum & Anzeige
+      return { chargeId, ...z, anzeige: anzeige() } as { chargeId: string } & Zeitraum & Anzeige
     },
     laden: async (ctx, p) => {
       const kb = await ladeKellerBehandlungen(ctx.supabase, ctx.tenantId, p)
-      if (!kb) throw new MeldungsFehler(404, 'Gebinde nicht gefunden.')
-      p.anzeige.name = kb.gebinde?.name ?? null
+      if (!kb) throw new MeldungsFehler(404, 'Charge nicht gefunden.')
+      p.anzeige.name = kb.charge?.name ?? null
       return { zeilen: kb.zeilen, warnungen: kb.warnungen }
     },
     spalten: SPALTEN_KELLER_BEHANDLUNGEN,
@@ -69,16 +69,16 @@ export const MELDUNGEN_KELLERBUCH = {
     bki: p => ({ bericht: ['Kellerbehandlungen', p.anzeige.name], von: p.von, bis: p.bis }),
   }),
 
-  // alle Gebinde im Zeitraum – Modul Controlling + Auswertungsrecht (/reports/keller)
+  // alle Chargen im Zeitraum – Modul Controlling + Auswertungsrecht (/reports/keller)
   'keller-behandlungen-alle': definiereMeldung(KATALOG_KELLERBUCH['keller-behandlungen-alle'], {
     parameter: sp => zeitraumAus(sp),
     laden: async (ctx, p) => {
-      const kb = await ladeKellerBehandlungen(ctx.supabase, ctx.tenantId, { behaelterId: null, von: p.von, bis: p.bis })
+      const kb = await ladeKellerBehandlungen(ctx.supabase, ctx.tenantId, { von: p.von, bis: p.bis })
       return { zeilen: kb?.zeilen ?? [], warnungen: kb?.warnungen ?? [] }
     },
     spalten: SPALTEN_KELLER_BEHANDLUNGEN,
-    dateiteile: (p, betrieb) => ['Kellerbehandlungen', betrieb.betriebsnummer, 'alle-Gebinde', zeitraumTeil(p)],
-    bki: p => ({ bericht: ['Kellerbehandlungen', 'alle-Gebinde'], von: p.von, bis: p.bis }),
+    dateiteile: (p, betrieb) => ['Kellerbehandlungen', betrieb.betriebsnummer, 'alle-Chargen', zeitraumTeil(p)],
+    bki: p => ({ bericht: ['Kellerbehandlungen', 'alle-Chargen'], von: p.von, bis: p.bis }),
   }),
 
   gebindeverzeichnis: definiereMeldung(KATALOG_KELLERBUCH.gebindeverzeichnis, {

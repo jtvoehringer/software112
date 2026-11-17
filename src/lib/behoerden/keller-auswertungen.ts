@@ -207,7 +207,7 @@ export async function ladeKellerAuswertungen(supabase: any, tenantId: string, z:
       .eq('tenant_id', tenantId)
       .order('jahrgang', { ascending: false })
       .order('id')),
-    ladeKellerBehandlungen(supabase, tenantId, { von: z.von, bis: z.bis }, { gebindeListe: gebindeAlle }),
+    ladeKellerBehandlungen(supabase, tenantId, { von: z.von, bis: z.bis }),
     ladeKellerUmzuege(supabase, tenantId, z, { gebindeListe: gebindeAlle }),
     alle<R>(fq.order('datum', { ascending: false }).order('id')),
   ])

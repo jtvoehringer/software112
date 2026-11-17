@@ -126,8 +126,8 @@ export default function KellerAuswertungenClient({ daten, zeitraumHinweise = [] 
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Charge</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Behandlung</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Behälter</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Menge</th>
                 </tr>
               </thead>
@@ -137,11 +137,10 @@ export default function KellerAuswertungenClient({ daten, zeitraumHinweise = [] 
                     <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap text-xs">
                       {datumAT(b.datum)}
                     </td>
-                    <td className="px-4 py-2.5 text-s112-text">
-                      {b.behandlung}
-                      {b.charge && <span className="block text-xs text-s112-muted">Charge: {b.charge}</span>}
+                    <td className="px-4 py-2.5 text-s112-text-2">
+                      <Link href={`/kellerbuch/weinausbau/${b.chargeId}/behandlungen`} className="hover:text-s112-blue-700">{b.charge ?? '–'}</Link>
                     </td>
-                    <td className="px-4 py-2.5 text-s112-text-2">{b.gebinde ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-s112-text">{b.behandlung}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
                       {b.menge !== null && b.einheit ? `${fmtNum(b.menge)} ${b.einheit}` : '–'}
                     </td>
