@@ -85,14 +85,15 @@ describe('KAN-341/371: Wächter check-dialoge', () => {
 
 describe('KAN-372: Gebinde – Neue Behandlung und Schnellerfassung', () => {
   test('„+ Neue Behandlung“ und „Bearbeiten“ springen zum Formular', () => {
-    const s = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx')
+    const s = quelle('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx')
     assert.match(s, /if \(formOeffnung\) formRef\.current\?\.scrollIntoView\(\{ block: 'start', behavior: 'smooth' \}\)/)
     assert.equal([...s.matchAll(/setShowForm\(true\)\n    setFormOeffnung\(n => n \+ 1\)/g)].length, 2, 'openNeu und openEdit')
     assert.match(s, /<div ref=\{formRef\} className="card p-5 border-s112-teal\/30 border-2 print:hidden scroll-mt-4">/)
   })
   test('Unterseiten verlinken die Schnellerfassung (Gebindeseite)', () => {
+    // KAN-475: die Behandlungsliste ist eine gemeinsame Komponente (Charge bzw. Gebindepflege)
     for (const [f, idVar] of [['behandlungen', 'behaelterId'], ['bewegungen', 'id'], ['umzuege', 'id']]) {
-      const s = quelle(`src/app/(dashboard)/kellerbuch/behaelter/[id]/${f}/page.tsx`)
+      const s = quelle(f === 'behandlungen' ? 'src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx' : `src/app/(dashboard)/kellerbuch/behaelter/[id]/${f}/page.tsx`)
       assert.match(s, new RegExp(`<Link href=\\{\`/kellerbuch/behaelter/\\$\\{${idVar}\\}\`\\} data-schnellerfassung[\\s\\S]{0,250}Schnellerfassung\\n`), f)
     }
     assert.match(quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/page.tsx'), /<Schnellerfassung /)

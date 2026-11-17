@@ -17,7 +17,7 @@ const ROOT = path.join(HIER, '..', '..')
 const require = createRequire(import.meta.url)
 const { pruefeWurzel } = require(path.join(HIER, '..', 'check-einzelabfrage.js'))
 const quelle = p => readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n')
-const BH = 'src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx'
+const BH = 'src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx'
 
 describe('KAN-283: Client-Komponenten', () => {
   test('Projekt sauber – auch Client-Dateien und src/components', () => {

@@ -84,7 +84,7 @@ describe('Paket 3b: Volumenzugang durch Behandlung', async () => {
     const fn = a.slice(a.indexOf('export async function speichereKellerbehandlung'))
     assert.ok(fn.indexOf('behandlungZugangFehler(') > 0 && fn.indexOf('behandlungZugangFehler(') < fn.indexOf(".from('keller_behandlungen') as any)\n      .insert("))
     assert.match(fn, /\.\.\.\(formData\.has\('zugang_liter'\) \? \{ zugang_liter: zugangLiter \} : \{\}\)/)
-    assert.match(quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx'), /fd\.set\('zugang_liter', formZugang\)/)
+    assert.match(quelle('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx'), /fd\.set\('zugang_liter', formZugang\)/)
     const bb = quelle('src/lib/behoerden/bewegungsbuch.ts')
     assert.match(bb, /menge: num\(b\.zugang_liter\) > 0 \? liter\(num\(b\.zugang_liter\)\) : 0,/)
     assert.match(bb, /\.not\('zugang_liter', 'is', null\)/)

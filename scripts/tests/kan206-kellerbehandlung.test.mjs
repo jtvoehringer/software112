@@ -77,7 +77,7 @@ describe('KAN-206 Datenbank und App gleich', () => {
     assert.match(a, /sperrMeldung\(sperre, sp => BEHANDLUNG_FELDNAMEN\[sp\] \?\? sp\)/)
   })
   test('Formular: Sperrhinweis, gesperrte Felder, Pflichtkennzeichen; Assistent mit Einstufung', () => {
-    const p = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx')
+    const p = quelle('src/app/(dashboard)/kellerbuch/_behandlungen/Kellerbehandlungen.tsx')
     // KAN-222: mit Korrektur durch die Betriebsleitung
     assert.match(p, /<GesperrtHinweis grund=\{BEHANDLUNG_FREEZE_GRUND\} erlaubt=\{\['Notizen'\]\} betriebsleitung=\{betriebsleitung\} \/>/)
     assert.match(p, /<fieldset disabled=\{formGesperrt\}/)

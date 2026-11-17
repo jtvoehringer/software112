@@ -1084,7 +1084,8 @@
 "sort_order",
 "created_at",
 "pn_wirkung",
-"elabel_zutat_id"
+"elabel_zutat_id",
+"gebindepflege"
 ],
 "keller_freigaben": [
 "id",

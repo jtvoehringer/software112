@@ -32,7 +32,7 @@ import { ABSTUFEN_GRUND_MIN, abstufenFehler, teilmengeFehler } from '@/lib/kelle
 import { nurBelegendeChargen } from '@/lib/kellerbuch/leereGebinde'
 import { umziehen } from './umziehen/actions'
 import { chargePflichtFehler, chargePnSperre, chargePnSperreText, NUR_ABSTUFEN_MELDUNG } from '@/lib/kellerbuch/chargeRegeln'
-import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, behandlungZugangFehler, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
+import { behandlungCharge, behandlungMengeFehler, behandlungOhneChargeFehler, behandlungPnGesperrt, behandlungZugangFehler, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, BEHANDLUNG_OHNE_CHARGE, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { statusDatumFehler, statusWechselBuchungsrelevant } from '@/lib/kellerbuch/chargeStatus'
 import { verarbeitungFehler } from '@/lib/kellerbuch/verarbeitung'
@@ -153,7 +153,7 @@ async function protokolliereGebindeUmbenennung(
   let typId = (bestehenderTyp as R | null)?.id ?? null
   if (!typId) {
     const { data: neuerTyp, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
-      .insert({ tenant_id: tenantId, name: TYP_NAME, einheit_standard: '-' })
+      .insert({ tenant_id: tenantId, name: TYP_NAME, einheit_standard: '-', gebindepflege: true })   // KAN-475: Eintrag ohne Charge
       .select('id').single()
     if (typErr) {
       console.error('[protokolliereGebindeUmbenennung] Typ konnte nicht angelegt werden:', (typErr as R).message)
@@ -993,8 +993,19 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   const tenantId = await kellerbuchSchreibrecht()
 
   const id = (formData.get('id') as string) || null
-  const behaelterId = formData.get('behaelter_id') as string
-  if (!behaelterId) throw new AktionsFehler('Kein Behälter angegeben')
+  // KAN-475: Behandelt wird die Charge – das Gebinde ist nur die Angabe „lag damals in …“. Ohne Gebinde im Formular
+  // (Seite der Charge) kommt es von der Charge; ohne Charge bleibt nur die Gebindepflege am Gebinde.
+  const gewaehlt = (formData.get('weinausbau_id') as string) || null
+  let behaelterId = ((formData.get('behaelter_id') as string) || '').trim() || null
+  if (!behaelterId && !gewaehlt) throw new AktionsFehler(BEHANDLUNG_OHNE_CHARGE)
+  if (!behaelterId && gewaehlt) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lage, error: lageErr } = await (supabase.from('weinausbau') as any)
+      .select('id, behaelter_id').eq('id', gewaehlt).eq('tenant_id', tenantId).maybeSingle()
+    if (lageErr) throw new AktionsFehler(dbFehlerText(lageErr, 'Charge konnte nicht geladen werden'))
+    if (!lage) throw new AktionsFehler('Charge nicht gefunden')
+    behaelterId = ((lage as R).behaelter_id as string | null) ?? null   // Charge ohne Gebinde: bleibt leer
+  }
   const datum = formData.get('datum') as string
   if (!datum) throw new AktionsFehler('Kein Datum angegeben')
   const typId = formData.get('typ_id') as string
@@ -1002,7 +1013,7 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: typRaw, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
-    .select('id, name, einheit_standard, pn_wirkung').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
+    .select('id, name, einheit_standard, pn_wirkung, gebindepflege').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
   if (typErr) throw new AktionsFehler(dbFehlerText(typErr, 'Behandlungstyp konnte nicht geladen werden'))
   if (!typRaw) throw new AktionsFehler('Behandlungstyp nicht gefunden')
   const typ = typRaw as R
@@ -1015,9 +1026,10 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
 
   // Aktive Chargen im Gebinde: Volumen-Vorschlag und Charge (KAN-206)
   // alle-ausnahme: aktive Chargen eines einzelnen Behälters
+  // KAN-475: eine Charge ohne Gebinde hat keine „Chargen im Gebinde“ – dann zählt die Charge selbst
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: chargenImBehaelter, error: chargenErr } = await (supabase.from('weinausbau') as any)
-    .select('id, menge_liter').eq('behaelter_id', behaelterId).eq('aktiv', true).eq('tenant_id', tenantId)
+  const chargenAbfrage = (supabase.from('weinausbau') as any).select('id, menge_liter').eq('aktiv', true).eq('tenant_id', tenantId)
+  const { data: chargenImBehaelter, error: chargenErr } = await (behaelterId ? chargenAbfrage.eq('behaelter_id', behaelterId) : chargenAbfrage.eq('id', gewaehlt))
   // KAN-253: sonst würde das Ist-Volumen aus einer leeren Liste errechnet
   if (chargenErr) throw new AktionsFehler(dbFehlerText(chargenErr, 'Chargen im Gebinde konnten nicht geladen werden'))
   const chargenListe = (chargenImBehaelter ?? []) as R[]
@@ -1033,12 +1045,14 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
 
   let notizen = (formData.get('notizen') as string) || null
   // KAN-206: Charge Pflicht, sobald Wein im Gebinde liegt – beim Anlegen die einzige Charge automatisch
-  const gewaehlt = (formData.get('weinausbau_id') as string) || null
   let weinausbauId = gewaehlt
   if (!id) {
     const c = behandlungCharge(gewaehlt, chargenListe.map(w => String(w.id)))
     if (c.fehler) throw new AktionsFehler(c.fehler)
     weinausbauId = c.chargeId
+    // KAN-475: ohne Charge (leeres Gebinde) nur Gebindepflege – dieselbe Regel wie der Trigger a_charge_pflicht
+    const ohneCharge = behandlungOhneChargeFehler(weinausbauId, typ.gebindepflege === true)
+    if (ohneCharge) throw new AktionsFehler(ohneCharge)
   }
 
   // KAN-41 Paket 3b: Volumenzugang (ZU_BEH) – erhöht den Bestand der Charge (Trigger z_zugang_bestand)
@@ -1048,7 +1062,7 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   if (zugangFehler) throw new AktionsFehler(zugangFehler)
   // KAN-381: der Volumenzugang muss ins Gebinde passen (neue Behandlung; beim Bearbeiten lehnt die Datenbank eine Erhöhung
   // über das Fassungsvermögen ab – die Meldung kommt über dbFehlerText unverändert ans Formular)
-  if (!id && zugangLiter != null && zugangLiter > 0) {
+  if (!id && behaelterId && zugangLiter != null && zugangLiter > 0) {
     const voll = await pruefeFassung(supabase, tenantId, [{ behaelterId, zugang: zugangLiter }])
     if (voll) throw new AktionsFehler(voll)
   }
@@ -1172,10 +1186,14 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     }
   }
 
-  revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
-  revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
+  if (behaelterId) {
+    revalidatePath(`/kellerbuch/behaelter/${behaelterId}`)
+    revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
+    revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
+  }
   if (weinausbauId) {
     revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}`)
+    revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/behandlungen`)
     revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/buch`)
   }
   revalidatePath('/kellerbuch')
@@ -1190,7 +1208,7 @@ export async function createKellerbehandlung(formData: FormData): Promise<Keller
 }
 
 /** Neuer Behandlungstyp mit Einstufung für die Prüfnummer (KAN-100) */
-export async function legeBehandlungstypAn(name: string, einheit: string | null, wirkung: string): Promise<{ id: string; name: string; einheit_standard: string | null; pn_wirkung: PnWirkung }> {
+export async function legeBehandlungstypAn(name: string, einheit: string | null, wirkung: string, gebindepflege = false): Promise<{ id: string; name: string; einheit_standard: string | null; pn_wirkung: PnWirkung; gebindepflege: boolean }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await kellerbuchSchreibrecht()
   const n = (name ?? '').trim()
@@ -1199,10 +1217,11 @@ export async function legeBehandlungstypAn(name: string, einheit: string | null,
   if (wirkungFehler) throw new AktionsFehler(wirkungFehler)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('keller_behandlungstypen') as any)
-    .insert({ tenant_id: tenantId, name: n, einheit_standard: einheit || null, pn_wirkung: pnWirkungAus(wirkung) })
-    .select('id, name, einheit_standard, pn_wirkung').single()
+    // KAN-475: am leeren Gebinde angelegte Typen sind Gebindepflege (nur solche sind ohne Charge erlaubt)
+    .insert({ tenant_id: tenantId, name: n, einheit_standard: einheit || null, pn_wirkung: pnWirkungAus(wirkung), gebindepflege: gebindepflege === true })
+    .select('id, name, einheit_standard, pn_wirkung, gebindepflege').single()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Behandlungstyp konnte nicht angelegt werden'))
-  return data as { id: string; name: string; einheit_standard: string | null; pn_wirkung: PnWirkung }
+  return data as { id: string; name: string; einheit_standard: string | null; pn_wirkung: PnWirkung; gebindepflege: boolean }
 }
 
 /**
@@ -1224,7 +1243,7 @@ export async function kellerNotizErfassen(formData: FormData): Promise<Kellerbeh
   if (!typId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu, error } = await (supabase.from('keller_behandlungstypen') as any)
-      .insert({ tenant_id: tenantId, name: NOTIZ_TYP, einheit_standard: '-', pn_wirkung: 'pflege' })
+      .insert({ tenant_id: tenantId, name: NOTIZ_TYP, einheit_standard: '-', pn_wirkung: 'pflege', gebindepflege: true })   // KAN-475: auch am leeren Gebinde
       .select('id').single()
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Typ „Notiz“ konnte nicht angelegt werden'))
     typId = String((neu as R).id)

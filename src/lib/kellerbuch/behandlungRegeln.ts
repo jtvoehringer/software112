@@ -44,6 +44,14 @@ export function behandlungCharge(gewaehlt: string | null, chargenImGebinde: stri
   return { chargeId: null, fehler: null }   // leeres Gebinde: Behälterpflege ohne Charge
 }
 
+/** KAN-475: Meldung, wenn eine Kellerbehandlung ohne Charge erfasst werden soll (gleicher Wortlaut wie der Trigger a_charge_pflicht) */
+export const BEHANDLUNG_OHNE_CHARGE = 'Kellerbehandlungen werden an der Charge erfasst. Ohne Charge ist am Gebinde nur Gebindepflege möglich (Reinigen, Konservieren, Umbenennung, Notiz).'
+
+/** KAN-475: ohne Charge nur ein Typ der Gebindepflege; null = in Ordnung */
+export function behandlungOhneChargeFehler(chargeId: string | null, typIstGebindepflege: boolean): string | null {
+  return chargeId || typIstGebindepflege ? null : BEHANDLUNG_OHNE_CHARGE
+}
+
 /** Menge Pflicht, außer die Einheit ist „-“ (ohne Mengenangabe); null = in Ordnung */
 export function behandlungMengeFehler(menge: number | null, einheit: string | null): string | null {
   if (einheit === '-') return null

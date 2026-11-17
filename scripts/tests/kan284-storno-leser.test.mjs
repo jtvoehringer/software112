@@ -61,7 +61,10 @@ test('jede lesende Abfrage auf die Buchungstabellen filtert stornierte Zeilen od
   assert.deepEqual(funde, [], 'ohne .is(\'storniert_am\', null) bzw. // storno-sichtbar: <Grund>')
 })
 
-test('Dashboard: letzte Maßnahme je Gebinde ohne stornierte Kellerbehandlungen', () => {
+// KAN-475: je Charge statt je Gebinde (dort stand sonst die Maßnahme einer früheren Charge) – weiterhin ohne stornierte
+test('Dashboard: letzte Maßnahme je Charge ohne stornierte Kellerbehandlungen', () => {
   const d = readFileSync(path.join(SRC, 'app/(dashboard)/dashboard/_shared/data.ts'), 'utf8')
-  assert.match(d, /ctx\.q\('keller_behandlungen'\)\.select\('behaelter_id, datum, typ_name_snapshot, menge, einheit'\)\.in\('behaelter_id', b\)\.is\('storniert_am', null\)/)
+  assert.match(d, /ctx\.q\('keller_behandlungen'\)\.select\('weinausbau_id, datum, typ_name_snapshot, menge, einheit'\)\.in\('weinausbau_id', b\)\.is\('storniert_am', null\)/)
+  assert.doesNotMatch(d, /letzteMassnahme\.get\(c\.behaelter_id\)/)
+  assert.match(d, /const m = letzteMassnahme\.get\(c\.id\) \?\? null/)
 })

@@ -101,7 +101,7 @@ const UMGESTELLT = [
   ['src/app/api/kostenrechnung/route.ts', 'kosteneintrag_id', 'Aufteilung auf Rieden fehlte'],
   ['src/app/(dashboard)/weinhandel/page.tsx', 'fuellung_id', 'Lösch-Sperre der Füllungen fehlte'],
   ['src/app/(dashboard)/dashboard/_shared/data.ts', 'weinausbau_id', 'letzte Analyse je Charge fehlte'],
-  ['src/app/(dashboard)/dashboard/_shared/data.ts', 'behaelter_id', 'letzte Maßnahme je Behälter fehlte'],
+  // KAN-475: die letzte Maßnahme lädt das Dashboard je Charge – über dieselbe Liste wie die Analysen (Zeile darüber)
   ['src/app/(dashboard)/weinhandel/traubenverkauf/page.tsx', 'zukauf_posten_id', 'verfügbare kg aus Zukauf falsch'],
   ['src/app/(dashboard)/weingarten/actions.ts', 'weingarten_id', 'Lösch-Sperre der Rieden scheiterte'],
   ['src/app/(dashboard)/weingarten/actions.ts', 'grundstueck_id', 'Lösch-Sperre der Grundstücke scheiterte'],
