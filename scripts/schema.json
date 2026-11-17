@@ -1075,7 +1075,8 @@
 "storniert_von_name",
 "storno_grund",
 "zugang_liter",
-"sammel_id"
+"sammel_id",
+"pressung_id"
 ],
 "keller_behandlungstypen": [
 "id",

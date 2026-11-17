@@ -200,7 +200,7 @@ DECLARE
     'fuellung_chargen=anteil_liter,fuellung_id,notizen,tenant_id,weinausbau_id',
     'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,bezeichnung,dac_antrag_id,datum,einstandspreis,erzeugnis,flaschengroesse_ml,herkunft_code,jahrgang,land_iso,leergewicht_g,menge_liter_gefuellt,mwst_pct,name,notizen,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,vk_preis_brutto,weinart,weinausbau_id,zolltarifnummer,zusatzbezeichnung',   -- KAN-150 F1a: + dac_antrag_id; KAN-186: + erzeugnis, land_iso, weinart, zusatzbezeichnung; KAN-378: + Preise, MwSt., KN-Code (Grund im Protokoll)
     'psm_lager_bewegungen=datum,einheit,menge,notizen,psm_id,storniert_am,storno_grund,tenant_id,typ',   -- KAN-88: + Storno
-    'keller_behandlungen=behaelter_id,datum,einheit,menge,notizen,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',
+    'keller_behandlungen=behaelter_id,datum,einheit,menge,notizen,pressung_id,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',   -- KAN-481: pressung_id (Maßnahme an der Maische)
     'lesen=art,beginn,bezeichnung,ende,jahrgang_id,lfd_nr,notizen,tenant_id',
     'keller_umzuege=brutto_liter,datum,menge_liter,nach_behaelter_id,nach_weinausbau_id,notizen,schwund_liter,storniert_am,storno_grund,tenant_id,umzug_batch_id,umzug_typ,von_behaelter_id,von_weinausbau_id,zeilen_typ',
     'pressung_behaelter=behaelter_id,menge_liter,notizen,pressung_id,storniert_am,storno_grund,weinausbau_id',

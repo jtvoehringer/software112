@@ -26,6 +26,7 @@ import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
 import { MAISCHE_GEBINDE_FEHLT } from '@/lib/wein/maische'
+import MaischeMassnahmen from './MaischeMassnahmen'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1113,6 +1114,12 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                         </span>
                       </div>
                     </div>
+
+                    {/* KAN-481: Maßnahmen an der Maische (offen oder abgepresst) – die Chargen übernehmen sie anteilig */}
+                    {p.maische && !p.storno && (
+                      <MaischeMassnahmen pressungId={p.id} nummer={p.maische.nummer} beginn={p.maische.beginn} offen={p.maische.offen}
+                        pressdatum={p.datum} schreiben={writeOk} />
+                    )}
 
                     {/* Weingärten */}
                     {p.weingaerten.length > 0 && (

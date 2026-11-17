@@ -12,6 +12,8 @@ import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { useRouter } from 'next/navigation'
 import { FlaskConical, Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
+import { ladeMaischeAnteile } from '@/lib/kellerbuch/maischeMassnahmen'
+import { maischeVermerk, type MaischeAnteilZeile } from '@/lib/wein/maischeAnteile'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { deleteKellerbehandlung, endgueltigLoeschen, speichereKellerbehandlung, legeBehandlungstypAn, setzeBehandlungstypWirkung } from '../actions'
@@ -55,6 +57,8 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
   const [charge, setCharge]             = useState<R | null>(null)
   // KAN-475: Vorgeschichte – Behandlungen der Ursprungscharge bis zum (Teil-)Umzug, aus dem diese Charge entstand
   const [vorgeschichte, setVorgeschichte] = useState<{ charge: string; bis: string; zeilen: R[] }[]>([])
+  // KAN-481: Maßnahmen an der Maische, aus der der Most dieser Charge stammt – anteilig nach Litern (nur Anzeige)
+  const [maischeAnteile, setMaischeAnteile] = useState<MaischeAnteilZeile[]>([])
   const [behaelter, setBehaelter]       = useState<R | null>(null)
   const [behandlungen, setBehandlungen] = useState<R[]>([])
   const [typen, setTypen]               = useState<R[]>([])
@@ -144,7 +148,7 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
       // storno-sichtbar: Liste zeigt stornierte Behandlungen gekennzeichnet, ohne Aktionen (KAN-145 B3)
       .order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
     // KAN-475: an der Charge ihre Behandlungen (in welchem Gebinde auch immer), am Gebinde nur die Gebindepflege ohne Charge
-    behandlungenQuery = chargeId ? behandlungenQuery.eq('weinausbau_id', chargeId) : behandlungenQuery.eq('behaelter_id', bId).is('weinausbau_id', null)
+    behandlungenQuery = chargeId ? behandlungenQuery.eq('weinausbau_id', chargeId) : behandlungenQuery.eq('behaelter_id', bId).is('weinausbau_id', null).is('pressung_id', null)   // KAN-481: ohne Maßnahmen an einer Maische
     let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard, pn_wirkung, gebindepflege').order('sort_order').order('name')
     // KAN-107: aktive Stoffe des Stoffkontos (wenige Stammdaten je Betrieb)
     // alle-ausnahme: Stammdaten-Auswahl der aktiven Stoffe des Betriebs, wenige
@@ -222,8 +226,13 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
         if (((vb ?? []) as R[]).length > 0) vor.push({ charge: String((u.quelle as R | null)?.name ?? 'Ursprungscharge'), bis: String(u.datum).slice(0, 10), zeilen: (vb ?? []) as R[] })
       }
       setVorgeschichte(vor)
+      // KAN-481: anteilige Maßnahmen der Maische (die Einträge selbst stehen bei der Maische unter Lese › Pressungen)
+      const an = await ladeMaischeAnteile(supabase, activeTenantId, [chargeId])
+      if (an.error !== null) { setLadeFehler(an.error); setLoading(false); return }
+      setMaischeAnteile(an.data.get(chargeId) ?? [])
     } else {
       setVorgeschichte([])
+      setMaischeAnteile([])
     }
     setLoading(false)
   }
@@ -729,6 +738,26 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
       )}
 
       {/* KAN-475: Vorgeschichte aus der Ursprungscharge (nur Anzeige) */}
+      {maischeAnteile.length > 0 && (
+        <section aria-label="Maßnahmen an der Maische" className="card p-4">
+          <h2 className="text-sm font-semibold text-s112-text">An der Maische</h2>
+          <p className="text-xs text-s112-text-2 mb-2">
+            Maßnahmen an der Maische, aus der der Most dieser Charge stammt – anteilig nach den Litern, die beim Abpressen in diese Charge gingen.
+            Erfasst und storniert werden sie bei der Maische (Lese › Pressungen).
+          </p>
+          <ul className="divide-y divide-s112-line text-sm">
+            {maischeAnteile.filter(z => (!von || z.datum >= von) && (!bis || z.datum <= bis)).map(z => (
+              <li key={z.id} className="py-1.5 flex flex-wrap items-baseline gap-x-3">
+                <span className="text-xs text-s112-text-2 tabular-nums whitespace-nowrap">{z.datum.split('-').reverse().join('.')}</span>
+                <span className="font-medium text-s112-text">{z.behandlung}</span>
+                {z.mengeAnteil !== null && <span className="tabular-nums text-s112-text-1">{fmtNum(z.mengeAnteil)} {z.einheit ?? ''}</span>}
+                <span className="text-xs text-s112-text-2">{maischeVermerk(z.maische, z.anteilPct)}{z.menge !== null && z.einheit ? ` (an der ganzen Maische: ${fmtNum(z.menge)} ${z.einheit})` : ''}</span>
+                {z.notizen && <span className="text-xs text-s112-muted">{z.notizen}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {vorgeschichte.map(v => (
         <section key={`${v.charge}-${v.bis}`} aria-label={`Übernommen von Charge ${v.charge}`} className="card p-4">
           <h2 className="text-sm font-semibold text-s112-text">Übernommen von Charge {v.charge}</h2>

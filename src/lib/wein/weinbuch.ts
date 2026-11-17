@@ -44,6 +44,8 @@ import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { zukaufTbsVermerk } from '@/lib/handel/tbsNummer'
 import { pnStandAm, pnStandText, pnVerlaufEreignisse, type PnVerlauf } from '@/lib/kellerbuch/pruefnummerVerlauf'
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
+import { ladeMaischeAnteile } from '@/lib/kellerbuch/maischeMassnahmen'
+import { maischeVermerk } from '@/lib/wein/maischeAnteile'
 import { ladeWeinbuchDaten, type WeinbuchDaten } from '@/lib/wein/weinbuchDaten'
 import {
   eroeffnungEreignis, fassverkaufEreignis, journalAbweichungHinweis, journalEreignisse, journalSaldo,
@@ -186,6 +188,7 @@ export async function buildWeinbuch(
       .eq('tenant_id', tenantId)
       .eq('behaelter_id', wa.behaelter_id)
       .is('weinausbau_id', null)
+      .is('pressung_id', null)   // KAN-481: Maßnahmen an einer Maische gehören zu deren Chargen (unten, anteilig)
       .order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id')
     if (kbFallbackErr) warnungen.push(`Kellerbehandlungen ohne Charge konnten nicht geladen werden (${kbFallbackErr.message}).`)
     const kandidaten = (kbFallbackRaw ?? []) as R[]
@@ -449,6 +452,20 @@ export async function buildWeinbuch(
         u.schwund_liter && `Schwund: ${fmtNum(parseFloat(u.schwund_liter))} L`,
       ].filter(Boolean) as string[],
     })
+  }
+
+  // KAN-481: Maßnahmen an der Maische, aus der der Most der Charge stammt – anteilig nach Litern, mit Vermerk.
+  // Nur wenn eine (nicht stornierte) Pressung der Charge eine Maische war; sonst keine zusätzliche Abfrage.
+  if (tenantId && pressungen.some(pb => !pb.storniert_am && (pb.pressung as R | null)?.maische_beginn && !(pb.pressung as R | null)?.storniert_am)) {
+    const anteile = await ladeMaischeAnteile(supabase, tenantId, [String(wa.id)])
+    if (anteile.error !== null) warnungen.push(`${anteile.error}.`)
+    else {
+      kellerBeh = [...kellerBeh, ...(anteile.data.get(String(wa.id)) ?? []).map(z => ({
+        id: `maische-${z.id}`, datum: z.datum, created_at: z.zeitpunkt, typ_name_snapshot: z.behandlung,
+        menge: z.mengeAnteil, einheit: z.mengeAnteil === null ? null : z.einheit, notizen: z.notizen,
+        _vermerk: `${maischeVermerk(z.maische, z.anteilPct)}${z.menge !== null && z.einheit ? ` (an der ganzen Maische: ${fmtNum(z.menge)} ${z.einheit})` : ''}`,
+      }))]
+    }
   }
 
   for (const kb of kellerBeh) {

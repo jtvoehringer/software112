@@ -75,7 +75,7 @@ export async function ladeWeinbuchDaten(supabase: any, tenantId: string | null, 
       .select(`
         id, weinausbau_id, menge_liter, storniert_am, storno_grund, storniert_von_name,
         pressung:pressung_id!inner(
-          id, datum, erstellt_am, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am, kmw_grad, oechsle, mostgewicht_einheit,
+          id, datum, erstellt_am, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am, kmw_grad, oechsle, mostgewicht_einheit, maische_beginn,
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, storniert_am,
             weingarten:weingarten_id(id, name, flaeche_ha),

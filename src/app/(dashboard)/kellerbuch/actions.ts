@@ -15,6 +15,7 @@ import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { gebindeNameDoppelt, materialFelder } from '@/lib/keller/gebindeMaterial'
 import { pickerlFehler, schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
 import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
+import { maischeMassnahmeFehler } from '@/lib/wein/maischeAnteile'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { KAMMERN_MAX, TANK_NAME_MAX, TANK_TYPEN, tankDbFehler, tankEingabeFehler, type KammerEingabe } from '@/lib/keller/tanks'
@@ -997,6 +998,21 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   // (Seite der Charge) kommt es von der Charge; ohne Charge bleibt nur die Gebindepflege am Gebinde.
   const gewaehlt = (formData.get('weinausbau_id') as string) || null
   let behaelterId = ((formData.get('behaelter_id') as string) || '').trim() || null
+  // KAN-481: Maßnahme an der Maische (Pressung mit Maische-Beginn) statt an einer Charge – das Gebinde ist das der
+  // Maische; dieselben Typen, dasselbe Stoffkonto. Die Chargen der Pressung übernehmen sie anteilig (gerechnet).
+  const maischeId = ((formData.get('pressung_id') as string) || '').trim() || null
+  let maische: R | null = null
+  if (maischeId) {
+    if (gewaehlt) throw new AktionsFehler('Eine Maßnahme gehört entweder zu einer Charge oder zu einer Maische – nicht zu beiden.')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: m, error: mErr } = await (supabase.from('pressungen') as any)
+      // storno-sichtbar: eine stornierte Maische wird mit eigener Meldung abgelehnt (maischeMassnahmeFehler)
+      .select('id, jahrgang_id, datum, maische_beginn, maische_offen, maische_behaelter_id, storniert_am').eq('id', maischeId).eq('tenant_id', tenantId).maybeSingle()
+    if (mErr) throw new AktionsFehler(dbFehlerText(mErr, 'Maische konnte nicht geladen werden'))
+    if (!m) throw new AktionsFehler('Maische nicht gefunden – bitte die Seite neu laden.')
+    maische = m as R
+    behaelterId = (maische.maische_behaelter_id as string | null) ?? null
+  }
   if (!behaelterId && !gewaehlt) throw new AktionsFehler(BEHANDLUNG_OHNE_CHARGE)
   if (!behaelterId && gewaehlt) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1008,6 +1024,14 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   }
   const datum = formData.get('datum') as string
   if (!datum) throw new AktionsFehler('Kein Datum angegeben')
+  if (maische) {
+    // KAN-481: Datum innerhalb der Maischezeit – dieselbe Regel wie der Trigger z_charge_pflicht
+    const mf = maischeMassnahmeFehler({
+      beginn: (maische.maische_beginn as string | null) ?? null, offen: maische.maische_offen === true,
+      pressdatum: (maische.datum as string | null) ?? null, storniert: !!maische.storniert_am, datum,
+    })
+    if (mf) throw new AktionsFehler(mf)
+  }
   const typId = formData.get('typ_id') as string
   if (!typId) throw new AktionsFehler('Kein Behandlungstyp angegeben')
 
@@ -1051,7 +1075,8 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     if (c.fehler) throw new AktionsFehler(c.fehler)
     weinausbauId = c.chargeId
     // KAN-475: ohne Charge (leeres Gebinde) nur Gebindepflege – dieselbe Regel wie der Trigger a_charge_pflicht
-    const ohneCharge = behandlungOhneChargeFehler(weinausbauId, typ.gebindepflege === true)
+    // KAN-481: an der Maische sind alle Behandlungstypen möglich (noch keine Charge)
+    const ohneCharge = maische ? null : behandlungOhneChargeFehler(weinausbauId, typ.gebindepflege === true)
     if (ohneCharge) throw new AktionsFehler(ohneCharge)
   }
 
@@ -1124,6 +1149,7 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     ...(formData.has('zugang_liter') ? { zugang_liter: zugangLiter } : {}),
     notizen,
     weinausbau_id:      weinausbauId,
+    ...(maische ? { pressung_id: maischeId } : {}),   // KAN-481
   }
 
   let neueId: string
@@ -1196,6 +1222,7 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/behandlungen`)
     revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/buch`)
   }
+  if (maische) revalidatePath(`/erntemeldung/${maische.jahrgang_id}`)   // KAN-481: Liste an der Maische
   revalidatePath('/kellerbuch')
   return hinweis ? { id: neueId, hinweis } : { id: neueId }
 }

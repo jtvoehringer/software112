@@ -37,7 +37,7 @@ describe('KAN-478: letzte Maßnahmen führen zur Charge', () => {
 describe('KAN-478: Gebinde-Seite lädt nur Daten der Chargen, die jetzt drin liegen', () => {
   const s = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/page.tsx')
   test('Behandlungen: der aktuellen Chargen oder Gebindepflege ohne Charge – nie frühere Chargen des Gebindes', () => {
-    assert.ok(s.includes('.or(chargenIds.length > 0 ? `weinausbau_id.in.(${liste}),and(weinausbau_id.is.null,behaelter_id.eq.${id})` : `and(weinausbau_id.is.null,behaelter_id.eq.${id})`)'))
+    assert.ok(s.includes('.or(chargenIds.length > 0 ? `weinausbau_id.in.(${liste}),and(weinausbau_id.is.null,pressung_id.is.null,behaelter_id.eq.${id})` : `and(weinausbau_id.is.null,pressung_id.is.null,behaelter_id.eq.${id})`)'))
     assert.ok(!s.includes(".eq('tenant_id', tenantId).eq('behaelter_id', id).is('storniert_am', null)"), 'kein Laden aller Behandlungen des Gebindes mehr')
   })
   test('Umzüge: nur der aktuellen Chargen; leeres Gebinde lädt keine Umzüge und keine Analysen', () => {

@@ -411,7 +411,7 @@ describe('keller-behandlungen', () => {
     assert.ok(c.includes('href={`/kellerbuch/weinausbau/${b.chargeId}/behandlungen`}') && !c.includes('b.gebinde'))
     // die Ladefunktion kennt kein Gebinde mehr und sortiert Vorgänge desselben Tages fest (KAN-384)
     const l = lies('src/lib/behoerden/keller-behandlungen.ts')
-    assert.ok(!/behaelter|ladeBelegungen|chargeAmTag/.test(l))
+    assert.ok(!/behaelter_id|behaelter:|gebinde|ladeBelegungen|chargeAmTag/.test(l))   // KAN-481: pressung_behaelter (Mostzeilen) ist kein Gebinde der Behandlung
     assert.ok(l.includes(".order('datum', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true })"))
   })
 })
