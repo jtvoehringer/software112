@@ -70,7 +70,8 @@ export type EventTyp =
   | 'fuellung'
   | 'verschneidung'
   | 'umstufung'   // KAN-82: Abstufung der Charge (charge_umstufungen)
-  | 'eroeffnung'  // KAN-44: Eröffnungsbestand bzw. Übertrag bei Eröffnung des Journals
+  | 'eroeffnung'  // KAN-44: Eröffnungsbestand
+  | 'journalbeginn' // KAN-482: Vermerk „Bewegungsjournal eröffnet“ (Bestand am Journalbeginn, kein Zugang)
   | 'zukauf'      // KAN-44: Zukauf in die Charge
   | 'verkauf'     // KAN-44: Fassverkauf aus der Charge
   | 'bestand'     // KAN-44: weitere Mengenbewegungen (Korrektur, Verarbeitung, Produktion, Lohnversektung …)

@@ -34,6 +34,7 @@ export const WEINBUCH_TYP_LABEL: Record<EventTyp, string> = {
   schwund:          'Schwund',
   fuellung:         'Füllung',
   eroeffnung:       'Eröffnungsbestand',   // KAN-44: Mengenbewegungen aus dem Journal
+  journalbeginn:    'Vermerk Bewegungsjournal',   // KAN-482: kein Zugang
   zukauf:           'Zukauf',
   verkauf:          'Fassverkauf',
   bestand:          'Mengenbewegung',
