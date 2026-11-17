@@ -627,8 +627,10 @@ describe('weinbuch und weinbuch-sammlung', () => {
 
 describe('rueckverfolgung', () => {
   const fuellung = { id: 'f1', name: 'Cuvée Rot', chargennummer: 'L-26-02', pruefnummer: '04023/26', datum: '2026-03-01', jahrgang: 2024, rebsorte: 'Cuvée', anzahl_flaschen: '1000', flaschengroesse_ml: 750 }
-  const pw1 = { id: 'pw1', weingarten_id: 'w1', grundstueck_id: 'g1', trauben_kg: '600.4', rebsorte: 'Zweigelt', ernte_datum: '2024-09-29', kmw: '19.25', weingarten: { id: 'w1', name: 'Ried Hochrain' }, grundstueck: { gst_nr: '1234/5', katastralgemeinde: '04023' } }
-  const pw2 = { id: 'pw2', weingarten_id: 'w2', grundstueck_id: null, trauben_kg: '400', rebsorte: 'Zweigelt', ernte_datum: '2024-09-30', kmw: null, weingarten: { id: 'w2', name: 'Ried Au' }, grundstueck: null }
+  const pw1 = { id: 'pw1', weingarten_id: 'w1', grundstueck_id: 'g1', trauben_kg: '600.4', rebsorte: 'Zweigelt', ernte_datum: '2024-09-29', kmw: '19.25', weingarten: { id: 'w1', name: 'Ried Hochrain' }, grundstueck: { gst_nr: '1234/5', katastralgemeinde: '04023' },
+    ernte: { lfd_nr: 3, storniert_am: null, lese: { lfd_nr: 1, jahrgang: { jahrgang: 2024 } } } }   // KAN-477
+  const pw2 = { id: 'pw2', weingarten_id: 'w2', grundstueck_id: null, trauben_kg: '400', rebsorte: 'Zweigelt', ernte_datum: '2024-09-30', kmw: null, weingarten: { id: 'w2', name: 'Ried Au' }, grundstueck: null,
+    ernte: { lfd_nr: 4, storniert_am: '2024-10-02T08:00:00Z', lese: { lfd_nr: 1, jahrgang: { jahrgang: 2024 } } } }   // stornierte Ernte: keine Nummer
   const pressung = { id: 'pb1', menge_liter: '700', pressung: { id: 'p1', datum: '2024-09-30', tenant_id: T, pressung_weingaerten: [pw1, pw2] } }
   // Maßnahmen je Lese (KAN-75): Zeitfenster und Zuordnung liefert ladeChargeKette (Kette.lesen)
   const lesen = [
@@ -652,19 +654,20 @@ describe('rueckverfolgung', () => {
 
   test('Füllung × Ursprung: Anteile, GST/KG als Code, Maßnahmen je Lese mit Zeitfenster', () => {
     const [kopf, ...z] = zellen(csv.csvText(rueck.rueckverfolgungZeilen(ketten), rueck.SPALTEN_RUECKVERFOLGUNG))
-    assert.equal(kopf.length, 32)   // KAN-131: °KMW, °Oe, gemessen in; KAN-89: BKI-Kürzel (Füllung, Lese); KAN-201: Prüfnummer (Tank) am Ende
+    assert.equal(kopf.length, 33)   // KAN-131: °KMW, °Oe, gemessen in; KAN-89: BKI-Kürzel (Füllung, Lese); KAN-201: Prüfnummer (Tank); KAN-477: Ernte-Nr. am Ende
     assert.deepEqual(kopf.slice(23, 26), ['Mostgewicht (°KMW)', 'Mostgewicht (°Oe)', 'Mostgewicht gemessen in'])
-    assert.deepEqual(kopf.slice(26), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen', 'Prüfnummer (Tank)'])
+    assert.deepEqual(kopf.slice(26), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen', 'Prüfnummer (Tank)', 'Ernte-Nr.'])
     assert.equal(z.length, 4)
     const [a, b, c, d] = z
     assert.deepEqual(a.slice(0, 9), ['Cuvée Rot', 'L-26-02', '04023/26', '01.03.2026', '2024', 'Cuvée', '', '1000', '750'])   // KAN-89: „Cuvée“ ohne amtliches Kürzel
     assert.deepEqual(a.slice(9, 17), ['ZW 2024', '2024', '450,00', '60,0', 'Pressung', '30.09.2024', '700,00', 'Ried Hochrain'])
     assert.deepEqual(a.slice(17, 26), ['04023', '1234/5', 'Zweigelt', 'ZW', '600', '29.09.2024', '19,25', '95,5', '°KMW'])   // °KMW verlustfrei (2 Stellen), °Oe gerechnet
     // Fensterbeginn immer 01.01. des Jahrgangs (Spalte „Behandlungen ab“), kein Hinweis dazu
-    assert.deepEqual(a.slice(26), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', '', ''])
+    assert.deepEqual(a.slice(26), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', '', '', '2024/1-03'])   // KAN-477: Ernte-Nr. am Ende
     assert.deepEqual([b[16], b[17], b[18]], ['Ried Au', '', ''])
     assert.deepEqual(b.slice(26), ['01.01.2024', '30.09.2024', '2', '01.07.2024–03.07.2024 Laubarbeit (GST 7/1, 7/2) | 01.08.2024 Düngung (am Weingarten erfasst)',
-      'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.', ''])
+      'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.', '', ''])
+    assert.equal(c.at(-1), '', 'ohne Pressung keine Ernte-Nr.')
     assert.deepEqual([c[9], c[12], c[13], c[14]], ['BF Zukauf', '40,0', 'ohne Pressung (Zukauf, Eröffnungsbestand oder Verschnitt – siehe Blend-Protokoll)', ''])
     assert.deepEqual([d[0], d[9], d[13]], ['Alt-Füllung', '', 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung'])
   })

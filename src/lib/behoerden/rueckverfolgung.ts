@@ -37,6 +37,15 @@ import {
   type ErnteEintrag, type ErnteErsatz, type FruehereLese, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
 } from './rueckverfolgungFenster'
 import { AktionsFehler } from '@/lib/fehler'
+import { ernteNummer } from '@/lib/kellerbuch/chargeErnten'
+
+/** „2027/1-03“ der Ernte einer Traubenzeile (KAN-477) – null ohne Zuordnung (ältere Pressung, Zukauf) oder bei stornierter Ernte */
+export function ernteNrDerTraubenzeile(wg: R): string | null {
+  const e = wg.ernte as R | null | undefined
+  if (!e || e.storniert_am) return null
+  const lese = e.lese as R | null | undefined
+  return ernteNummer((lese?.jahrgang as R | null | undefined)?.jahrgang as number | null | undefined, lese?.lfd_nr as number | null | undefined, e.lfd_nr as number | null | undefined)
+}
 
 /** Maßnahmenarten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden) */
 export const BEHANDLUNG_ART_LABEL: Readonly<Record<string, string>> = MASSNAHMEN_ART_LABEL
@@ -426,6 +435,7 @@ export async function ladeChargeKette(
           lese:lesen!pressungen_lese_fkey(lfd_nr, art),
           pressung_weingaerten(
             id, trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, grundstueck_id, storniert_am,
+            ernte:ernte_parzellen!pressung_weingaerten_ernte_parzelle_id_fkey(lfd_nr, storniert_am, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang))),
             weingarten:weingarten_id(id, name, flaeche_ha),
             grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
           )
@@ -639,6 +649,8 @@ export type RueckverfolgungZeile = {
   rebsorteLese: string | null
   traubenKg: number | null
   lesedatum: string | null
+  /** KAN-477: Nummer der Ernte (Jahrgang/Lese-Ernte), aus der die Trauben stammen – leer bei älteren Pressungen und Zukauf */
+  ernteNr: string | null
   /** KAN-201: Prüfnummer der Charge für den Tankbestand am Abfülltag (übernommen bzw. erloschen) */
   pruefnummerTank: string | null
   /** KAN-131: Mostgewicht wie gespeichert (Lese; ohne Pressung die Charge) – die CSV rundet über mostgewichtCsvSpalten */
@@ -675,7 +687,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
     }
     const leer = {
       charge: null, chargeJahrgang: null, anteilLiter: null, anteilPct: null, pruefnummerTank: null, pressungDatum: null, pressungLiter: null,
-      weingarten: null, katastralgemeinde: null, gstNr: null, rebsorteLese: null, traubenKg: null, lesedatum: null, kmw: null,
+      weingarten: null, katastralgemeinde: null, gstNr: null, rebsorteLese: null, traubenKg: null, lesedatum: null, ernteNr: null, kmw: null,
       oechsle: null, mostgewichtEinheit: null,
       fensterVon: null, fensterBis: null, behandlungenAnzahl: null, behandlungen: null, behandlungenHinweis: null,
     }
@@ -721,6 +733,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
             rebsorteLese: text(wg.rebsorte),
             traubenKg: kg === null ? null : runden(kg, STELLEN.kg),
             lesedatum: tag(wg.ernte_datum) || null,
+            ernteNr: ernteNrDerTraubenzeile(wg),
             kmw: numOderNull(wg.kmw), oechsle: numOderNull(wg.oechsle), mostgewichtEinheit: text(wg.mostgewicht_einheit),
             fensterVon: l?.fenster?.von ?? null,
             fensterBis: l?.fenster?.bis ?? null,
@@ -811,6 +824,8 @@ export const SPALTEN_RUECKVERFOLGUNG: CsvSpalte<RueckverfolgungZeile>[] = [
   { kopf: 'Hinweis Behandlungen', typ: 'text', wert: z => z.behandlungenHinweis },
   // KAN-201: Prüfnummer der Charge am Abfülltag (eigene oder per Umzug übernommen, sonst „erloschen am …“) – am Ende
   { kopf: 'Prüfnummer (Tank)', typ: 'text', wert: z => z.pruefnummerTank },
+  // KAN-477: Ernte-Nummer der Traubenzeile – am Ende, die bisherigen Spalten bleiben an ihrer Stelle
+  { kopf: 'Ernte-Nr.', typ: 'text', wert: z => z.ernteNr },
 ]
 
 // ── Trefferliste (Listen-CSV im Browser) ──────────────────────────────────────

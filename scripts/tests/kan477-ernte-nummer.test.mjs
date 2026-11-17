@@ -82,6 +82,25 @@ describe('KAN-477: Verdrahtung', () => {
   })
 })
 
+describe('KAN-477: Ernte-Nummer in der Rückverfolgung einer Füllung', () => {
+  const r = quelle('src/lib/behoerden/rueckverfolgung.ts')
+  test('Traubenzeile lädt ihre Ernte samt Storno; die Nummer steht in der Zeile, am Bildschirm und als letzte CSV-Spalte', () => {
+    assert.ok(r.includes('ernte:ernte_parzellen!pressung_weingaerten_ernte_parzelle_id_fkey(lfd_nr, storniert_am, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)))'))
+    assert.ok(r.includes('ernteNr: ernteNrDerTraubenzeile(wg),'))
+    const spalten = r.slice(r.indexOf('export const SPALTEN_RUECKVERFOLGUNG:'), r.indexOf('export const SPALTEN_RUECKVERFOLGUNG_TREFFER'))
+    const koepfe = [...spalten.matchAll(/kopf: '([^']+)'/g)].map(m => m[1])
+    assert.deepEqual(koepfe.slice(-2), ['Prüfnummer (Tank)', 'Ernte-Nr.'])
+    assert.ok(quelle('src/app/(dashboard)/kellerbuch/rueckverfolgung/page.tsx').includes('<span>Ernte {ernteNrDerTraubenzeile(wg)}</span>'))
+  })
+  test('Nummer aus Jahrgang, Lese und Ernte; ohne Zuordnung oder bei stornierter Ernte leer', () => {
+    // die Werte selbst prüft kellerbuch.test.mjs („Füllung × Ursprung“: 2024/1-03, stornierte Ernte leer)
+    const f = r.slice(r.indexOf('export function ernteNrDerTraubenzeile'), r.indexOf('export function ernteNrDerTraubenzeile') + 600)
+    assert.ok(f.includes('if (!e || e.storniert_am) return null'))
+    assert.ok(f.includes('return ernteNummer('))
+    assert.equal(ernteNummer(2027, 1, 3), '2027/1-03')
+  })
+})
+
 describe('KAN-477: Migration', () => {
   const ordner = path.join(WURZEL, 'supabase', 'migrations')
   const datei = readdirSync(ordner).find(n => /_kan477_ernte_nummer\.sql$/.test(n))
