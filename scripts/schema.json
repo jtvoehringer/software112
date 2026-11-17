@@ -2419,7 +2419,9 @@
 "abgeschlossen",
 "notizen",
 "created_at",
-"updated_at"
+"updated_at",
+"ernte_suessung",
+"ernte_entsaeuerung"
 ],
 "wetter_stunden": [
 "tenant_id",

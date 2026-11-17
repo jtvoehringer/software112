@@ -1,6 +1,8 @@
 // behoerdenmeldung: erntemeldung, bestandsmeldung
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { schreibSperre } from '@/lib/auth/sperren'
+import ErnteAngabenForm from './ErnteAngabenForm'
 import type { Metadata } from 'next'
 import { BrotkrumenLink } from '@/components/ui/Link'
 import Image from 'next/image'
@@ -51,7 +53,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
 
   const [{ data: jahrgaengeRaw, error: jgFehler }, { data: settingsRaw, error: stFehler }, { data: betriebRaw, error: bioFehler }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('weinjahrgaenge') as any).select('id, jahrgang').eq('tenant_id', tenantId).order('jahrgang', { ascending: false }),
+    (supabase.from('weinjahrgaenge') as any).select('id, jahrgang, ernte_suessung, ernte_entsaeuerung').eq('tenant_id', tenantId).order('jahrgang', { ascending: false }),   // KAN-472 Teil 2: Ankreuzfelder der Meldung
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, betrieb_betriebsnummer, betrieb_telefon, logo_url, modul_controlling')
@@ -68,6 +70,8 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
   const jahrgaenge = (jahrgaengeRaw ?? []) as R[]
   const s = (settingsRaw as R | null) ?? {}
   const aktJahrgang = jahrgaenge.find(j => String(j.jahrgang) === jahrgangParam) ?? jahrgaenge[0]
+  // KAN-472 Teil 2: Ankreuzfelder ändern darf, wer den Jahrgang schreiben darf (Rieden oder Kellerbuch) – nicht im Nur-Lesen-Modus
+  const darfAngaben = (canWrite(membership, 'rieden') || canWrite(membership, 'kellerbuch')) && !(await schreibSperre(membership))
   // Brotkrume wie die Navigation: Rieden › Lese › AMA-Erntemeldung (Review 25.09.2026)
 
   const heuteIso = wienHeute()
@@ -134,6 +138,11 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         </div>
       )}
 
+      {aktJahrgang && (
+        <ErnteAngabenForm key={aktJahrgang.id} jahrgangId={aktJahrgang.id} jahrgang={Number(aktJahrgang.jahrgang)}
+          suessung={aktJahrgang.ernte_suessung === true} entsaeuerung={aktJahrgang.ernte_entsaeuerung === true} schreiben={darfAngaben} />
+      )}
+
       {/* Dokument */}
       <div className="card p-8 print:border-0 print:shadow-none print:p-0 druck-formular">
         {/* Kopf */}
@@ -158,7 +167,8 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
 
         {/* KAN-472: Aufbau des BKI-Formulars – je Rebsorte und Qualitätsstufe in Litern (kg × 0,75), dieselben Werte wie die CSV */}
         {ernte ? (
-          <div className="mb-4"><ErntemeldungFormular formular={ernte.formular} biobetrieb={biobetrieb} /></div>
+          <div className="mb-4"><ErntemeldungFormular formular={ernte.formular} biobetrieb={biobetrieb}
+            suessung={aktJahrgang?.ernte_suessung === true} entsaeuerung={aktJahrgang?.ernte_entsaeuerung === true} /></div>
         ) : (
           <p className="px-3 py-4 text-center text-s112-tertiary text-sm italic border border-s112-line mb-4">
             Für diesen Betrieb ist noch kein Jahrgang angelegt – ohne Ernte bitte die Leermeldung über „Erntemeldung als CSV“ erzeugen.

@@ -18,7 +18,12 @@ import { rund2 } from '@/lib/zahl/runden'
 
 /** Liter Wein je kg Trauben laut Formular („kg × 0,75 = Liter“) – Vorgabe BKI, nicht je Betrieb änderbar */
 export const LITER_JE_KG = 0.75
-/** Beitragssatz gem. §§ 21a ff AMA-Gesetz in € je 100 Liter (Formular St. Dr. Lager-Nr. 155) */
+/**
+ * Beitragssatz gem. §§ 21a ff AMA-Gesetz in € je 100 Liter (Formular St. Dr. Lager-Nr. 155; § 21d AMA-Gesetz 1992,
+ * zuletzt BGBl. I Nr. 209/2022: Wein 1,10 € je 100 Liter). Bundesweit einheitlich und gesetzlich festgelegt – deshalb
+ * hier und nicht als Einstellung je Betrieb (KAN-472 Teil 2); gilt für Ernte- und Bestandsmeldung. Ändert der
+ * Gesetzgeber den Satz, wird er hier geändert.
+ */
 export const AMA_BEITRAG_EUR_JE_100_L = 1.1
 /** Beitragspflicht erst über dieser Erntemenge (Liter) */
 export const AMA_BEITRAG_FREIGRENZE_L = 3000

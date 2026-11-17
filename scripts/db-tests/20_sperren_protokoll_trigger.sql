@@ -506,6 +506,12 @@ BEGIN
     pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET notizen = %L WHERE id = %L', 'S112TEST', v_jg_abg)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('jahrgang_abgeschlossen_ama_felder_frei',
     pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET ama_meldungsnr = ama_meldungsnr WHERE id = %L', v_jg_abg)), 'k1');
+  -- KAN-472 Teil 2: Ankreuzfelder der Erntemeldung gehören zur Meldung – auch bei abgeschlossenem Jahrgang änderbar
+  v_erg := v_erg || pg_temp.s112_erwarte('jahrgang_abgeschlossen_ankreuzfelder_frei',
+    pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET ernte_suessung = NOT ernte_suessung, ernte_entsaeuerung = NOT ernte_entsaeuerung WHERE id = %L', v_jg_abg)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('jahrgang_ankreuzfelder_standard_nein',
+    (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'weinjahrgaenge'
+        AND column_name IN ('ernte_suessung', 'ernte_entsaeuerung') AND is_nullable = 'NO' AND column_default = 'false'), 2::bigint);
   -- B8 behoben (KAN-149 D1, Trigger a_verkauf_storno_schutz): Storno eines Verkaufs nicht rückgängig machbar
   v_erg := v_erg || pg_temp.s112_erwarte('storno_rueckgaengig',
     pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = false WHERE id = %L', v_vp_storno)), 'T');
@@ -1100,6 +1106,6 @@ S112TEST
     pg_temp.s112_versuch(format('UPDATE public.ernte_parzellen SET menge_kg = 130 WHERE id = %L', v_ep_c)), 'k1');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 194);   -- KAN-150 F1a: 140 → 170; KAN-37: +6; KAN-37 B: +10; KAN-37 C: +8
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 196);   -- KAN-472 Teil 2: +2 ·   -- KAN-150 F1a: 140 → 170; KAN-37: +6; KAN-37 B: +10; KAN-37 C: +8
 END
 $test$;
