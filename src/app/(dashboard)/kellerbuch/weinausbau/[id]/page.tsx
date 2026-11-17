@@ -19,6 +19,7 @@ import { bestandNachEreignis, sortenAnteile, zusammensetzung } from '@/lib/wein/
 import { PN_OFFENE_ANTRAGS_STATUS, pnStatusLabel } from '@/lib/dac/workflow'
 import { gebindeText, quellGebindeDesVerschnitts, quellGebindeSchluessel, type Quellgebinde } from '@/lib/kellerbuch/quellGebinde'
 import HerkunftJournalKarte from './HerkunftJournalKarte'
+import ErntenKarte from './ErntenKarte'
 import { chargePnSperre } from '@/lib/kellerbuch/chargeRegeln'
 import SchwundBuchenForm from './SchwundBuchenForm'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
@@ -468,6 +469,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       )}
 
       {/* KAN-192 B: Herkunft laut Bewegungsjournal (nur bei eröffnetem Journal) */}
+      {/* KAN-477: Ernten der Charge mit Nummer und kg-Anteil (Rückverfolgung) */}
+      {tenantId && <ErntenKarte supabase={supabase} tenantId={tenantId} chargeId={weinausbau.id} />}
       {tenantId && <HerkunftJournalKarte supabase={supabase} tenantId={tenantId} chargeId={weinausbau.id} />}
 
       {/* Bewegungsbuch – KAN-342: Zeilen aus dem zentralen Bewegungsbuch (ladeBewegungenCharge), Anfangsbestand als eigene Zeile */}

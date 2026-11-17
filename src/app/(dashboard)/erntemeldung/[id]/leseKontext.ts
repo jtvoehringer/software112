@@ -32,7 +32,7 @@ function zuErnteParzelle(z: LeseZeile): ErnteParzelle {
     id: z.id, weingarten_id: z.weingartenId ?? '',
     weingarten_name: z.ried ?? '–', weingarten_rebsorte: z.weingartenRebsorte,
     grundstueck_id: z.grundstueckId, grundstueck_nr: z.gstNr, grundstueck_rebsorte: z.grundstueckRebsorte,
-    ernte_datum: z.datum, menge_kg: z.mengeKg, menge_hl: z.mengeHl,
+    ernte_datum: z.datum, menge_kg: z.mengeKg, menge_hl: z.mengeHl, ernte_nr: z.ernteNr,
     oechsle: z.oechsle, klosterneuburger: z.kmw, mostgewicht_einheit: z.mostgewichtEinheit,
     qualitaetsstufe: z.qualitaetsstufe, lesemethode: z.lesemethode, notizen: z.notizen,
     herkunft_code: z.herkunftCode, lese_art: z.leseArt,

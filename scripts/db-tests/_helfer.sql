@@ -1342,6 +1342,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 's112_elabel_archiv_lesen(p_code text)'),   -- KAN-219: Archiv lesen (öffentliche E-Label-Seite, Service-Role)   -- KAN-219: E-Labels vor der Mandanten-Löschung archivieren
     ('intern',        '--S', false, 's112_mandant_loeschen(p_tenant_id uuid, p_bestaetigung text)'),   -- KAN-151 G1: Mandanten-Löschung (nur Service-Role)
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
+    ('trigger',       '--S', false, 's112_ernte_nummer()'),   -- KAN-477: Nummer der Ernte je Lese (b_ernte_nummer)
+    ('trigger',       '--S', false, 's112_pressung_ernte_zuordnen()'),   -- KAN-477: Ernte je Traubenzeile der Pressung (z_fremdverweis_ernte_parzelle_id)
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
     ('trigger',       '--S', false, 's112_kellerplan_kammer_schutz()'),   -- KAN-467: Kammer eines eigenen Tanks nicht einzeln im Kellerplan

@@ -700,6 +700,7 @@
 "gesetzt_von"
 ],
 "ernte_parzellen": [
+"lfd_nr",
 "id",
 "jahrgang_id",
 "weingarten_id",
@@ -1572,6 +1573,7 @@
 "storno_grund"
 ],
 "pressung_weingaerten": [
+"ernte_parzelle_id",
 "id",
 "pressung_id",
 "weingarten_id",

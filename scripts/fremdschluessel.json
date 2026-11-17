@@ -222,6 +222,7 @@
   {"n":"pressung_behaelter_behaelter_id_fkey","t":"pressung_behaelter","s":["behaelter_id"],"z":"behaelter"},
   {"n":"pressung_behaelter_pressung_id_fkey","t":"pressung_behaelter","s":["pressung_id"],"z":"pressungen"},
   {"n":"pressung_behaelter_weinausbau_id_fkey","t":"pressung_behaelter","s":["weinausbau_id"],"z":"weinausbau"},
+  {"n":"pressung_weingaerten_ernte_parzelle_id_fkey","t":"pressung_weingaerten","s":["ernte_parzelle_id"],"z":"ernte_parzellen"},
   {"n":"pressung_weingaerten_grundstueck_id_fkey","t":"pressung_weingaerten","s":["grundstueck_id"],"z":"grundstuecke"},
   {"n":"pressung_weingaerten_pressung_id_fkey","t":"pressung_weingaerten","s":["pressung_id"],"z":"pressungen"},
   {"n":"pressung_weingaerten_weingarten_id_fkey","t":"pressung_weingaerten","s":["weingarten_id"],"z":"weingarten"},
