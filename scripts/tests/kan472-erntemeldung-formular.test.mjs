@@ -6,7 +6,7 @@
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hooksRegistrieren, laden, nurMitHooks, hooksMoeglich } from './buchung-attrappe.mjs'
@@ -141,5 +141,58 @@ describe('KAN-472: CSV und Verdrahtung', nurMitHooks, () => {
     const l = quelle('src/lib/behoerden/erntemeldung.ts')
     assert.match(l, /const formular = ernteFormular\(\n\s+stichtag\.bis\.map\(/, 'nur Lesegut bis zum Stichtag 30.11.')
     assert.match(l, /verkaufRes\.einzeln, flaecheBetrieb\)/)
+  })
+})
+
+// ── Teil 2: Ankreuzfelder „beabsichtige Süßung“ / „beabsichtige Entsäuerung“ je Jahrgang ────────────────────────────
+describe('KAN-472 Teil 2: Ankreuzfelder der Meldung', () => {
+  const lies = p => readFileSync(new URL('../../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  test('Formular zeigt die gespeicherten Kreuze (Standard: leer), Biobetrieb wie bisher', () => {
+    const f = lies('src/components/behoerden/ErntemeldungFormular.tsx')
+    assert.ok(f.includes('suessung = false, entsaeuerung = false'))
+    assert.ok(f.includes('<Ankreuzfeld an={suessung} text="beabsichtige Süßung" />'))
+    assert.ok(f.includes('<Ankreuzfeld an={entsaeuerung} text="beabsichtige Entsäuerung" />'))
+    assert.ok(f.includes('<Ankreuzfeld an={biobetrieb} text="Biobetrieb" />'))
+    assert.ok(!f.includes('<Ankreuzfeld an={false}'), 'kein fest leeres Feld mehr')
+  })
+  test('Seite lädt die Angaben mit dem Jahrgang und reicht sie an Formular und Eingabe', () => {
+    const p = lies('src/app/(dashboard)/reports/(pflicht)/ama/page.tsx')
+    assert.ok(p.includes(".select('id, jahrgang, ernte_suessung, ernte_entsaeuerung').eq('tenant_id', tenantId)"))
+    assert.ok(p.includes("suessung={aktJahrgang?.ernte_suessung === true} entsaeuerung={aktJahrgang?.ernte_entsaeuerung === true} />"))
+    assert.ok(p.includes('<ErnteAngabenForm key={aktJahrgang.id} jahrgangId={aktJahrgang.id}'))
+    assert.ok(p.includes("const darfAngaben = (canWrite(membership, 'rieden') || canWrite(membership, 'kellerbuch')) && !(await schreibSperre(membership))"))
+    const e = lies('src/app/(dashboard)/reports/(pflicht)/ama/ErnteAngabenForm.tsx')
+    assert.ok(e.includes('className="print:hidden '), 'die Eingabe erscheint nicht im Ausdruck')
+    assert.ok(e.includes("if ('error' in r) { setFehler(r.error); return }"))
+    assert.ok(e.includes('} finally {\n      setLaedt(false)'))
+  })
+  test('Speichern: Betrieb der Seite, Schreibsperre und Schreibrecht vor dem Schreiben; nur der eigene Jahrgang; 0 Zeilen = Fehler', () => {
+    const a = lies('src/app/(dashboard)/reports/(pflicht)/ama/actions.ts')
+    const i = s => { const n = a.indexOf(s); assert.ok(n > 0, s); return n }
+    const betrieb = i('seitenBetriebFehler(membership.tenantId)'), sperre = i('schreibSperreFehler(membership)')
+    const recht = i("if (!canWrite(membership, 'rieden') && !canWrite(membership, 'kellerbuch'))"), schreiben = i(".update({ ernte_suessung: angaben.suessung === true, ernte_entsaeuerung: angaben.entsaeuerung === true })")
+    assert.ok(betrieb < sperre && sperre < recht && recht < schreiben)
+    assert.ok(a.includes(".eq('id', jahrgangId).eq('tenant_id', membership.tenantId)\n    .select('id')"))
+    assert.ok(a.includes('if (!data || data.length === 0) return { error: NICHT_GESPEICHERT }'))
+    assert.ok(!a.includes('canWrite(membership.role'), 'Rechte mit der Mitgliedschaft, nie mit dem Rollennamen (KAN-244)')
+  })
+  test('Migration: zwei Pflichtspalten mit Standard nein; bei abgeschlossenem Jahrgang frei wie die AMA-Felder', () => {
+    const ordner = new URL('../../supabase/migrations/', import.meta.url)
+    const datei = readdirSync(ordner).find(n => /_kan472_erntemeldung_ankreuzfelder\.sql$/.test(n))
+    const url = datei ? new URL(datei, ordner) : new URL('../../supabase/entwurf/kan472_erntemeldung_ankreuzfelder.sql', import.meta.url)
+    assert.ok(existsSync(url), 'Migration kan472_erntemeldung_ankreuzfelder fehlt (migrations/ bzw. entwurf/)')
+    const sql = readFileSync(url, 'utf8').replace(/\r\n/g, '\n')
+    assert.ok(sql.includes('ADD COLUMN ernte_suessung     boolean NOT NULL DEFAULT false,'))
+    assert.ok(sql.includes('ADD COLUMN ernte_entsaeuerung boolean NOT NULL DEFAULT false;'))
+    assert.ok(sql.includes("c_frei  constant text[] := ARRAY['ama_gemeldet', 'ama_meldedatum', 'ama_meldungsnr', 'ernte_suessung', 'ernte_entsaeuerung', 'updated_at'];"))
+    assert.ok(sql.includes("SET search_path TO 'public'"))
+    assert.ok(sql.includes('REVOKE EXECUTE ON FUNCTION public.s112_jahrgang_abschluss_schutz() FROM PUBLIC, anon, authenticated;'))
+    const schema = JSON.parse(lies('scripts/schema.json'))
+    assert.ok(schema.weinjahrgaenge.includes('ernte_suessung') && schema.weinjahrgaenge.includes('ernte_entsaeuerung'))
+  })
+  test('Beitragssatz: gesetzlich einheitlich, im Programm mit Fundstelle – keine Einstellung je Betrieb', () => {
+    const r = lies('src/lib/behoerden/erntemeldungFormular.ts')
+    assert.ok(r.includes('export const AMA_BEITRAG_EUR_JE_100_L = 1.1'))
+    assert.ok(r.includes('BGBl. I Nr. 209/2022'))
   })
 })

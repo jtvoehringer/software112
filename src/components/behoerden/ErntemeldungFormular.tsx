@@ -24,7 +24,11 @@ function Ankreuzfeld({ an, text }: { an: boolean; text: string }) {
   )
 }
 
-export default function ErntemeldungFormular({ formular, biobetrieb }: { formular: ErnteFormular; biobetrieb: boolean }) {
+export default function ErntemeldungFormular({ formular, biobetrieb, suessung = false, entsaeuerung = false }: {
+  formular: ErnteFormular; biobetrieb: boolean
+  /** KAN-472 Teil 2: am Jahrgang gespeicherte Ankreuzfelder der Meldung */
+  suessung?: boolean; entsaeuerung?: boolean
+}) {
   const oben = formular.zeilen.filter(z => z.block === 'rlqp')
   return (
     <div className="text-sm">
@@ -113,8 +117,8 @@ export default function ErntemeldungFormular({ formular, biobetrieb }: { formula
       </table>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-s112-text-2">
-        <Ankreuzfeld an={false} text="beabsichtige Süßung" />
-        <Ankreuzfeld an={false} text="beabsichtige Entsäuerung" />
+        <Ankreuzfeld an={suessung} text="beabsichtige Süßung" />
+        <Ankreuzfeld an={entsaeuerung} text="beabsichtige Entsäuerung" />
         <Ankreuzfeld an={biobetrieb} text="Biobetrieb" />
       </div>
     </div>
