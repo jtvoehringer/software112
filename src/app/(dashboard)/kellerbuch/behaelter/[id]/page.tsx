@@ -10,7 +10,8 @@ import Schnellerfassung from '@/components/kellerbuch/Schnellerfassung'
 import { updateBehaelter, kellerNotizErfassen, schwundBuchen } from '../../actions'
 import { ladeBehaelterEinzeln, ladeKellergemeinschaft } from '@/lib/keller/behaelter'
 import { letzteMassnahmen, type SchnellCharge } from '@/lib/keller/schnellerfassung'
-import { fmtLiter } from '@/lib/format'
+import { fmtLiter, fmtNum } from '@/lib/format'
+import { ladeMaischen, offeneMaischeJeGebinde } from '@/lib/kellerbuch/maischen'
 
 export const metadata: Metadata = { title: 'Gebinde' }
 export const dynamic = 'force-dynamic'
@@ -83,6 +84,9 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
   ])
   const massnahmen = letzteMassnahmen(id, (behRes.data ?? []) as R[], (umzRes.data ?? []) as R[], (anaRes.data ?? []) as R[], 5, fmtLiter, new Set(chargenIds))
 
+  // KAN-480: liegt eine Maische im Gebinde, gilt es als belegt (noch keine Charge)
+  const maische = offeneMaischeJeGebinde(await ladeMaischen(supabase, tenantId as string)).get(id) ?? null
+
   const darf = !!membership && canWrite(membership, 'kellerbuch')
   const gesperrt = darf ? !!(await schreibSperre(membership)) : false
   const schreiben = darf && !gesperrt && gebinde.aktiv
@@ -115,6 +119,15 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
           Kammer {gebinde.kammer_nr}{gebinde.tank_kammern && (gebinde.kammer_nr ?? 0) <= gebinde.tank_kammern ? ` von ${gebinde.tank_kammern}` : ''} im geteilten Tank{' '}
           {gebinde.fremd ? <strong>{gebinde.tank_name}</strong> : <Link href={`/kellerbuch/behaelter/tank/${gebinde.tank_id}`} className="font-semibold text-s112-blue-700 hover:underline">{gebinde.tank_name}</Link>}
         </p>
+      )}
+      {maische && (
+        <div role="status" className="mb-4 rounded-xl border border-s112-warn/30 bg-s112-warn-bg/40 px-4 py-3 text-sm text-s112-text">
+          <p className="font-semibold">Maische {maische.nummer ?? ''} · {fmtNum(maische.kg, 0)} kg</p>
+          <p className="text-xs text-s112-text-2">
+            Angesetzt am {maische.beginn.split('-').reverse().join('.')}. Das Gebinde ist belegt, bis die Maische abgepresst ist – erst dann entstehen die Chargen.{' '}
+            <Link href={`/erntemeldung/${maische.jahrgangId}`} className="text-s112-blue-700 hover:underline">Zur Lese {maische.jahrgang ?? ''} (Abpressen)</Link>
+          </p>
+        </div>
       )}
       <Schnellerfassung behaelterId={id} volumenLiter={gebinde.volumen_liter ?? null} chargen={chargen} massnahmen={massnahmen}
         schreiben={schreiben} nurLesenGrund={nurLesenGrund} notizAction={kellerNotizErfassen} schwundAction={schwundBuchen} />

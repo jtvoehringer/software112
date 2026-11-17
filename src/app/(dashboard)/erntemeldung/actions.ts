@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle, inBloecken } from '@/lib/supabase/alle'
-import { lesePflichtFehler, traubenzeilePflichtFehler, pressungZeilenFehler, LESE_FEST_MELDUNG } from '@/lib/wein/lesePflicht'
+import { lesePflichtFehler, traubenzeilePflichtFehler, LESE_FEST_MELDUNG } from '@/lib/wein/lesePflicht'
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
@@ -40,6 +40,7 @@ import { traubenverkaufAnlegen } from '@/lib/verkauf/traubenverkaufAnlegen'
 import { pressungSortenverschnitt } from '@/lib/wein/sortenangabe'
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 import { rund } from '@/lib/zahl/runden'
+import { MAISCHE_GEBINDE_FEHLT, maischeUebergangFehler, maischeZeilenFehler } from '@/lib/wein/maische'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -1219,7 +1220,10 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const kmwGradFormular  = zahlAus(fd.get('kmw_grad'))
   const notizen          = (fd.get('notizen') as string) || null
   const qualitaetsstufeInput = (fd.get('qualitaetsstufe') as string) || null
-  if (!datum) throw new AktionsFehler('Bitte das Datum der Pressung angeben.')
+  // KAN-480: Maische ansetzen (Schritt 1 einer Pressung in zwei Schritten) – Traubenzeilen ja, Mostzeilen erst beim Abpressen
+  const maischeModus      = fd.get('maische') === '1'
+  const maischeBehaelter  = ((fd.get('maische_behaelter_id') as string) || '').trim() || null
+  if (!datum) throw new AktionsFehler(maischeModus ? 'Bitte den Beginn der Maische angeben.' : 'Bitte das Datum der Pressung angeben.')
   // KAN-73: die Stufe geht in die neue Kellerbuch-Charge (weinausbau) – vor jedem Schreiben prüfen.
   // Das Formular schickt keine (Ableitung aus den °KMW), nur ein direkter Aufruf.
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufeInput)
@@ -1281,7 +1285,8 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     if (!(b.menge_liter != null && b.menge_liter > 0)) throw new AktionsFehler(`Behälterzeile ${b.nr}: Bitte die Mostmenge in Litern (größer als 0) angeben.`)
   }
   // KAN-205: mindestens eine Trauben- und eine Behälterzeile
-  { const zf = pressungZeilenFehler(weingaerten.length, behaelter.length); if (zf) throw new AktionsFehler(zf) }
+  // KAN-480: eine Maische hat noch keine Behälterzeilen und keine Mostausbeute – sie kommen beim Abpressen
+  { const zf = maischeZeilenFehler(maischeModus, weingaerten.length, behaelter.length, mostLiter); if (zf) throw new AktionsFehler(zf) }
   if (hatDoppelte(weingaerten.map(w => w.id)) || hatDoppelte(behaelter.map(b => b.id))) {
     throw new AktionsFehler('Ungültige Formulardaten (doppelte Zeile) – bitte die Seite neu laden.')
   }
@@ -1294,11 +1299,13 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pAlt, error: pAltErr } = await (supabase.from('pressungen') as any)
-      .select('id, jahrgang_id, lese_id, datum, most_liter_gesamt, weinbezeichnung').eq('id', existingId).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
+      .select('id, jahrgang_id, lese_id, datum, most_liter_gesamt, weinbezeichnung, maische_offen, maische_beginn').eq('id', existingId).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
     if (pAltErr) throw new AktionsFehler(dbFehlerText(pAltErr, 'Pressung konnte nicht geladen werden'))
     if (!pAlt) throw new AktionsFehler('Pressung nicht gefunden oder storniert – bitte die Seite neu laden.')
     jahrgangId = (pAlt as AR).jahrgang_id as string
     kopfAlt = pAlt as AR
+    // KAN-480: offen bleiben (Traubenzeilen ändern), abpressen (offen → Pressung) – aber nie zurück zur Maische
+    { const mf = maischeUebergangFehler({ modus: maischeModus, offen: kopfAlt.maische_offen === true, beginn: (kopfAlt.maische_beginn as string | null) ?? null, datum }); if (mf) throw new AktionsFehler(mf) }
     const [pwRes, pbRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_weingaerten') as any)
@@ -1315,7 +1322,11 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     pbAlt = (pbRes.data ?? []) as AR[]
   } else if (weingaerten.some(w => w.id) || behaelter.some(b => b.id)) {
     throw new AktionsFehler('Ungültige Formulardaten – bitte die Seite neu laden.')
+  } else if (maischeModus && !maischeBehaelter) {
+    throw new AktionsFehler(MAISCHE_GEBINDE_FEHLT)
   }
+  /** KAN-480: die Pressung wird mit diesem Speichern abgepresst (offene Maische → Pressung mit Mostzeilen) */
+  const abpressen = !!existingId && kopfAlt?.maische_offen === true && !maischeModus
   const jg = await ladeJahrgang(supabase, tenantId, jahrgangId)
 
   // ── KAN-126: Lesedatum je Traubenzeile ─────────────────────────────────────
@@ -1515,7 +1526,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   }
 
   // ── KAN-126: Most muss vollständig in Behälter (Summe = Mostausbeute ±0,5 L) und in die Behälter passen ──
-  {
+  if (!maischeModus) {
     const mengenGeaendert = !existingId
       || (zahlOderNull(kopfAlt?.most_liter_gesamt) ?? null) !== (mostLiter ?? null)
       || behaelter.some(b => !b.id) || pbEntfernen.length > 0
@@ -1642,7 +1653,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pUpd, error: pUpdErr } = await (supabase.from('pressungen') as any)
       // KAN-205: Pressung mit Folgebuchung – nur die Notizen (der Trigger a_freeze ließe sonst nichts durch)
-      .update(pressungFest ? { notizen } : { datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen })
+      .update(pressungFest ? { notizen } : { datum, most_liter_gesamt: maischeModus ? null : mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen, ...(abpressen ? { maische_offen: false } : {}) })
       .eq('id', pressId).eq('tenant_id', tenantId).select('id')
     if (pUpdErr) throw new AktionsFehler(dbFehlerText(pUpdErr, 'Speichern fehlgeschlagen (pressungen)'))
     if (!(pUpd as AR[] | null)?.length) throw new AktionsFehler('Die Pressung konnte nicht gespeichert werden – keine Berechtigung oder inzwischen gelöscht. Bitte die Seite neu laden.')
@@ -1661,7 +1672,11 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neuId, error: neuErr } = await (supabase.rpc as any)('s112_pressung_anlegen', {
       p_tenant_id: tenantId,
-      p_kopf: { jahrgang_id: jahrgangId, lese_id: lesePressung?.id ?? null, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen },
+      p_kopf: {
+        jahrgang_id: jahrgangId, lese_id: lesePressung?.id ?? null, datum, most_liter_gesamt: maischeModus ? null : mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen,
+        // KAN-480: Maische – Beginn = Datum, das Gebinde gilt als belegt; die Datenbank vergibt die Nummer
+        ...(maischeModus ? { maische_beginn: datum, maische_behaelter_id: maischeBehaelter } : {}),
+      },
       p_trauben: pwNeu.map(w => ({
         weingarten_id: w.weingarten_id, grundstueck_id: w.grundstueck_id, zukauf_posten_id: w.zukauf_posten_id,
         trauben_kg: w.trauben_kg, rebsorte: w.rebsorte, notizen: w.notizen, ernte_datum: w.ernte_datum,

@@ -67,6 +67,8 @@ import { datumAT, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { istTag, tag } from './kellerbuch-hilfen'
 import { parameterFehler, type ParameterFehler } from './typen'
 import { AktionsFehler } from '@/lib/fehler'
+import { ladeMaischen, maischenOffenAm } from '@/lib/kellerbuch/maischen'
+import { maischeBestandHinweis } from '@/lib/wein/maische'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -560,6 +562,14 @@ async function ladeBsmAusJournal(supabase: Client, tenantId: string, z: BsmZeitr
 }
 
 export async function ladeBsm(supabase: Client, tenantId: string, z: BsmZeitraum, opts: { heute?: string } = {}): Promise<BsmDaten> {
+  const daten = await ladeBsmOhneMaische(supabase, tenantId, z, opts)
+  // KAN-480: Maische ist kein Weinbestand – Hinweis, wenn am Ende des Zeitraums eine unverpresst im Keller lag
+  const offen = maischenOffenAm(await ladeMaischen(supabase, tenantId), z.bis)
+  const h = maischeBestandHinweis(offen.length, datumAT(z.bis))
+  return h ? { ...daten, warnungen: [...daten.warnungen, h] } : daten
+}
+
+async function ladeBsmOhneMaische(supabase: Client, tenantId: string, z: BsmZeitraum, opts: { heute?: string } = {}): Promise<BsmDaten> {
   const heute = opts.heute ?? wienHeute()
   // KAN-40 E2: Ist das Bewegungsjournal spätestens am Zeitraumende eröffnet, rechnet die BSM aus kellerbuch_buchungen
   // (Merkmale zum Buchungszeitpunkt); sonst wie bisher aus den Bewegungstabellen rekonstruiert.

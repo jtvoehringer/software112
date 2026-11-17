@@ -1344,6 +1344,10 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_ernte_nummer()'),   -- KAN-477: Nummer der Ernte je Lese (b_ernte_nummer)
     ('trigger',       '--S', false, 's112_pressung_ernte_zuordnen()'),   -- KAN-477: Ernte je Traubenzeile der Pressung (z_fremdverweis_ernte_parzelle_id)
+    ('trigger',       '--S', false, 's112_maische_nummer()'),            -- KAN-480: Nummer der Maische je Jahrgang (b_maische_nr)
+    ('trigger',       '--S', false, 's112_maische_pruefen()'),           -- KAN-480: Maische nur in ein freies Gebinde, Beginn/Gebinde fest (z_maische_pruefen)
+    ('trigger',       '--S', false, 's112_maische_gebinde_belegt()'),    -- KAN-480: keine Charge in ein Gebinde mit offener Maische (z_maische_gebinde)
+    ('trigger',       '--S', false, 's112_maische_mostzeile()'),         -- KAN-480: keine Mostzeile aus einer offenen Maische (z_maische_offen)
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
     ('trigger',       '--S', false, 's112_kellerplan_kammer_schutz()'),   -- KAN-467: Kammer eines eigenen Tanks nicht einzeln im Kellerplan

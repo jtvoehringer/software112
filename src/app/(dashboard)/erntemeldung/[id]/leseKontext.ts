@@ -22,6 +22,7 @@ import type { LeseMitSperre } from './LeseReiter'
 import { amaAbweichungen, neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
 import { geladen } from '@/lib/supabase/geladen'
 import { riedLeseVerteilen } from '@/lib/wein/leseBilanz'
+import { maischeNummer } from '@/lib/wein/maische'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -92,6 +93,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('pressungen') as any)
       .select(`id, lese_id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad, oechsle, mostgewicht_einheit, storniert_am, storno_grund, storniert_von_name,
+        maische_nr, maische_beginn, maische_offen, maische_behaelter_id, maische_behaelter:behaelter!pressungen_maische_behaelter_id_fkey(name),
         weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, storniert_am, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, storniert_am, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang, qualitaetsstufe))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false })),
@@ -262,6 +264,11 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     id: p.id, datum: p.datum, most_liter_gesamt: p.most_liter_gesamt ?? null,
     weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null, kmw_grad: p.kmw_grad ?? null,
     oechsle: p.oechsle ?? null, mostgewicht_einheit: p.mostgewicht_einheit ?? null,   // KAN-131
+    // KAN-480: Maische (Pressung in zwei Schritten) – Nummer „M 2027/1“, Beginn, Gebinde, offen bis zum Abpressen
+    maische: p.maische_beginn ? {
+      nummer: maischeNummer(jgJahr, p.maische_nr as number | null), beginn: String(p.maische_beginn).slice(0, 10), offen: p.maische_offen === true && !p.storniert_am,
+      behaelter_id: (p.maische_behaelter_id as string | null) ?? null, behaelter_name: ((p.maische_behaelter as AR | null)?.name as string | null) ?? null,
+    } : null,
     storno: p.storniert_am ? { am: p.storniert_am as string, von: (p.storniert_von_name as string | null) ?? null, grund: (p.storno_grund as string | null) ?? null } : null,
     weingaerten: ((p.weingaerten ?? []) as AR[]).filter(zeileZeigen(p)).map((w: AR): PressungWG => ({
       id: w.id, weingarten_id: w.weingarten_id,
