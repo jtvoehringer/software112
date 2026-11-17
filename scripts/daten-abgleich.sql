@@ -61,7 +61,7 @@ befunde as (
   select k.tenant_id, 'fehler', 'kellerbehandlung_ohne_charge', 'Kellerbehandlung ohne Charge (keine Gebindepflege)',
          coalesce(t.name, k.typ_name_snapshot, 'Behandlung') || ' am ' || to_char(k.datum, 'DD.MM.YYYY')
     from public.keller_behandlungen k left join public.keller_behandlungstypen t on t.id = k.typ_id
-   where k.storniert_am is null and k.weinausbau_id is null and coalesce(t.gebindepflege, false) = false
+   where k.storniert_am is null and k.weinausbau_id is null and k.pressung_id is null and coalesce(t.gebindepflege, false) = false   -- KAN-481: Maßnahmen an der Maische haben keine Charge
   union all
   select b.tenant_id, 'pflege', 'gebinde_ohne_material', 'Gebinde ohne Material (BKI-Gebindeverzeichnis)', b.name
     from public.behaelter b where b.aktiv and nullif(btrim(b.material), '') is null

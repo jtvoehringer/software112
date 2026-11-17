@@ -65,7 +65,7 @@ export default async function BehaelterPage({ params }: { params: Promise<{ id: 
     (supabase.from('keller_behandlungen') as any)
       .select('id, datum, typ_name_snapshot, menge, einheit, notizen, weinausbau_id, typ:typ_id(name)')
       .eq('tenant_id', tenantId).is('storniert_am', null)
-      .or(chargenIds.length > 0 ? `weinausbau_id.in.(${liste}),and(weinausbau_id.is.null,behaelter_id.eq.${id})` : `and(weinausbau_id.is.null,behaelter_id.eq.${id})`)
+      .or(chargenIds.length > 0 ? `weinausbau_id.in.(${liste}),and(weinausbau_id.is.null,pressung_id.is.null,behaelter_id.eq.${id})` : `and(weinausbau_id.is.null,pressung_id.is.null,behaelter_id.eq.${id})`)
       .order('datum', { ascending: false }).order('id').limit(5),
     chargenIds.length === 0 ? Promise.resolve({ data: [] }) :
       // alle-ausnahme: nur die letzten 5 Umzüge der höchstens 50 Chargen eines Gebindes

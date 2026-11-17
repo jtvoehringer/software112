@@ -143,6 +143,7 @@
   {"n":"kat_buchungsart_bsm_code_fkey","t":"kat_buchungsart","s":["bsm_code"],"z":"kat_buchungsart"},
   {"n":"keller_behandlungen_behaelter_id_fkey","t":"keller_behandlungen","s":["behaelter_id"],"z":"behaelter"},
   {"n":"keller_behandlungen_tenant_id_fkey","t":"keller_behandlungen","s":["tenant_id"],"z":"tenants"},
+  {"n":"keller_behandlungen_pressung_id_fkey","t":"keller_behandlungen","s":["pressung_id"],"z":"pressungen"},
   {"n":"keller_behandlungen_typ_id_fkey","t":"keller_behandlungen","s":["typ_id"],"z":"keller_behandlungstypen"},
   {"n":"keller_behandlungen_weinausbau_id_fkey","t":"keller_behandlungen","s":["weinausbau_id"],"z":"weinausbau"},
   {"n":"keller_behandlungstypen_elabel_zutat_id_fkey","t":"keller_behandlungstypen","s":["elabel_zutat_id"],"z":"elabel_zutaten"},

@@ -11,7 +11,9 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
+import { ladeMaischeAnteile } from '@/lib/kellerbuch/maischeMassnahmen'
+import { maischeVermerk } from '@/lib/wein/maischeAnteile'
 import { numOderNull, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -72,7 +74,7 @@ export async function ladeKellerBehandlungen(
   }
 
   let q = (supabase.from('keller_behandlungen') as any)
-    .select('id, datum, created_at, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name)')
+    .select('id, datum, created_at, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, weinausbau_id, pressung_id, typ:typ_id(name), weinausbau:weinausbau_id(name)')
     .eq('tenant_id', tenantId)
     .is('storniert_am', null)   // KAN-145: stornierte Kellerbehandlungen zählen nicht
   if (p.chargeId) q = q.eq('weinausbau_id', p.chargeId)
@@ -100,8 +102,44 @@ export async function ladeKellerBehandlungen(
   })
 
   const warnungen: string[] = []
-  const hinweis = ohneChargeHinweis(data.length - zeilen.length)
+  // Einträge ohne Charge: Gebindepflege (Hinweis) – Maßnahmen an einer Maische zählen nicht dazu (KAN-481, unten anteilig)
+  const hinweis = ohneChargeHinweis(data.filter(b => !b.weinausbau_id && !b.pressung_id).length)
   if (hinweis) warnungen.push(hinweis)
+
+  // KAN-481: Maßnahmen an der Maische – jede Charge der Pressung führt sie anteilig nach Litern, mit Vermerk
+  {
+    let chargen: { id: string; name: string | null }[]
+    if (charge) chargen = [charge]
+    else {
+      // alle Chargen des Betriebs, deren Most aus einer Maische stammt – über die Maischen des Betriebs
+      const mp = await alle<R>((supabase.from('pressungen') as any)
+        .select('id').eq('tenant_id', tenantId).not('maische_beginn', 'is', null).is('storniert_am', null).order('id'))
+      if (mp.error) throw new AktionsFehler(`Maischen konnten nicht geladen werden: ${mp.error.message}`)
+      const mb = await inBloecken<R>(mp.data.map(p => String(p.id)), bl => (supabase.from('pressung_behaelter') as any)
+        .select('id, weinausbau_id, weinausbau:weinausbau_id(name)').in('pressung_id', bl).is('storniert_am', null).order('id'))
+      if (mb.error) throw new AktionsFehler(`Chargen der Maischen konnten nicht geladen werden: ${mb.error.message}`)
+      const je = new Map<string, string | null>()
+      for (const z of mb.data) if (z.weinausbau_id) je.set(String(z.weinausbau_id), text((z.weinausbau as R | null)?.name))
+      chargen = [...je].map(([id, name]) => ({ id, name }))
+    }
+    const anteile = await ladeMaischeAnteile(supabase, tenantId, chargen.map(c => c.id))
+    if (anteile.error !== null) throw new AktionsFehler(anteile.error)
+    for (const c of chargen) {
+      for (const z of anteile.data.get(c.id) ?? []) {
+        if ((p.von && z.datum < p.von) || (p.bis && z.datum > p.bis)) continue
+        zeilen.push({
+          id: `maische-${z.id}-${c.id}`, datum: z.datum, chargeId: c.id, charge: c.name,
+          behandlung: z.behandlung,
+          menge: z.mengeAnteil === null ? null : runden(z.mengeAnteil, STELLEN_BEHANDLUNG_MENGE), einheit: z.mengeAnteil === null ? null : z.einheit,
+          gProHl: null, volumenLiter: null,
+          notizen: [maischeVermerk(z.maische, z.anteilPct), z.notizen].filter(Boolean).join(' – '),
+        })
+      }
+    }
+    // chronologisch wie die Abfrage; anteilige Zeilen desselben Tages nach den an der Charge erfassten
+    const rang = (z: KellerBehandlungZeile) => (z.id.startsWith('maische-') ? 1 : 0)
+    zeilen.sort((a, b) => a.datum.localeCompare(b.datum) || (rang(a) - rang(b)) || a.id.localeCompare(b.id))
+  }
 
   return { zeilen, warnungen, charge }
 }
