@@ -1,4 +1,4 @@
-import { BookOpen, Leaf, Grape, Filter, ArrowLeftRight, Wind, FlaskConical, Microscope, Award, Wine, GitMerge, ArrowDownWideNarrow, PackagePlus, ShoppingCart, Scale, type LucideIcon } from 'lucide-react'
+import { BookOpen, Leaf, Grape, Filter, ArrowLeftRight, Wind, FlaskConical, Microscope, Award, Wine, GitMerge, ArrowDownWideNarrow, PackagePlus, ShoppingCart, Scale, Flag, type LucideIcon } from 'lucide-react'
 import type { EventTyp, TimelineEvent } from '@/lib/wein/weinbuch'
 import { WEINBUCH_TYP_LABEL } from '@/lib/behoerden/weinbuch'
 
@@ -25,6 +25,8 @@ const EVENT_STYLE: Record<EventTyp, { icon: LucideIcon; dot: string; card: strin
   umstufung:      { icon: ArrowDownWideNarrow, dot: 'bg-s112-warn', card: 'border-s112-warn/30 bg-s112-warn-bg/40' },   // KAN-82
   // KAN-44: Mengenbewegungen aus dem Bewegungsjournal
   eroeffnung:     { icon: BookOpen,       dot: 'bg-s112-grey',  card: 'border-s112-line-str bg-[#F2F3F5]' },
+  // KAN-482: Vermerk, keine Bewegung – gestrichelt und ohne Fläche
+  journalbeginn:  { icon: Flag,           dot: 'bg-s112-grey',  card: 'border-dashed border-s112-line-str bg-transparent' },
   zukauf:         { icon: PackagePlus,    dot: 'bg-s112-ok',    card: 'border-s112-ok/30  bg-s112-ok-bg/40' },
   verkauf:        { icon: ShoppingCart,   dot: 'bg-s112-teal',  card: 'border-s112-teal/20 bg-s112-teal/5' },
   bestand:        { icon: Scale,          dot: 'bg-s112-grey',  card: 'border-s112-line-str bg-[#F2F3F5]' },

@@ -47,12 +47,15 @@ describe('KAN-44 Teil 3: Mengenbewegungen im Weinbuch (rein)', () => {
     ]
     const ev = wb.journalEreignisse(zeilen, { abstufungTage: new Set(), journalBeginn: '2026-01-10' })
     assert.deepEqual(ev.map(e => [e.datum, e.typ, e.titel, e.badge]), [
-      ['2026-01-10', 'eroeffnung', 'Übertrag bei Eröffnung des Bewegungsjournals', undefined],
+      ['2026-01-10', 'journalbeginn', 'Bewegungsjournal eröffnet', undefined],   // KAN-482: Vermerk, kein Zugang
       ['2026-03-01', 'verkauf', 'Fassverkauf ins Ausland', 'storniert'],
       ['2026-03-04', 'verkauf', 'Storno: Fassverkauf ins Ausland', 'Storno'],
       ['2026-03-05', 'bestand', 'Inventurdifferenz Mindermenge', undefined],
     ])
-    assert.ok(ev[0].details.includes('Bestand am Journalbeginn 10.01.2026'), ev[0].details.join(' | '))
+    // KAN-482: Bestand statt Menge mit Vorzeichen, kein „Bestand danach“, ausdrücklich kein Zugang
+    assert.deepEqual(ev[0].details, ['Bestand der Charge am Journalbeginn 10.01.2026: 1.000 L', wb.JOURNALBEGINN_HINWEIS])
+    assert.ok(!ev[0].details.some(d => /Menge:|\+/.test(d)))
+    assert.match(wb.JOURNALBEGINN_HINWEIS, /^Kein Zugang/)
     assert.ok(ev[1].details.includes('Menge: −300 L'))
     assert.ok(ev[1].details.includes('an Weinhandel Bayern (DE)'))
     assert.ok(ev[1].details.includes('Bestand danach (Bewegungsjournal): 690 L'), ev[1].details.join(' | '))   // 1000 − 10 − 300
@@ -117,6 +120,36 @@ function daten({ journalAb = null, menge = 500 } = {}) {
   }
 }
 
+describe('KAN-482: Übertrag bei Eröffnung des Journals als Vermerk', () => {
+  test('der Saldo der folgenden Einträge zählt den Übertrag weiter mit; rekonstruiert bleibt sichtbar; Storno des Übertrags bleibt eine Buchung', () => {
+    n = 0
+    const zeilen = [
+      jz('2026-11-03', 'EROEFF', 225, { quelle_tabelle: 'journal_eroeffnen', rekonstruiert: true, hinweis: 'Eröffnung des Journals: Ist-Bestand der Charge' }),
+      jz('2026-11-10', 'INV_MIN', -5, { quelle_tabelle: 'weinausbau_bestand' }),
+    ]
+    const ev = wb.journalEreignisse(zeilen, { abstufungTage: new Set(), journalBeginn: '2026-11-03' })
+    assert.deepEqual(ev[0], {
+      datum: '2026-11-03', zeitpunkt: ev[0].zeitpunkt, typ: 'journalbeginn', titel: 'Bewegungsjournal eröffnet', badge: undefined,
+      details: ['Bestand der Charge am Journalbeginn 03.11.2026: 225 L', wb.JOURNALBEGINN_HINWEIS, 'Nachträglich aus den Bewegungen rekonstruiert'],
+    })
+    assert.ok(ev[1].details.includes('Bestand danach (Bewegungsjournal): 220 L'), ev[1].details.join(' | '))
+    assert.equal(wb.journalSaldo(zeilen), 220)
+    // Gegenbuchung zum Übertrag (Storno) ist eine echte Journalbuchung mit Menge
+    const storno = wb.journalEreignisse([zeilen[0], jz('2026-11-12', 'EROEFF', -225, { quelle_tabelle: 'journal_eroeffnen', storno_von_id: zeilen[0].id })],
+      { abstufungTage: new Set(), journalBeginn: '2026-11-03' })
+    assert.deepEqual(storno.map(e => [e.typ, e.titel, e.badge]), [
+      ['journalbeginn', 'Bewegungsjournal eröffnet', 'storniert'],
+      ['eroeffnung', 'Storno: Übertrag bei Eröffnung des Bewegungsjournals', 'Storno'],
+    ])
+    assert.ok(storno[1].details.includes('Menge: −225 L'))
+  })
+  test('eigene Art in CSV und Zeitleiste', () => {
+    const lies = p => readFileSync(new URL('../../' + p, import.meta.url), 'utf8')
+    assert.ok(lies('src/lib/behoerden/weinbuch.ts').includes("journalbeginn:    'Vermerk Bewegungsjournal',"))
+    assert.ok(lies('src/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/WeinbuchTimeline.tsx').includes('journalbeginn:  { icon: Flag,'))
+  })
+})
+
 describe('KAN-44 Teil 3: buildWeinbuch', nurMitHooks, () => {
   test('ohne Journal: Eröffnungsbestand, Zukauf und Fassverkauf aus den Tabellen, Storno gekennzeichnet', async () => {
     const { buildWeinbuch } = await laden('lib/wein/weinbuch.ts')
@@ -137,12 +170,12 @@ describe('KAN-44 Teil 3: buildWeinbuch', nurMitHooks, () => {
   test('mit Journal: davor aus den Tabellen, ab Journalbeginn aus dem Journal – ohne Dubletten, mit Saldo und Abweichung', async () => {
     const { buildWeinbuch } = await laden('lib/wein/weinbuch.ts')
     const w = await buildWeinbuch(datenbank(daten({ journalAb: '2026-01-10', menge: 495 })), 'A', T)
-    const m = w.events.filter(e => ['eroeffnung', 'zukauf', 'verkauf', 'bestand'].includes(e.typ) && e.badge !== 'Storno')
+    const m = w.events.filter(e => ['eroeffnung', 'zukauf', 'verkauf', 'bestand', 'journalbeginn'].includes(e.typ) && e.badge !== 'Storno')
     assert.deepEqual(m.map(e => [e.datum, e.titel]), [
       ['2025-08-01', 'Eröffnungsbestand'],
       ['2025-10-05', 'Zukauf Fasswein'],
       ['2025-12-01', 'Fassverkauf'],
-      ['2026-01-10', 'Übertrag bei Eröffnung des Bewegungsjournals'],
+      ['2026-01-10', 'Bewegungsjournal eröffnet'],
       ['2026-02-01', 'Zukauf Most'],
       ['2026-03-01', 'Fassverkauf in Österreich'],
     ])

@@ -18,11 +18,19 @@ import { zahlLokal } from '../format.ts'
 //   - Vor dem Journalbeginn bzw. ohne Journal (Betrieb hat es nicht eröffnet) bilden Zukauf, Fassverkauf und
 //     Eröffnungsbestand aus den Bewegungstabellen dieselben Einträge (ohne Saldo) – die Zeitleiste ist damit in beiden
 //     Fällen vollständig.
+//   - Der Übertrag bei Eröffnung des Journals (quelle_tabelle journal_eroeffnen: Ist-Bestand der Charge am Journalbeginn)
+//     ist keine Bewegung des Weins. Seit KAN-482 (Abnahme KAN-479, Jörgen 17.11.2026) steht er im Weinbuch als neutraler
+//     Vermerk „Bewegungsjournal eröffnet“ mit dem Bestand – ohne „Menge: +… L“, eigene Art 'journalbeginn'. Im Journal
+//     selbst bleibt die Buchung am Tag der Eröffnung; der Saldo der folgenden Einträge zählt sie wie bisher mit.
 //   - Abweicht der Journal-Saldo vom Bestand der Charge, steht das als Hinweis im Weinbuch (Abgleich: Kellerbuch ›
 //     Journal; der tägliche Abgleich bucht direkte Mengenänderungen als Inventurdifferenz).
 // Isomorph und ohne '@/'-Importe (node:test).
 
-export type WeinbuchMengenTyp = 'eroeffnung' | 'zukauf' | 'verkauf' | 'bestand'
+export type WeinbuchMengenTyp = 'eroeffnung' | 'zukauf' | 'verkauf' | 'bestand' | 'journalbeginn'
+
+/** KAN-482: Der Übertrag bei Eröffnung des Journals ist im Weinbuch ein Vermerk, kein Zugang */
+export const JOURNALBEGINN_TITEL = 'Bewegungsjournal eröffnet'
+export const JOURNALBEGINN_HINWEIS = 'Kein Zugang: Der Wein lag bereits im Keller. Ab hier kommen die Mengenbewegungen aus dem Bewegungsjournal.'
 
 export type WeinbuchMengenEreignis = {
   datum: string
@@ -76,7 +84,7 @@ export function journalZeileAbgedeckt(z: Pick<WbJournalZeile, 'quelle_tabelle' |
   return false
 }
 
-export function mengenTyp(code: string, quelle: string): WeinbuchMengenTyp {
+export function mengenTyp(code: string, quelle: string): Exclude<WeinbuchMengenTyp, 'journalbeginn'> {
   if (code === 'EROEFF') return 'eroeffnung'
   if (code.startsWith('ZK_')) return 'zukauf'
   if (code.startsWith('VK_')) return 'verkauf'
@@ -123,8 +131,24 @@ export function journalEreignisse(
     if (journalZeileAbgedeckt(z, o.abstufungTage)) continue
     const datum = z.datum.slice(0, 10)
     const uebertrag = z.quelle_tabelle === 'journal_eroeffnen'
+    if (uebertrag && !z.storno_von_id) {
+      // KAN-482: Vermerk statt Zugang – der Bestand der Charge am Journalbeginn, keine Menge mit Vorzeichen
+      ereignisse.push({
+        datum,
+        zeitpunkt: z.erstellt_am ?? null,
+        typ: 'journalbeginn',
+        titel: JOURNALBEGINN_TITEL,
+        badge: storniert.has(z.id) ? 'storniert' : undefined,
+        details: [
+          `Bestand der Charge am Journalbeginn${o.journalBeginn ? ` ${o.journalBeginn.split('-').reverse().join('.')}` : ''}: ${liter(Number(z.menge_liter) || 0)}`,
+          JOURNALBEGINN_HINWEIS,
+          z.rekonstruiert ? 'Nachträglich aus den Bewegungen rekonstruiert' : null,
+        ].filter((x): x is string => !!x),
+      })
+      continue
+    }
     const titel = uebertrag
-      ? 'Übertrag bei Eröffnung des Bewegungsjournals'
+      ? 'Storno: Übertrag bei Eröffnung des Bewegungsjournals'
       : z.storno_von_id ? `Storno: ${bez(z.buchungsart_code)}` : bez(z.buchungsart_code)
     const partner = z.partner_name ? `${Number(z.menge_liter) < 0 ? 'an' : 'von'} ${z.partner_name}${z.partner_land && z.partner_land !== 'AT' ? ` (${z.partner_land})` : ''}` : null
     ereignisse.push({
@@ -139,7 +163,6 @@ export function journalEreignisse(
         z.hinweis,
         z.rekonstruiert ? 'Nachträglich aus den Bewegungen rekonstruiert' : null,
         `Bestand danach (Bewegungsjournal): ${liter(saldo)}`,
-        uebertrag && o.journalBeginn ? `Bestand am Journalbeginn ${o.journalBeginn.split('-').reverse().join('.')}` : null,
       ].filter((x): x is string => !!x),
     })
   }
