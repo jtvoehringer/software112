@@ -17,7 +17,7 @@ import { fmtNum } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import {
-  BEHANDLUNG_ART_LABEL, flaschenzukaufText, ladeFuellungKette, pnWeitergabeText, pruefnummerTank, type Kette, ladeRueckverfolgungTreffer, massnahmeMittel, massnahmeZeitraum,
+  BEHANDLUNG_ART_LABEL, ernteNrDerTraubenzeile, flaschenzukaufText, ladeFuellungKette, pnWeitergabeText, pruefnummerTank, type Kette, ladeRueckverfolgungTreffer, massnahmeMittel, massnahmeZeitraum,
   type LeseMassnahmen,
 } from '@/lib/behoerden/rueckverfolgung'
 import { fensterBeginnText, ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
@@ -185,6 +185,7 @@ function ChargeKette({
                             </div>
                           )}
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-s112-text-2">
+                            {ernteNrDerTraubenzeile(wg) && <span>Ernte {ernteNrDerTraubenzeile(wg)}</span>}
                             {wg.trauben_kg && <span>{fmtNum(parseFloat(wg.trauben_kg))} kg</span>}
                             {wg.rebsorte && <span>{formatRebsorteMitKuerzel(wg.rebsorte)}</span>}
                             {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>}

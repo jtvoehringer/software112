@@ -55,7 +55,7 @@ describe('KAN-200/201: Verlauf der Prüfnummer je Charge', nurMitHooks, () => {
     assert.equal(entzug.length, 1)
     assert.deepEqual(entzug[0].details, ['am 01.06.2026', 'durch: Prüfnummer entzogen'])
   })
-  test('Rückverfolgung: Prüfnummer (Tank) am Abfülltag als letzte CSV-Spalte, Weitergabe am Umzugstag', async () => {
+  test('Rückverfolgung: Prüfnummer (Tank) am Abfülltag als CSV-Spalte am Ende (danach nur die Ernte-Nr., KAN-477), Weitergabe am Umzugstag', async () => {
     const { zuPnVerlauf } = await laden('lib/kellerbuch/pruefnummerVerlauf.ts')
     const rueck = await laden('lib/behoerden/rueckverfolgung.ts')
     const { csvText } = await laden('lib/csv/index.ts')
@@ -68,8 +68,8 @@ describe('KAN-200/201: Verlauf der Prüfnummer je Charge', nurMitHooks, () => {
     const z = rueck.rueckverfolgungZeilen(ketten)
     assert.equal(z[0].pruefnummerTank, 'N 1234/26 (übernommen aus „GV Alt“)')
     const zeilen = csvText(z, rueck.SPALTEN_RUECKVERFOLGUNG).split('\r\n')
-    assert.match(zeilen[0], /;Prüfnummer \(Tank\)$/)
-    assert.match(zeilen[1], /;N 1234\/26 \(übernommen aus „GV Alt“\)$/)
+    assert.match(zeilen[0], /;Prüfnummer \(Tank\);Ernte-Nr\.$/)
+    assert.match(zeilen[1], /;N 1234\/26 \(übernommen aus „GV Alt“\);$/)   // ohne Pressung keine Ernte-Nr.
     assert.equal(rueck.pnWeitergabeText(kette, '2026-04-02'), 'Prüfnummer N 1234/26 weitergegeben an „GV Teil“')
     assert.equal(rueck.pnWeitergabeText(kette, '2026-04-03'), null)
     // Abfüllung nach dem Verschnitt: erloschen
