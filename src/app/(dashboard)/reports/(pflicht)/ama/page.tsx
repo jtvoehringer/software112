@@ -12,7 +12,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { HEKTARHOECHSTERTRAG_KG_HA, HOECHSTERTRAG_RECHTSFOLGE, ladeErntemeldung } from '@/lib/behoerden/erntemeldung'
 import ErntemeldungFormular from '@/components/behoerden/ErntemeldungFormular'
 import { bioBetrieb } from '@/lib/behoerden/bki-stammdaten'
-import { HL_STELLEN_BESTAND, ladeBestandsmeldung, standardStichtag, stichtagParameter, type BestandZeile } from '@/lib/behoerden/bestandsmeldung'
+import { ladeBestandsmeldung, standardStichtag, stichtagParameter, type BestandZeile } from '@/lib/behoerden/bestandsmeldung'
 import { istParameterFehler } from '@/lib/behoerden/typen'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { fmtNum } from '@/lib/format'
@@ -215,7 +215,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               <th className="px-3 py-2 border border-s112-line text-left">Farbe · Qualität</th>
               <th className="px-3 py-2 border border-s112-line text-right">ml</th>
               <th className="px-3 py-2 border border-s112-line text-right">Flaschen</th>
-              <th className="px-3 py-2 border border-s112-line text-right">hl</th>
+              <th className="px-3 py-2 border border-s112-line text-right">Liter</th>
             </tr></thead>
             <tbody>
               {bestand.flaschen.length === 0 ? (
@@ -228,14 +228,14 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                   <td className="px-3 py-2 border border-s112-line text-xs">{farbeQualitaet(f)}</td>
                   <td className="px-3 py-2 border border-s112-line text-right">{f.flaschengroesseMl}</td>
                   <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(f.flaschen, 0)}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(f.hl, HL_STELLEN_BESTAND)}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(f.liter, 2)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot><tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
               <td className="px-3 py-2 border border-s112-line-str" colSpan={5}>GESAMT Flaschen</td>
               <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.flaschen, 0)} Fl.</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.flaschenHl, HL_STELLEN_BESTAND)} hl</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.flaschenLiter, 2)} l</td>
             </tr></tfoot>
           </table>
 
@@ -249,11 +249,10 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               <th className="px-3 py-2 border border-s112-line text-left">Farbe · Qualität</th>
               <th className="px-3 py-2 border border-s112-line text-left">Behälter</th>
               <th className="px-3 py-2 border border-s112-line text-right">Liter</th>
-              <th className="px-3 py-2 border border-s112-line text-right">hl</th>
             </tr></thead>
             <tbody>
               {bestand.gebinde.length === 0 ? (
-                <tr><td colSpan={7} className="px-3 py-3 text-center text-s112-tertiary italic border border-s112-line text-xs">Kein Wein in Gebinden</td></tr>
+                <tr><td colSpan={6} className="px-3 py-3 text-center text-s112-tertiary italic border border-s112-line text-xs">Kein Wein in Gebinden</td></tr>
               ) : bestand.gebinde.map((t: BestandZeile, i: number) => (
                 <tr key={i} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
                   <td className="px-3 py-2 border border-s112-line">{t.bezeichnung ?? '–'}</td>
@@ -261,21 +260,20 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                   <td className="px-3 py-2 border border-s112-line">{sorteMitKuerzel(t.rebsorte, t.kuerzel)}</td>
                   <td className="px-3 py-2 border border-s112-line text-xs">{farbeQualitaet(t)}</td>
                   <td className="px-3 py-2 border border-s112-line text-xs text-s112-text-2">{t.behaelter ?? '–'}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{t.liter === null ? '–' : fmtNum(t.liter, { max: 2 })}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(t.hl, HL_STELLEN_BESTAND)}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums whitespace-nowrap">{zahl(t.liter, 2)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot><tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
-              <td className="px-3 py-2 border border-s112-line-str" colSpan={6}>GESAMT Gebinde</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.gebindeHl, HL_STELLEN_BESTAND)} hl</td>
+              <td className="px-3 py-2 border border-s112-line-str" colSpan={5}>GESAMT Gebinde</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums whitespace-nowrap">{fmtNum(bestand.summe.gebindeLiter, 2)} l</td>
             </tr></tfoot>
           </table>
 
           {/* Gesamtsumme */}
           <div className="mt-3 flex justify-end">
             <div className="bg-s112-text text-white px-4 py-2 rounded-lg text-sm font-semibold">
-              Gesamtbestand: {fmtNum(bestand.summe.gesamtHl, HL_STELLEN_BESTAND)} hl
+              Gesamtbestand: {fmtNum(bestand.summe.gesamtLiter, 2)} l
             </div>
           </div>
         </div>

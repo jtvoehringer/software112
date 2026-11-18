@@ -172,7 +172,8 @@ describe('KAN-43 ladeBestandsmeldung()', nurMitHooks, () => {
       ['B', 'Zukauf RR', 'a1 · Weingut Partner', 200],
     ])
     assert.ok(d.zeilen.every(z => z.bestandAm === STICHTAG))
-    assert.deepEqual(d.summe, { flaschen: 380, flaschenHl: 3.55, gebindeHl: 18.5, gesamtHl: 22.05 })
+    // KAN-485: Summen in Litern (280 × 1 l + 100 × 0,75 l; 550 + 300 + 800 + 200 l)
+    assert.deepEqual(d.summe, { flaschen: 380, flaschenLiter: 355, gebindeLiter: 1850, gesamtLiter: 2205 })
     assert.ok(d.warnungen.some(w => /zurückgerechnet aus dem Bestand am 02\.10\.2026/.test(w)))
     assert.ok(d.warnungen.some(w => /1 Gebinde enthält am Stichtag mehr als eine Charge.*T1/.test(w)), d.warnungen.join('\n'))
     assert.ok(d.warnungen.some(w => /1 deaktivierte Füllung mit Restbestand ohne Storno-Datum/.test(w)))
@@ -233,10 +234,24 @@ describe('KAN-43 ladeBestandsmeldung()', nurMitHooks, () => {
     const csv = await laden('lib/csv/index.ts')
     const d = await ladeBestandsmeldung(datenbank(tabellen(), { rpc: RPC }), T, { stichtag: STICHTAG, heute: HEUTE })
     const zeilen = csv.csvText(d.zeilen, SPALTEN_BESTANDSMELDUNG).split('\r\n')
-    assert.equal(zeilen[1], '31.07.2026;A – Flaschenwein;GV Klassik;2025;Grüner Veltliner;GV;Weiß;Qualitätswein;;1000;280;280,00;2,800')
-    assert.equal(zeilen[5], '31.07.2026;B – Wein in Gebinden (Tank / Fass);ZW 25;2025;Zweigelt;ZW;Rot;Kabinett;T2;;;800,00;8,000')
-    const hl = d.zeilen.reduce((s, z) => s + z.hl, 0)
-    assert.equal(Math.round(hl * 1000) / 1000, d.summe.gesamtHl)
+    assert.equal(zeilen[1], '31.07.2026;A – Flaschenwein;GV Klassik;2025;Grüner Veltliner;GV;Weiß;Qualitätswein;;1000;280;280,00')
+    assert.equal(zeilen[5], '31.07.2026;B – Wein in Gebinden (Tank / Fass);ZW 25;2025;Zweigelt;ZW;Rot;Kabinett;T2;;;800,00')
+    const liter = d.zeilen.reduce((s, z) => s + z.liter, 0)
+    assert.equal(Math.round(liter * 100) / 100, d.summe.gesamtLiter) // runden-ok: Testvergleich der Summe gerundeter Zeilen
+  })
+
+  test('KAN-485: Weinbestand nur in Litern – keine hl in Daten, CSV und Druckseite', async () => {
+    const { ladeBestandsmeldung, SPALTEN_BESTANDSMELDUNG } = await laden('lib/behoerden/bestandsmeldung.ts')
+    const d = await ladeBestandsmeldung(datenbank(tabellen(), { rpc: RPC }), T, { stichtag: STICHTAG, heute: HEUTE })
+    assert.ok(d.zeilen.every(z => !('hl' in z)))
+    const koepfe = SPALTEN_BESTANDSMELDUNG.map(s => s.kopf)
+    assert.ok(koepfe.includes('Menge (l)'))
+    assert.ok(!koepfe.some(k => /hl/.test(k)), koepfe.join(';'))
+    const seite = quelle('src/app/(dashboard)/reports/(pflicht)/ama/page.tsx')
+    assert.ok(!/>hl</.test(seite), 'Spaltenkopf „hl“')
+    assert.ok(!/} hl</.test(seite), 'Summe in hl')
+    assert.ok(!/HL_STELLEN_BESTAND|summe[.](flaschen|gebinde|gesamt)Hl/.test(seite))
+    assert.ok(seite.includes('Gesamtbestand: {fmtNum(bestand.summe.gesamtLiter, 2)} l'))
   })
 })
 

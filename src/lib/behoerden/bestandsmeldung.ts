@@ -16,8 +16,8 @@
 //            Storno einer Füllung (Restbestand am Storno-Tag ab).
 // Stammdaten (Bezeichnung, Jahrgang, Rebsorte, Farbe, Qualitätsstufe) sind die heutigen.
 //
-// Druckseite und CSV nutzen diese Ladefunktion; Zeilenwerte sind gerundet (Liter 2,
-// hl 3 Stellen wie bisher im Ausdruck), die Summen im Ausdruck addieren genau diese.
+// Druckseite und CSV nutzen diese Ladefunktion; Zeilenwerte sind gerundet (Liter 2 Stellen), die Summen im Ausdruck
+// addieren genau diese. KAN-485 (18.11.2026): Mengen nur noch in Litern – keine hl mehr in Ausdruck und CSV.
 // Farbe (Weinart der Charge, sonst aus der BKI-Kürzelliste) und Qualitätsstufe je Position
 // (Review 25.09.2026) – danach gliedert das amtliche Formular.
 // Gebinde der Kellergemeinschaft: Namen über lade_behaelter (SECURITY DEFINER) –
@@ -43,8 +43,6 @@ type R = Record<string, any>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = any
 
-/** hl im Bestand mit 3 Stellen (wie der bisherige Ausdruck) */
-export const HL_STELLEN_BESTAND = 3
 /** Flaschengröße, wenn an der Füllung keine erfasst ist (wie bisher im Ausdruck) */
 export const FLASCHE_ML_STANDARD = 750
 /** Unter einem halben Zentiliter gilt eine Charge als leer (menge_liter ist numeric(10,2)) */
@@ -71,7 +69,6 @@ export type BestandZeile = {
   /** nur A */
   flaschen: number | null
   liter: number | null
-  hl: number | null
 }
 
 export type BestandsmeldungDaten = {
@@ -83,7 +80,8 @@ export type BestandsmeldungDaten = {
   gebinde: BestandZeile[]
   /** A und B in einer Liste (CSV) */
   zeilen: BestandZeile[]
-  summe: { flaschen: number; flaschenHl: number; gebindeHl: number; gesamtHl: number }
+  /** Liter (KAN-485) – Summe der gerundeten Zeilenwerte */
+  summe: { flaschen: number; flaschenLiter: number; gebindeLiter: number; gesamtLiter: number }
   warnungen: string[]
 }
 
@@ -357,7 +355,6 @@ export async function ladeBestandsmeldung(
       flaschengroesseMl: null,
       flaschen: null,
       liter: runden(liter, STELLEN.liter),
-      hl: runden(liter / 100, HL_STELLEN_BESTAND),
     }
   })
 
@@ -398,7 +395,6 @@ export async function ladeBestandsmeldung(
       flaschengroesseMl: ml,
       flaschen: r.bestand,
       liter: runden((r.bestand * ml) / 1000, STELLEN.liter),
-      hl: runden((r.bestand * ml) / 100000, HL_STELLEN_BESTAND),
     })
   }
   if (ohneGroesse > 0) {
@@ -419,9 +415,9 @@ export async function ladeBestandsmeldung(
   const ohneFarbe = zeilen.filter(z => z.farbe === null).length
   if (ohneFarbe > 0) warnungen.push(`${anzahl(ohneFarbe, 'Position', 'Positionen')} ohne bestimmbare Farbe (weder Weinart der Charge noch eindeutige Rebsorte) – Spalte „Farbe“ leer gelassen.`)
 
-  const summe = (liste: BestandZeile[]) => runden(liste.reduce((s, z) => s + (z.hl ?? 0), 0), HL_STELLEN_BESTAND)
-  const flaschenHl = summe(flaschen)
-  const gebindeHl = summe(gebinde)
+  const summe = (liste: BestandZeile[]) => runden(liste.reduce((s, z) => s + (z.liter ?? 0), 0), STELLEN.liter)
+  const flaschenLiter = summe(flaschen)
+  const gebindeLiter = summe(gebinde)
   return {
     stichtag,
     heute,
@@ -430,9 +426,9 @@ export async function ladeBestandsmeldung(
     zeilen,
     summe: {
       flaschen: flaschen.reduce((s, z) => s + (z.flaschen ?? 0), 0),
-      flaschenHl,
-      gebindeHl,
-      gesamtHl: runden(flaschenHl + gebindeHl, HL_STELLEN_BESTAND),
+      flaschenLiter,
+      gebindeLiter,
+      gesamtLiter: runden(flaschenLiter + gebindeLiter, STELLEN.liter),
     },
     warnungen,
   }
@@ -451,5 +447,4 @@ export const SPALTEN_BESTANDSMELDUNG: CsvSpalte<BestandZeile>[] = [
   { kopf: 'Flaschengröße (ml)', typ: 'ganzzahl', wert: z => z.flaschengroesseMl },
   { kopf: 'Flaschen', typ: 'ganzzahl', wert: z => z.flaschen },
   { kopf: 'Menge (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.liter },
-  { kopf: 'Menge (hl)', typ: 'dezimal', stellen: HL_STELLEN_BESTAND, wert: z => z.hl },
 ]
