@@ -43,7 +43,8 @@ export default function ResetPage() {
             </div>
             <p className="font-semibold text-s112-text">E-Mail gesendet!</p>
             <p className="text-sm text-s112-muted">
-              Wir haben eine E-Mail an <strong>{email}</strong> geschickt. Klicke auf den Link um ein neues Passwort zu setzen.
+              Wir haben eine E-Mail an <strong>{email}</strong> geschickt. Klicke auf den Link, um ein neues Passwort festzulegen.
+              Kommt keine E-Mail an, sieh bitte im Spam-Ordner nach – oder die Adresse ist bei uns nicht hinterlegt.
             </p>
             <Link href="/login" className="text-sm text-s112-blue-700 hover:underline block mt-4">
               ← Zurück zum Login

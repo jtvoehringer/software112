@@ -2,7 +2,7 @@
 import ErfolgsMeldung from '@/components/ErfolgsMeldung'
 
 import { useState, useTransition } from 'react'
-import { updateMemberRole, updateMemberModule, updateMemberProfil, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
+import { updateMemberRole, updateMemberModule, updateMemberProfil, removeMember, toggleMemberAktiv, resendInvite, inviteMember, sendePasswortLinkAnMitglied } from './actions'
 import { PROFILE, type Profil } from '@/lib/auth/lesebereiche'
 import type { MemberWithEmail } from './actions'
 import { MODULE, MODUL_VORLAGEN, type Modul } from '@/lib/auth/module'
@@ -172,6 +172,16 @@ export default function BenutzerClient({ members, limit }: Props) {
     })
   }
 
+  // KAN-465: Link zum Festlegen des Passworts – für Konten, deren Einladungslink verbraucht ist, und bei Anmeldeproblemen
+  const handlePasswortLink = (m: MemberWithEmail) => {
+    setError(null); setSuccess(null)
+    startTransition(async () => {
+      const result = await sendePasswortLinkAnMitglied(m.user_id)
+      if (result?.error) setError(result.error)
+      else setSuccess(`Link zum Festlegen des Passworts an ${m.email} versandt.`)
+    })
+  }
+
   const handleResendInvite = (m: MemberWithEmail) => {
     setError(null); setSuccess(null)
     startTransition(async () => {
@@ -235,6 +245,13 @@ export default function BenutzerClient({ members, limit }: Props) {
                       <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-warn-bg text-s112-warn-fg"
                         title="Einladung verschickt, aber noch nicht angenommen">
                         Ausstehend
+                      </span>
+                    )}
+                    {/* KAN-465: Einladung angenommen (Adresse bestätigt), aber noch kein eigenes Passwort */}
+                    {m.confirmed && m.passwortOffen && (
+                      <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-warn-bg text-s112-warn-fg"
+                        title="Die Einladung wurde geöffnet, aber es wurde noch kein Passwort festgelegt – „Passwort-Link senden“ hilft weiter">
+                        Passwort noch nicht festgelegt
                       </span>
                     )}
                   </td>
@@ -322,6 +339,12 @@ export default function BenutzerClient({ members, limit }: Props) {
                             <button onClick={() => handleResendInvite(m)} disabled={isPending}
                               className="text-s112-blue-700 hover:underline text-xs font-medium disabled:opacity-50">
                               Einladung erneut senden
+                            </button>
+                          )}
+                          {m.confirmed && m.role !== 'system_admin' && (
+                            <button onClick={() => handlePasswortLink(m)} disabled={isPending}
+                              className="text-s112-blue-700 hover:underline text-xs font-medium disabled:opacity-50">
+                              Passwort-Link senden
                             </button>
                           )}
                           {m.role !== 'system_admin' && (

@@ -8,7 +8,8 @@ import { PROFILE, istProfil, profilAus, type Profil } from '@/lib/auth/leseberei
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
-import { mitgliedEinladen, alleKonten, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
+import { mitgliedEinladen, alleKonten, EINLADUNG_REDIRECT, merkePasswortOffen, sendePasswortLink } from '@/lib/auth/einladung'
+import { PASSWORT_OFFEN } from '@/lib/auth/authLink'
 import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 import { authFehlerText } from '@/lib/auth/authFehler'
 
@@ -23,6 +24,8 @@ export type MemberWithEmail = {
   email: string
   aktiv: boolean
   confirmed: boolean
+  /** KAN-465: eingeladen, Passwort noch nicht selbst festgelegt (Kennzeichen am Konto) */
+  passwortOffen: boolean
   /** Modulmatrix (Migration 218) – nur für Rolle winzer (Mitarbeiter) relevant */
   schreibmodule: Modul[]
   /** Profil (KAN-457) – nur für Mitarbeiter: beschränkt das Lesen, die Schreibmodule folgen dem Profil */
@@ -69,9 +72,11 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
   const users = await alleKonten(admin)   // Sweep 102: alle Seiten, Fehler werden ausgewertet
   const emailMap: Record<string, string> = {}
   const confirmedMap: Record<string, boolean> = {}
+  const passwortOffen = new Set<string>()   // KAN-465
   users.forEach(u => {
     emailMap[u.id] = u.email ?? '–'
     confirmedMap[u.id] = !!u.email_confirmed_at
+    if (u.app_metadata?.[PASSWORT_OFFEN] === true) passwortOffen.add(u.id)
   })
 
   return (memberships as R[]).map(m => ({
@@ -82,6 +87,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
     email:      emailMap[m.user_id] ?? m.user_id,
     aktiv:      m.aktiv ?? true,
     confirmed:  confirmedMap[m.user_id] ?? false,
+    passwortOffen: passwortOffen.has(m.user_id),
     schreibmodule: moduleBereinigen(m.schreibmodule),
     profil: profilAus(m.role, m.profil),
   }))
@@ -181,9 +187,49 @@ export async function resendInvite(userId: string) {
     redirectTo: EINLADUNG_REDIRECT,
   })
   if (error) return { error: authFehlerText(error) }
+  await merkePasswortOffen(admin, user)   // KAN-465
 
   revalidatePath('/benutzer')
   revalidatePath('/betrieb/einstellungen')
+  return { success: true }
+}
+
+/** KAN-465: Link zum Festlegen des Passworts an ein Mitglied des eigenen Betriebs senden – für Konten, deren
+ *  Einladungslink verbraucht ist, bevor ein Passwort gesetzt wurde (Mailprogramm ruft den Link vorab ab, Doppelklick),
+ *  und als Hilfe bei Anmeldeproblemen. Prüft wie resendInvite, dass der Ziel-Benutzer Mitglied DIESES Betriebs ist.
+ *  Die Mail geht nur an die hinterlegte Adresse des Kontos; die Betriebsleitung sieht weder Link noch Passwort. */
+export async function sendePasswortLinkAnMitglied(userId: string) {
+  const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
+  const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (aboGesperrt) return { error: aboGesperrt }
+  if (!membership || !canManageUsers(membership.role)) {
+    return { error: 'Keine Berechtigung' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: target, error: targetErr } = await (supabase.from('tenant_memberships') as any)
+    .select('id, role').eq('tenant_id', membership.tenantId).eq('user_id', userId).maybeSingle()
+  if (targetErr) return { error: dbFehlerText(targetErr, 'Mitgliedschaft konnte nicht geladen werden') }
+  if (!target) return { error: 'Benutzer ist kein Mitglied dieses Betriebs.' }
+  // Plattform-Konten (system_admin) verwaltet nur die Plattform – wie bei Rolle und Entfernen
+  if ((target as R).role === 'system_admin' && membership.role !== 'system_admin') return { error: 'Keine Berechtigung' }
+
+  const admin = createSupabaseAdminClient()
+  const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId)
+  const user = userRes?.user
+  if (getErr || !user?.email) return { error: 'Benutzer nicht gefunden' }
+  if (!user.email_confirmed_at) {
+    return { error: 'Die Einladung wurde noch nicht angenommen – bitte „Einladung erneut senden“ verwenden.' }
+  }
+
+  // abfrage-ohne-fehler: nur der Betriebsname für den Text der Mail (ohne Namen: „für Ihr software:112-Konto“)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tenant } = await (supabase.from('tenants') as any).select('name').eq('id', membership.tenantId).maybeSingle()
+  const r = await sendePasswortLink(admin, { email: user.email, betriebName: ((tenant as R | null)?.name as string | undefined) ?? null })
+  if (!r.ok) return { error: r.fehler }
   return { success: true }
 }
 
