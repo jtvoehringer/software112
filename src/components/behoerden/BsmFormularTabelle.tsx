@@ -68,8 +68,7 @@ export default function BsmFormularTabelle({ formular, konzentrate, stichtag }: 
           <span className="font-semibold">Beitragserklärung gem. §§ 21a ff AMA-Gesetz</span> (nur für verkaufte Mengen über 3.000 Liter)
           <br />
           Beitragspflichtige Menge: <span className="tabular-nums font-medium">{formular.beitrag.pflichtig ? `${fmtNum(formular.beitrag.mengeLiter, 0)} l` : '–'}</span>
-          {' · '}Beitragssatz € {fmtNum(formular.beitrag.satz, 2)} / 100 Liter
-          {' · '}€ Beitrag: <span className="tabular-nums font-semibold">{formular.beitrag.pflichtig ? fmtNum(formular.beitrag.betrag, 2) : '–'}</span>
+          {' · '}Den Beitrag setzt die AMA nach der Einreichung fest.
         </p>
       </div>
       <p className="mt-2 inline-flex items-center gap-1.5 text-s112-text-2">

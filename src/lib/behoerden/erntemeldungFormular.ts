@@ -14,18 +14,14 @@ import { bkiFarbe, bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { mischen } from '@/lib/wein/mostgewicht'
 import { katalogQualitaet } from '@/lib/katalog/bki'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
-import { rund2 } from '@/lib/zahl/runden'
 
 /** Liter Wein je kg Trauben laut Formular („kg × 0,75 = Liter“) – Vorgabe BKI, nicht je Betrieb änderbar */
 export const LITER_JE_KG = 0.75
 /**
- * Beitragssatz gem. §§ 21a ff AMA-Gesetz in € je 100 Liter (Formular St. Dr. Lager-Nr. 155; § 21d AMA-Gesetz 1992,
- * zuletzt BGBl. I Nr. 209/2022: Wein 1,10 € je 100 Liter). Bundesweit einheitlich und gesetzlich festgelegt – deshalb
- * hier und nicht als Einstellung je Betrieb (KAN-472 Teil 2); gilt für Ernte- und Bestandsmeldung. Ändert der
- * Gesetzgeber den Satz, wird er hier geändert.
+ * Beitragspflicht gem. §§ 21a ff AMA-Gesetz erst über dieser Menge (Liter). Den Betrag setzt die AMA nach der
+ * Einreichung selbst fest – das Formular zeigt nur die beitragspflichtige Menge, keinen Satz und keinen €-Betrag
+ * (KAN-483, Rückmeldung Hannes 18.11.2026).
  */
-export const AMA_BEITRAG_EUR_JE_100_L = 1.1
-/** Beitragspflicht erst über dieser Erntemenge (Liter) */
 export const AMA_BEITRAG_FREIGRENZE_L = 3000
 
 export const REBSORTE_OHNE = 'Unbekannt'
@@ -77,7 +73,7 @@ export type ErnteFormular = {
   wein: { flaeche: HaAr; liter: number; weissLiter: number; rotLiter: number }
   /** gesamte bewirtschaftete Weingartenfläche des Betriebs */
   betrieb: HaAr
-  beitrag: { pflichtig: boolean; mengeLiter: number; satz: number; betrag: number }
+  beitrag: { pflichtig: boolean; mengeLiter: number }
   /** keine Ernte = Leermeldung */
   leer: boolean
   warnungen: string[]
@@ -106,10 +102,9 @@ export function formularStufe(stufe: string | null, rebsorteBekannt: boolean): {
   return { kuerzel: katalogQualitaet(stufe)?.code ?? null, block: 'rlqp' }
 }
 
-/** Beitragserklärung: Menge = Summe beider Blöcke; pflichtig nur über 3.000 Liter; Betrag = Menge ÷ 100 × Satz */
-export function amaBeitrag(mengeLiter: number, satz: number = AMA_BEITRAG_EUR_JE_100_L): ErnteFormular['beitrag'] {
-  const pflichtig = mengeLiter > AMA_BEITRAG_FREIGRENZE_L
-  return { pflichtig, mengeLiter, satz, betrag: pflichtig ? rund2((mengeLiter / 100) * satz) : 0 }
+/** Beitragserklärung: Menge = Summe beider Blöcke; pflichtig nur über 3.000 Liter. Den Betrag setzt die AMA fest. */
+export function amaBeitrag(mengeLiter: number): ErnteFormular['beitrag'] {
+  return { pflichtig: mengeLiter > AMA_BEITRAG_FREIGRENZE_L, mengeLiter }
 }
 
 const sorteVon = (r: string | null | undefined) => r?.trim() || REBSORTE_OHNE
