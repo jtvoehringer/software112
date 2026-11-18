@@ -17,6 +17,8 @@ import EroeffnungImport from './EroeffnungImport'
 import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 import SendenKnopf from '@/components/ui/SendenKnopf'
+import { mitSegmentNachtrag, type ZeilenPruefung } from '@/lib/crm/importPruefung'
+import ImportPruefDialog from './ImportPruefDialog'
 
 // KAN-42: eroeffnung_tank/eroeffnung_flaschen = Eröffnungsbestand zum Stichtag (eigene Oberfläche, EroeffnungImport.tsx)
 type ImportTyp = 'kontakte' | 'firmen' | 'rieden_details' | 'grundstuecke' | 'gebinde' | 'eroeffnung_tank' | 'eroeffnung_flaschen'
@@ -210,20 +212,63 @@ export default function ImportClient({
 
   const [fortschritt, setFortschritt] = useState<{ erledigt: number; gesamt: number } | null>(null)
 
-  async function startImport() {
-    if (!parsed) return
-    // KAN-426: im CRM ist die Bezeichnung Pflicht – vor dem ersten Block prüfen (die Route prüft dasselbe)
+  // KAN-484: Kontakte und Firmen werden vor dem Import geprüft (Dialog); Ergebnis je Zeile der Datei
+  const [pruefZeilen, setPruefZeilen] = useState<ZeilenPruefung[] | null>(null)
+  const [pruefend, setPruefend] = useState(false)
+  const mitPruefung = typ === 'kontakte' || typ === 'firmen'
+
+  /** KAN-426: im CRM ist die Bezeichnung Pflicht – vor dem ersten Block prüfen (die Route prüft dasselbe); null = Abbruch */
+  function herkunftFuerImport(): string | null {
     const bezFehler = imCrm ? importBezeichnungFehler(herkunft) : null
     setHerkunftFehler(bezFehler)
-    if (bezFehler) { document.getElementById('import-herkunft')?.focus(); return }
-    const herkunftText = imCrm ? importBezeichnungAus(herkunft) : (herkunft.trim() || HERKUNFT_DEFAULT)
-    setImporting(true); setResult(null); setErrorMsg(null)
+    if (bezFehler) { document.getElementById('import-herkunft')?.focus(); return null }
+    return imCrm ? importBezeichnungAus(herkunft) : (herkunft.trim() || HERKUNFT_DEFAULT)
+  }
+
+  async function startPruefung() {
+    if (!parsed) return
+    const herkunftText = herkunftFuerImport()
+    if (herkunftText === null) return
+    setPruefend(true); setResult(null); setErrorMsg(null)
     const gesamt = parsed.rows.length
+    const zeilen: ZeilenPruefung[] = []
+    try {
+      for (let start = 0; start < gesamt; start += IMPORT_BLOCKGROESSE) {
+        setFortschritt({ erledigt: start, gesamt })
+        const res = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ typ, rows: parsed.rows.slice(start, start + IMPORT_BLOCKGROESSE), mapping, istLead, herkunft: herkunftText, zeilenOffset: start, crm: imCrm, pruefen: true }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setErrorMsg('Prüfung fehlgeschlagen: ' + (typeof data?.fehler === 'string' ? data.fehler : `Fehler (Status ${res.status})`) + ' – es wurde nichts importiert.')
+          return
+        }
+        zeilen.push(...((data.zeilen ?? []) as ZeilenPruefung[]))
+      }
+      setPruefZeilen(zeilen)
+    } catch (err) {
+      setErrorMsg(fehlerText(err))
+    } finally {
+      setPruefend(false)
+      setFortschritt(null)
+    }
+  }
+
+  async function startImport(segmente?: Map<number, string>) {
+    if (!parsed) return
+    const herkunftText = herkunftFuerImport()
+    if (herkunftText === null) return
+    // KAN-484: im Prüfdialog nachgetragene Segmente gehen mit den Zeilen an den Import
+    const zeilenDatei = segmente ? mitSegmentNachtrag(parsed.rows, segmente) : parsed.rows
+    setImporting(true); setResult(null); setErrorMsg(null)
+    const gesamt = zeilenDatei.length
     const summe = { ok: 0, fehler: 0, details: [] as string[], warnungen: [] as string[], duplikate: [] as { zeile: number; name: string; email: string | null; grund: string }[] }
     try {
       for (let start = 0; start < gesamt; start += IMPORT_BLOCKGROESSE) {
         setFortschritt({ erledigt: start, gesamt })
-        const block = parsed.rows.slice(start, start + IMPORT_BLOCKGROESSE)
+        const block = zeilenDatei.slice(start, start + IMPORT_BLOCKGROESSE)
         const res = await fetch('/api/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -272,7 +317,7 @@ export default function ImportClient({
       {/* Typ-Wahl */}
       <div className="flex flex-wrap gap-3 mb-6">
         {typen.map(t => (
-          <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null); setErrorMsg(null) }}
+          <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null); setErrorMsg(null); setPruefZeilen(null) }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
               typ === t ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'
             }`}>
@@ -523,12 +568,22 @@ export default function ImportClient({
           {!pflichtMapped && (
             <p className="text-sm text-s112-warn-fg mb-3">Bitte alle Pflichtfelder (*) zuordnen</p>
           )}
-          <button onClick={startImport} disabled={importing || !pflichtMapped}
+          {/* KAN-484: Kontakte und Firmen erst prüfen (Dialog), andere Importarten direkt */}
+          <button onClick={() => (mitPruefung ? startPruefung() : startImport())} disabled={importing || pruefend || !pflichtMapped}
             className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
             {importing
               ? (fortschritt ? `Importiere… ${fortschritt.erledigt} / ${fortschritt.gesamt}` : 'Importiere…')
-              : `${parsed.rows.length} Zeilen importieren`}
+              : pruefend
+                ? (fortschritt ? `Prüfe… ${fortschritt.erledigt} / ${fortschritt.gesamt}` : 'Prüfe…')
+                : mitPruefung ? `${parsed.rows.length} Zeilen prüfen` : `${parsed.rows.length} Zeilen importieren`}
           </button>
+          {mitPruefung && !importing && !result && (
+            <p className="text-xs text-s112-muted mt-2">Vor dem Speichern zeigt ein Dialog, was importiert wird und wo Angaben fehlen; das Segment lässt sich dort nachtragen.</p>
+          )}
+          {pruefZeilen && mitPruefung && (
+            <ImportPruefDialog typ={typ} zeilen={pruefZeilen} onAbbrechen={() => setPruefZeilen(null)}
+              onImportieren={segmente => { setPruefZeilen(null); void startImport(segmente) }} />
+          )}
 
           {errorMsg && (
             <div role="alert" className="mt-4 p-4 rounded-xl border bg-s112-err-bg border-s112-err/30">

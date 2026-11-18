@@ -81,8 +81,14 @@ describe('KAN-426: Importseite und Route', () => {
     assert.match(s, /const CRM_TYPEN = ALLE_TYPEN\.filter\(t => istCrmImportTyp\(t\)\)/)
     assert.match(s, /const typen = imCrm \? CRM_TYPEN : ALLE_TYPEN/)
     assert.match(s, /useState\(imCrm \? '' : HERKUNFT_DEFAULT\)/)
-    const start = s.slice(s.indexOf('async function startImport()'))
-    assert.ok(start.indexOf('importBezeichnungFehler(herkunft)') > 0 && start.indexOf('importBezeichnungFehler(herkunft)') < start.indexOf("fetch('/api/import'"))
+    // KAN-484: Prüfung der Bezeichnung in herkunftFuerImport() – vor dem ersten Block der Prüfung und des Imports
+    const helfer = s.slice(s.indexOf('function herkunftFuerImport()'))
+    assert.ok(helfer.indexOf('importBezeichnungFehler(herkunft)') > 0 && helfer.indexOf('importBezeichnungFehler(herkunft)') < helfer.indexOf('async function'))
+    for (const fn of ['async function startPruefung()', 'async function startImport(']) {
+      const rumpf = s.slice(s.indexOf(fn))
+      assert.ok(rumpf.indexOf('herkunftFuerImport()') > 0 && rumpf.indexOf('herkunftFuerImport()') < rumpf.indexOf("fetch('/api/import'"), fn)
+    }
+    const start = s.slice(s.indexOf('async function startImport('))
     assert.match(start, /herkunft: herkunftText, zeilenOffset: start, crm: imCrm \}/)
     assert.match(s, /role="alert" className="basis-full text-xs text-s112-err-fg">\{herkunftFehler\}/)
     // Verwaltung unverändert: Vorbelegung bleibt

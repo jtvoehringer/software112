@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { importBezeichnungAus, importBezeichnungFehler, istCrmImportTyp } from '@/lib/crm/importBezeichnung'
+import { pruefeZeile, segmentAus, type ZeilenPruefung } from '@/lib/crm/importPruefung'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
@@ -20,33 +21,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-// Der Ziel-Enum "kundensegment" in der DB kennt: privat, gastronomie, handel,
-// export, grosshandel, produzent, weinhauer - NICHT "gastro". SEGMENT_MAP
-// mappte CSV-Werte bisher auf genau dieses ungültige "gastro" (sowohl hier
-// als auch als Fallback unten bei typ === 'firmen') - jede Firmen-Zeile schlug
-// dadurch mit "invalid input value for enum kundensegment" fehl, auch wenn
-// die Spaltenzuordnung selbst gepasst hätte (Rückmeldung 1.9.2026: "gastro
-// wird gar nicht angeführt" - stimmt, im Enum heißt es "gastronomie").
-// Migration 185 (1.9.2026): kundensegment-Enum um die "Kundengruppe"-Werte des
-// DKB-Altsystem-Exports (Kontakte_Firmen_DKB.csv) ergänzt, damit diese direkt
-// übernommen werden statt pauschal auf einen Standardwert zu fallen.
-const SEGMENT_MAP: Record<string, string> = {
-  'privat': 'privat', 'private': 'privat',
-  'gastro': 'gastronomie', 'gastronomie': 'gastronomie', 'restaurant': 'restaurant',
-  'handel': 'handel', 'trade': 'handel',
-  'export': 'export',
-  'grosshandel': 'grosshandel', 'großhandel': 'grosshandel', 'wholesale': 'grosshandel',
-  'produzent': 'produzent',
-  'weinhauer': 'weinhauer', 'winzer': 'weinhauer', 'weingut': 'weinhauer',
-  // DKB-Kundengruppe-Werte:
-  'firmenkunde': 'firmenkunde',
-  'vinothek': 'vinothek',
-  'ab hof': 'abhof', 'ab-hof': 'abhof', 'abhof': 'abhof',
-  'tourismus': 'tourismus',
-  'medien': 'medien', 'presse': 'medien',
-  'importeur': 'importeur', 'import': 'importeur',
-  'sonstige': 'sonstige', 'sonstiges': 'sonstige', 'other': 'sonstige',
-}
+// Segment (CSV-Wert → Enum kundensegment, Standard bei fehlend/unbekannt, Nachtrag aus dem Prüfdialog): segmentAus() in
+// lib/crm/importPruefung.ts – gemeinsam mit der Prüfung vor dem Import (KAN-484).
 
 // KAN-187: Land über den Länderkatalog (ISO-Code, Namen wie „Österreich“/„Germany“, UK → GB).
 // Leer → AT wie bisher; nicht erkannt → Land leer lassen, Zeile trotzdem importieren, Hinweis im Bericht.
@@ -160,7 +136,7 @@ export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
   try {
-    const { typ, rows, mapping, istLead, herkunft, zeilenOffset, crm } = await req.json() as {
+    const { typ, rows, mapping, istLead, herkunft, zeilenOffset, crm, pruefen } = await req.json() as {
       typ: ImportTyp
       rows: R[]
       mapping: Record<string, string>
@@ -170,6 +146,8 @@ export async function POST(req: NextRequest) {
       zeilenOffset?: number
       /** KAN-426: Import aus dem CRM – nur Kontakte/Firmen, Bezeichnung Pflicht */
       crm?: boolean
+      /** KAN-484: nur prüfen (Dialog vor dem Import) – nichts speichern */
+      pruefen?: boolean
     }
     // KAN-426: Der CRM-Import kennt nur Kontakte und Firmen und verlangt eine Bezeichnung (keine Vorbelegung)
     if (crm === true) {
@@ -333,6 +311,29 @@ export async function POST(req: NextRequest) {
       return id
     }
 
+    // KAN-484: Prüfung vor dem Import (Dialog) – dieselben Rechte und Regeln wie der Import darunter, aber ohne
+    // Schreibzugriff. Liefert je Zeile: neu / Dublette / übersprungen, Segment und fehlende Angaben.
+    if (pruefen === true) {
+      if (!istCrmImportTyp(typ)) return NextResponse.json({ fehler: 'Die Prüfung vor dem Import gibt es nur für Kontakte und Firmen.' }, { status: 400 })
+      const zeilen: ZeilenPruefung[] = []
+      for (let i = 0; i < rows.length; i++) {
+        const z = pruefeZeile(typ, rows[i], mapping, zeilenBasis - 2 + i)
+        if (z.status === 'neu' && leadImport) {
+          const emailKey = z.email ? normName(z.email) : null
+          if ((emailKey && kundenEmailSet.has(emailKey)) || kundenNameSet.has(normName(z.name))) {
+            z.status = 'dublette'
+            z.grund = 'bereits aktiver Kunde'
+          }
+        }
+        if (z.status === 'neu' && typ === 'kontakte') {
+          const firmaName = (mapVal(rows[i], mapping.firma) as string | null | undefined)?.trim() || null
+          if (firmaName && !(await findFirmaId(firmaName))) z.hinweise.push(`Firma „${firmaName}“ nicht gefunden – Vermerk in der Notiz`)
+        }
+        zeilen.push(z)
+      }
+      return NextResponse.json({ zeilen })
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       try {
@@ -352,7 +353,7 @@ export async function POST(req: NextRequest) {
               continue
             }
           }
-          const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'privat'
+          const segment = segmentAus('kontakte', row, mapping).wert   // KAN-484: Nachtrag aus dem Prüfdialog, sonst Datei, sonst privat
           // Firmenzuordnung: gefunden -> firma_id; nicht gefunden -> Vermerk in
           // den Notizen, damit die Information nicht verloren geht.
           const firmaName = (mapVal(row, mapping.firma) as string | null | undefined)?.trim() || null
@@ -408,7 +409,7 @@ export async function POST(req: NextRequest) {
               continue
             }
           }
-          const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'gastronomie'
+          const segment = segmentAus('firmen', row, mapping).wert   // KAN-484: Nachtrag aus dem Prüfdialog, sonst Datei, sonst gastronomie
           const landF = importLand(mapVal(row, mapping.land), i+zeilenBasis, warnungen)
           const telF = zerlegeTelefon(mapVal(row, mapping.telefon) as string | null | undefined, landF)
           const mobF = zerlegeTelefon(mapVal(row, mapping.mobil) as string | null | undefined, landF)
