@@ -18,6 +18,7 @@ import { sendeBenachrichtigung } from '@/lib/benachrichtigungen/server'
 import { roleLabel, type UserRole } from '@/lib/auth/roles'
 import { authFehlerText } from './authFehler'
 import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
+import { PASSWORT_OFFEN } from './authLink'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -82,7 +83,52 @@ export async function kontoFuerEinladung(admin: SupabaseClient, email: string, n
     ...(name ? { data: { display_name: name } } : {}),
   })
   if (error || !data.user) return { ok: false, fehler: error ? authFehlerText(error) : 'Einladung fehlgeschlagen' }
+  await merkePasswortOffen(admin, data.user)
   return { ok: true, userId: data.user.id, neuesKonto: true, bestehendesKonto: null }
+}
+
+/**
+ * KAN-465: Kennzeichen am eingeladenen Konto – das Passwort ist noch nicht selbst festgelegt. Die Benutzerverwaltung
+ * zeigt es an (ein bestätigtes Konto ohne Passwort war sonst nicht erkennbar); gelöscht wird es beim Festlegen des
+ * Passworts (app/auth/update-password/actions.ts). Best effort: scheitert das Setzen, fehlt nur der Hinweis.
+ */
+export async function merkePasswortOffen(admin: SupabaseClient, user: Pick<User, 'id' | 'app_metadata'>): Promise<void> {
+  const { error } = await admin.auth.admin.updateUserById(user.id, { app_metadata: { ...(user.app_metadata ?? {}), [PASSWORT_OFFEN]: true } })
+  if (error) console.error('Kennzeichen „Passwort offen“ (KAN-465):', authFehlerText(error))
+}
+
+/** Adresse der Passwortseite mit Token-Hash – wird erst beim Klick dort eingelöst (kein Verbrauch durch Vorab-Abruf) */
+export function passwortLinkUrl(hashedToken: string): string {
+  return `${APP_URL}/auth/update-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`
+}
+
+/**
+ * KAN-465: Link zum Festlegen des Passworts an ein bestätigtes Konto senden (Benutzerverwaltung › „Passwort-Link
+ * senden“). Mit System-Mail (Brevo): eigener Link mit Token-Hash, unabhängig von den E-Mail-Vorlagen in Supabase.
+ * Ohne Brevo bzw. bei einem Versandfehler: die Passwort-Mail von Supabase.
+ */
+export async function sendePasswortLink(admin: SupabaseClient, p: { email: string; betriebName: string | null }): Promise<{ ok: true } | { ok: false; fehler: string }> {
+  if (process.env.BREVO_API_KEY) {
+    const { data, error } = await admin.auth.admin.generateLink({ type: 'recovery', email: p.email })
+    const hash = (data?.properties as R | undefined)?.hashed_token as string | undefined
+    if (error || !hash) return { ok: false, fehler: error ? authFehlerText(error) : 'Der Link konnte nicht erzeugt werden.' }
+    const url = passwortLinkUrl(hash)
+    const betrieb = p.betriebName ? ` im Betrieb „${p.betriebName}“` : ''
+    const text = `Hallo,\n\nfür Ihr software:112-Konto${betrieb} wurde ein Link zum Festlegen des Passworts angefordert.\n\n`
+      + `Passwort festlegen: ${url}\n\nDer Link ist einmal verwendbar und läuft nach kurzer Zeit ab. `
+      + `Falls Sie das nicht erwartet haben, können Sie diese Nachricht ignorieren – Ihr Passwort bleibt unverändert.\n\n– software:112`
+    const html = `<p>Hallo,</p><p>für Ihr software:112-Konto${esc(betrieb)} wurde ein Link zum Festlegen des Passworts angefordert.</p>`
+      + `<p><a href="${esc(url)}" style="display:inline-block;background:#4F90E8;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none">Passwort festlegen</a></p>`
+      + `<p style="color:#707883;font-size:12px">Der Link ist einmal verwendbar und läuft nach kurzer Zeit ab. Falls Sie das nicht erwartet haben, können Sie diese Nachricht ignorieren – Ihr Passwort bleibt unverändert.</p>`
+    try {
+      await sendEmail({ to: { email: p.email }, subject: '[software:112] Passwort festlegen', htmlContent: html, textContent: text, senderName: 'software:112' })
+      return { ok: true }
+    } catch (err) {
+      console.error('Passwort-Link (KAN-465), Versand über Brevo gescheitert – weiter mit der Mail von Supabase:', err)
+    }
+  }
+  const { error } = await admin.auth.resetPasswordForEmail(p.email, { redirectTo: `${APP_URL}/auth/callback?next=/auth/update-password&type=recovery` })
+  return error ? { ok: false, fehler: authFehlerText(error) } : { ok: true }
 }
 
 function esc(s: string): string {

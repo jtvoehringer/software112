@@ -45,10 +45,34 @@ describe('Login-Callback: Weiterleitung nur innerhalb der App', nurMitHooks, () 
     assert.equal(await aufruf('next=/dashboard', sitzung(5000)), `${ORIGIN}/auth/update-password`, 'gerade bestätigt')
   })
 
-  test('ohne gültigen Code: zurück zum Login mit Fehler', async () => {
+  // KAN-465: der Fehler bleibt auf einer eigenen Seite stehen – /login zeigte ihn nicht an und leitet bei offener Sitzung
+  // ins Dashboard des angemeldeten (womöglich anderen) Kontos
+  test('ohne gültigen Code: Fehlerseite (nie /login, nie ein fremdes Ziel)', async () => {
     globalThis.__serverFake = { auth: { exchangeCodeForSession: async () => ({ error: { message: 'abgelaufen' } }) } }
     try {
-      assert.equal((await route.GET(new Request(`${ORIGIN}/auth/callback?code=x&next=@boese.example`))).ziel, `${ORIGIN}/login?error=auth_callback_failed`)
+      const ziel = async q => String((await route.GET(new Request(`${ORIGIN}/auth/callback?${q}`))).ziel)
+      assert.equal(await ziel('code=x&next=@boese.example'), `${ORIGIN}/auth/fehler?zweck=anmeldung`)
+      assert.equal(await ziel('code=x&type=recovery&next=/auth/update-password'), `${ORIGIN}/auth/fehler?zweck=passwort`)
+      assert.equal(await ziel('code=x&type=invite'), `${ORIGIN}/auth/fehler?zweck=einladung`)
+      assert.equal(await ziel('next=/dashboard'), `${ORIGIN}/auth/fehler?zweck=anmeldung`)
     } finally { globalThis.__serverFake = null }
+  })
+  test('KAN-465: Token-Hash wird beim Abruf NICHT eingelöst – weiter zur Seite, auf der der Klick ihn einlöst', async () => {
+    let eingeloest = 0
+    globalThis.__serverFake = { auth: { exchangeCodeForSession: async () => { eingeloest++; return { error: null } }, verifyOtp: async () => { eingeloest++; return { error: null } } } }
+    try {
+      const ziel = async q => String((await route.GET(new Request(`${ORIGIN}/auth/callback?${q}`))).ziel)
+      assert.equal(await ziel('next=/auth/update-password&type=recovery&token_hash=abc123'), `${ORIGIN}/auth/update-password?token_hash=abc123&type=recovery`)
+      assert.equal(await ziel('type=invite&token_hash=abc123'), `${ORIGIN}/auth/invite?token_hash=abc123&type=invite`)
+      // ein fremdes „next“ spielt dabei keine Rolle
+      assert.equal(await ziel('next=https://boese.example&type=recovery&token_hash=x'), `${ORIGIN}/auth/update-password?token_hash=x&type=recovery`)
+      assert.equal(eingeloest, 0, 'ein Abruf durch Mailprogramm oder Virenscanner verbraucht den Link nicht')
+    } finally { globalThis.__serverFake = null }
+  })
+  test('KAN-465: ohne Code (Sitzung bzw. Fehler im Fragment) weiter zur Seite des Zwecks, Fehlerangaben bleiben erhalten', async () => {
+    const ziel = async q => String((await route.GET(new Request(`${ORIGIN}/auth/callback?${q}`))).ziel)
+    assert.equal(await ziel('next=/auth/update-password&type=recovery'), `${ORIGIN}/auth/update-password`)
+    assert.equal(await ziel('type=recovery&error=access_denied&error_code=otp_expired'), `${ORIGIN}/auth/update-password?error=access_denied&error_code=otp_expired`)
+    assert.equal(await ziel('type=invite&error=access_denied'), `${ORIGIN}/auth/invite?error=access_denied`)
   })
 })
