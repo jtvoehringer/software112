@@ -52,10 +52,10 @@ describe('KAN-472: Rechnung', nurMitHooks, () => {
     assert.deepEqual(m.formularStufe('kabinett', true), { kuerzel: 'KAB', block: 'rlqp' })
     assert.deepEqual(m.formularStufe(null, true), { kuerzel: null, block: 'rlqp' })
   })
-  test('Beitrag: erst über 3.000 Liter, 1,10 € je 100 Liter', () => {
-    assert.deepEqual(m.amaBeitrag(31500), { pflichtig: true, mengeLiter: 31500, satz: 1.1, betrag: 346.5 })
-    assert.deepEqual(m.amaBeitrag(3000), { pflichtig: false, mengeLiter: 3000, satz: 1.1, betrag: 0 })
-    assert.equal(m.amaBeitrag(3001).betrag, 33.01)
+  test('Beitrag: pflichtige Menge erst über 3.000 Liter, ohne Satz und € (KAN-483: Betrag setzt die AMA fest)', () => {
+    assert.deepEqual(m.amaBeitrag(31500), { pflichtig: true, mengeLiter: 31500 })
+    assert.deepEqual(m.amaBeitrag(3000), { pflichtig: false, mengeLiter: 3000 })
+    assert.equal(m.amaBeitrag(3001).pflichtig, true)
   })
 })
 
@@ -69,13 +69,13 @@ describe('KAN-472: Musterblatt des Tickets', nurMitHooks, () => {
     ].sort())
     assert.equal(f.zeilen.filter(z => z.block === 'wein').length, 1)
   })
-  test('Summen, Flächen und Beitrag wie am Musterblatt: 21.500 l · 4 ha 50 ar · 10.000 l · 1 ha 10 ar · 5 ha 60 ar · 346,50 €', () => {
+  test('Summen, Flächen und Beitrag wie am Musterblatt: 21.500 l · 4 ha 50 ar · 10.000 l · 1 ha 10 ar · 5 ha 60 ar · beitragspflichtig 31.500 l', () => {
     const f = m.ernteFormular(MUSTER, VERKAUF, 5.6)
     assert.deepEqual(f.rlqp, { flaeche: { ha: 4, ar: 50 }, liter: 21500 })
     assert.equal(f.wein.liter, 10000)
     assert.deepEqual(f.wein.flaeche, { ha: 1, ar: 10 })
     assert.deepEqual(f.betrieb, { ha: 5, ar: 60 })
-    assert.deepEqual(f.beitrag, { pflichtig: true, mengeLiter: 31500, satz: 1.1, betrag: 346.5 })
+    assert.deepEqual(f.beitrag, { pflichtig: true, mengeLiter: 31500 })
     assert.equal(f.leer, false)
     assert.deepEqual(f.warnungen, [])
   })
@@ -110,7 +110,7 @@ describe('KAN-472: Traubenverkauf und Sonderfälle', nurMitHooks, () => {
     const leer = m.ernteFormular([], [], 3.2)
     assert.equal(leer.leer, true)
     assert.deepEqual(leer.betrieb, { ha: 3, ar: 20 })
-    assert.deepEqual(leer.beitrag, { pflichtig: false, mengeLiter: 0, satz: 1.1, betrag: 0 })
+    assert.deepEqual(leer.beitrag, { pflichtig: false, mengeLiter: 0 })
   })
   test('Mostgewicht je Zeile mengengewichtet in °KMW; ohne Stufe erfasst → Hinweis', () => {
     const f = m.ernteFormular([L('Zweigelt', 'qualitaetswein', 750, 'a', 1, 16), L('Zweigelt', 'qualitaetswein', 2250, 'b', 1, 18), L('Riesling', null, 750, 'c', 1, null)], [], 3)
@@ -190,9 +190,16 @@ describe('KAN-472 Teil 2: Ankreuzfelder der Meldung', () => {
     const schema = JSON.parse(lies('scripts/schema.json'))
     assert.ok(schema.weinjahrgaenge.includes('ernte_suessung') && schema.weinjahrgaenge.includes('ernte_entsaeuerung'))
   })
-  test('Beitragssatz: gesetzlich einheitlich, im Programm mit Fundstelle – keine Einstellung je Betrieb', () => {
+  test('KAN-483: kein Beitragssatz und kein €-Beitrag in Rechenkern, Formularen und Handbuch', () => {
     const r = lies('src/lib/behoerden/erntemeldungFormular.ts')
-    assert.ok(r.includes('export const AMA_BEITRAG_EUR_JE_100_L = 1.1'))
-    assert.ok(r.includes('BGBl. I Nr. 209/2022'))
+    assert.ok(!r.includes('AMA_BEITRAG_EUR_JE_100_L'))
+    assert.ok(r.includes('export const AMA_BEITRAG_FREIGRENZE_L = 3000'))
+    for (const datei of ['src/components/behoerden/ErntemeldungFormular.tsx', 'src/components/behoerden/BsmFormularTabelle.tsx']) {
+      const t = lies(datei)
+      assert.ok(!/beitrag\.(satz|betrag)|Beitragssatz|€ Beitrag/.test(t), `${datei} zeigt noch Satz oder €-Beitrag`)
+      assert.ok(t.includes('beitrag.mengeLiter'), `${datei} zeigt die beitragspflichtige Menge nicht mehr`)
+      assert.ok(t.includes('Den Beitrag setzt die AMA nach der Einreichung fest.'))
+    }
+    assert.ok(!lies('src/app/(dashboard)/hilfe/handbuch/page.tsx').includes('1,10 € je 100 Liter'))
   })
 })

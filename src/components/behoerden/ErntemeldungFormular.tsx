@@ -104,14 +104,7 @@ export default function ErntemeldungFormular({ formular, biobetrieb, suessung = 
               <span className="block text-[11px] text-s112-text-2">Beitragspflichtige Menge in Liter</span>
               <span className="tabular-nums font-semibold">{formular.beitrag.pflichtig ? fmtNum(formular.beitrag.mengeLiter, 0) : '–'}</span>
             </td>
-            <td className="px-3 py-2">
-              <span className="block text-[11px] text-s112-text-2">Beitragssatz</span>
-              <span className="tabular-nums">€ {fmtNum(formular.beitrag.satz, 2)} / 100 Liter</span>
-            </td>
-            <td className="px-3 py-2 text-right">
-              <span className="block text-[11px] text-s112-text-2">€ Beitrag</span>
-              <span className="tabular-nums font-semibold">{formular.beitrag.pflichtig ? fmtNum(formular.beitrag.betrag, 2) : '–'}</span>
-            </td>
+            <td className="px-3 py-2 text-xs text-s112-text-2">Den Beitrag setzt die AMA nach der Einreichung fest.</td>
           </tr>
         </tbody>
       </table>

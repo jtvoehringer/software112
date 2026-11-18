@@ -98,8 +98,8 @@ describe('KAN-473: Beispieljahr', nurMitHooks, () => {
     assert.ok(!f.warnungen.some(w => /keine Farbe/.test(w)))
     assert.ok(f.warnungen.some(w => /Sonstige Veränderungen/.test(w)))
   })
-  test('Beitrag: verkaufte Menge (Fass + Flasche) 6.000 l → 66,00 €; bis 3.000 l kein Beitrag', () => {
-    assert.deepEqual(f.beitrag, { pflichtig: true, mengeLiter: 6000, satz: 1.1, betrag: 66 })
+  test('Beitrag: verkaufte Menge (Fass + Flasche) 6.000 l beitragspflichtig (ohne €, KAN-483); bis 3.000 l kein Beitrag', () => {
+    assert.deepEqual(f.beitrag, { pflichtig: true, mengeLiter: 6000 })
     assert.equal(m.bsmFormular([S('VK_FL_AT', { qualitaetswein: 3000 })], Z).beitrag.pflichtig, false)
   })
 })
