@@ -15,6 +15,8 @@ import { fmtNum, zahlAus } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { useDialog } from '@/components/ui/useDialog'
+import Link from '@/components/ui/Link'
+import { weiteresZielPfad } from '@/lib/keller/umzugVorgabe'
 import { serverRueckfrage } from '@/lib/ui/rueckfrage'
 import { bewerteZiel, teilumzugText, vorschlagsMenge, ZIEL_FARBE, type PlanCharge, type PlanGebinde } from '@/lib/keller/kellerplanZiehen'
 
@@ -132,6 +134,18 @@ export default function KellerplanBuchen({ quellGebinde, ziel, quellChargen, zie
         </div>
 
         {fehler && <p role="alert" className="text-sm bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2">{fehler}</p>}
+
+        {/* KAN-468 Nebenbefund: aus einem Gebinde in mehrere – das kann das Umzugsformular (eine Buchung, beliebig viele Ziele) */}
+        {quelle && (
+          <p className="text-xs text-s112-text-2">
+            Auf mehrere Gebinde verteilen?{' '}
+            <Link href={weiteresZielPfad({ vonBehaelter: quellGebinde.id, chargeId: quelle.id, zielId: ziel.id, menge: Number.isFinite(menge) ? menge : null })}
+              className="font-semibold text-s112-teal underline">
+              Weiteres Ziel …
+            </Link>{' '}
+            öffnet das Umzugsformular mit dieser Charge, „{ziel.name}“ und der Menge – dort weitere Ziele ergänzen und alles in einer Buchung speichern.
+          </p>
+        )}
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-s112-text-2 hover:text-s112-text">Abbrechen</button>

@@ -93,7 +93,9 @@ describe('KAN-174: Verdrahtung', () => {
     assert.match(quelle('src/lib/keller/schnellerfassung.ts'), /umziehen: `\/kellerbuch\/umziehen\?neu=1&von=\$\{behaelterId\}`/)
     assert.match(quelle(`${D}/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx`), /href=\{`\/kellerbuch\/umziehen\?neu=1&von=\$\{dialogBehaelter\.id\}`\}/)
     assert.match(quelle(`${D}/kellerbuch/umziehen/page.tsx`), /vonBehaelter=\{vonBehaelter\}/)
-    assert.match(quelle(`${D}/kellerbuch/umziehen/UmziehenClient.tsx`), /quellen\.find\(q => q\.behaelter_id === vonBehaelter\)\?\.charge_id/)
+    // seit KAN-468 (Nebenbefund 19.11.2026) über lib/keller/umzugVorgabe.ts – Verhalten: kan468b-weiteres-ziel.test.mjs
+    assert.ok(quelle(`${D}/kellerbuch/umziehen/UmziehenClient.tsx`).includes('vorgabeZeilen(vorgabe ?? { vonBehaelter, chargeId: null, zielId: null, menge: null }, quellen)'))
+    assert.ok(quelle('src/lib/keller/umzugVorgabe.ts').includes('quellen.find(x => x.behaelter_id === v.vonBehaelter)'))
   })
   test('C: alle Gebinde-Auswahlen über gebindeOption', () => {
     for (const f of [`${D}/kellerbuch/umziehen/UmziehenClient.tsx`, 'src/components/kellerbuch/UmziehenWidget.tsx',
