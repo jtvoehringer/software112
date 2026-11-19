@@ -51,7 +51,7 @@ describe('KAN-455: Lesebereich je Behördenmeldung', () => {
   test('abweichende Bereiche stehen am Eintrag', () => {
     assert.deepEqual(KATALOG.filter(e => e.bereich).map(e => `${e.id}=${e.bereich}`).sort(), [
       'aenderungsprotokoll=verwaltung', 'bestandsmeldung=keller', 'bsm-kontrolljournal=keller', 'bsm=keller', 'dac-antraege=keller',
-      'flaechenverzeichnis=ea', 'pruefnummernantrag=keller', 'transportbescheinigung=lager', 'transportbescheinigungen=lager',
+      'flaechenverzeichnis=ea', 'pruefnummernantrag=keller', 'transportbescheinigung=lager', 'transportbescheinigungen=lager', 'zusammenfassende-meldung=ea',
     ])
   })
   test('Extern exportiert keine Meldung – seit KAN-458 auch nicht das Flächenverzeichnis (es enthält das Rechtsverhältnis)', () => {
@@ -60,8 +60,9 @@ describe('KAN-455: Lesebereich je Behördenmeldung', () => {
   })
   test('Vertrieb: Weinverkehr und Lager – nicht Buchhaltung, Kellerbuch, Ernte, Pflanzenschutz', () => {
     assert.deepEqual(KATALOG.filter(e => darf('vertrieb', e.id)).map(e => e.id).sort(),
-      ['emcs-datenblatt', 'exportauftraege', 'exportauftrag', 'transportbescheinigung', 'transportbescheinigungen', 'zusammenfassende-meldung'])
-    for (const id of ['uva', 'rechnungsausgangsjournal', 'kassabuch', 'weinbuch', 'bki-verkauf', 'bsm', 'erntemeldung', 'psm-aufzeichnung', 'aenderungsprotokoll']) {
+      ['emcs-datenblatt', 'exportauftraege', 'exportauftrag', 'transportbescheinigung', 'transportbescheinigungen'])
+    // Entscheidung Jörgen 19.11.2026: die Zusammenfassende Meldung (Finanzamt) gehört zur Buchhaltung
+    for (const id of ['zusammenfassende-meldung', 'uva', 'rechnungsausgangsjournal', 'kassabuch', 'weinbuch', 'bki-verkauf', 'bsm', 'erntemeldung', 'psm-aufzeichnung', 'aenderungsprotokoll']) {
       assert.equal(darf('vertrieb', id), false, id)
     }
   })

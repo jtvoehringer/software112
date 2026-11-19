@@ -72,6 +72,7 @@ export const KATALOG_VERKEHR = katalogGruppe('verkehr', {
     rechtsgrundlage: 'Art. 21 UStG 1994 (Binnenmarktregelung)',
     druckPfad: '/weinexport/zusammenfassende-meldung',
     pflicht: true,
+    bereich: 'ea',   // KAN-455 (Entscheidung Jörgen 19.11.2026): Meldung an das Finanzamt – Buchhaltung, nicht „Vertrieb“
     beschreibung: 'Je UID des Erwerbers die Summe der steuerfreien innergemeinschaftlichen Lieferungen im Meldezeitraum – zur Eingabe in FinanzOnline (keine elektronische Übermittlung).',
   },
   exportauftraege: {

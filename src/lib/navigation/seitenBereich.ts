@@ -57,6 +57,7 @@ export const SEITEN_BEREICH: ReadonlyArray<readonly [string, Lesebereich]> = [
   ['/weinhandel/export', 'verkauf'],
   ['/weinhandel/traubenverkauf', 'lese'],
   ['/weinexport', 'verkauf'],
+  ['/weinexport/zusammenfassende-meldung', 'ea'],     // KAN-455 (19.11.2026): Meldung an das Finanzamt – Buchhaltung
   // CRM
   ['/crm', 'crm'],
   ['/nachrichten', 'crm'],

@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { requireLesen } from '@/lib/auth/lesen'
 import Link from '@/components/ui/Link'
 import PrintButton from '@/app/(dashboard)/reports/PrintButton'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -25,6 +26,7 @@ const tag = (d: string) => d.split('-').reverse().join('.')
 
 export default async function ZusammenfassendeMeldungPage({ searchParams }: { searchParams: Promise<{ jahr?: string; zeitraum?: string }> }) {
   const sp = await searchParams
+  await requireLesen('ea')   // KAN-455: Buchhaltung (das Layout verlangt zusätzlich den Bereich Verkauf)
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) redirect('/dashboard')
   const tenantId = membership.tenantId
