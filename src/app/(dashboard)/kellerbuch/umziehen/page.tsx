@@ -10,14 +10,17 @@ import UmziehenClient from './UmziehenClient'
 
 export const metadata: Metadata = { title: 'Umziehen' }
 export const dynamic = 'force-dynamic'
+import { umzugVorgabeAus } from '@/lib/keller/umzugVorgabe'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function UmziehenPage({ searchParams }: { searchParams: Promise<{ neu?: string; von?: string }> }) {
+export default async function UmziehenPage({ searchParams }: { searchParams: Promise<{ neu?: string; von?: string; charge?: string; nach?: string; menge?: string }> }) {
   const sp = await searchParams
-  // KAN-174 B: vom Gebinde aus (?von=<Behälter>) – Formular offen, Quelle mit diesem Gebinde vorbelegt
-  const vonBehaelter = typeof sp?.von === 'string' && /^[0-9a-f-]{36}$/i.test(sp.von) ? sp.von : null
+  // KAN-174 B: vom Gebinde aus (?von=<Behälter>) – Formular offen, Quelle mit diesem Gebinde vorbelegt.
+  // KAN-468 Nebenbefund: „Weiteres Ziel“ aus dem Kellerplan bringt zusätzlich Charge, erstes Ziel und Menge mit
+  const vorgabe = umzugVorgabeAus(sp)
+  const vonBehaelter = vorgabe.vonBehaelter
   const initialShowForm = sp?.neu === '1' || !!vonBehaelter
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
@@ -114,6 +117,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
         umzuege={umzuege}
         writeOk={writeOk}
         vonBehaelter={vonBehaelter}
+        vorgabe={vorgabe}
         initialShowForm={initialShowForm}
       />
     </div>
