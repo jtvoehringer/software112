@@ -283,53 +283,78 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           {positionen.length === 0 && (
             <p className="text-sm text-s112-muted text-center py-4">Noch keine Positionen – klick &quot;+ Position&quot;</p>
           )}
-          {positionen.map((pos, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 mb-3 items-start">
-              <div className="col-span-4">
-                <select value={pos.fullung_id} onChange={e => {
-                  const f = fuellungen.find(f => f.id === e.target.value)
-                  updatePos(i, 'fullung_id', e.target.value)
-                  if (f) {
-                    updatePos(i, 'beschreibung', [f.name, f.bezeichnung].filter(Boolean).join(' – '))
-                    if (f.zolltarifnummer) updatePos(i, 'taric_code', f.zolltarifnummer.replace(/\s/g, '').replace(/^(\d{4})(\d+)$/, '$1.$2'))
-                  }
-                }} className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden">
-                  <option value="">– Füllung –</option>
-                  {fuellungen.map(f => <option key={f.id} value={f.id}>{f.name}{f.bezeichnung ? ' – ' + f.bezeichnung : ''}{f.jahrgang ? ' ' + f.jahrgang : ''} ({f.bestand_flaschen} Fl.)</option>)}
-                </select>
-              </div>
-              <div className="col-span-2">
-                <input value={pos.beschreibung} onChange={e => updatePos(i, 'beschreibung', e.target.value)}
-                  placeholder="Bezeichnung" className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden" />
-              </div>
-              <div className="col-span-1">
-                <input type="number" step="0.01" value={pos.menge} onChange={e => updatePos(i, 'menge', e.target.value)}
-                  placeholder="Menge" className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden" />
-              </div>
-              <div className="col-span-1">
-                <select value={pos.einheit} onChange={e => updatePos(i, 'einheit', e.target.value)}
-                  className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden">
-                  {EXPORT_EINHEITEN.map(e => <option key={e}>{e}</option>)}
-                </select>
-              </div>
-              {/* KAN-432: Flaschen je Karton (bei „Kiste“ = Flaschen je Kiste); lose Ware hat keine */}
-              <div className="col-span-1">
-                <input aria-label={`Flaschen je Karton ${i + 1}`} title="Flaschen je Karton" type="number" step="1" min={KARTON_MIN} max={KARTON_MAX}
-                  value={pos.einheit === 'HL' ? '' : pos.flaschen_je_karton} disabled={pos.einheit === 'HL'}
-                  onChange={e => updatePos(i, 'flaschen_je_karton', e.target.value)}
-                  placeholder="Fl./Kt." className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden disabled:bg-s112-bg" />
-              </div>
-              <div className="col-span-2">
-                <input type="number" step="0.01" value={pos.preis_eur} onChange={e => updatePos(i, 'preis_eur', e.target.value)}
-                  placeholder="€/Einheit" className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden" />
-              </div>
-              <div className="col-span-1 flex justify-center pt-1">
-                <button aria-label="Entfernen" type="button" onClick={() => removePos(i)} className="text-s112-err hover:text-s112-err-fg text-xs">
-                  <Trash2 className="w-3.5 h-3.5" />
+          {/* KAN-429 Nebenbefund (UAT 19.11.2026): die Zeile hatte keine Beschriftungen und ein Zwölftel Breite für die
+              Menge – „Menge“ war abgeschnitten, die „6“ (Flaschen je Karton) und der Preis nicht zu deuten. Jetzt je
+              Position ein Kasten mit beschrifteten Feldern; die Pfeile der Menge zählen in ganzen Schritten (step="any":
+              mit 0,01 schienen sie nichts zu tun), Kommastellen bleiben erlaubt (Sweep 97) */}
+          {positionen.map((pos, i) => {
+            const lose = pos.einheit === 'HL'
+            const je = pos.einheit === 'Kiste' ? 'Kiste' : lose ? 'hl' : 'Flasche'
+            const wert = (parseFloat(pos.menge) || 0) * (parseFloat(pos.preis_eur) || 0)
+            const feld = 'w-full border border-s112-border rounded-sm px-2 py-1.5 text-sm focus:outline-hidden'
+            const titel = 'block text-xs text-s112-muted mb-1'
+            return (
+            <div key={i} className="border border-s112-border rounded-lg p-3 mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-s112-muted">Position {i + 1}</span>
+                <button aria-label={`Position ${i + 1} entfernen`} title="Position entfernen" type="button" onClick={() => removePos(i)} className="text-s112-err hover:text-s112-err-fg p-1">
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <label className="block">
+                  <span className={titel}>Füllung</span>
+                  <select value={pos.fullung_id} onChange={e => {
+                    const f = fuellungen.find(f => f.id === e.target.value)
+                    updatePos(i, 'fullung_id', e.target.value)
+                    if (f) {
+                      updatePos(i, 'beschreibung', [f.name, f.bezeichnung].filter(Boolean).join(' – '))
+                      if (f.zolltarifnummer) updatePos(i, 'taric_code', f.zolltarifnummer.replace(/\s/g, '').replace(/^(\d{4})(\d+)$/, '$1.$2'))
+                    }
+                  }} className={feld}>
+                    <option value="">– Füllung –</option>
+                    {fuellungen.map(f => <option key={f.id} value={f.id}>{f.name}{f.bezeichnung ? ' – ' + f.bezeichnung : ''}{f.jahrgang ? ' ' + f.jahrgang : ''} ({f.bestand_flaschen} Fl.)</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={titel}>Bezeichnung auf den Dokumenten</span>
+                  <input value={pos.beschreibung} onChange={e => updatePos(i, 'beschreibung', e.target.value)}
+                    placeholder="Bezeichnung" className={feld} />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+                <label className="block">
+                  <span className={titel}>Menge</span>
+                  <input type="number" step="any" min="0" value={pos.menge} onChange={e => updatePos(i, 'menge', e.target.value)}
+                    placeholder="Menge" className={`${feld} text-right tabular-nums`} />
+                </label>
+                <label className="block">
+                  <span className={titel}>Einheit</span>
+                  <select value={pos.einheit} onChange={e => updatePos(i, 'einheit', e.target.value)} className={feld}>
+                    {EXPORT_EINHEITEN.map(e => <option key={e} value={e}>{e === 'Fl' ? 'Flaschen' : e === 'Kiste' ? 'Kisten' : 'Hektoliter'}</option>)}
+                  </select>
+                </label>
+                {/* KAN-432: Flaschen je Karton (bei „Kiste“ = Flaschen je Kiste); lose Ware hat keine */}
+                <label className="block">
+                  <span className={titel}>{pos.einheit === 'Kiste' ? 'Flaschen je Kiste' : 'Flaschen je Karton'}</span>
+                  <input aria-label={`Flaschen je Karton ${i + 1}`} title="Flaschen je Karton" type="number" step="1" min={KARTON_MIN} max={KARTON_MAX}
+                    value={lose ? '' : pos.flaschen_je_karton} disabled={lose}
+                    onChange={e => updatePos(i, 'flaschen_je_karton', e.target.value)}
+                    placeholder={lose ? '–' : 'Fl./Kt.'} className={`${feld} text-right tabular-nums disabled:bg-s112-bg`} />
+                </label>
+                <label className="block">
+                  <span className={titel}>Preis je {je} (EUR)</span>
+                  <input type="number" step="0.01" min="0" value={pos.preis_eur} onChange={e => updatePos(i, 'preis_eur', e.target.value)}
+                    placeholder="€/Einheit" className={`${feld} text-right tabular-nums`} />
+                </label>
+                <div className="text-right col-span-2 md:col-span-1">
+                  <span className={titel}>Positionswert (EUR)</span>
+                  <span className="block py-1.5 text-sm font-medium tabular-nums">{fmtNum(wert, 2)}</span>
+                </div>
+              </div>
             </div>
-          ))}
+            )
+          })}
           {positionen.length > 0 && (
             <div className="text-right text-sm font-semibold text-s112-text border-t border-s112-border pt-3 mt-2">
               Gesamt: EUR {fmtNum(gesamtEUR, 2)}

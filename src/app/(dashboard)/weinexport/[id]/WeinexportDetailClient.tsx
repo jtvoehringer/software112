@@ -277,16 +277,18 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
             {zeilen.length === 0 ? (
               <p className="text-sm text-s112-muted">Keine Positionen erfasst.</p>
             ) : (
+              <div className="overflow-x-auto">
+              {/* KAN-429 Nebenbefund (UAT 19.11.2026): Zahlenspalten ohne Abstand – „MengeKartonsLiter“, „4,004.000,00“ */}
               <table className="w-full text-sm">
                 <thead className="text-xs text-s112-muted border-b border-s112-border">
                   <tr>
                     <th className="pb-2 text-left">Bezeichnung</th>
-                    <th className="pb-2 text-right">Menge</th>
-                    <th className="pb-2 text-right">Kartons</th>
-                    <th className="pb-2 text-right">Liter</th>
-                    <th className="pb-2 text-right">% vol</th>
-                    <th className="pb-2 text-right">€/Einheit</th>
-                    <th className="pb-2 text-right">Gesamt</th>
+                    <th className="pb-2 pl-4 text-right whitespace-nowrap">Menge</th>
+                    <th className="pb-2 pl-4 text-right whitespace-nowrap">Kartons</th>
+                    <th className="pb-2 pl-4 text-right whitespace-nowrap">Liter</th>
+                    <th className="pb-2 pl-4 text-right whitespace-nowrap">% vol</th>
+                    <th className="pb-2 pl-4 text-right whitespace-nowrap">Preis je Einheit (EUR)</th>
+                    <th className="pb-2 pl-4 text-right whitespace-nowrap">Gesamt (EUR)</th>
                     <th className="pb-2 text-left pl-3">TARIC</th>
                   </tr>
                 </thead>
@@ -297,16 +299,16 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                     return (
                     <tr key={z.positionId}>
                       <td className="py-2">{z.bezeichnung ?? '–'}{unter && <span className="block text-xs text-s112-muted">{unter}</span>}</td>
-                      <td className="py-2 text-right">{z.menge === null ? '–' : fmtNum(z.menge, { max: 2 })} {z.einheit}</td>
-                      <td className="py-2 text-right tabular-nums" title={z.flaschenJeKarton ? `${z.flaschenJeKarton} Flaschen je Karton${g?.anbruch ? `, letzter Karton mit ${fmtNum(g.anbruch, { max: 2 })}` : ''}` : undefined}>
+                      <td className="py-2 pl-4 text-right tabular-nums whitespace-nowrap">{z.menge === null ? '–' : fmtNum(z.menge, { max: 2 })} {z.einheit}</td>
+                      <td className="py-2 pl-4 text-right tabular-nums whitespace-nowrap" title={z.flaschenJeKarton ? `${z.flaschenJeKarton} Flaschen je Karton${g?.anbruch ? `, letzter Karton mit ${fmtNum(g.anbruch, { max: 2 })}` : ''}` : undefined}>
                         {z.kartons === null ? '–' : fmtNum(z.kartons, 0)}{g?.anbruch ? '*' : ''}
                       </td>
-                      <td className="py-2 text-right tabular-nums">{z.liter === null ? '–' : fmtNum(z.liter, { max: 2 })}</td>
-                      <td className="py-2 text-right tabular-nums" title={g?.alkoholQuelle === 'analyse' ? 'aus der jüngsten Analyse der Charge' : g?.alkoholQuelle ? 'aus dem Prüfnummernantrag' : undefined}>
+                      <td className="py-2 pl-4 text-right tabular-nums whitespace-nowrap">{z.liter === null ? '–' : fmtNum(z.liter, { max: 2 })}</td>
+                      <td className="py-2 pl-4 text-right tabular-nums whitespace-nowrap" title={g?.alkoholQuelle === 'analyse' ? 'aus der jüngsten Analyse der Charge' : g?.alkoholQuelle ? 'aus dem Prüfnummernantrag' : undefined}>
                         {z.alkohol === null ? '–' : fmtNum(z.alkohol, 1)}
                       </td>
-                      <td className="py-2 text-right">{z.preisEur === null ? '–' : fmtNum(z.preisEur, 2)}</td>
-                      <td className="py-2 text-right font-medium">
+                      <td className="py-2 pl-4 text-right tabular-nums whitespace-nowrap">{z.preisEur === null ? '–' : fmtNum(z.preisEur, 2)}</td>
+                      <td className="py-2 pl-4 text-right font-medium tabular-nums whitespace-nowrap">
                         {z.wertEur === null ? '–' : fmtNum(z.wertEur, 2)}
                       </td>
                       <td className="py-2 text-left pl-3 font-mono text-xs text-s112-muted">{z.taric}</td>
@@ -315,11 +317,12 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                   })}
                   <tr className="border-t-2 border-s112-border font-semibold">
                     <td colSpan={6} className="pt-2 text-right text-xs uppercase tracking-wide text-s112-muted">Gesamtwert EUR</td>
-                    <td className="pt-2 text-right">{fmtNum(gesamtEur, 2)}</td>
+                    <td className="pt-2 pl-4 text-right tabular-nums whitespace-nowrap">{fmtNum(gesamtEur, 2)}</td>
                     <td />
                   </tr>
                 </tbody>
               </table>
+              </div>
             )}
             {/* KAN-432: Summen wie in Handelsrechnung und Packliste (Rosé zählt zu rot) */}
             {zeilen.length > 0 && (
