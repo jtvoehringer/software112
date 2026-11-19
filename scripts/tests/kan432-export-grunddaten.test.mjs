@@ -168,7 +168,9 @@ describe('KAN-432: Hinweisliste „Für die Dokumente fehlt noch …“', () => 
       '„Zierfandler 2025“: Prüfnummer fehlt.',
       '„Zierfandler 2025“: Weinart (weiß, rot, rosé) fehlt.',
     ])
-    assert.deepEqual(h.map(x => x.href), ['/kellerbuch/weinausbau/c1', '/weinhandel/fuellungen/f1/edit', '/weinhandel/fuellungen/f1/edit'])
+    // seit KAN-429 Nebenbefund (19.11.2026): Alkohol führt direkt zur neuen Analyse, jeder Link ist benannt
+    assert.deepEqual(h.map(x => x.href), ['/kellerbuch/weinausbau/c1/analysen/neu', '/weinhandel/fuellungen/f1/edit', '/weinhandel/fuellungen/f1/edit'])
+    assert.deepEqual(h.map(x => x.ziel), ['Analyse mit Alkoholwert zur Charge erfassen', 'Füllung bearbeiten', 'Füllung bearbeiten'])
   })
   test('Position: ohne Füllung, ohne Flaschen je Karton, KN-Code nicht achtstellig; lose Ware braucht beides nicht', () => {
     const t = mit({ destination_land: 'DE', kunde_uid: 'DE1', versanddatum: '2026-11-20', zahlungsbedingungen: 'x' }, [

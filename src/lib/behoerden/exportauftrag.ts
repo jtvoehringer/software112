@@ -22,12 +22,12 @@ import { UUID_RE, feld, inBloecken, textOderNull, type R } from './verkehr-hilfe
 import { AktionsFehler } from '@/lib/fehler'
 import { positionsGewicht, sendungsGewicht, type SendungsGewicht } from '../export/gewicht'
 import {
-  farbeLabel, grunddatenHinweise, grunddatenPosition, grunddatenSummen, juengsteAnalyse, lieferfall,
+  ZIEL_AUFTRAG, ZIEL_BETRIEB, farbeLabel, grunddatenHinweise, grunddatenPosition, grunddatenSummen, juengsteAnalyse, lieferfall,
   type GrunddatenEingabe, type GrunddatenHinweis, type GrunddatenPosition, type GrunddatenSummen, type Lieferfall,
 } from '../export/grunddaten'
 import { exportBearbeitbar } from '../export/auftragEingabe'
 import { EXPORT_DOKUMENT_ARTEN, EXPORT_DOKUMENT_LABEL } from '../export/dokumente'
-import { befreiung, rechnungHinweise, rechnungsSumme } from '../export/rechnungTexte'
+import { befreiung, rechnungHinweiseMitZiel, rechnungsSumme } from '../export/rechnungTexte'
 import { belegnummernText } from '../export/belegnummern'
 import { vstVerfahrenHinweis, vstVerfahrenLabel } from '../export/verbrauchsteuer'
 
@@ -351,8 +351,11 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
         bearbeitbar,
       }),
       // KAN-434: Steuerbefreiung und Ursprungserklärung der Handelsrechnung
-      ...rechnungHinweise({ auftrag, betrieb: (cfgRes.data ?? {}) as R, warenwert: summeGerundet(zeilen.map(z => z.wertEur)) })
-        .map(text => ({ text, href: bearbeitbar ? `/weinexport/${String(auftrag.id)}/bearbeiten` : null })),
+      // KAN-429 Nebenbefund: Link nur, wo sich etwas eintragen lässt – mit benanntem Ziel
+      ...rechnungHinweiseMitZiel({ auftrag, betrieb: (cfgRes.data ?? {}) as R, warenwert: summeGerundet(zeilen.map(z => z.wertEur)) })
+        .map(({ text, ziel }): GrunddatenHinweis => ziel === 'betrieb' ? { text, href: '/betrieb/einstellungen', ziel: ZIEL_BETRIEB }
+          : ziel === 'auftrag' && bearbeitbar ? { text, href: `/weinexport/${String(auftrag.id)}/bearbeiten`, ziel: ZIEL_AUFTRAG }
+          : { text, href: null }),
       // KAN-435 D2 (Entscheidung 5A): EU-Auftrag ohne Verbrauchsteuerverfahren – nur ein Hinweis, blockiert nichts
       ...[vstVerfahrenHinweis(auftrag, lieferfall(auftrag).gebiet)].filter((t): t is string => !!t).map(text => ({ text, href: null })),
     ],

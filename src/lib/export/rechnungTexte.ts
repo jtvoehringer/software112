@@ -220,9 +220,28 @@ export function rechnungHinweise(e: {
   betrieb: { betrieb_rex_nummer?: unknown; betrieb_ea_bewilligung?: unknown }
   warenwert: number
 }): string[] {
-  const b = befreiung(lieferfall(e.auftrag))
+  return rechnungHinweiseMitZiel(e).map(h => h.text)
+}
+
+/**
+ * KAN-429 Nebenbefund (UAT 19.11.2026): dieselben Hinweise mit der Stelle, an der sich etwas eintragen lässt –
+ * 'auftrag' (UID des Kunden, Ursprungserklärung ankreuzen), 'betrieb' (REX-Nummer bzw. Bewilligung) oder null:
+ * reiner Hinweis ohne Eingabe (z. B. Schweiz: kein Präferenzzoll; Japan: Kriterium von Hand). Vorher hing an jedem
+ * ein Link „Eintragen“ zum Auftrag, auch wenn es dort nichts einzutragen gab.
+ */
+export function rechnungHinweiseMitZiel(e: {
+  auftrag: { destination_land?: unknown; kunde_uid?: unknown; ursprungserklaerung?: unknown }
+  betrieb: { betrieb_rex_nummer?: unknown; betrieb_ea_bewilligung?: unknown }
+  warenwert: number
+}): { text: string; ziel: 'auftrag' | 'betrieb' | null }[] {
+  const fall = lieferfall(e.auftrag)
+  const b = befreiung(fall)
   const u = ursprungserklaerung({ land: e.auftrag.destination_land, warenwert: e.warenwert, gewaehlt: e.auftrag.ursprungserklaerung, betrieb: e.betrieb })
-  return [...(b.warnung ? [b.warnung] : []), ...u.hinweise]
+  const uZiel = u.status === 'nicht_gewaehlt' ? 'auftrag' as const : u.status === 'nummer_fehlt' ? 'betrieb' as const : null
+  return [
+    ...(b.warnung ? [{ text: b.warnung, ziel: fall.gebiet === 'eu' ? 'auftrag' as const : null }] : []),
+    ...u.hinweise.map(text => ({ text, ziel: uZiel })),
+  ]
 }
 
 /** Vermerk auf der Proforma-Rechnung (Entscheidung 6A) */

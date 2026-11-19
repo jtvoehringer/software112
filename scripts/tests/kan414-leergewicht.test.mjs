@@ -95,7 +95,7 @@ describe('KAN-414: Gewicht der Sendung', nurMitHooks, () => {
     assert.ok(quelle('src/lib/behoerden/exportauftrag.ts').includes('fuellungen(id,name,jahrgang,bezeichnung,flaschengroesse_ml,leergewicht_g,'))
     const c = quelle('src/app/(dashboard)/weinexport/[id]/WeinexportDetailClient.tsx')
     assert.ok(c.includes('gewicht.ohneLeergewicht.filter(o => o.id).map'))
-    assert.ok(c.includes('href={`/weinhandel/fuellungen/${o.id}/edit`}'))
+    assert.ok(c.includes('href={`/weinhandel/fuellungen/${o.id}/edit#leergewicht`}'))   // seit KAN-429 Nebenbefund direkt zum Feld
   })
 })
 
