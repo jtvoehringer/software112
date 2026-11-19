@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useTransition, useCallback } from 'react'
+import { useState, useRef, useTransition, useCallback, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { mitZurueck } from '@/lib/navigation/zurueck'
 import { ArrowDownWideNarrow, ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
@@ -12,6 +12,7 @@ import { useDialog } from '@/components/ui/useDialog'
 import KellerplanBuchen from './KellerplanBuchen'
 import { bewerteZiel, teilumzugText, vorschlagsMenge, ZIEL_FARBE, type PlanCharge, type PlanGebinde, type ZielBewertung } from '@/lib/keller/kellerplanZiehen'
 import { tankSammelPfad } from '@/lib/keller/tanks'
+import { randTempo, scrollEltern } from '@/lib/ui/randScrollen'
 import { planHoehe, segmentRechtecke, tankGroesseAendern, tankImPlan, tankSegmente, tankStandardGroesse, zielUnterZeiger } from '@/lib/keller/kellerplanTank'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -112,6 +113,12 @@ export default function KellerplanEditor({
   initialTankPositions?: Record<string, PosData>
 }) {
   const canvasRef    = useRef<HTMLDivElement>(null)
+  // KAN-469 (UAT 19.11.2026): Mitscrollen am Rand, solange gezogen wird – letzter Zeiger (Fensterkoordinaten), seit
+  // Beginn des Ziehens gescrollte Strecke (px) und das laufende Bild
+  const zeigerRef      = useRef<{ x: number; y: number } | null>(null)
+  const scrollSummeRef = useRef({ x: 0, y: 0 })
+  const scrollBildRef  = useRef<number | null>(null)
+  const auswertenRef   = useRef<(x: number, y: number) => void>(() => {})
   const dragStateRef = useRef<{
     id: string
     /** KAN-467: verschoben wird ein Gebinde (Kreis) oder ein ganzer Tank; klickId = Gebinde für den Dialog bei einem Klick */
@@ -295,12 +302,56 @@ export default function KellerplanEditor({
     }
   }
 
+  function randScrollenStoppen() {
+    if (scrollBildRef.current !== null) cancelAnimationFrame(scrollBildRef.current)
+    scrollBildRef.current = null
+    scrollSummeRef.current = { x: 0, y: 0 }
+    zeigerRef.current = null
+  }
+
+  /** KAN-469: solange gezogen wird, am Rand des scrollenden Rahmens mitscrollen und die Stelle unter dem Zeiger neu auswerten */
+  function randScrollenStarten() {
+    if (scrollBildRef.current !== null) return
+    const schritt = () => {
+      scrollBildRef.current = null
+      const z = zeigerRef.current
+      if (!z || (!ziehRef.current && !dragStateRef.current)) return
+      const el = scrollEltern(canvasRef.current)
+      if (el) {
+        const r = el === document.scrollingElement
+          ? { top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth }
+          : el.getBoundingClientRect()
+        const vy = randTempo(z.y, Math.max(r.top, 0), Math.min(r.bottom, window.innerHeight))
+        const vx = randTempo(z.x, Math.max(r.left, 0), Math.min(r.right, window.innerWidth))
+        const vorher = { x: el.scrollLeft, y: el.scrollTop }
+        if (vy !== 0) el.scrollTop += vy
+        if (vx !== 0) el.scrollLeft += vx
+        const dx = el.scrollLeft - vorher.x
+        const dy = el.scrollTop - vorher.y
+        if (dx !== 0 || dy !== 0) {
+          scrollSummeRef.current = { x: scrollSummeRef.current.x + dx, y: scrollSummeRef.current.y + dy }
+          auswertenRef.current(z.x, z.y)   // der Plan hat sich unter dem ruhenden Zeiger bewegt
+        }
+      }
+      scrollBildRef.current = requestAnimationFrame(schritt)
+    }
+    scrollBildRef.current = requestAnimationFrame(schritt)
+  }
+
   function handleCanvasPointerMove(e: React.PointerEvent) {
+    if (!ziehRef.current && !dragStateRef.current) return
+    zeigerRef.current = { x: e.clientX, y: e.clientY }
+    zeigerAuswerten(e.clientX, e.clientY)
+    randScrollenStarten()
+  }
+
+  /** Stelle unter dem Zeiger (Fensterkoordinaten): Ziel beim Ziehen (Kellerarbeit) bzw. neue Lage beim Verschieben (Planmodus) */
+  function zeigerAuswerten(clientX: number, clientY: number) {
     const zr = ziehRef.current
     if (zr && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect()
-      const px = e.clientX - rect.left
-      const py = e.clientY - rect.top
+      const px = clientX - rect.left
+      const py = clientY - rect.top
       const kreise = Object.entries(positions).map(([id, p]) => ({
         id, cx: (p.pos_x_pct + p.breite_pct / 2) / 100 * rect.width,
         cy: (p.pos_y_pct + circleHeight(p.breite_pct) / 2) / 100 * rect.height, r: p.breite_pct / 2 / 100 * rect.width,
@@ -314,8 +365,9 @@ export default function KellerplanEditor({
     const ds = dragStateRef.current
     if (!ds || !canvasRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
-    const dx   = ((e.clientX - ds.startX) / rect.width)  * 100
-    const dy   = ((e.clientY - ds.startY) / rect.height) * 100
+    // samt der seit Beginn gescrollten Strecke – sonst spränge das Symbol beim Mitscrollen
+    const dx   = ((clientX - ds.startX + scrollSummeRef.current.x) / rect.width)  * 100
+    const dy   = ((clientY - ds.startY + scrollSummeRef.current.y) / rect.height) * 100
 
     if (ds.art === 'tank') {
       setTankPositions(prev => {
@@ -344,10 +396,11 @@ export default function KellerplanEditor({
       canvasRef.current?.releasePointerCapture(e.pointerId)
       ziehRef.current = null
       const rect = canvasRef.current?.getBoundingClientRect()
-      const dx = rect ? Math.abs(((e.clientX - zr.startX) / rect.width) * 100) : 0
-      const dy = rect ? Math.abs(((e.clientY - zr.startY) / rect.height) * 100) : 0
+      const dx = rect ? Math.abs(((e.clientX - zr.startX + scrollSummeRef.current.x) / rect.width) * 100) : 0
+      const dy = rect ? Math.abs(((e.clientY - zr.startY + scrollSummeRef.current.y) / rect.height) * 100) : 0
       const zielId = zieh?.zielId ?? null
       setZieh(null)
+      randScrollenStoppen()
       if (dx < CLICK_THRESHOLD_PCT && dy < CLICK_THRESHOLD_PCT) { setDialogBehaelterId(zr.id); return }
       if (!zielId) return   // freie Fläche: abbrechen
       const b = bewertung(zr.id, zielId)
@@ -362,8 +415,9 @@ export default function KellerplanEditor({
     dragStateRef.current = null
 
     const rect = canvasRef.current?.getBoundingClientRect()
-    const dxPct = rect ? Math.abs(((e.clientX - ds.startX) / rect.width)  * 100) : 0
-    const dyPct = rect ? Math.abs(((e.clientY - ds.startY) / rect.height) * 100) : 0
+    const dxPct = rect ? Math.abs(((e.clientX - ds.startX + scrollSummeRef.current.x) / rect.width)  * 100) : 0
+    const dyPct = rect ? Math.abs(((e.clientY - ds.startY + scrollSummeRef.current.y) / rect.height) * 100) : 0
+    randScrollenStoppen()
     const wasClick = dxPct < CLICK_THRESHOLD_PCT && dyPct < CLICK_THRESHOLD_PCT
 
     if (wasClick) {
@@ -380,6 +434,18 @@ export default function KellerplanEditor({
     const pos = positions[ds.id]
     if (pos) savePos(ds.id, pos)
   }
+
+  /** Der Browser bricht die Zeigerfolge ab (Systemgeste, Fensterwechsel): Ziehen ohne Buchung bzw. Speichern beenden */
+  function handleCanvasPointerCancel() {
+    ziehRef.current = null
+    dragStateRef.current = null
+    setZieh(null)
+    randScrollenStoppen()
+  }
+
+  // Die Scroll-Schleife ruft immer die Auswertung des aktuellen Renderings (Lage der Gebinde und Tanks)
+  useEffect(() => { auswertenRef.current = zeigerAuswerten })
+  useEffect(() => () => { if (scrollBildRef.current !== null) cancelAnimationFrame(scrollBildRef.current) }, [])
 
   // ── Resize ────────────────────────────────────────────────────────────────────
 
@@ -530,6 +596,7 @@ export default function KellerplanEditor({
             onDrop={planModus ? handleCanvasDrop : undefined}
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={handleCanvasPointerUp}
+            onPointerCancel={handleCanvasPointerCancel}
           >
             {/* Behälter auf dem Plan – als Kreise */}
             {Object.entries(positions).map(([behaelterId, pos]) => {
