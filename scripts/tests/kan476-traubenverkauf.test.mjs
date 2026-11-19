@@ -89,7 +89,9 @@ describe('KAN-476: Freigabe Warenwirtschaft vorab', nurMitHooks, () => {
 describe('KAN-476: beide Wege legen nur noch über die RPC an', () => {
   test('Warenwirtschaft: Neuanlage ohne eigenes Insert, ohne Liefernummer außerhalb der Transaktion', () => {
     const t = quelle('src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts')
-    const neu = t.slice(t.lastIndexOf('if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)'), t.indexOf("revalidatePath('/weinhandel/traubenverkauf')"))
+    // Ende = das revalidatePath NACH dem Neuanlage-Zweig (davor steht seit dem Nebenbefund „ganze Ried“ ein früher Zweig)
+    const start = t.lastIndexOf('if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)')
+    const neu = t.slice(start, t.indexOf("revalidatePath('/weinhandel/traubenverkauf')", start))
     assert.ok(neu.includes('await traubenverkaufAnlegen(supabase, tenantId, payload, weingartenName)'))
     assert.ok(!/\.insert\(|\.update\(|get_next_liefernummer|createVerkaufspostenFuerTrauben/.test(neu), 'kein weiterer Schreibzugriff im Neuanlage-Zweig')
     assert.ok(!t.includes('get_next_liefernummer'))

@@ -16,6 +16,7 @@ import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewic
 import { rechnungsdatumFehler } from '@/lib/verkauf/rechnungsdatum'
 import { heuteWien } from '@/lib/datum/wien'
 import { traubenverkaufAnlegen } from '@/lib/verkauf/traubenverkaufAnlegen'
+import { ganzeRiedVerkaufen, istGanzeRied } from '@/lib/verkauf/traubenverkaufGanzeRied'
 import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
 
@@ -201,6 +202,15 @@ export async function upsertTraubenverkauf(formData: FormData) {
 
   const existing_id = formData.get('existing_id') as string | null
   const tenantId    = membership.tenantId
+
+  // KAN-476 Nebenbefund: ganze Ried – je Grundstück eine Zeile, ein Verkauf mit einer Rechnung (alle Prüfungen und
+  // das Anlegen in einer Transaktion in lib/verkauf/traubenverkaufGanzeRied.ts)
+  if (istGanzeRied(formData)) {
+    await ganzeRiedVerkaufen(supabase, membership, formData)
+    revalidatePath('/weinhandel/traubenverkauf')
+    revalidatePath('/weinhandel/verkauf')
+    return
+  }
 
   function getNum(key: string): number | null {
     const val = formData.get(key) as string | null

@@ -7,7 +7,7 @@ import StornoButton from '@/components/StornoButton'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import StornierteUmschalter from '@/components/StornierteUmschalter'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { fmtNum } from '@/lib/format'
+import { dezimal, fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -18,7 +18,7 @@ import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type Traube
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
-import { gstDerRiedJeLese, leseOrtSchluessel, riedLeseVerteilen, verfuegbarJeLese, type GstFuerVerteilung } from '@/lib/wein/leseBilanz'
+import { ganzeRiedVorschlag, gstDerRiedJeLese, leseOrtSchluessel, riedLeseVerteilen, verfuegbarJeLese, verkaufZeilenAus, type GstFuerVerteilung } from '@/lib/wein/leseBilanz'
 import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
 import { heuteWien } from '@/lib/datum/wien'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
@@ -34,7 +34,7 @@ interface Props {
   /** KAN-129: verpresste kg je Lese und Ort (eigene Ernte) */
   verpresst: { lese_id: string | null; weingarten_id: string; grundstueck_id: string | null; kg: number }[]
   /** KAN-394: Weinbau-Grundstücke mit Fläche – Lesemengen ohne GST anteilig verteilen (wie die Sperre) */
-  gstFlaechen: GstFuerVerteilung[]
+  gstFlaechen: (GstFuerVerteilung & { gst_nr?: string | null; rebsorte?: string | null })[]
   zukaufOptions: R[]  // zugekaufte Trauben (zukauf_posten, art='trauben') mit verfuegbar_kg
   writeOk:      boolean
   /** BKI-Datenblatt (Pflichtmeldung) – gleiche Regel wie die CSV-Route */
@@ -73,6 +73,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
   const [zukaufId, setZukaufId]     = useState('')
   const [wgId, setWgId]             = useState('')
   const [gstId, setGstId]           = useState('')
+  // KAN-476 Nebenbefund: ganze Ried – Menge je Grundstück (Text der Eingabe), vorbelegt mit den verfügbaren kg
+  const [zeilenKg, setZeilenKg]     = useState<Record<string, string>>({})
   const [jahrgangId, setJahrgangId] = useState('')
   const [jahrgangNr, setJahrgangNr] = useState<number | null>(null)
   // KAN-129: Lese der Trauben – Ried/GST und verfügbare kg nur aus dieser Lese
@@ -137,7 +139,27 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
       gstList.push(gst)
     }
   }
+  // KAN-476 Nebenbefund: auch Grundstücke, auf die eine Lese der ganzen Ried anteilig verteilt ist (KAN-394) – sonst
+  // ließe sich an einer solchen Ried gar kein GST wählen
+  for (const g of gstFlaechen) {
+    if (g.weingarten_id === wgId && !seenGst.has(g.id) && verfuegbar.gst.has(leseOrtSchluessel(leseId, g.id))) {
+      seenGst.add(g.id)
+      gstList.push(g)
+    }
+  }
   gstList.sort((a, b) => (a.gst_nr ?? '').localeCompare(b.gst_nr ?? '', 'de', { numeric: true }))
+
+  /** Grundstücke einer Ried mit Lesemenge in der gewählten Lese samt verfügbaren kg (nach GST-Nr.) */
+  const riedVorschlag = (wId: string, lId: string) => ganzeRiedVorschlag(lId,
+    gstFlaechen.filter(g => g.weingarten_id === wId).sort((a, b) => (a.gst_nr ?? '').localeCompare(b.gst_nr ?? '', 'de', { numeric: true })),
+    verfuegbar.gst)
+  const riedZeilen = wgId && leseId ? riedVorschlag(wgId, leseId) : []
+  // ganze Ried = neuer Verkauf aus eigener Ernte ohne gewähltes GST an einer Ried mit Grundstücken
+  const ganzeRied = !editRow && quelle === 'ernte' && !!wgId && !gstId && riedZeilen.length > 0
+  const zeilenSumme = riedZeilen.reduce((s, g) => {
+    const kg = Number(dezimal(zeilenKg[g.id] ?? ''))
+    return s + (Number.isFinite(kg) && kg > 0 ? kg : 0)
+  }, 0)
 
   function fillFromErnte(newWgId: string, newGstId: string) {
     const match = ernteOptions.find(e => {
@@ -160,13 +182,15 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
 
   function handleWgChange(newWgId: string) {
     setWgId(newWgId); setGstId('')
+    // ganze Ried: je Grundstück die verfügbaren kg vorschlagen
+    setZeilenKg(Object.fromEntries((newWgId && leseId ? riedVorschlag(newWgId, leseId) : []).map(g => [g.id, g.verfuegbarKg > 0 ? String(g.verfuegbarKg).replace('.', ',') : ''])))
     if (newWgId) fillFromErnte(newWgId, '')
     else { setMgStart(null); setQualitaet(''); setHerkunft('') }
   }
 
   /** KAN-129: Lese wählen – bestimmt den Jahrgang; Ried/GST werden neu gewählt */
   function handleLeseChange(neu: string) {
-    setLeseId(neu); setWgId(''); setGstId(''); setMgStart(null); setQualitaet(''); setHerkunft('')
+    setLeseId(neu); setWgId(''); setGstId(''); setZeilenKg({}); setMgStart(null); setQualitaet(''); setHerkunft('')
     const l = lesen.find(x => x.id === neu)
     setJahrgangId(l?.jahrgang_id ?? ''); setJahrgangNr(l?.jahrgang ?? null)
   }
@@ -178,7 +202,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
 
   function openNew() {
     setEditRow(null); setQuelle('ernte'); setZukaufId('')
-    setWgId(''); setGstId('')
+    setWgId(''); setGstId(''); setZeilenKg({})
     // KAN-129: neueste Lese mit Lese-Einträgen vorbelegen
     const l = lesenMitErnte[0]
     setLeseId(l?.id ?? ''); setJahrgangId(l?.jahrgang_id ?? ''); setJahrgangNr(l?.jahrgang ?? null)
@@ -229,6 +253,14 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
       fd.set('grundstueck_id', gstId)
       fd.set('zukauf_posten_id', '')
       fd.set('lese_id', leseId)
+      if (ganzeRied) {
+        // je Grundstück eine Zeile – dieselbe Prüfung wie am Server, bevor gesendet wird
+        const zeilen = riedZeilen.map(g => ({ grundstueck_id: g.id, menge_kg: zeilenKg[g.id] ?? '' }))
+        const z = verkaufZeilenAus(zeilen, x => Number(dezimal(String(x))))
+        if (z.fehler) { setError(z.fehler); return }
+        fd.set('zeilen', JSON.stringify(zeilen))
+        fd.delete('menge_kg')
+      }
     }
     fd.set('firma_id', kaeuferTyp === 'firma' ? firmaId : '')
     fd.set('kontakt_id', kaeuferTyp === 'kontakt' ? kontaktId : '')
@@ -428,7 +460,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Grundstück (GST)</label>
                 <select aria-label="Grundstück (GST)" value={gstId} onChange={e => handleGstChange(e.target.value)} disabled={!wgId || gstList.length === 0} className={inp}>
-                  <option value="">– gesamt (alle GST) –</option>
+                  <option value="">– ganze Ried (alle GST) –</option>
                   {gstList.map(g => (
                     <option key={g.id} value={g.id}>
                       {'GST ' + g.gst_nr + (g.rebsorte ? ' – ' + formatRebsorteMitKuerzel(g.rebsorte) : '')}
@@ -461,12 +493,36 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
                   className={inp} />
               </div>
 
-              {/* Menge */}
+              {/* Menge – ganze Ried: je Grundstück eine Zeile (KAN-476 Nebenbefund) */}
+              {ganzeRied ? (
+                <fieldset className="col-span-2 border border-s112-border rounded-lg p-3">
+                  <legend className="px-1 text-xs font-medium text-s112-text-2">Menge je Grundstück (kg) *</legend>
+                  <p id="ganze-ried-hinweis" className="text-xs text-s112-muted mb-2">
+                    Die ganze Ried wird je Grundstück verkauft: ein Verkauf mit einer Rechnung, je Grundstück eine eigene Liefernummer.
+                    Vorgeschlagen sind die verfügbaren kg – 0 oder leer lässt ein Grundstück aus.
+                  </p>
+                  <div className="space-y-1.5">
+                    {riedZeilen.map(g => (
+                      <div key={g.id} className="grid grid-cols-[1fr_auto_7rem] items-center gap-2 text-sm">
+                        <span className="text-s112-text">
+                          {'GST ' + (g.gst_nr ?? '–') + (g.rebsorte ? ' – ' + formatRebsorteMitKuerzel(g.rebsorte) : '')}
+                        </span>
+                        <span className="text-xs text-s112-muted whitespace-nowrap">verfügbar {fmtNum(g.verfuegbarKg, { max: 0 })} kg</span>
+                        <input aria-label={`Menge (kg) GST ${g.gst_nr ?? ''}`} aria-describedby="ganze-ried-hinweis" type="text" inputMode="decimal"
+                          value={zeilenKg[g.id] ?? ''} onChange={e => setZeilenKg(alt => ({ ...alt, [g.id]: e.target.value }))}
+                          placeholder="0" className={inp + ' text-right'} />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm font-semibold text-s112-text mt-2 text-right">Summe: {fmtNum(zeilenSumme, { max: 2 })} kg</p>
+                </fieldset>
+              ) : (
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
                 <input aria-label="Menge (kg)" name="menge_kg" type="text" inputMode="decimal" required
                   defaultValue={editRow?.menge_kg ?? ''} placeholder="z.B. 1.250" className={inp} />
               </div>
+              )}
 
               {/* Preis */}
               <div>

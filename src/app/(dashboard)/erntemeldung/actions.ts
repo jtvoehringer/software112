@@ -37,6 +37,7 @@ import { leseHerkunftFehler, leseHerkunftObergrenze, leseObergrenze, leseStufeFe
 import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
 import { traubenverkaufAnlegen } from '@/lib/verkauf/traubenverkaufAnlegen'
+import { ganzeRiedVerkaufen, istGanzeRied } from '@/lib/verkauf/traubenverkaufGanzeRied'
 import { pressungSortenverschnitt } from '@/lib/wein/sortenangabe'
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 import { rund } from '@/lib/zahl/runden'
@@ -1923,6 +1924,17 @@ export async function createTraubenverkauf(fd: FormData) {
   const supabase = await createSupabaseServerClient()
   const membership = await getMembership(TRAUBENVERKAUF_MODULE)
   const tenantId = membership.tenantId
+  // KAN-476 Nebenbefund: ganze Ried – je Grundstück eine Zeile, ein Verkauf mit einer Rechnung (derselbe Weg wie
+  // Warenwirtschaft › Traubenverkauf)
+  if (istGanzeRied(fd)) {
+    await ganzeRiedVerkaufen(supabase, membership, fd)
+    const jg = fd.get('jahrgang_id') as string | null
+    if (jg) revalidatePath(`/erntemeldung/${jg}`)
+    revalidatePath('/erntemeldung')
+    revalidatePath('/weinhandel/verkauf')
+    revalidatePath('/weinhandel/traubenverkauf')
+    return
+  }
   // KAN-476: Mit dem Traubenverkauf entstehen Verkauf und Rechnung (Freigabe Warenwirtschaft) – ohne sie vorab ablehnen,
   // sonst scheiterte erst der Rechnungsteil an der Datenbank
   if (!canWrite(membership, 'warenwirtschaft')) {

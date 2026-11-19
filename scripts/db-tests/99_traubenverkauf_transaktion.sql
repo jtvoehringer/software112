@@ -4,9 +4,12 @@
 -- @ziel: s112_traubenverkauf_anlegen legt Liefernummer, Verkauf, Position und Traubenverkauf gemeinsam an; scheitert
 -- @ziel: ein Schritt (Rechnungsnummer vergeben, fremde Ried), bleibt nichts zurück – auch keine verbrauchte
 -- @ziel: Liefernummer. Es gelten die Rechte der Tabellen: Leser, Mitarbeiter ohne Warenwirtschaft und fremde Betriebe
--- @ziel: legen nichts an; anon darf die Funktion nicht ausführen.
+-- @ziel: legen nichts an; anon darf die Funktion nicht ausführen. s112_traubenverkauf_anlegen_zeilen (ganze Ried): je
+-- @ziel: Grundstück ein Traubenverkauf mit eigener Liefernummer, ein Verkauf mit einer Rechnung; scheitert eine Zeile,
+-- @ziel: entsteht nichts.
 -- @mutation reset_alt: Reset räumt die Rechnungen nicht mehr ab (Stand vor KAN-476) | rot: reset_.*
 -- @mutation anon_darf: anon darf s112_traubenverkauf_anlegen ausführen | rot: anon_ohne_rechte
+-- @mutation anon_darf_zeilen: anon darf s112_traubenverkauf_anlegen_zeilen ausführen | rot: zeilen_anon_ohne_rechte
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 99 (Stand 16.11.2026, KAN-476). Alles zurückgerollt.
 
@@ -28,6 +31,9 @@ DECLARE
   v_tv0   bigint;
   v_vp0   bigint;
   v_frei  text;
+  v_ried  record;
+  v_kopf  jsonb;
+  v_zeilen jsonb;
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
   v_t0 := clock_timestamp();
@@ -40,6 +46,7 @@ BEGIN
       'delete from rechnungen where tenant_id = c_t;', ''); END $x$$m$);
 
   PERFORM pg_temp.s112_mutiere('anon_darf', $m$GRANT EXECUTE ON FUNCTION public.s112_traubenverkauf_anlegen(uuid, jsonb, text) TO anon$m$);
+  PERFORM pg_temp.s112_mutiere('anon_darf_zeilen', $m$GRANT EXECUTE ON FUNCTION public.s112_traubenverkauf_anlegen_zeilen(uuid, jsonb, jsonb, text) TO anon$m$);
 
   -- ── 1. Reset: eine Rechnung ohne Verkauf mit hoher Nummer nachstellen (Befund Produktion: RE-0029 blieb stehen) ──
   PERFORM pg_temp.s112_als_postgres();
@@ -157,5 +164,99 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('funktion_ist_invoker',
     (SELECT prosecdef FROM pg_proc WHERE oid = 'public.s112_traubenverkauf_anlegen(uuid, jsonb, text)'::regprocedure), false);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 20);
+  -- ── 5. Ganze Ried: mehrere Grundstücke in einem Verkauf (Nebenbefund 19.11.2026) ────────────────────────────
+  SELECT g.weingarten_id, (array_agg(g.id ORDER BY g.gst_nr, g.id))[1] AS g1, (array_agg(g.id ORDER BY g.gst_nr, g.id))[2] AS g2
+    INTO v_ried
+    FROM public.grundstuecke g
+   WHERE g.tenant_id = c_m AND g.weingarten_id IS NOT NULL
+   GROUP BY g.weingarten_id HAVING count(*) >= 2 ORDER BY g.weingarten_id LIMIT 1;
+  IF v_ried.g2 IS NULL THEN
+    RAISE EXCEPTION 'Staging-Demo unvollständig – keine Ried mit zwei Grundstücken im Musterhof';
+  END IF;
+  v_kopf := (v_daten - 'grundstueck_id' - 'menge_kg') || jsonb_build_object('weingarten_id', v_ried.weingarten_id);
+  v_zeilen := jsonb_build_array(
+    jsonb_build_object('grundstueck_id', v_ried.g1, 'menge_kg', 300, 'bezeichnung', 'S112TEST Ried, GST 1'),
+    jsonb_build_object('grundstueck_id', v_ried.g2, 'menge_kg', 200.5, 'bezeichnung', 'S112TEST Ried, GST 2'));
+  SELECT liefernummer_zaehler INTO v_ln0 FROM public.tenant_einstellungen WHERE tenant_id = c_m;
+  SELECT count(*) INTO v_tv0 FROM public.traubenverkauf WHERE tenant_id = c_m;
+  SELECT count(*) INTO v_vp0 FROM public.verkaufsposten WHERE tenant_id = c_m;
+
+  PERFORM pg_temp.s112_als(v_mta);
+  v_r := public.s112_traubenverkauf_anlegen_zeilen(c_m, v_kopf, v_zeilen, 'S112TEST Ried');
+  PERFORM pg_temp.s112_als_postgres();
+  v_vp := (v_r ->> 'verkaufsposten_id')::uuid;
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_je_gst_ein_traubenverkauf',
+    (SELECT string_agg(concat_ws('|', menge_kg, preis_per_kg, grundstueck_id = CASE menge_kg WHEN 300 THEN v_ried.g1 ELSE v_ried.g2 END,
+                                 weingarten_id = v_ried.weingarten_id, lese_id = v_vorl.lese_id), ' ; ' ORDER BY menge_kg DESC)
+       FROM public.traubenverkauf WHERE tenant_id = c_m AND verkaufsposten_id = v_vp),
+    '300.00|1.0000|t|t|t ; 200.50|1.0000|t|t|t');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_eigene_liefernummern',
+    (SELECT concat_ws('/', count(DISTINCT liefernummer), (SELECT liefernummer_zaehler FROM public.tenant_einstellungen WHERE tenant_id = c_m) - v_ln0,
+                           jsonb_array_length(v_r -> 'zeilen'))
+       FROM public.traubenverkauf WHERE tenant_id = c_m AND verkaufsposten_id = v_vp), '2/2/2');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_ein_verkauf_eine_rechnung',
+    (SELECT concat_ws('|', (SELECT count(*) FROM public.verkaufsposten WHERE tenant_id = c_m) - v_vp0, v.notizen, r.rechnungsnummer = v.rechnungsnummer)
+       FROM public.verkaufsposten v LEFT JOIN public.rechnungen r ON r.id = v.rechnung_id WHERE v.id = v_vp),
+    '1|Traubenverkauf – S112TEST Ried|t');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_positionen_mit_verweis',
+    (SELECT string_agg(concat_ws('|', p.typ, p.name, p.menge, p.einheit, p.preis_brutto, p.ust_satz, t.grundstueck_id IS NOT NULL AND t.menge_kg = p.menge), ' ; ' ORDER BY p.menge DESC)
+       FROM public.verkauf_positionen p LEFT JOIN public.traubenverkauf t ON t.id = p.traubenverkauf_id AND t.verkaufsposten_id = p.verkaufsposten_id
+      WHERE p.verkaufsposten_id = v_vp),
+    'trauben|Weintrauben – S112TEST Ried, GST 1|300.00|kg|1.0000|13.00|t ; trauben|Weintrauben – S112TEST Ried, GST 2|200.50|kg|1.0000|13.00|t');
+
+  -- 5a. Alles oder nichts: die zweite Zeile scheitert (Menge 0 bzw. Grundstück eines anderen Betriebs)
+  PERFORM pg_temp.s112_als(v_mta);
+  BEGIN
+    PERFORM public.s112_traubenverkauf_anlegen_zeilen(c_m, v_kopf, jsonb_set(v_zeilen, '{1,menge_kg}', '0'), 'S112TEST Ried');
+    v_frei := 'k1';
+  EXCEPTION WHEN OTHERS THEN v_frei := 'E' || SQLSTATE;
+  END;
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_menge_null_in_zeile_2_abgelehnt', v_frei, 'E22023');
+  PERFORM pg_temp.s112_als(v_mta);
+  BEGIN
+    PERFORM public.s112_traubenverkauf_anlegen_zeilen(c_m, v_kopf, jsonb_set(v_zeilen, '{1,grundstueck_id}', to_jsonb(gen_random_uuid())), 'S112TEST Ried');
+    v_frei := 'k1';
+  EXCEPTION WHEN OTHERS THEN v_frei := 'abgelehnt';
+  END;
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_fremdes_gst_in_zeile_2_abgelehnt', v_frei, 'abgelehnt');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_fehler_nichts_gespeichert',
+    (SELECT concat_ws('/', (SELECT count(*) FROM public.traubenverkauf WHERE tenant_id = c_m) - v_tv0,
+                           (SELECT count(*) FROM public.verkaufsposten WHERE tenant_id = c_m) - v_vp0,
+                           liefernummer_zaehler - v_ln0) FROM public.tenant_einstellungen WHERE tenant_id = c_m), '2/1/2');
+
+  -- 5b. Eingaben
+  PERFORM pg_temp.s112_als(v_mta);
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_gst_doppelt_abgelehnt',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf,
+      jsonb_build_array(v_zeilen -> 0, v_zeilen -> 0), 'x')), 'E22023');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_leer_abgelehnt',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf, '[]', 'x')), 'E22023');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_ohne_gst_abgelehnt',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf,
+      jsonb_build_array((v_zeilen -> 0) - 'grundstueck_id'), 'x')), 'E22023');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_mehr_als_20_abgelehnt',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf,
+      (SELECT jsonb_agg(jsonb_build_object('grundstueck_id', gen_random_uuid(), 'menge_kg', 1)) FROM generate_series(1, 21)), 'x')), 'E22023');
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_ohne_datum_abgelehnt',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf - 'datum', v_zeilen, 'x')), 'E22023');
+
+  -- 5c. Rechte wie bei der einzelnen Zeile
+  PERFORM pg_temp.s112_als((v_a ->> 'm_l')::uuid);
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_leser_darf_nicht',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf, v_zeilen, 'x')) IN ('R', 'T'), true);
+  PERFORM pg_temp.s112_als((v_a ->> 'm_wc')::uuid);
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_mitarbeiter_nur_crm_darf_nicht',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf, v_zeilen, 'x')) IN ('R', 'T'), true);
+  PERFORM pg_temp.s112_als((v_a ->> 'b_ta')::uuid);
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_fremder_betrieb_darf_nicht',
+    pg_temp.s112_versuch(format('SELECT public.s112_traubenverkauf_anlegen_zeilen(%L, %L::jsonb, %L::jsonb, %L)', c_m, v_kopf, v_zeilen, 'x')) IN ('R', 'T'), true);
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_anon_ohne_rechte',
+    has_function_privilege('anon', 'public.s112_traubenverkauf_anlegen_zeilen(uuid, jsonb, jsonb, text)', 'EXECUTE'), false);
+  v_erg := v_erg || pg_temp.s112_erwarte('zeilen_funktion_ist_invoker',
+    (SELECT prosecdef FROM pg_proc WHERE oid = 'public.s112_traubenverkauf_anlegen_zeilen(uuid, jsonb, jsonb, text)'::regprocedure), false);
+
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 36);
 END $test$;
