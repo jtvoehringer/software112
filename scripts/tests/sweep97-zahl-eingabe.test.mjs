@@ -33,7 +33,8 @@ describe('Projekt', () => {
   test('Weinexport: Versicherungswert und Menge nehmen Kommastellen an', () => {
     const t = readFileSync(path.join(ROOT, 'src/app/(dashboard)/weinexport/neu/WeinexportFormClient.tsx'), 'utf8')
     assert.match(t, /aria-label="Versicherungswert \(EUR\)" type="number" step="0\.01"/)
-    assert.match(t, /type="number" step="0\.01" value=\{pos\.menge\}/)
+    // seit KAN-429 Nebenbefund (19.11.2026) step="any": Kommastellen bleiben erlaubt, die Pfeile zählen in ganzen Schritten
+    assert.match(t, /type="number" step="any" min="0" value=\{pos\.menge\}/)
   })
 
   test('jedes Zahlenfeld hat ein step', () => {
