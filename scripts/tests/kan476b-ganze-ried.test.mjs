@@ -195,3 +195,25 @@ describe('KAN-476 Nebenbefund: beide Erfassungswege, Formulare, Migration', () =
     assert.ok(quelle('src/app/(dashboard)/hilfe/handbuch/page.tsx').includes('„ganze Ried (alle GST)“'))
   })
 })
+
+// Nachtrag 19.11.2026 (UAT): Im Verkaufsformular (Warenwirtschaft › Verkauf › Neuer Verkauf, Positionstyp Weintrauben)
+// stand weiter „– gesamte Ried –“ und der Server lehnte ab („Bitte das Grundstück wählen“). Dort gibt es schon mehrere
+// Trauben-Positionen je Rechnung – „ganze Ried“ teilt die Position in je eine pro Grundstück auf.
+describe('KAN-476 Nebenbefund: Verkaufsformular teilt „ganze Ried“ in Positionen je Grundstück', () => {
+  const v = quelle('src/app/(dashboard)/weinhandel/verkauf/neu/page.tsx')
+  test('Auswahl „ganze Ried – je GST eine Position“ nur an Rieden mit Grundstücken; „gesamte Ried“ nur ohne', () => {
+    assert.ok(v.includes("<option value=\"\">{gstDerPosition(pos).length > 0 ? '– bitte wählen –' : '– gesamte Ried –'}</option>"))
+    assert.ok(v.includes('<option value={GANZE_RIED}>ganze Ried – je GST eine Position ({gstDerPosition(pos).length})</option>'))
+    assert.ok(v.includes('if (e.target.value === GANZE_RIED) { ganzeRiedAufteilen(idx); return }'))
+  })
+  test('je Grundstück mit verfügbaren kg in der gewählten Lese eine Position: GST, Menge = verfügbar, Bezeichnung mit GST-Nr.', () => {
+    const f = v.slice(v.indexOf('function ganzeRiedAufteilen(idx: number)'), v.indexOf('function updatePos('))
+    assert.ok(v.includes('&& (g.je_lese.find(x => x.lese_id === pos.trauben_lese_id)?.verfuegbar_kg ?? 0) > 0)'))
+    for (const s of ['const gst = gstDerPosition(pos)', 'id: crypto.randomUUID()', 'trauben_grundstueck_id: g.id', "menge: String(w?.verfuegbar_kg ?? '')", "einheit: 'kg'", ', GST $' + '{g.gst_nr}',
+      'return [...prev.slice(0, idx), ...neu, ...prev.slice(idx + 1)]']) assert.ok(f.includes(s), s)
+  })
+  test('der Wert „ganze Ried“ gelangt nie als Grundstück an den Server', () => {
+    assert.ok(!/trauben_grundstueck_id:\s*GANZE_RIED/.test(v))
+    assert.equal(v.split('GANZE_RIED').length - 1, 3)   // Konstante, Auswahl, Abzweig im onChange
+  })
+})
