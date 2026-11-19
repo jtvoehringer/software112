@@ -13,15 +13,16 @@ import type { MeldungsId } from './katalog'
 export type Stelle = 'bki' | 'bundesamt' | 'ama' | 'bio' | 'pflanzenschutz' | 'finanzamt' | 'zoll' | 'svs'
 
 /** Reihenfolge der Überschriften = Reihenfolge dieser Liste */
-export const STELLEN: readonly { id: Stelle; label: string }[] = [
-  { id: 'bki', label: 'Bundeskellereiinspektion (BKI)' },
-  { id: 'bundesamt', label: 'Bundesamt für Weinbau' },
-  { id: 'ama', label: 'AMA' },
-  { id: 'bio', label: 'Bio-Kontrollstelle' },
-  { id: 'pflanzenschutz', label: 'Pflanzenschutz (Landwirtschaftskammer / Landesbehörde)' },
-  { id: 'finanzamt', label: 'Finanzamt' },
-  { id: 'zoll', label: 'Zoll' },
-  { id: 'svs', label: 'SVS' },
+/** kurz = Beschriftung der Sprungleiste (KAN-471 Nebenbefund, 19.11.2026) */
+export const STELLEN: readonly { id: Stelle; label: string; kurz: string }[] = [
+  { id: 'bki', label: 'Bundeskellereiinspektion (BKI)', kurz: 'BKI' },
+  { id: 'bundesamt', label: 'Bundesamt für Weinbau', kurz: 'Bundesamt' },
+  { id: 'ama', label: 'AMA', kurz: 'AMA' },
+  { id: 'bio', label: 'Bio-Kontrollstelle', kurz: 'Bio' },
+  { id: 'pflanzenschutz', label: 'Pflanzenschutz (Landwirtschaftskammer / Landesbehörde)', kurz: 'Pflanzenschutz' },
+  { id: 'finanzamt', label: 'Finanzamt', kurz: 'Finanzamt' },
+  { id: 'zoll', label: 'Zoll', kurz: 'Zoll' },
+  { id: 'svs', label: 'SVS', kurz: 'SVS' },
 ]
 
 export const STELLE_JE_MELDUNG: Record<MeldungsId, Stelle> = {
@@ -86,6 +87,33 @@ export const STELLE_JE_MELDUNG: Record<MeldungsId, Stelle> = {
   'svs-einheitswerte': 'svs',
   // Flächen & Kataster
   flaechenverzeichnis: 'ama',
+}
+
+/** Beschriftung der Sprungleiste je Gruppe (Stelle bzw. „Weitere“) */
+export function stelleKurz(gruppe: string): string {
+  return STELLEN.find(s => s.id === gruppe)?.kurz ?? 'Weitere'
+}
+
+/** Zeile unter der Überschrift einer Stelle: „21 Dokumente · 6 Pflicht“ (Pflicht nur, wenn vorhanden) */
+export function stelleZaehler(eintraege: readonly { pflicht: boolean }[]): string {
+  const n = eintraege.length
+  const p = eintraege.filter(e => e.pflicht).length
+  return `${n} ${n === 1 ? 'Dokument' : 'Dokumente'}${p > 0 ? ` · ${p} Pflicht` : ''}`
+}
+
+/** localStorage-Schlüssel: welche Stellen der Übersicht zuletzt offen waren (nur dieser Browser) */
+export const KLAPP_SPEICHER = 's112.behoerden.offen'
+
+/**
+ * Gemerkte offene Stellen aus dem localStorage-Wert – nur Zeichenketten aus `erlaubt` (vorhandene Gruppen), alles
+ * andere (kaputtes JSON, fremde Werte, null) ergibt den Ausgangszustand: alle zu.
+ */
+export function offeneStellenAus(roh: string | null | undefined, erlaubt: readonly string[]): string[] {
+  if (!roh) return []
+  let wert: unknown
+  try { wert = JSON.parse(roh) } catch { return [] }
+  if (!Array.isArray(wert)) return []
+  return erlaubt.filter(g => wert.includes(g))
 }
 
 export function stelleVon(id: string): Stelle | null {

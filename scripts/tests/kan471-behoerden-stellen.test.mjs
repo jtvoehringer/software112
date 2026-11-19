@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hooksRegistrieren, laden, nurMitHooks, hooksMoeglich } from './buchung-attrappe.mjs'
-import { STELLEN, STELLE_JE_MELDUNG, nachStelle, stelleVon } from '../../src/lib/behoerden/stellen.ts'
+import { KLAPP_SPEICHER, STELLEN, STELLE_JE_MELDUNG, nachStelle, offeneStellenAus, stelleKurz, stelleVon, stelleZaehler } from '../../src/lib/behoerden/stellen.ts'
 
 hooksRegistrieren()
 // der Katalog importiert seine Gruppen ohne Endung – nur über die Hooks des Testgerüsts ladbar
@@ -67,5 +67,44 @@ describe('KAN-471: Gliederung der Übersicht', () => {
     assert.match(quelle('src/app/(dashboard)/dashboard/fristen/page.tsx'), /<BehoerdenUebersicht /)
     assert.match(quelle('src/app/(dashboard)/reports/ReportsClient.tsx'), /<BehoerdenUebersicht /)
     assert.match(quelle('src/app/(dashboard)/hilfe/handbuch/page.tsx'), /gegliedert nach der Stelle, die das Dokument verlangt: Bundeskellereiinspektion \(BKI\)/)
+  })
+})
+
+describe('KAN-471 Nebenbefund (19.11.2026): Stellen eingeklappt, Sprungleiste, Merken', () => {
+  test('Sprungleiste: Kurzname je Stelle, sonst „Weitere“', () => {
+    assert.deepEqual(STELLEN.map(s => s.kurz), ['BKI', 'Bundesamt', 'AMA', 'Bio', 'Pflanzenschutz', 'Finanzamt', 'Zoll', 'SVS'])
+    assert.equal(stelleKurz('ama'), 'AMA')
+    assert.equal(stelleKurz('weitere'), 'Weitere')
+  })
+  test('Zähler unter der Überschrift: Anzahl Dokumente, Pflicht nur wenn vorhanden', () => {
+    assert.equal(stelleZaehler([{ pflicht: true }, { pflicht: false }, { pflicht: true }]), '3 Dokumente · 2 Pflicht')
+    assert.equal(stelleZaehler([{ pflicht: false }]), '1 Dokument')
+  })
+  test('Gemerkte Stellen: nur vorhandene, kaputter oder fremder Wert = alle zu', () => {
+    const da = ['bki', 'ama', 'bio']
+    assert.deepEqual(offeneStellenAus(JSON.stringify(['ama', 'bio', 'zoll']), da), ['ama', 'bio'])
+    assert.deepEqual(offeneStellenAus(null, da), [])
+    assert.deepEqual(offeneStellenAus('{kaputt', da), [])
+    assert.deepEqual(offeneStellenAus('"ama"', da), [])
+    assert.deepEqual(offeneStellenAus(JSON.stringify({ ama: true }), da), [])
+    assert.equal(KLAPP_SPEICHER, 's112.behoerden.offen')
+  })
+  test('Übersicht: jede Stelle eine Klappleiste ohne open (Ausgangszustand alle zu), Sprungleiste und Merken verdrahtet', () => {
+    const u = quelle('src/components/behoerden/BehoerdenUebersicht.tsx')
+    assert.ok(u.includes('<details key={g.gruppe} data-stelle={g.gruppe}'))
+    const leiste = u.slice(u.indexOf('<details key={g.gruppe}'), u.indexOf('>', u.indexOf('<details key={g.gruppe}')))
+    assert.ok(!/\bopen\b/.test(leiste), 'keine Stelle von Haus aus offen')
+    assert.ok(u.includes('{stelleZaehler(g.eintraege)}'))
+    assert.ok(u.includes('<BehoerdenKlappen stellen={gruppen.map(g => ({ gruppe: g.gruppe, kurz: stelleKurz(g.gruppe) }))}>'))
+    const k = quelle('src/components/behoerden/BehoerdenKlappen.tsx')
+    assert.ok(k.startsWith("'use client'"))
+    assert.ok(k.includes('Alle aufklappen') && k.includes('Alle zuklappen'))
+    // localStorage nur in try – privates Fenster bzw. gesperrter Speicher darf die Seite nicht brechen
+    const zugriffe = k.split('\n').filter(z => z.includes('localStorage.') && !z.trim().startsWith('//'))
+    assert.equal(zugriffe.length, 2)
+    for (const z of zugriffe) assert.ok(z.includes('try {'), z)
+    // beide Orte nutzen dieselbe Übersicht
+    assert.ok(quelle('src/app/(dashboard)/reports/ReportsClient.tsx').includes('<BehoerdenUebersicht gruppen={behoerden} />'))
+    assert.ok(quelle('src/app/(dashboard)/dashboard/fristen/page.tsx').includes('<BehoerdenUebersicht gruppen={behoerden} />'))
   })
 })

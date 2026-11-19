@@ -7,10 +7,16 @@
 // Ohne Hooks: nutzbar in Server-Komponenten (/dashboard/fristen) und im Client (Tab „Behörden“
 // in /reports). Die Daten bekommt die Komponente als Props, sie importiert nur Typen aus der
 // Server-Datei. gruppen = null: Übersicht konnte nicht geladen werden (Hinweis statt Fehlerseite).
+//
+// KAN-471 Nebenbefund (19.11.2026): Jede Stelle ist eine Klappleiste (<details>, beim ersten Besuch alle zu) mit
+// Anzahl der Dokumente und Pflichtmeldungen; darüber Sprungleiste, „Alle auf-/zuklappen“ und Merken je Browser
+// (BehoerdenKlappen) – statt aller 56 Dokumente aufgeklappt im Raster.
 
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
+import { stelleKurz, stelleZaehler } from '@/lib/behoerden/stellen'
+import BehoerdenKlappen from './BehoerdenKlappen'
 
 export default function BehoerdenUebersicht({ gruppen }: { gruppen: UebersichtGruppe[] | null }) {
   if (gruppen === null) {
@@ -29,15 +35,18 @@ export default function BehoerdenUebersicht({ gruppen }: { gruppen: UebersichtGr
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-x-8 gap-y-5">
+    <BehoerdenKlappen stellen={gruppen.map(g => ({ gruppe: g.gruppe, kurz: stelleKurz(g.gruppe) }))}>
+    <div className="divide-y divide-s112-line border-y border-s112-line">
       {gruppen.map(g => (
-        <section key={g.gruppe} aria-labelledby={`behoerden-${g.gruppe}`}>
-          <h3 id={`behoerden-${g.gruppe}`} className="text-[11.5px] font-semibold uppercase tracking-[.04em] text-s112-text-2 mb-1">
-            {g.label}
-          </h3>
-          <ul className="divide-y divide-s112-line">
+        <details key={g.gruppe} data-stelle={g.gruppe} className="group scroll-mt-20">
+          <summary className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2.5 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden hover:bg-s112-bg rounded-sm">
+            <span aria-hidden="true" className="inline-block w-3 text-s112-text-2 transition-transform group-open:rotate-90">▸</span>
+            <h3 className="text-[13px] font-semibold text-s112-text">{g.label}</h3>
+            <span className="text-[11.5px] text-s112-text-2">{stelleZaehler(g.eintraege)}</span>
+          </summary>
+          <ul className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-x-8 pl-6 pb-3">
             {g.eintraege.map(e => (
-              <li key={e.id} className="py-2">
+              <li key={e.id} className="py-2 border-t border-s112-line">
                 <p className="text-[13px] font-medium text-s112-text leading-snug">
                   {e.titel}
                   {e.pflicht && (
@@ -69,8 +78,9 @@ export default function BehoerdenUebersicht({ gruppen }: { gruppen: UebersichtGr
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       ))}
     </div>
+    </BehoerdenKlappen>
   )
 }
