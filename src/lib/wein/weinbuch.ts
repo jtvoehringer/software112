@@ -45,6 +45,7 @@ import { zukaufTbsVermerk } from '@/lib/handel/tbsNummer'
 import { pnStandAm, pnStandText, pnVerlaufEreignisse, type PnVerlauf } from '@/lib/kellerbuch/pruefnummerVerlauf'
 import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
 import { ladeMaischeAnteile } from '@/lib/kellerbuch/maischeMassnahmen'
+import { ladeBehandlungVorgeschichte } from '@/lib/kellerbuch/behandlungVorgeschichte'
 import { maischeVermerk } from '@/lib/wein/maischeAnteile'
 import { ladeWeinbuchDaten, type WeinbuchDaten } from '@/lib/wein/weinbuchDaten'
 import {
@@ -464,6 +465,19 @@ export async function buildWeinbuch(
         id: `maische-${z.id}`, datum: z.datum, created_at: z.zeitpunkt, typ_name_snapshot: z.behandlung,
         menge: z.mengeAnteil, einheit: z.mengeAnteil === null ? null : z.einheit, notizen: z.notizen,
         _vermerk: `${maischeVermerk(z.maische, z.anteilPct)}${z.menge !== null && z.einheit ? ` (an der ganzen Maische: ${fmtNum(z.menge)} ${z.einheit})` : ''}`,
+      }))]
+    }
+  }
+
+  // KAN-475 Nebenbefund (19.11.2026): Entstand die Charge durch einen (Teil-)Umzug, gehören die Kellerbehandlungen der
+  // Ursprungscharge bis zum Zeitpunkt des Umzugs auch in ihr Weinbuch – mit Vermerk, die Einträge bleiben dort.
+  if (tenantId) {
+    const vor = await ladeBehandlungVorgeschichte(supabase, tenantId, [String(wa.id)])
+    if (vor.error !== null) warnungen.push(`${vor.error}.`)
+    else {
+      kellerBeh = [...kellerBeh, ...(vor.data.get(String(wa.id)) ?? []).map(z => ({
+        ...z.behandlung, id: `vor-${z.behandlung.id}`,
+        _vermerk: `über Charge „${z.charge}“ (vor dem Umzug am ${ttmmjjjj(z.bis)})`,
       }))]
     }
   }

@@ -67,9 +67,11 @@ describe('KAN-475: Seiten', () => {
     assert.ok(k.includes("legeBehandlungstypAn(neuerTypName.trim(), neuerTypEinheit || null, neuerTypWirkung, modus === 'gebinde')"))
   })
   test('Vorgeschichte: Behandlungen der Ursprungscharge bis zum Teilumzug, ohne stornierte, nur Anzeige', () => {
-    assert.ok(k.includes(".eq('tenant_id', activeTenantId).eq('nach_weinausbau_id', chargeId).neq('von_weinausbau_id', chargeId).eq('verschnitt', false)"))
-    assert.ok(k.includes(".is('storniert_am', null).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(5)"))
-    assert.match(k, /\.eq\('weinausbau_id', u\.von_weinausbau_id\)\.lte\('datum', u\.datum\)\.is\('storniert_am', null\)/)
+    // seit dem Nebenbefund (19.11.2026) über den gemeinsamen Baustein – Verhalten: kan475b-weinbuch-vorgeschichte.test.mjs
+    assert.ok(k.includes('const vg = await ladeBehandlungVorgeschichte(supabase, activeTenantId, [chargeId])'))
+    const b = quelle('src/lib/kellerbuch/behandlungVorgeschichte.ts')
+    assert.ok(b.includes(".in('nach_weinausbau_id', b).eq('verschnitt', false).is('storniert_am', null)"))
+    assert.ok(b.includes(".in('weinausbau_id', b).is('pressung_id', null).is('storniert_am', null)"))
     assert.ok(k.includes('Übernommen von Charge {v.charge}'))
   })
   test('Chargen-Seite verlinkt die eigene Seite; Dashboard nimmt die letzte Maßnahme der Charge', () => {

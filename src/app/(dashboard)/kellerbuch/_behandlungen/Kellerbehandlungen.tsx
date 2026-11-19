@@ -12,6 +12,7 @@ import Link, { BrotkrumenLink } from '@/components/ui/Link'
 import { useRouter } from 'next/navigation'
 import { FlaskConical, Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
+import { ladeBehandlungVorgeschichte } from '@/lib/kellerbuch/behandlungVorgeschichte'
 import { ladeMaischeAnteile } from '@/lib/kellerbuch/maischeMassnahmen'
 import { maischeVermerk, type MaischeAnteilZeile } from '@/lib/wein/maischeAnteile'
 import { fmtNum, dezimal } from '@/lib/format'
@@ -209,21 +210,14 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
     // KAN-475: nach einem Teilumzug in ein leeres Gebinde ist dies eine neue Charge – was die Ursprungscharge bis dahin
     // an Behandlungen bekam, gilt auch für diesen Wein (nur Anzeige, die Einträge bleiben bei der Ursprungscharge)
     if (chargeId && activeTenantId) {
-      const { data: um, error: umErr } = await (supabase.from('keller_umzuege') as R)
-        .select('id, datum, von_weinausbau_id, quelle:weinausbau!keller_umzuege_von_weinausbau_id_fkey(name)')
-        .eq('tenant_id', activeTenantId).eq('nach_weinausbau_id', chargeId).neq('von_weinausbau_id', chargeId).eq('verschnitt', false)
-        // alle-ausnahme: Umzüge, aus denen genau diese Charge entstand – in der Regel einer, neueste zuerst
-        .is('storniert_am', null).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).order('id', { ascending: false }).limit(5)
-      if (umErr) { setLadeFehler(fehlerText(umErr, 'Die Vorgeschichte der Charge konnte nicht geladen werden')); setLoading(false); return }
+      const vg = await ladeBehandlungVorgeschichte(supabase, activeTenantId, [chargeId])
+      if (vg.error !== null) { setLadeFehler(vg.error); setLoading(false); return }
+      // je Ursprungscharge und Umzug ein Abschnitt, neueste Behandlung zuerst
       const vor: { charge: string; bis: string; zeilen: R[] }[] = []
-      for (const u of ((um ?? []) as R[])) {
-        // alle-ausnahme: Behandlungen einer einzelnen Ursprungscharge bis zum Umzug, wenige
-        const { data: vb, error: vbErr } = await (supabase.from('keller_behandlungen') as R)
-          .select('id, datum, typ_name_snapshot, menge, einheit, notizen, typ:typ_id(name)')
-          .eq('tenant_id', activeTenantId).eq('weinausbau_id', u.von_weinausbau_id).lte('datum', u.datum).is('storniert_am', null)
-          .order('datum', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false })
-        if (vbErr) { setLadeFehler(fehlerText(vbErr, 'Die Vorgeschichte der Charge konnte nicht geladen werden')); setLoading(false); return }
-        if (((vb ?? []) as R[]).length > 0) vor.push({ charge: String((u.quelle as R | null)?.name ?? 'Ursprungscharge'), bis: String(u.datum).slice(0, 10), zeilen: (vb ?? []) as R[] })
+      for (const z of [...(vg.data.get(chargeId) ?? [])].reverse()) {
+        const abschnitt = vor.find(v => v.charge === z.charge && v.bis === z.bis)
+        if (abschnitt) abschnitt.zeilen.push(z.behandlung)
+        else vor.push({ charge: z.charge, bis: z.bis, zeilen: [z.behandlung] })
       }
       setVorgeschichte(vor)
       // KAN-481: anteilige Maßnahmen der Maische (die Einträge selbst stehen bei der Maische unter Lese › Pressungen)
@@ -761,7 +755,7 @@ export default function Kellerbehandlungen({ modus, id }: { modus: 'charge' | 'g
       {vorgeschichte.map(v => (
         <section key={`${v.charge}-${v.bis}`} aria-label={`Übernommen von Charge ${v.charge}`} className="card p-4">
           <h2 className="text-sm font-semibold text-s112-text">Übernommen von Charge {v.charge}</h2>
-          <p className="text-xs text-s112-text-2 mb-2">Behandlungen der Ursprungscharge bis zum Umzug am {v.bis.split('-').reverse().join('.')} – sie gelten auch für diesen Wein und werden dort geführt.</p>
+          <p className="text-xs text-s112-text-2 mb-2">Behandlungen der Ursprungscharge bis zum Umzug am {v.bis.split('-').reverse().join('.')} – sie gelten auch für diesen Wein, werden dort geführt und stehen im Weinbuch dieser Charge mit dem Vermerk „über Charge …“.</p>
           <ul className="divide-y divide-s112-line text-sm">
             {v.zeilen.map((b: R) => (
               <li key={b.id} className="py-1.5 flex flex-wrap items-baseline gap-x-3">
