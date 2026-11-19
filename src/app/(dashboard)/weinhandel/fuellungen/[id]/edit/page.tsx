@@ -557,7 +557,7 @@ export default async function EditFuellungPage({
               ))}
             </select>
           </div>
-          <div>
+          <div id="leergewicht" className="scroll-mt-24">
             <label className={labelCls}>
               Leergewicht der Flasche (g){' '}
               <span className="text-s112-muted font-normal">– inkl. Verschluss, Kapsel und Etikett; für das Bruttogewicht in den Exportdokumenten</span>

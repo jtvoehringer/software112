@@ -198,7 +198,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           <p className="font-semibold">Für die Dokumente fehlt noch:</p>
           <ul className="list-disc pl-5 mt-1 space-y-0.5">
             {grunddaten.hinweise.map((h, i) => (
-              <li key={i}>{h.text}{h.href && <> <Link href={h.href} className="underline">Eintragen</Link></>}</li>
+              <li key={i}>{h.text}{h.href && <> <Link href={h.href} className="underline font-medium whitespace-nowrap">→ {h.ziel ?? 'Zur Eingabe'}</Link></>}</li>
             ))}
           </ul>
         </div>
@@ -249,9 +249,9 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                 {/* UAT 12.11.2026 (KAN-414): direkt zur Füllung, bei der das Leergewicht fehlt */}
                 {gewicht.ohneLeergewicht.some(o => o.id) && (
                   <span className="block mt-1">
-                    Leergewicht eintragen:{' '}
+                    Leergewicht eintragen (Füllung bearbeiten, Feld „Leergewicht der Flasche (g)“):{' '}
                     {gewicht.ohneLeergewicht.filter(o => o.id).map((o, i) => (
-                      <span key={o.id}>{i > 0 ? ', ' : ''}<Link href={`/weinhandel/fuellungen/${o.id}/edit`} className="underline font-medium">{o.name}</Link></span>
+                      <span key={o.id}>{i > 0 ? ', ' : ''}<Link href={`/weinhandel/fuellungen/${o.id}/edit#leergewicht`} className="underline font-medium">{o.name}</Link></span>
                     ))}
                   </span>
                 )}

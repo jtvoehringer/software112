@@ -228,7 +228,20 @@ export function grunddatenSummen(positionen: readonly GrunddatenPosition[]): Gru
 
 // ── Hinweisliste „Für die Dokumente fehlt noch …“ ──────────────────────────────────────────────────────
 
-export type GrunddatenHinweis = { text: string; /** Stelle, an der der Wert gepflegt wird */ href: string | null }
+export type GrunddatenHinweis = {
+  text: string
+  /** Stelle, an der der Wert gepflegt wird */
+  href: string | null
+  /** KAN-429 Nebenbefund (UAT 19.11.2026): Beschriftung des Links – sagt, wohin er führt und was dort einzutragen ist
+   *  (vorher stand überall nur „Eintragen“) */
+  ziel?: string
+}
+
+/** Link-Beschriftungen der Hinweisliste */
+export const ZIEL_AUFTRAG = 'Auftrag bearbeiten'
+export const ZIEL_BETRIEB = 'Betrieb › Einstellungen öffnen'
+export const ZIEL_FUELLUNG = 'Füllung bearbeiten'
+export const ZIEL_ANALYSE = 'Analyse mit Alkoholwert zur Charge erfassen'
 
 export function grunddatenHinweise(e: {
   auftragId: string
@@ -238,7 +251,8 @@ export function grunddatenHinweise(e: {
   /** Auftrag noch bearbeitbar (Entwurf/Bestätigt)? Sonst führen die Hinweise des Auftrags nirgends hin */
   bearbeitbar: boolean
 }): GrunddatenHinweis[] {
-  const aus: GrunddatenHinweis[] = []
+  const roh: GrunddatenHinweis[] = []
+  const aus = { push: (h: GrunddatenHinweis) => { roh.push(mitZiel(h)) } }
   const bearbeiten = e.bearbeitbar ? `/weinexport/${e.auftragId}/bearbeiten` : null
   const fall = lieferfall(e.auftrag)
   if (fall.gebiet === null) aus.push({ text: 'Bestimmungsland fehlt – EU oder Drittland ist nicht bestimmbar.', href: bearbeiten })
@@ -266,7 +280,7 @@ export function grunddatenHinweise(e: {
       const fuellungHref = id ? `/weinhandel/fuellungen/${id}/edit` : null
       if (daten.alkohol === null) {
         einmal(`alk:${id}`, { text: `„${name}“: Alkohol fehlt (weder Prüfnummernantrag noch Analyse mit Alkoholwert).`,
-          href: text(f.weinausbau_id) ? `/kellerbuch/weinausbau/${text(f.weinausbau_id)}` : fuellungHref })
+          href: text(f.weinausbau_id) ? `/kellerbuch/weinausbau/${text(f.weinausbau_id)}/analysen/neu` : fuellungHref })
       }
       if (!daten.pruefnummer) einmal(`pn:${id}`, { text: `„${name}“: Prüfnummer fehlt.`, href: fuellungHref })
       if (!daten.farbe) einmal(`farbe:${id}`, { text: `„${name}“: Weinart (weiß, rot, rosé) fehlt.`, href: fuellungHref })
@@ -278,5 +292,16 @@ export function grunddatenHinweise(e: {
         href: f && text(f.id) ? `/weinhandel/fuellungen/${text(f.id)}/edit` : bearbeiten })
     }
   })
-  return aus
+  return roh
+}
+
+/** Beschriftung aus dem Ziel des Links – eine Stelle für alle Hinweise */
+function mitZiel(h: GrunddatenHinweis): GrunddatenHinweis {
+  if (!h.href || h.ziel) return h
+  const ziel = h.href.startsWith('/weinexport/') ? ZIEL_AUFTRAG
+    : h.href.startsWith('/betrieb/') ? ZIEL_BETRIEB
+    : h.href.includes('/analysen/neu') ? ZIEL_ANALYSE
+    : h.href.startsWith('/weinhandel/fuellungen/') ? ZIEL_FUELLUNG
+    : undefined
+  return ziel ? { ...h, ziel } : h
 }

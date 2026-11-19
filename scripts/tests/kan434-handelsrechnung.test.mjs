@@ -197,7 +197,7 @@ describe('KAN-434: Verdrahtung', () => {
   test('Lader und CSV: Hinweise zur Rechnung, vier Spalten am Ende, Rechnungsbetrag aus den gerundeten Zeilen', () => {
     const l = quelle('src/lib/behoerden/exportauftrag.ts')
     assert.match(l, /\.select\('betrieb_uid, betrieb_eori, betrieb_rex_nummer, betrieb_ea_bewilligung'\)/)
-    assert.match(l, /\.\.\.rechnungHinweise\(\{ auftrag, betrieb: \(cfgRes\.data \?\? \{\}\) as R, warenwert: summeGerundet\(zeilen\.map\(z => z\.wertEur\)\) \}\)/)
+    assert.match(l, /\.\.\.rechnungHinweiseMitZiel\(\{ auftrag, betrieb: \(cfgRes\.data \?\? \{\}\) as R, warenwert: summeGerundet\(zeilen\.map\(z => z\.wertEur\)\) \}\)/)
     assert.match(l, /const summe = rechnungsSumme\(summeGerundet\(zeilen\.map\(z => z\.wertEur\)\), auftrag\)/)
     const spalten = l.slice(l.indexOf('export const SPALTEN_EXPORTAUFTRAG'), l.indexOf('function zahlOderNull'))
     const koepfe = [...spalten.matchAll(/kopf: '([^']+)'/g)].map(x => x[1])
