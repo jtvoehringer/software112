@@ -139,9 +139,11 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, verfuegbareKgByRied, zukaufTrauben, behaelterMitCharge, vorauswahl, abpressen, onDone, onWarnung }: {
+function PressungForm({ maischeGebinde, jahrgangId, leseId, leseArt, pressung, behOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, verfuegbareKgByRied, zukaufTrauben, behaelterMitCharge, vorauswahl, abpressen, onDone, onWarnung }: {
   /** KAN-480: offene Maische mit „Abpressen“ geöffnet – das Formular zeigt Pressdatum, Mostausbeute und Gebinde */
   abpressen?: boolean
+  /** KAN-481 (UAT 19.11.2026): Gebinde mit offener Maische dieses Jahrgangs (Gebinde → Nummer der Maische) – belegt */
+  maischeGebinde?: Readonly<Record<string, string>>
   /** KAN-359: Hinweis nach teilweisem Speichern – bleibt in der Pressungs-Karte stehen, wenn das Formular schließt */
   onWarnung: (text: string) => void
   /** KAN-394: Options-IDs der vorbelegten Traubenzeile (erster Treffer) – nur beim Anlegen */
@@ -200,6 +202,10 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
   const offeneMaische = pressung?.maische?.offen === true
   const [maische, setMaische] = useState(offeneMaische && !abpressen)
   const [maischeBehaelter, setMaischeBehaelter] = useState(pressung?.maische?.behaelter_id ?? '')
+  // KAN-481 (UAT 19.11.2026): Inhalt und fremde Maische je Gebinde – dieselbe Angabe in beiden Gebinde-Auswahlen.
+  // Das Gebinde der eigenen Maische zählt nicht als fremd belegt (beim Abpressen wird es frei).
+  const gebindeInhalt = (id: string) => (behaelterMitCharge?.[id] ?? []).reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
+  const fremdeMaische = (id: string) => (id !== pressung?.maische?.behaelter_id ? maischeGebinde?.[id] ?? null : null)
   function maischeUmschalten(an: boolean) {
     setMaische(an)
     // offene Maische: beim Abpressen das Pressdatum (heute) vorschlagen, sonst gilt wieder der feste Beginn
@@ -449,7 +455,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
         // (KAN-359: als Hinweis in der Pressungs-Karte, nicht als Browser-Dialog)
         if (result.warnung) onWarnung(result.warnung)
         // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
-        if (!pressung && behaelterMitCharge && result.neu.length > 0) {
+        if ((!pressung || abpressen) && behaelterMitCharge && result.neu.length > 0) {
           // Verschnitt-Prompt immer wenn Behälter bereits Chargen hat
           const konflikt = result.neu.find(n => {
             const existing = behaelterMitCharge[n.behaelter_id] ?? []
@@ -562,8 +568,21 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Gebinde der Maische *</label>
               <select aria-label="Gebinde der Maische" value={maischeBehaelter} onChange={e => setMaischeBehaelter(e.target.value)} required className={inp}>
                 <option value="">– bitte wählen –</option>
-                {behOptions.map(b => <option key={b.id} value={b.id}>{b.name}{b.volumen_liter ? ` (${fmtNum(b.volumen_liter, { max: 0 })} L)` : ''}</option>)}
+                {behOptions.map(b => {
+                  // KAN-481 (UAT 19.11.2026): die Auswahl zeigte nur Name und Größe – belegte Gebinde lehnte erst die
+                  // Datenbank ab („Eine Maische braucht ein leeres Gebinde“)
+                  const inhalt = gebindeInhalt(b.id)
+                  const m = fremdeMaische(b.id)
+                  const belegt = inhalt > 0.005 || !!m
+                  return (
+                    <option key={b.id} value={b.id} disabled={belegt}>
+                      {gebindeOption({ name: b.name, inhaltLiter: inhalt, volumenLiter: b.volumen_liter ?? null, chargen: (behaelterMitCharge?.[b.id] ?? []).map(c => c.name) })}
+                      {m ? ` · Maische ${m}` : ''}{belegt ? ' – belegt' : ''}
+                    </option>
+                  )
+                })}
               </select>
+              <p className="text-xs text-s112-muted mt-1">Eine Maische braucht ein leeres Gebinde – Gebinde mit Wein oder einer anderen Maische sind nicht wählbar.</p>
             </div>
           )}
         </div>
@@ -804,11 +823,13 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, behOptions, leseP
                   {behOptions.map(b => {
                     // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
                     const existing = behaelterMitCharge?.[b.id] ?? []
-                    const inhalt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
-                    return <option key={b.id} value={b.id}>{gebindeOption({
+                    const inhalt = gebindeInhalt(b.id)
+                    // KAN-481: in einem Gebinde mit offener (anderer) Maische lehnt die Datenbank jede Charge ab
+                    const m = fremdeMaische(b.id)
+                    return <option key={b.id} value={b.id} disabled={!!m && row.behaelter_id !== b.id}>{gebindeOption({
                       name: b.name, inhaltLiter: inhalt, volumenLiter: b.volumen_liter ?? null,
                       chargen: existing.map(c => c.rebsorte ? `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})` : c.name),
-                    })}</option>
+                    })}{m ? ` · Maische ${m} – belegt` : ''}</option>
                   })}
                 </select>
                 {row.behaelter_id && (() => {
@@ -938,6 +959,10 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
   vorauswahl?: readonly string[] | null
 }) {
   const [showForm, setShowForm]    = useState(writeOk && !!vorauswahl)
+  // KAN-481 (UAT 19.11.2026): Gebinde, in denen eine offene Maische liegt – in den Gebinde-Auswahlen als belegt
+  const maischeGebinde: Record<string, string> = Object.fromEntries(pressungen
+    .filter(p => !p.storno && p.maische?.offen && p.maische.behaelter_id)
+    .map(p => [p.maische!.behaelter_id as string, p.maische!.nummer ?? '']))
   const [editId, setEditId]        = useState<string | null>(null)
   // KAN-480: offene Maische mit „Abpressen“ geöffnet (sonst „Bearbeiten“ = Maische bleibt offen)
   const [abpressenId, setAbpressenId] = useState<string | null>(null)
@@ -1027,7 +1052,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
         <PressungForm jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions} behOptions={behOptions}
           waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST} verfuegbareKgByRied={verfuegbareKgByRied}
           zukaufTrauben={zukaufTrauben}
-          behaelterMitCharge={behaelterMitCharge} vorauswahl={vorauswahl} onDone={() => setShowForm(false)} onWarnung={setWarnung} />
+          behaelterMitCharge={behaelterMitCharge} maischeGebinde={maischeGebinde} vorauswahl={vorauswahl} onDone={() => setShowForm(false)} onWarnung={setWarnung} />
       )}
 
       {/* Pressung-Liste */}
@@ -1047,7 +1072,11 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                   <PressungForm pressung={p} jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions}
                     behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege}
                     verfuegbareKgByGST={verfuegbareKgByGST} verfuegbareKgByRied={verfuegbareKgByRied} zukaufTrauben={zukaufTrauben}
-                    behaelterMitCharge={undefined} abpressen={abpressenId === p.id}
+                    // KAN-481 (UAT 19.11.2026): beim Abpressen entstehen neue Mostzeilen – ohne den Inhalt der Gebinde zeigte
+                    // die Auswahl jedes Gebinde als „leer“ (Befund: Holzfass 2 mit 580 l als „frei 600 L“). Beim Bearbeiten
+                    // bleibt es ohne (gespeicherte Zeilen liegen schon im Inhalt)
+                    behaelterMitCharge={abpressenId === p.id ? behaelterMitCharge : undefined} maischeGebinde={maischeGebinde}
+                    abpressen={abpressenId === p.id}
                     onDone={() => { setEditId(null); setAbpressenId(null) }} onWarnung={setWarnung} />
                 ) : (
                   <div className={`group border border-s112-border rounded-xl p-3 ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
