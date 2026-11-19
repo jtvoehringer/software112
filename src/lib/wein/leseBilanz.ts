@@ -360,6 +360,29 @@ export async function leseDeckungFehler(
   return ue.length > 0 ? ueberdeckungText(ue[0], v.namen, `${jahrgang}/${lese.lfd_nr}`) : null
 }
 
+/** Jahrgang gehört zum Betrieb (N5) und Lese des Verkaufs – gemeinsamer Schritt für eine und mehrere Zeilen */
+async function leseDesVerkaufs(supabase: Client, tenantId: string, p: {
+  jahrgangId: string; datum: string | null; leseIdFormular: string | null
+  alt: { lese_id: string | null; jahrgang_id: string | null } | null; leseWaehlenText: string
+}): Promise<{ lese: LeseKurz; jahrgang: number } | { fehler: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: jg, error: jgErr } = await (supabase.from('weinjahrgaenge') as any)
+    .select('id, jahrgang').eq('id', p.jahrgangId).eq('tenant_id', tenantId).maybeSingle()
+  if (jgErr) throw new AktionsFehler(`Jahrgang konnte nicht geladen werden: ${jgErr.message}`)
+  if (!jg) return { fehler: 'Der Jahrgang gehört nicht zu diesem Betrieb oder wurde gelöscht – bitte die Seite neu laden.' }
+  const jahrgang = Number((jg as R).jahrgang)
+  const lesen = await ladeLesenDesJahrgangs(supabase, tenantId, p.jahrgangId)
+  const alt = p.alt
+  let lese: LeseKurz | null = null
+  if (alt && alt.jahrgang_id === p.jahrgangId && alt.lese_id) lese = lesen.find(l => l.id === alt.lese_id) ?? null
+  else if (p.leseIdFormular) {
+    lese = lesen.find(l => l.id === p.leseIdFormular) ?? null
+    if (!lese) return { fehler: 'Die gewählte Lese gehört nicht zu diesem Jahrgang oder wurde gelöscht – bitte die Seite neu laden.' }
+  } else lese = leseFuerDatum(lesen, jahrgang, p.datum)
+  if (!lese) return { fehler: p.leseWaehlenText }
+  return { lese, jahrgang }
+}
+
 /**
  * Traubenverkauf (KAN-129, beide Erfassungswege): Jahrgang gehört zum Betrieb (N5), Lese bestimmen (bestehender
  * Verkauf im selben Jahrgang: seine Lese; sonst gewählte Lese aus dem Formular, sonst nach Datum wie die
@@ -372,21 +395,10 @@ export async function traubenverkaufLese(supabase: Client, tenantId: string, p: 
   leseWaehlenText: string
 }): Promise<{ leseId: string | null; fehler: string | null }> {
   if (p.zukaufPostenId || !p.jahrgangId) return { leseId: null, fehler: null }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: jg, error: jgErr } = await (supabase.from('weinjahrgaenge') as any)
-    .select('id, jahrgang').eq('id', p.jahrgangId).eq('tenant_id', tenantId).maybeSingle()
-  if (jgErr) throw new AktionsFehler(`Jahrgang konnte nicht geladen werden: ${jgErr.message}`)
-  if (!jg) return { leseId: null, fehler: 'Der Jahrgang gehört nicht zu diesem Betrieb oder wurde gelöscht – bitte die Seite neu laden.' }
-  const jahrgang = Number((jg as R).jahrgang)
-  const lesen = await ladeLesenDesJahrgangs(supabase, tenantId, p.jahrgangId)
   const alt = p.alt ?? null
-  let lese: LeseKurz | null = null
-  if (alt && alt.jahrgang_id === p.jahrgangId && alt.lese_id) lese = lesen.find(l => l.id === alt.lese_id) ?? null
-  else if (p.leseIdFormular) {
-    lese = lesen.find(l => l.id === p.leseIdFormular) ?? null
-    if (!lese) return { leseId: null, fehler: 'Die gewählte Lese gehört nicht zu diesem Jahrgang oder wurde gelöscht – bitte die Seite neu laden.' }
-  } else lese = leseFuerDatum(lesen, jahrgang, p.datum)
-  if (!lese) return { leseId: null, fehler: p.leseWaehlenText }
+  const b = await leseDesVerkaufs(supabase, tenantId, { jahrgangId: p.jahrgangId, datum: p.datum, leseIdFormular: p.leseIdFormular, alt, leseWaehlenText: p.leseWaehlenText })
+  if ('fehler' in b) return { leseId: null, fehler: b.fehler }
+  const { lese, jahrgang } = b
   if (!p.weingartenId) return { leseId: lese.id, fehler: null }
   // KAN-394: an einer Ried mit Grundstücken nur je GST verkaufen – ein bestehender Verkauf ohne GST bleibt bearbeitbar
   if (!p.grundstueckId && !(alt && alt.weingarten_id === p.weingartenId && !alt.grundstueck_id)
@@ -399,4 +411,81 @@ export async function traubenverkaufLese(supabase: Client, tenantId: string, p: 
   const fehler = await leseDeckungFehler(supabase, tenantId, p.jahrgangId, lese, jahrgang, { verkaufId: alt?.id ?? null },
     vorher, [{ weingarten_id: p.weingartenId, grundstueck_id: p.grundstueckId, kg: p.mengeKg }])
   return { leseId: lese.id, fehler }
+}
+
+// ── Ganze Ried: mehrere Grundstücke in einem Traubenverkauf (KAN-476 Nebenbefund, 19.11.2026) ─────────────────
+
+export const MAX_VERKAUF_ZEILEN = 20
+
+export type VerkaufZeile = { grundstueckId: string; mengeKg: number }
+
+/**
+ * Zeilen „ganze Ried“ aus dem Formular (JSON-Text `[{ grundstueck_id, menge_kg }]`) lesen und prüfen – dieselbe
+ * Funktion für Formular und Server. Zeilen ohne Menge bzw. mit 0 kg entfallen (Grundstück wird nicht verkauft).
+ * `zahl` wandelt die Eingabe in eine Zahl (Dezimalkomma).
+ */
+export function verkaufZeilenAus(roh: unknown, zahl: (x: unknown) => number): { zeilen: VerkaufZeile[]; fehler: string | null } {
+  let liste: unknown = roh
+  if (typeof roh === 'string') {
+    try { liste = JSON.parse(roh) } catch { return { zeilen: [], fehler: 'Die Grundstücke des Traubenverkaufs konnten nicht gelesen werden – bitte die Seite neu laden.' } }
+  }
+  if (!Array.isArray(liste)) return { zeilen: [], fehler: 'Die Grundstücke des Traubenverkaufs konnten nicht gelesen werden – bitte die Seite neu laden.' }
+  const zeilen: VerkaufZeile[] = []
+  for (const z of liste as Record<string, unknown>[]) {
+    const gst = typeof z?.grundstueck_id === 'string' ? z.grundstueck_id : ''
+    const text = z?.menge_kg === null || z?.menge_kg === undefined ? '' : String(z.menge_kg).trim()
+    if (text === '') continue
+    const kg = zahl(text)
+    if (!Number.isFinite(kg) || kg < 0) return { zeilen: [], fehler: 'Bitte je Grundstück eine Menge in kg angeben (0 oder leer = dieses Grundstück nicht verkaufen).' }
+    if (kg === 0) continue
+    if (!gst) return { zeilen: [], fehler: 'Bitte je Zeile das Grundstück (GST) angeben.' }
+    if (zeilen.some(x => x.grundstueckId === gst)) return { zeilen: [], fehler: 'Jedes Grundstück darf im Traubenverkauf nur einmal vorkommen.' }
+    zeilen.push({ grundstueckId: gst, mengeKg: kg })
+  }
+  if (zeilen.length === 0) return { zeilen: [], fehler: 'Bitte bei mindestens einem Grundstück eine Menge in kg größer als 0 angeben.' }
+  if (zeilen.length > MAX_VERKAUF_ZEILEN) return { zeilen: [], fehler: `Ein Traubenverkauf hat höchstens ${MAX_VERKAUF_ZEILEN} Grundstücke – bitte in mehrere Verkäufe teilen.` }
+  return { zeilen, fehler: null }
+}
+
+/**
+ * Vorschlag „ganze Ried“: je Grundstück der Ried mit Lesemenge in dieser Lese die verfügbaren kg (gelesen − verpresst
+ * − verkauft, aus verfuegbarJeLese) – in der Reihenfolge von `gst`. Grundstücke ohne Lesemenge erscheinen nicht.
+ */
+export function ganzeRiedVorschlag<G extends { id: string }>(
+  leseId: string, gst: readonly G[], verfuegbarGst: ReadonlyMap<string, number>,
+): (G & { verfuegbarKg: number })[] {
+  const out: (G & { verfuegbarKg: number })[] = []
+  for (const g of gst) {
+    const kg = verfuegbarGst.get(leseOrtSchluessel(leseId, g.id))
+    if (kg !== undefined) out.push({ ...g, verfuegbarKg: kg })
+  }
+  return out
+}
+
+/**
+ * Neuer Traubenverkauf über mehrere Grundstücke einer Ried: Lese bestimmen wie traubenverkaufLese, jedes Grundstück
+ * gehört zur Ried (und zum Betrieb), kg-Bilanz je Lese über ALLE Zeilen gemeinsam. Liefert die GST-Nummern für die
+ * Bezeichnung der Rechnungspositionen.
+ */
+export async function traubenverkaufLeseZeilen(supabase: Client, tenantId: string, p: {
+  jahrgangId: string | null; weingartenId: string | null; zeilen: readonly VerkaufZeile[]
+  datum: string | null; leseIdFormular: string | null; leseWaehlenText: string
+}): Promise<{ leseId: string | null; fehler: string | null; gst: Map<string, { gstNr: string | null; herkunft: string | null }> }> {
+  const gst = new Map<string, { gstNr: string | null; herkunft: string | null }>()
+  if (!p.jahrgangId || !p.weingartenId) return { leseId: null, fehler: 'Bitte Lese und Ried wählen.', gst }
+  const b = await leseDesVerkaufs(supabase, tenantId, { jahrgangId: p.jahrgangId, datum: p.datum, leseIdFormular: p.leseIdFormular, alt: null, leseWaehlenText: p.leseWaehlenText })
+  if ('fehler' in b) return { leseId: null, fehler: b.fehler, gst }
+  const ids = p.zeilen.map(z => z.grundstueckId)
+  // alle-ausnahme: höchstens 20 Grundstücke eines Verkaufs (MAX_VERKAUF_ZEILEN), per id gefiltert
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('grundstuecke') as any)
+    .select('id, gst_nr, trauben_herkunft_code').eq('tenant_id', tenantId).eq('weingarten_id', p.weingartenId).in('id', ids)
+  if (error) throw new AktionsFehler(`Grundstücke konnten nicht geladen werden: ${error.message}`)
+  for (const g of (data ?? []) as R[]) gst.set(g.id as string, { gstNr: (g.gst_nr as string | null) ?? null, herkunft: (g.trauben_herkunft_code as string | null) ?? null })
+  if (ids.some(id => !gst.has(id))) {
+    return { leseId: b.lese.id, fehler: 'Ein Grundstück gehört nicht zu dieser Ried oder wurde gelöscht – bitte die Seite neu laden.', gst }
+  }
+  const fehler = await leseDeckungFehler(supabase, tenantId, p.jahrgangId, b.lese, b.jahrgang, {}, [],
+    p.zeilen.map(z => ({ weingarten_id: p.weingartenId, grundstueck_id: z.grundstueckId, kg: z.mengeKg })))
+  return { leseId: b.lese.id, fehler, gst }
 }

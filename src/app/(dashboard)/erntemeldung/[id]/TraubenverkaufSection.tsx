@@ -20,6 +20,7 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
 import { heuteWien } from '@/lib/datum/wien'
+import { verkaufZeilenAus } from '@/lib/wein/leseBilanz'
 import ZukunftsDatum from '@/components/ui/ZukunftsDatum'
 
 function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
@@ -65,6 +66,9 @@ export type TVQuelleOption = {
   weingarten_id: string
   grundstueck_id: string | null
   label: string
+  /** KAN-476 Nebenbefund: Ried und GST-Nr. einzeln – für die Auswahl „ganze Ried“ */
+  weingarten_name?: string
+  grundstueck_nr?: string | null
   herkunft_code: string | null
   // Mostgewicht der Lese mit gemessener Einheit (KAN-128) – Vorbelegung
   klosterneuburger: number | null
@@ -120,6 +124,8 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
   const [notizen, setNotizen]   = useState(tv?.notizen ?? '')
   const [pending, startTransition] = useTransition()
   const [fehler, setFehler]     = useState<string | null>(null)
+  // KAN-476 Nebenbefund: ganze Ried – Menge je Grundstück (Text der Eingabe), vorbelegt mit den verfügbaren kg
+  const [zeilenKg, setZeilenKg] = useState<Record<string, string>>({})
 
   // Verfügbare kg je Zukauf-Posten, während einer Bearbeitung um die eigene
   // Zeile bereinigt (analog TraubenverkaufClient.tsx).
@@ -144,8 +150,35 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
     return Math.max(0, opt.verfuegbar_kg + eigenerAnteil)
   }
 
+  // KAN-476 Nebenbefund: Rieden mit mehreren Grundstücken in dieser Lese – zusätzlich als „ganze Ried“ wählbar
+  // (nur neue Verkäufe): je Grundstück eine Zeile, ein Verkauf mit einer Rechnung
+  const gstDerRied = (wgId: string) => quelleOptions.filter(o => o.weingarten_id === wgId && o.grundstueck_id)
+    .sort((a, b) => (a.grundstueck_nr ?? '').localeCompare(b.grundstueck_nr ?? '', 'de', { numeric: true }))
+  const riedOptionen = tv ? [] : [...new Map(quelleOptions.filter(o => o.grundstueck_id).map(o => [o.weingarten_id, o])).values()]
+    .filter(o => gstDerRied(o.weingarten_id).length >= 2)
+    .map(o => ({ compositeId: `ried:${o.weingarten_id}`, weingarten_id: o.weingarten_id, name: o.weingarten_name ?? o.label }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  const ganzeRiedId = !tv && quelle === 'ernte' && quelleId.startsWith('ried:') ? quelleId.slice(5) : null
+  const riedZeilen = ganzeRiedId ? gstDerRied(ganzeRiedId) : []
+  const zeilenSumme = riedZeilen.reduce((s, o) => {
+    const kg = Number(dezimal(zeilenKg[o.grundstueck_id as string] ?? ''))
+    return s + (Number.isFinite(kg) && kg > 0 ? kg : 0)
+  }, 0)
+
   function handleQuelleChange(newId: string) {
     setQuelleId(newId)
+    if (newId.startsWith('ried:')) {
+      // ganze Ried: je Grundstück die verfügbaren kg vorschlagen, Mostgewicht/Qualität/Herkunft vom ersten GST
+      const gst = gstDerRied(newId.slice(5))
+      setZeilenKg(Object.fromEntries(gst.map(o => [o.grundstueck_id as string, o.verfuegbar_kg > 0 ? String(o.verfuegbar_kg).replace('.', ',') : ''])))
+      const erste = gst[0]
+      setHerkunft(erste?.herkunft_code ?? '')
+      if (erste && (erste.klosterneuburger != null || erste.oechsle != null)) {
+        setMgStart({ kmw: erste.klosterneuburger, oechsle: erste.oechsle, einheit: erste.mostgewicht_einheit })
+      }
+      if (erste?.qualitaetsstufe) setQualitaet(erste.qualitaetsstufe)
+      return
+    }
     const opt = quelleOptions.find(o => o.compositeId === newId)
     setHerkunft(opt?.herkunft_code ?? '')
     if (!tv && opt) {
@@ -167,9 +200,11 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
     }
   }
 
-  const gesamtWert = mengeKg && preis
-    ? parseFloat(dezimal(mengeKg)) * parseFloat(dezimal(preis))
-    : null
+  const gesamtWert = ganzeRiedId
+    ? (zeilenSumme > 0 && preis ? zeilenSumme * parseFloat(dezimal(preis)) : null)
+    : mengeKg && preis
+      ? parseFloat(dezimal(mengeKg)) * parseFloat(dezimal(preis))
+      : null
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -180,6 +215,13 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
     if (leseId && !tv) fd.append('lese_id', leseId)
     if (quelle === 'zukauf') {
       fd.append('zukauf_posten_id', zukaufId)
+    } else if (ganzeRiedId) {
+      // je Grundstück eine Zeile – dieselbe Prüfung wie am Server, bevor gesendet wird
+      const zeilen = riedZeilen.map(o => ({ grundstueck_id: o.grundstueck_id as string, menge_kg: zeilenKg[o.grundstueck_id as string] ?? '' }))
+      const z = verkaufZeilenAus(zeilen, x => Number(dezimal(String(x))))
+      if (z.fehler) { setFehler(z.fehler); return }
+      fd.append('weingarten_id', ganzeRiedId)
+      fd.append('zeilen', JSON.stringify(zeilen))
     } else {
       const opt = quelleOptions.find(o => o.compositeId === quelleId)
       fd.append('weingarten_id', opt?.weingarten_id ?? '')
@@ -188,7 +230,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
     if (kontaktId) fd.append('kontakt_id', kontaktId)
     if (firmaId) fd.append('firma_id', firmaId)
     fd.append('datum', datum)
-    fd.append('menge_kg', mengeKg)
+    if (!ganzeRiedId) fd.append('menge_kg', mengeKg)
     if (preis) fd.append('preis_per_kg', preis)
     for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit']) {
       const w = formular.get(feld)
@@ -258,6 +300,12 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Ried / GST *</label>
             <select aria-label="Ried / GST" value={quelleId} onChange={e => handleQuelleChange(e.target.value)} required className={inp}>
               <option value="">– Ried/GST wählen –</option>
+              {riedOptionen.map(r => (
+                <option key={r.compositeId} value={r.compositeId}>
+                  {r.name} · ganze Ried (alle GST)
+                  {' – '}{fmtNum(gstDerRied(r.weingarten_id).reduce((s, o) => s + o.verfuegbar_kg, 0), { max: 0 })} kg verf.
+                </option>
+              ))}
               {quelleOptions.map(o => (
                 <option key={o.compositeId} value={o.compositeId}>
                   {o.label}{o.herkunft_code ? ` (${o.herkunft_code})` : ''}
@@ -268,7 +316,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
             {quelleOptions.length === 0 && (
               <p className="text-xs text-s112-warn-fg mt-1">Keine Lesedaten für diesen Jahrgang vorhanden.</p>
             )}
-            {quelleId && (
+            {quelleId && !ganzeRiedId && (
               <p className="text-xs text-s112-muted mt-1">
                 Verfügbar: <span className="font-medium text-s112-text-1">{fmtNum(verfuegbarQuelle(quelleId), { max: 0 })} kg</span>
               </p>
@@ -282,12 +330,35 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, crmSchre
           <ZukunftsDatum aria-label="Datum" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
 
-        {/* Menge kg */}
+        {/* Menge kg – ganze Ried: je Grundstück eine Zeile (KAN-476 Nebenbefund) */}
+        {ganzeRiedId ? (
+          <fieldset className="col-span-2 border border-s112-border rounded-lg p-3 bg-white">
+            <legend className="px-1 text-xs font-medium text-s112-text-2">Menge je Grundstück (kg) *</legend>
+            <p id="tv-ganze-ried-hinweis" className="text-xs text-s112-muted mb-2">
+              Die ganze Ried wird je Grundstück verkauft: ein Verkauf mit einer Rechnung, je Grundstück eine eigene Liefernummer.
+              Vorgeschlagen sind die verfügbaren kg – 0 oder leer lässt ein Grundstück aus.
+            </p>
+            <div className="space-y-1.5">
+              {riedZeilen.map(o => (
+                <div key={o.compositeId} className="grid grid-cols-[1fr_auto_7rem] items-center gap-2 text-sm">
+                  <span className="text-s112-text">GST {o.grundstueck_nr ?? '–'}</span>
+                  <span className="text-xs text-s112-muted whitespace-nowrap">verfügbar {fmtNum(o.verfuegbar_kg, { max: 0 })} kg</span>
+                  <input aria-label={`Menge (kg) GST ${o.grundstueck_nr ?? ''}`} aria-describedby="tv-ganze-ried-hinweis" type="text" inputMode="decimal"
+                    value={zeilenKg[o.grundstueck_id as string] ?? ''}
+                    onChange={e => setZeilenKg(alt => ({ ...alt, [o.grundstueck_id as string]: e.target.value }))}
+                    placeholder="0" className={inp + ' text-right'} />
+                </div>
+              ))}
+            </div>
+            <p className="text-sm font-semibold text-s112-text mt-2 text-right">Summe: {fmtNum(zeilenSumme, { max: 2 })} kg</p>
+          </fieldset>
+        ) : (
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
           <input aria-label="Menge (kg)" type="text" inputMode="decimal" value={mengeKg} onChange={e => setMengeKg(e.target.value)}
             placeholder="z.B. 1.250" required className={inp} />
         </div>
+        )}
 
         {/* Preis/kg */}
         <div>

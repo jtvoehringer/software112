@@ -474,6 +474,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       weingarten_id: g.weingarten_id,
       grundstueck_id: gstId,
       label: g.grundstueck_nr ? `GST ${g.grundstueck_nr} · ${g.weingarten_name}` : g.weingarten_name,
+      weingarten_name: g.weingarten_name, grundstueck_nr: g.grundstueck_nr,
       herkunft_code: tvHerkunftByWG.get(g.weingarten_id) ?? null,
       klosterneuburger: g.klosterneuburger,
       oechsle: g.oechsle,

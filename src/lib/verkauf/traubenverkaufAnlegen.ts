@@ -42,3 +42,27 @@ export async function traubenverkaufAnlegen(
   if (!r?.id || !r.verkaufsposten_id) throw new AktionsFehler('Der Traubenverkauf konnte nicht gespeichert werden – es wurde nichts angelegt.')
   return { id: r.id, verkaufspostenId: r.verkaufsposten_id, liefernummer: r.liefernummer ?? null }
 }
+
+export type TraubenverkaufZeileNeu = { grundstueck_id: string; menge_kg: number; bezeichnung: string; herkunft_code?: string | null }
+
+/**
+ * KAN-476 Nebenbefund (19.11.2026): die ganze Ried in einem Vorgang – je Zeile (GST) ein Traubenverkauf mit eigener
+ * Liefernummer, alle zusammen EIN Verkauf mit einer Rechnung (RPC s112_traubenverkauf_anlegen_zeilen, alles oder
+ * nichts). `kopf` sind die gemeinsamen Felder (ohne Grundstück und Menge).
+ */
+export async function traubenverkaufZeilenAnlegen(
+  supabase: unknown, tenantId: string, kopf: Record<string, unknown>, zeilen: readonly TraubenverkaufZeileNeu[], quelle: string,
+): Promise<{ verkaufspostenId: string; zeilen: { id: string; liefernummer: string | null }[] }> {
+  const daten = traubenverkaufDaten(kopf)
+  delete daten.grundstueck_id
+  delete daten.menge_kg
+  const { data, error } = await (supabase as RpcClient).rpc('s112_traubenverkauf_anlegen_zeilen', {
+    p_tenant_id: tenantId, p_kopf: daten, p_zeilen: zeilen, p_quelle: quelle,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Traubenverkauf konnte nicht gespeichert werden – es wurde nichts angelegt'))
+  const r = data as { verkaufsposten_id?: string; zeilen?: { id?: string; liefernummer?: string | null }[] } | null
+  if (!r?.verkaufsposten_id || !Array.isArray(r.zeilen) || r.zeilen.length !== zeilen.length || r.zeilen.some(z => !z.id)) {
+    throw new AktionsFehler('Der Traubenverkauf konnte nicht gespeichert werden – es wurde nichts angelegt.')
+  }
+  return { verkaufspostenId: r.verkaufsposten_id, zeilen: r.zeilen.map(z => ({ id: z.id as string, liefernummer: z.liefernummer ?? null })) }
+}
