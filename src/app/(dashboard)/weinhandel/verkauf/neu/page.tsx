@@ -238,6 +238,9 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
+/** Auswahlwert „ganze Ried“ im Grundstück-Feld einer Trauben-Position (kein Grundstück – teilt die Position auf) */
+const GANZE_RIED = '__ganze_ried__'
+
 export default function NeuerVerkaufPage() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -425,6 +428,39 @@ export default function NeuerVerkaufPage() {
     }
     void holen()
   }, [loading, fuellungen, ustStandard])
+
+  /** Grundstücke der Ried einer Trauben-Position mit verfügbaren kg in der gewählten Lese */
+  function gstDerPosition(pos: Position): Grundstueck[] {
+    return grundstuecke.filter(g => g.weingarten_id === pos.trauben_weingarten_id
+      && (g.je_lese.find(x => x.lese_id === pos.trauben_lese_id)?.verfuegbar_kg ?? 0) > 0)
+  }
+
+  // KAN-476 Nebenbefund: ganze Ried – an einer Ried mit Grundstücken wird je GST verkauft (KAN-394). Die Position wird
+  // durch je eine Position pro Grundstück ersetzt (Menge = verfügbare kg, änderbar; eine Position lässt sich entfernen):
+  // ein Verkauf mit einer Rechnung, je Grundstück ein Traubenverkauf mit eigener Liefernummer.
+  function ganzeRiedAufteilen(idx: number) {
+    setPositionen(prev => {
+      const pos = prev[idx]
+      if (!pos || pos.typ !== 'trauben') return prev
+      const gst = gstDerPosition(pos)
+      if (gst.length === 0) return prev
+      const wg = weingaerten.find(w => w.id === pos.trauben_weingarten_id)
+      const neu: Position[] = gst.map(g => {
+        const w = g.je_lese.find(x => x.lese_id === pos.trauben_lese_id)
+        return {
+          ...pos,
+          id: crypto.randomUUID(),
+          trauben_grundstueck_id: g.id,
+          menge: String(w?.verfuegbar_kg ?? ''),
+          einheit: 'kg',
+          name: `Weintrauben – ${wg?.lage_name ?? wg?.name ?? 'Ried'}, GST ${g.gst_nr}`,
+          ...(w?.mostgewicht ? { trauben_mostgewicht: w.mostgewicht } : {}),
+          ...(w?.qualitaetsstufe ? { trauben_qualitaetsstufe: w.qualitaetsstufe } : {}),
+        }
+      })
+      return [...prev.slice(0, idx), ...neu, ...prev.slice(idx + 1)]
+    })
+  }
 
   function updatePos(idx: number, patch: Partial<Position>) {
     setPositionen(prev => {
@@ -898,6 +934,7 @@ export default function NeuerVerkaufPage() {
                       <label className={labelCls}>Grundstück</label>
                       <select aria-label="Grundstück" value={pos.trauben_grundstueck_id}
                         onChange={e => {
+                          if (e.target.value === GANZE_RIED) { ganzeRiedAufteilen(idx); return }
                           const gst = grundstuecke.find(g => g.id === e.target.value)
                           updatePos(idx, {
                             trauben_grundstueck_id: e.target.value,
@@ -918,15 +955,23 @@ export default function NeuerVerkaufPage() {
                           })
                         }}
                         className={inputCls + ' w-full'} disabled={loading || !pos.trauben_weingarten_id}>
-                        <option value="">– gesamte Ried –</option>
-                        {grundstuecke
-                          .filter(g => g.weingarten_id === pos.trauben_weingarten_id && (g.je_lese.find(x => x.lese_id === pos.trauben_lese_id)?.verfuegbar_kg ?? 0) > 0)
+                        {/* Ried ohne Grundstücke: Verkauf der Ried; mit Grundstücken je GST (KAN-394) – einzeln oder alle */}
+                        <option value="">{gstDerPosition(pos).length > 0 ? '– bitte wählen –' : '– gesamte Ried –'}</option>
+                        {gstDerPosition(pos).length > 0 && (
+                          <option value={GANZE_RIED}>ganze Ried – je GST eine Position ({gstDerPosition(pos).length})</option>
+                        )}
+                        {gstDerPosition(pos)
                           .map(g => (
                             <option key={g.id} value={g.id}>
                               GST {g.gst_nr}{g.rebsorte ? ` – ${formatRebsorteMitKuerzel(g.rebsorte)}` : ''} · {fmtNum(g.je_lese.find(x => x.lese_id === pos.trauben_lese_id)?.verfuegbar_kg ?? 0)} kg verf.
                             </option>
                           ))}
                       </select>
+                      {gstDerPosition(pos).length > 0 && !pos.trauben_grundstueck_id && (
+                        <p className="text-xs text-s112-text-2 mt-1">
+                          Diese Ried wird je Grundstück verkauft. „ganze Ried“ legt je Grundstück eine Position mit den verfügbaren kg an – eine Rechnung, je Grundstück eine Liefernummer.
+                        </p>
+                      )}
                     </div>
                     <div>
                       {/* KAN-129: Lese statt Jahrgang – der Jahrgang folgt aus der Lese, die Menge je Lese */}
