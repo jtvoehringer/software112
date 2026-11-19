@@ -109,12 +109,12 @@ Jede der 91 Routen unter `src/app/api` hat einen Bereich oder eine begründete A
 | --- | --- | --- |
 | Ernte & Lese | lese | Bestandsmeldung, BSM, BSM-Kontrolljournal → keller |
 | Pflanzenschutz & Düngung | betriebsmittel | – |
-| Weinverkehr & Export | verkauf | Transportbescheinigung(en) → lager; Prüfnummernantrag, DAC-Anträge → keller |
+| Weinverkehr & Export | verkauf | Transportbescheinigung(en) → lager; Prüfnummernantrag, DAC-Anträge → keller; Zusammenfassende Meldung → ea (Entscheidung 19.11.2026) |
 | Kellerbuch | keller | Änderungsprotokoll → verwaltung |
 | Buchhaltung & Steuer | ea | – |
 | Flächen & Kataster | rieden | – |
 
-- „Extern“ bekommt damit nur das Flächenverzeichnis, „Vertrieb“ Transportbescheinigungen, Exportaufträge, EMCS-Datenblatt und die Zusammenfassende Meldung.
+- „Extern“ bekommt damit nur das Flächenverzeichnis, „Vertrieb“ Transportbescheinigungen, Exportaufträge und EMCS-Datenblatt. Die Zusammenfassende Meldung (Finanzamt) gehört zur Buchhaltung – auch ihre Seite unter Weinexport verlangt den Lesebereich E&A.
 - **Neue Meldung:** Bereich der Gruppe gilt; liegt sie fachlich woanders, `bereich: '<bereich>'` am Katalog-Eintrag. Neue Gruppe → `GRUPPEN_BEREICH`.
 
 **Benachrichtigungen:** Aufgaben, Termine und Erwähnungen aus dem CRM gehen (App und Mail) nur an Empfänger, die den Bereich `crm` lesen dürfen (`bereich` am Ereignis, `sendeBenachrichtigung`). Den Morgenbericht gibt es nur als Tabelle im Bereich `ki` – ihn sperrt die Policy, einen Mailversand gibt es nicht.
