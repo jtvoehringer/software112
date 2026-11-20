@@ -4,6 +4,9 @@ import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { canRead } from '@/lib/auth/lesebereiche'
+import { alle } from '@/lib/supabase/alle'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import BelegAnhang from '@/components/buchhaltung/BelegAnhang'
 import { stornoEaTransaktion } from './actions'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -52,7 +55,7 @@ export default async function BuchhaltungPage({
 
   // Modul-Check
   const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
+    .select('modul_ea, modul_controlling').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
   const sp       = await searchParams
@@ -67,6 +70,26 @@ export default async function BuchhaltungPage({
   // Anlagenverzeichnis (Migration 200): welche Anschaffungsbuchungen sind schon eine Anlage?
   const anlagenRaw = geladen(await (supabase.from('ea_anlagen') as any).select('id, transaktion_id').eq('tenant_id', tenantId).not('transaktion_id', 'is', null), 'Anlagen')
   const anlageZuBuchung = new Map<string, string>(((anlagenRaw ?? []) as R[]).map(a => [a.transaktion_id as string, a.id as string]))
+
+  // KAN-421 (UAT 20.11.2026): Kostenstellen der Buchung in der Liste – wer beim Buchen auf Kostenstellen aufteilt,
+  // suchte sie in der (leeren) Spalte „Kategorie“. Nur mit Modul Controlling und Leserecht (sonst kämen still 0 Zeilen).
+  const kostenstellenZuBuchung = new Map<string, string[]>()
+  if (einst?.modul_controlling && canRead(membership, 'controlling')) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: kostenRaw, error: kostenErr } = await alle<R>((supabase.from('kosteneintraege') as any)
+      .select('ea_transaktion_id, kostenstelle:kostenstelle_id(name)')
+      .eq('tenant_id', tenantId).not('ea_transaktion_id', 'is', null)
+      .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)
+      .order('id'))
+    if (kostenErr) throw new AktionsFehler(dbFehlerText(kostenErr, 'Kostenstellen der Buchungen konnten nicht geladen werden'))
+    for (const k of kostenRaw) {
+      const name = k.kostenstelle?.name as string | undefined
+      if (!name) continue
+      const liste = kostenstellenZuBuchung.get(k.ea_transaktion_id as string) ?? []
+      if (!liste.includes(name)) liste.push(name)
+      kostenstellenZuBuchung.set(k.ea_transaktion_id as string, liste)
+    }
+  }
 
   // KAN-415: per Belegscan erfasste, noch nicht verbuchte Belege – lassen sich einer bestehenden Buchung zuordnen
   const darfAnhaengen = canWrite(membership, 'ea')
@@ -246,6 +269,11 @@ export default async function BuchhaltungPage({
                     <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-warn-bg text-s112-warn-fg"
                       title="Eingeschränkt abzugsfähig">
                       {b.abzugsfaehigPct}%
+                    </span>
+                  )}
+                  {kostenstellenZuBuchung.has(b.id) && (
+                    <span className="block mt-0.5 text-s112-muted" title="In die Kostenrechnung übernommen (Controlling › Kostenrechnung)">
+                      Kostenstelle: {kostenstellenZuBuchung.get(b.id)!.join(', ')}
                     </span>
                   )}
                 </td>

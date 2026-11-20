@@ -189,7 +189,7 @@ describe('KAN-467: Editor, Seite und Aktionen', () => {
     const rahmen = e.indexOf('className="absolute group"\n                  style={{ left: `${pos.pos_x_pct}%`')
     const kreis = e.indexOf('className="absolute inset-0 overflow-hidden flex flex-col items-center justify-center focus:outline-hidden', rahmen)
     const inhalt = e.indexOf('{/* Inhalt: Name, Füllstand, Wein – über der Fill-Fläche */}', kreis)
-    const knopf = e.indexOf('{/* Entfernen-Button */}', kreis)
+    const knopf = e.indexOf('{/* Entfernen-Button', kreis)
     assert.ok(rahmen > 0 && kreis > rahmen && inhalt > kreis, 'Rahmen und Kreis')
     assert.ok(knopf > inhalt, 'die Knöpfe stehen nach dem Inhalt des Kreises – also außerhalb der beschnittenen Fläche')
     for (const name of ['vom Plan entfernen', 'kleiner', 'größer']) {
@@ -252,4 +252,22 @@ describe('KAN-467: Migration und Register', () => {
     assert.ok(quelle('scripts/db-tests/_helfer.sql').includes("'s112_kellerplan_kammer_schutz()')"))
     assert.ok(existsSync(path.join(WURZEL, 'scripts/db-tests/99_kellerplan_tank.sql')))
   })
+})
+
+// UAT 20.11.2026 (Jörgen, Schritte 3 und 4): „+ − nicht vorhanden“, „× nicht vorhanden“ – die Knöpfe erschienen nur beim
+// Überfahren mit der Maus (opacity-0, group-hover) und waren 16 px klein. Im Planmodus sind sie jetzt immer sichtbar.
+test('KAN-467 UAT: ×, − und + im Planmodus immer sichtbar (Gebinde und Tank), nicht erst beim Überfahren', () => {
+  const e = quelle('src/app/(dashboard)/kellerbuch/kellerplan/[id]/KellerplanEditor.tsx')
+  assert.ok(!e.includes('opacity-0'), 'kein versteckter Knopf')
+  assert.ok(!e.includes('group-hover:opacity-100'))
+  assert.ok(!e.includes('(hover)') && !e.includes('Hover:'),'Hinweistexte nennen kein Überfahren mehr')
+  for (const name of ['${b.name} vom Plan entfernen', '${b.name} kleiner', '${b.name} größer',
+    'Geteilten Tank ${t.name} vom Plan entfernen', 'Geteilter Tank ${t.name} kleiner', 'Geteilter Tank ${t.name} größer']) {
+    const i = e.indexOf('aria-label={`' + name + '`}')
+    assert.ok(i > 0, name)
+    const knopf = e.slice(e.lastIndexOf('<button', i), e.indexOf('</button>', i))
+    assert.ok(knopf.includes('no-print') && knopf.includes('w-5 h-5') && knopf.includes('z-20'), `${name}: sichtbar, groß genug, nicht im Druck`)
+  }
+  // nur im Planmodus
+  assert.equal(e.split('{planModus && (').length - 1 >= 3, true)
 })

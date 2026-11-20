@@ -140,3 +140,39 @@ describe('KAN-421: Verdrahtung', () => {
     assert.match(sql, /AFTER INSERT ON public\.ea_transaktionen\s+FOR EACH ROW WHEN \(NEW\.storno_von_id IS NOT NULL\)/)
   })
 })
+
+// UAT 20.11.2026 (Jörgen): Nach dem Speichern erschien „Es gibt eine Fehlermeldung außer Sicht“, gleich darauf grün
+// „gespeichert“ – die rote Auswahl „↓ Ausgabe“ (label) galt als Fehlermeldung. Dazu: Kostenstellen in der Buchungsliste,
+// Dateiknopf erkennbar, Box schließt nach dem Anhängen, USt 20 % vorbelegt.
+describe('KAN-421: UAT 20.11.2026', () => {
+  test('die Beschriftung eines Feldes ist nie eine Meldung (rote Typ-Auswahl in „Neue Buchung“)', async () => {
+    const { meldungsArt } = await import('../../src/lib/ui/meldungen.ts')
+    const f = quelle('src/app/(dashboard)/buchhaltung/neu/page.tsx')
+    const klassen = /label: '↓ Ausgabe',\s+color: '([^']+)'/.exec(f)?.[1]
+    assert.ok(klassen?.includes('bg-s112-err-bg'), 'Farbe der Auswahl „Ausgabe“')
+    const label = `flex items-center gap-2 px-4 py-2 rounded-xl border cursor-pointer text-sm font-medium ${klassen}`
+    assert.equal(meldungsArt({ tag: 'LABEL', className: label, role: null, text: '↓ Ausgabe' }), null)
+    // ein Fehlerkasten mit denselben Farben bleibt eine Meldung
+    assert.equal(meldungsArt({ tag: 'DIV', className: label, role: null, text: 'Pflichtfelder fehlen' }), 'fehler')
+  })
+  test('Buchungsliste zeigt die Kostenstellen der Buchung – nur mit Controlling und Leserecht, vollständig geladen', () => {
+    const p = quelle('src/app/(dashboard)/buchhaltung/page.tsx')
+    assert.match(p, /if \(einst\?\.modul_controlling && canRead\(membership, 'controlling'\)\) \{/)
+    assert.match(p, /alle<R>\(\(supabase\.from\('kosteneintraege'\) as any\)[\s\S]*?\.not\('ea_transaktion_id', 'is', null\)[\s\S]*?\.order\('id'\)\)/)
+    assert.match(p, /if \(kostenErr\) throw new AktionsFehler\(/)
+    assert.match(p, /Kostenstelle: \{kostenstellenZuBuchung\.get\(b\.id\)!\.join\(', '\)\}/)
+  })
+  test('Dateiknopf als Schaltfläche, Box schließt nach dem Anhängen, USt 20 % vorbelegt', () => {
+    const feld = quelle('src/components/buchhaltung/BelegDateiFeld.tsx')
+    assert.match(feld, /export const BELEG_DATEI_KNOPF = '[^']*file:border[^']*file:bg-s112-bg[^']*file:font-semibold/)
+    assert.ok(feld.includes('${BELEG_DATEI_KNOPF}`} />'))
+    const box = quelle('src/components/buchhaltung/BelegAnhang.tsx')
+    assert.ok(box.includes('className={`block w-full text-xs ${BELEG_DATEI_KNOPF}`}'))
+    const senden = box.slice(box.indexOf('async function senden('), box.indexOf('function hochladen('))
+    assert.ok(senden.indexOf('if (!res.ok) {') < senden.indexOf('setOffen(false)'), 'nur nach Erfolg schließen')
+    for (const s of ['src/app/(dashboard)/buchhaltung/neu/page.tsx', 'src/app/(dashboard)/buchhaltung/belege/[id]/page.tsx']) {
+      assert.match(quelle(s), /const ustStandard = 20\n/, s)
+      assert.ok(!quelle(s).includes('ust_satz_standard'), s)
+    }
+  })
+})

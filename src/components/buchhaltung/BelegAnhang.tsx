@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { Paperclip } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { zeigeErfolg } from '@/lib/ui/erfolg'
+import { BELEG_DATEI_KNOPF } from '@/components/buchhaltung/BelegDateiFeld'
 import { BELEG_ACCEPT, belegAnzahlText, belegDateienFehler, belegDateiPfad, belegLoesenGrundFehler, belegLoesenPfad } from '@/lib/buchhaltung/belegAnhang'
 
 export type BelegKurz = { id: string; dateiname: string }
@@ -87,6 +88,7 @@ export default function BelegAnhang({ transaktionId, bezeichnung, belege, offene
       zeigeErfolg(erfolg)
       if (datei.current) datei.current.value = ''
       setBelegId('')
+      setOffen(false)   // KAN-421 (UAT 20.11.2026): nach dem Anhängen schließt die Box
       router.refresh()
     } catch (e) {
       setFehler(fehlerText(e, 'Der Beleg wurde nicht angehängt'))
@@ -158,7 +160,7 @@ export default function BelegAnhang({ transaktionId, bezeichnung, belege, offene
             <div className="space-y-2 border-t border-s112-border pt-2">
               <div>
                 <label htmlFor={`${id}-datei`} className="block font-medium text-s112-text-2 mb-1">Datei anhängen (PDF, JPEG, PNG, WebP – zusammen bis 4 MB)</label>
-                <input id={`${id}-datei`} ref={datei} type="file" multiple accept={BELEG_ACCEPT} disabled={laeuft} className="block w-full text-xs" />
+                <input id={`${id}-datei`} ref={datei} type="file" multiple accept={BELEG_ACCEPT} disabled={laeuft} className={`block w-full text-xs ${BELEG_DATEI_KNOPF}`} />
                 <button type="button" onClick={hochladen} disabled={laeuft}
                   className="mt-1.5 bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50">
                   {laeuft ? 'Lädt hoch …' : 'Hochladen'}

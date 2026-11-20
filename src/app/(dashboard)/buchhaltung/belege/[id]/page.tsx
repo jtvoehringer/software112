@@ -25,9 +25,10 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
   const tenantId = membership.tenantId
 
   const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, modul_controlling, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
+    .select('modul_ea, modul_controlling').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
-  const ustStandard = einst?.ust_satz_standard ?? 20
+  // KAN-421 (UAT 20.11.2026): wie „Neue Buchung“ 20 %, wenn der Beleg keinen Satz erkennen lässt
+  const ustStandard = 20
 
   // KAN-421: Kostenstellen und Kostenarten für die Übernahme in die Kostenrechnung (nur mit Modul Controlling)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

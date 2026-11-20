@@ -27,7 +27,9 @@ const tokens = (c: string) => new Set(c.split(/\s+/).filter(Boolean))
 function istAbzeichen(t: Set<string>, tag: string): boolean {
   // KAN-413 (UAT 12.11.2026): Bedienelemente sind nie eine Meldung – der rote Knopf „… stornieren“ (bg-s112-err-bg)
   // erschien nach dem Speichern neu in der Liste und löste „Es gibt eine Fehlermeldung außer Sicht“ aus
-  return t.has('rounded-full') || tag === 'tr' || tag === 'td' || tag === 'th' || tag === 'button' || tag === 'a'
+  // KAN-421 (UAT 20.11.2026): auch die Beschriftung eines Feldes – die rote Auswahl „↓ Ausgabe“ (label mit
+  // bg-s112-err-bg) in „Neue Buchung“ stand beim Speichern außer Sicht und galt als Fehlermeldung
+  return t.has('rounded-full') || tag === 'tr' || tag === 'td' || tag === 'th' || tag === 'button' || tag === 'a' || tag === 'label'
 }
 
 /**
