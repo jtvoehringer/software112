@@ -82,6 +82,26 @@ export function fdaErneuerungsfenster(heute: string): boolean {
   return jahr % 2 === 0 && monat >= 10
 }
 
+/**
+ * FDA: Ablaufdatum, das nach der (nächsten) Erneuerung einzutragen ist – eine FDA-Registrierung läuft immer am 31.12.
+ * eines geraden Jahres ab. Im Erneuerungsfenster das übernächste gerade Jahresende, davor das laufende (KAN-486).
+ */
+export function fdaAblaufVorschlag(heute: string): string {
+  const jahr = Number(heute.slice(0, 4))
+  if (jahr % 2 !== 0) return `${jahr + 1}-12-31`
+  return `${fdaErneuerungsfenster(heute) ? jahr + 2 : jahr}-12-31`
+}
+
+/** FDA: Ist das Ablaufdatum unüblich (kein 31.12. eines geraden Jahres)? Leer bzw. ungültig = nein (KAN-486) */
+export function fdaAblaufUnueblich(gueltigBis: unknown): boolean {
+  if (typeof gueltigBis !== 'string' || !TAG.test(gueltigBis.slice(0, 10))) return false
+  const d = gueltigBis.slice(0, 10)
+  return !d.endsWith('-12-31') || Number(d.slice(0, 4)) % 2 !== 0
+}
+
+/** Nächster Schritt in den Hinweisen am Exportauftrag – der Kasten verlinkt „Registrierungen verwalten“ (KAN-486) */
+const SCHRITT = 'Nach der Erneuerung das neue Ablaufdatum unter „Registrierungen verwalten“ eintragen.'
+
 /** Registrierungen, die ein Zielland vom Hersteller verlangt (laut Länderhinweisen; `geprueft` wie dort) */
 const JE_LAND: Record<string, { art: RegistrierungArt; geprueft: boolean }[]> = {
   US: [{ art: 'fda', geprueft: true }],
@@ -103,10 +123,16 @@ export function registrierungHinweise(land: unknown, liste: readonly Registrieru
     if (eigene.length === 0) { aus.push(`${name} ist nicht hinterlegt${vermerk}.`); continue }
     const beste = [...eigene].sort((a, b) => String(b.gueltig_bis ?? '9999').localeCompare(String(a.gueltig_bis ?? '9999')))[0]
     const s = registrierungStand(beste, heute)
-    if (s.stufe === 'abgelaufen') aus.push(`${name} ${beste.nummer}: ${s.text}${vermerk}.`)
-    else if (s.stufe === 'laeuft_ab') aus.push(`${name} ${beste.nummer}: ${s.text}.`)
-    if (art === 'fda' && fdaErneuerungsfenster(heute) && s.stufe !== 'abgelaufen' && (!beste.gueltig_bis || beste.gueltig_bis.slice(0, 4) <= heute.slice(0, 4))) {
-      aus.push('FDA-Registrierung: Die Erneuerung ist jetzt fällig (Oktober bis Dezember gerader Jahre).')
+    // KAN-486: jeder Hinweis nennt den Grund und den nächsten Schritt (Befund: Meldung blieb ohne Erklärung stehen)
+    const fdaFaellig = art === 'fda' && fdaErneuerungsfenster(heute) && s.stufe !== 'abgelaufen'
+      && (!beste.gueltig_bis || beste.gueltig_bis.slice(0, 4) <= heute.slice(0, 4))
+    if (s.stufe === 'abgelaufen') aus.push(`${name} ${beste.nummer}: ${s.text}${vermerk}. ${SCHRITT}`)
+    else if (s.stufe === 'laeuft_ab') {
+      aus.push(`${name} ${beste.nummer}: ${s.text} (Erinnerung ab ${REGISTRIERUNG_VORWARNUNG_TAGE} Tagen vor dem Ablauf).${fdaFaellig ? '' : ` ${SCHRITT}`}`)
+    }
+    if (fdaFaellig) {
+      const anfang = beste.gueltig_bis ? 'FDA-Registrierung:' : `FDA-Registrierung ${beste.nummer}: Es ist kein Ablaufdatum hinterlegt.`
+      aus.push(`${anfang} Die Erneuerung ist jetzt fällig (Oktober bis Dezember gerader Jahre). Danach als „Gültig bis“ den ${at(fdaAblaufVorschlag(heute))} eintragen – dann entfällt dieser Hinweis.`)
     }
   }
   return aus
