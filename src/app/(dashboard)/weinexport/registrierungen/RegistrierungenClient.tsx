@@ -6,7 +6,7 @@ import { zeigeErfolg } from '@/lib/ui/erfolg'
 import { rueckfrage } from '@/lib/ui/rueckfrage'
 import {
   REGISTRIERUNG_ARTEN, istRegistrierungArt, registrierungEingabeFehler, registrierungName, registrierungStand,
-  type Registrierung, type RegistrierungArt,
+  fdaAblaufVorschlag, fdaAblaufUnueblich, type Registrierung, type RegistrierungArt,
 } from '@/lib/export/registrierungen'
 import { speichereRegistrierung, entferneRegistrierung } from './actions'
 
@@ -22,6 +22,9 @@ export default function RegistrierungenClient({ liste, darfSchreiben, heute }: {
   const [laeuft, setLaeuft] = useState(false)
   const [fehler, setFehler] = useState<string | null>(null)
   const art = istRegistrierungArt(f.art) ? REGISTRIERUNG_ARTEN[f.art as RegistrierungArt] : REGISTRIERUNG_ARTEN.sonstige
+  // KAN-486: FDA-Registrierungen laufen immer am 31.12. eines geraden Jahres ab – Vorschlag und Hinweis, keine Sperre
+  const fdaVorschlag = fdaAblaufVorschlag(heute)
+  const fdaVorschlagText = fdaVorschlag.split('-').reverse().join('.')
   const setze = (k: keyof typeof LEER) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF(alt => ({ ...alt, [k]: e.target.value }))
 
   async function speichern(e: React.FormEvent) {
@@ -121,7 +124,19 @@ export default function RegistrierungenClient({ liste, darfSchreiben, heute }: {
           )}
           <div>
             <label htmlFor="reg-bis" className="block text-xs font-medium text-s112-text-2 mb-1">Gültig bis (leer = ohne Ablaufdatum)</label>
-            <input id="reg-bis" type="date" value={f.gueltig_bis} onChange={setze('gueltig_bis')} disabled={laeuft} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm" />
+            <input id="reg-bis" type="date" value={f.gueltig_bis} onChange={setze('gueltig_bis')} disabled={laeuft} aria-describedby={f.art === 'fda' ? 'reg-bis-fda' : undefined} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm" />
+            {f.art === 'fda' && (
+              <p id="reg-bis-fda" className="text-xs text-s112-muted mt-1" data-fda-ablauf>
+                FDA-Registrierungen laufen am 31.12. eines geraden Jahres ab; erneuert wird von Oktober bis Dezember.
+                {f.gueltig_bis !== fdaVorschlag && (
+                  <> <button type="button" disabled={laeuft} className="text-s112-blue-700 hover:underline disabled:opacity-50"
+                    onClick={() => setF(alt => ({ ...alt, gueltig_bis: fdaVorschlag }))}>{fdaVorschlagText} übernehmen</button></>
+                )}
+                {fdaAblaufUnueblich(f.gueltig_bis) && (
+                  <span className="block text-s112-warn-fg mt-0.5" data-fda-unueblich>Das eingetragene Datum ist kein 31.12. eines geraden Jahres – bitte mit der Bestätigung der FDA vergleichen.</span>
+                )}
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor="reg-zusatz" className="block text-xs font-medium text-s112-text-2 mb-1">{art.zusatz ?? 'Zusatz'} (optional)</label>

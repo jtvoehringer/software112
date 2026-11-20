@@ -24,6 +24,7 @@ function migration(name) {
   assert.ok(existsSync(path.join(WURZEL, entwurf)), `Migration ${name} fehlt in supabase/migrations`)
   return quelle(entwurf)
 }
+const SCHRITT = 'Nach der Erneuerung das neue Ablaufdatum unter „Registrierungen verwalten“ eintragen.'   // KAN-486
 const reg = (art, gueltig_bis, mehr = {}) => ({ id: `r-${art}-${gueltig_bis}`, art, bezeichnung: null, nummer: '12345', gueltig_bis, zusatz: null, notiz: null, ...mehr })
 
 describe('KAN-437: Eingabe', () => {
@@ -65,15 +66,17 @@ describe('KAN-437: Ablauf und Erinnerung', () => {
   test('Hinweise am Auftrag: USA ohne, mit ablaufender bzw. abgelaufener FDA-Registrierung', () => {
     assert.deepEqual(registrierungHinweise('US', [], '2027-03-01'), ['FDA-Registrierung ist nicht hinterlegt.'])
     assert.deepEqual(registrierungHinweise('us', [reg('fda', '2029-12-31')], '2027-03-01'), [])
-    assert.deepEqual(registrierungHinweise('US', [reg('fda', '2027-04-30')], '2027-03-01'), ['FDA-Registrierung 12345: läuft am 30.04.2027 ab.'])
-    assert.deepEqual(registrierungHinweise('US', [reg('fda', '2027-02-28')], '2027-03-01'), ['FDA-Registrierung 12345: abgelaufen am 28.02.2027.'])
+    assert.deepEqual(registrierungHinweise('US', [reg('fda', '2027-04-30')], '2027-03-01'), [`FDA-Registrierung 12345: läuft am 30.04.2027 ab (Erinnerung ab 90 Tagen vor dem Ablauf). ${SCHRITT}`])
+    assert.deepEqual(registrierungHinweise('US', [reg('fda', '2027-02-28')], '2027-03-01'), [`FDA-Registrierung 12345: abgelaufen am 28.02.2027. ${SCHRITT}`])
     // mehrere Einträge: der mit dem spätesten Ablauf zählt; einer ohne Ablaufdatum gilt als gültig
     assert.deepEqual(registrierungHinweise('US', [reg('fda', '2025-12-31'), reg('fda', '2029-12-31')], '2027-03-01'), [])
     assert.deepEqual(registrierungHinweise('US', [reg('fda', '2025-12-31'), reg('fda', null)], '2027-03-01'), [])
   })
   test('FDA im Erneuerungsfenster: zusätzlicher Hinweis, solange die Registrierung nicht über das Jahr hinaus läuft', () => {
     const h = registrierungHinweise('US', [reg('fda', '2026-12-31')], '2026-11-13')
-    assert.deepEqual(h, ['FDA-Registrierung 12345: läuft am 31.12.2026 ab.', 'FDA-Registrierung: Die Erneuerung ist jetzt fällig (Oktober bis Dezember gerader Jahre).'])
+    // KAN-486: mit Grund und nächstem Schritt
+    assert.deepEqual(h, ['FDA-Registrierung 12345: läuft am 31.12.2026 ab (Erinnerung ab 90 Tagen vor dem Ablauf).',
+      'FDA-Registrierung: Die Erneuerung ist jetzt fällig (Oktober bis Dezember gerader Jahre). Danach als „Gültig bis“ den 31.12.2028 eintragen – dann entfällt dieser Hinweis.'])
     assert.deepEqual(registrierungHinweise('US', [reg('fda', '2028-12-31')], '2026-11-13'), [], 'schon erneuert')
     assert.equal(registrierungHinweise('US', [reg('fda', null)], '2026-11-13').length, 1, 'ohne Ablaufdatum: nur die Erinnerung an das Fenster')
   })

@@ -56,12 +56,17 @@ export async function speichereRegistrierung(e: RegistrierungEingabe): Promise<{
       if (error) return { error: dbFehlerText(error, 'Registrierung konnte nicht gespeichert werden') }
       if (!((data ?? []) as R[]).length) return { error: NICHT_GESPEICHERT }
     }
-    revalidatePath('/weinexport/registrierungen')
-    revalidatePath('/dashboard/fristen')
+    aktualisiereSeiten()
     return {}
   } catch (err) {
     return { error: fehlerText(err) }
   }
+}
+
+/** KAN-486: auch die Exportaufträge zeigen Hinweise aus den Registrierungen – alle Seiten unter /weinexport auffrischen */
+function aktualisiereSeiten() {
+  revalidatePath('/weinexport', 'layout')
+  revalidatePath('/dashboard/fristen')
 }
 
 /** Registrierung entfernen */
@@ -76,8 +81,7 @@ export async function entferneRegistrierung(id: string): Promise<{ error?: strin
       .delete().eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) return { error: dbFehlerText(error, 'Registrierung konnte nicht entfernt werden') }
     if (!((data ?? []) as R[]).length) return { error: 'Die Registrierung wurde nicht entfernt – bitte die Seite neu laden.' }
-    revalidatePath('/weinexport/registrierungen')
-    revalidatePath('/dashboard/fristen')
+    aktualisiereSeiten()
     return {}
   } catch (err) {
     return { error: fehlerText(err) }
