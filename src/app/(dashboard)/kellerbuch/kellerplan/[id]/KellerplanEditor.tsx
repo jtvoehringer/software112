@@ -699,11 +699,13 @@ export default function KellerplanEditor({
                     )}
                   </div>
                 </div>
-                  {/* Entfernen-Button */}
+                  {/* Entfernen-Button – KAN-467 (UAT 20.11.2026): ×, − und + sind im Planmodus immer sichtbar. Vorher
+                      erschienen sie nur beim Überfahren mit der Maus und waren 16 px klein („nicht vorhanden“); am
+                      Tablet gibt es kein Überfahren. */}
                   {planModus && (
                     <button
                       type="button" aria-label={`${b.name} vom Plan entfernen`}
-                      className="no-print absolute top-0 right-0 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      className="no-print absolute top-0 right-0 w-5 h-5 rounded-full bg-s112-grey hover:bg-s112-err text-white text-xs flex items-center justify-center z-20 leading-none shadow-sm ring-1 ring-white"
                       onClick={e => { e.stopPropagation(); handleRemove(behaelterId) }}
                       onPointerDown={e => e.stopPropagation()}
                       title="Vom Plan entfernen"
@@ -717,7 +719,7 @@ export default function KellerplanEditor({
                     <>
                       <button
                         type="button" aria-label={`${b.name} kleiner`}
-                        className="no-print absolute bottom-0 left-0 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        className="no-print absolute bottom-0 left-0 w-5 h-5 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-xs flex items-center justify-center z-20 leading-none shadow-sm ring-1 ring-white font-semibold"
                         onClick={e => { e.stopPropagation(); handleResize(behaelterId, -RESIZE_STEP) }}
                         onPointerDown={e => e.stopPropagation()}
                         title="Kleiner"
@@ -726,7 +728,7 @@ export default function KellerplanEditor({
                       </button>
                       <button
                         type="button" aria-label={`${b.name} größer`}
-                        className="no-print absolute bottom-0 right-0 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        className="no-print absolute bottom-0 right-0 w-5 h-5 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-xs flex items-center justify-center z-20 leading-none shadow-sm ring-1 ring-white font-semibold"
                         onClick={e => { e.stopPropagation(); handleResize(behaelterId, +RESIZE_STEP) }}
                         onPointerDown={e => e.stopPropagation()}
                         title="Größer"
@@ -805,15 +807,15 @@ export default function KellerplanEditor({
                   {planModus && (
                     <>
                       <button type="button"
-                        className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                        className="no-print absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-s112-grey hover:bg-s112-err text-white text-xs flex items-center justify-center z-20 leading-none shadow-sm ring-1 ring-white"
                         onClick={e => { e.stopPropagation(); handleTankRemove(t.id) }} onPointerDown={e => e.stopPropagation()}
                         title="Geteilten Tank vom Plan entfernen" aria-label={`Geteilten Tank ${t.name} vom Plan entfernen`}>×</button>
                       <button type="button"
-                        className="no-print absolute -bottom-1.5 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        className="no-print absolute -bottom-1.5 left-1 w-5 h-5 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-xs flex items-center justify-center z-20 leading-none shadow-sm ring-1 ring-white font-semibold"
                         onClick={e => { e.stopPropagation(); handleTankResize(t.id, -RESIZE_STEP) }} onPointerDown={e => e.stopPropagation()}
                         title="Kleiner" aria-label={`Geteilter Tank ${t.name} kleiner`}>−</button>
                       <button type="button"
-                        className="no-print absolute -bottom-1.5 right-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity font-semibold"
+                        className="no-print absolute -bottom-1.5 right-1 w-5 h-5 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-xs flex items-center justify-center z-20 leading-none shadow-sm ring-1 ring-white font-semibold"
                         onClick={e => { e.stopPropagation(); handleTankResize(t.id, +RESIZE_STEP) }} onPointerDown={e => e.stopPropagation()}
                         title="Größer" aria-label={`Geteilter Tank ${t.name} größer`}>+</button>
                     </>
@@ -878,7 +880,7 @@ export default function KellerplanEditor({
 
           <p className="no-print text-xs text-s112-muted mt-1">
             Gitternetz = 1 m · Raum: {plan.breite_m} × {plan.laenge_m} m ·
-            Klick oder Enter: Gebinde-Aktionen{planModus ? ' · Hover: −/+ Größe anpassen · × Entfernen' : ''}
+            Klick oder Enter: Gebinde-Aktionen{planModus ? ' · −/+ Größe anpassen · × Entfernen' : ''}
           </p>
         </div>
 
@@ -941,8 +943,8 @@ export default function KellerplanEditor({
               <p>↖ Ziehen zum Platzieren</p>
               <p>Klick → Umziehen / Behandlungen / Abfüllen</p>
               <p>↔ Auf Plan verschieben</p>
-              <p>− + Größe (hover)</p>
-              <p>× Entfernen (hover)</p>
+              <p>− + Größe</p>
+              <p>× Entfernen</p>
             </div>
           </div>
         )}

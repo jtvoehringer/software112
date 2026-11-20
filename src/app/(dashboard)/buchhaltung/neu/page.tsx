@@ -34,10 +34,12 @@ export default async function BuchhaltungNeuPage() {
   const tenantId = membership.tenantId
 
   const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, modul_controlling, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
+    .select('modul_ea, modul_controlling').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
-  const ustStandard = einst?.ust_satz_standard ?? 20
+  // KAN-421 (UAT 20.11.2026, Entscheidung Jörgen): immer 20 % vorbelegt – der Standardsatz des Betriebs (13 % für
+  // Weinproduzenten) gilt für Verkäufe, eine Buchung von Hand ist meist eine Ausgabe mit 20 %
+  const ustStandard = 20
 
   // KAN-421: Kostenstellen und Kostenarten für die Übernahme in die Kostenrechnung (nur mit Modul Controlling)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
