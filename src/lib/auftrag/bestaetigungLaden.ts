@@ -7,7 +7,9 @@ import { alle } from '@/lib/supabase/alle'
 import { dbFehlerText } from '@/lib/fehler'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import type { AuftragsbestaetigungPdfProps } from '@/lib/pdf/auftragsbestaetigungPdf'
-import { abDatum, abFlaschenGesamt, abHinweise, abMoeglich, abPositionen } from './bestaetigung'
+import { abDatum, abHinweise, abMoeglich, abPreisPositionen } from './bestaetigung'
+import { angebotSummen } from './angebot'
+import { auftragUnvollstaendig } from './regeln'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -15,7 +17,6 @@ type R = Record<string, any>
 export type AuftragsbestaetigungDaten = {
   pdf: AuftragsbestaetigungPdfProps
   nummer: string
-  reserviertBis: string | null
   betriebName: string
   kundenName: string
   kundeEmail: string | null
@@ -30,12 +31,12 @@ export async function ladeAuftragsbestaetigung(supabase: any, tenantId: string, 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(auftragId)) return { ok: false, status: 404, fehler: 'Auftrag nicht gefunden' }
   const [aRes, eRes, pRes] = await Promise.all([
     (supabase.from('auftraege') as R)
-      .select('id, nummer, datum, status, reserviert_bis, storniert_am, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).eq('art', 'auftrag').maybeSingle(),
+      .select('id, nummer, datum, status, lieferbedingungen, storniert_am, kontakt_id, firma_id').eq('id', auftragId).eq('tenant_id', tenantId).eq('art', 'auftrag').maybeSingle(),
     (supabase.from('tenant_einstellungen') as R)
       .select('anzeigename, logo_url, betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_email, betrieb_website, betrieb_uid')
       .eq('tenant_id', tenantId).maybeSingle(),
     alle<R>((supabase.from('auftrag_positionen') as R)
-      .select('id, name, menge, fuellung:fuellungen!fuellung_id(flaschengroesse_ml)').eq('tenant_id', tenantId).eq('auftrag_id', auftragId).order('erstellt_am').order('id')),
+      .select('id, name, menge, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz, fuellung:fuellungen!fuellung_id(flaschengroesse_ml)').eq('tenant_id', tenantId).eq('auftrag_id', auftragId).order('erstellt_am').order('id')),
   ])
   const ladeFehler = [aRes.error, eRes.error, pRes.error].find(Boolean)
   if (ladeFehler) return { ok: false, status: 500, fehler: dbFehlerText(ladeFehler, 'Der Auftrag konnte nicht geladen werden') }
@@ -60,14 +61,18 @@ export async function ladeAuftragsbestaetigung(supabase: any, tenantId: string, 
 
   const einst = (eRes.data ?? {}) as R
   const betriebName = String(einst.betrieb_name ?? einst.anzeigename ?? 'Weingut')
-  const positionen = abPositionen((pRes.data ?? []) as R[])
-  if (positionen.length === 0) return { ok: false, status: 400, fehler: `Der Auftrag ${a.nummer} hat keine Positionen.` }
+  const zeilen = (pRes.data ?? []) as R[]
+  if (zeilen.length === 0) return { ok: false, status: 400, fehler: `Der Auftrag ${a.nummer} hat keine Positionen.` }
+  // KAN-487: ohne Preise bzw. Lieferbedingungen (Aufträge von früher) gibt es keine Auftragsbestätigung – erst ergänzen
+  if (auftragUnvollstaendig(a, zeilen)) {
+    return { ok: false, status: 400, fehler: `Am Auftrag ${a.nummer} fehlen noch Preise bzw. Lieferbedingungen – bitte zuerst am Auftrag ergänzen.` }
+  }
+  const positionen = abPreisPositionen(zeilen)
 
   return {
     ok: true,
     daten: {
       nummer: String(a.nummer),
-      reserviertBis: (a.reserviert_bis as string | null) ?? null,
       betriebName,
       kundenName,
       kundeEmail: (kunde?.email as string | null | undefined)?.trim() || null,
@@ -91,8 +96,8 @@ export async function ladeAuftragsbestaetigung(supabase: any, tenantId: string, 
           plzOrt: kunde ? [kunde.plz, kunde.ort].filter(Boolean).join(' ') || null : null,
         },
         positionen,
-        flaschenGesamt: abFlaschenGesamt(positionen),
-        hinweise: abHinweise(a.reserviert_bis),
+        summen: angebotSummen(zeilen),
+        hinweise: abHinweise(a.lieferbedingungen),
       },
     },
   }

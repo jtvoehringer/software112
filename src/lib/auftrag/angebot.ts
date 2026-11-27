@@ -46,7 +46,7 @@ const TAG = /^\d{4}-\d{2}-\d{2}$/
 
 /** Zahl aus einem Zahlenfeld (type="number": Dezimalpunkt, höchstens zwei Nachkommastellen) bzw. JSON-Zahl; NaN = ungültig.
  *  Bewusst ohne Deutung von Komma oder Tausenderpunkt. */
-function zahlFeld(v: unknown, leerIst: number | null): number {
+export function zahlFeld(v: unknown, leerIst: number | null): number {
   if (typeof v === 'number') return Number.isFinite(v) ? v : NaN
   const t = typeof v === 'string' ? v.trim() : ''
   if (t === '') return leerIst === null ? NaN : leerIst

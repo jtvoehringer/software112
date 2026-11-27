@@ -420,7 +420,7 @@ export default function NeuerVerkaufPage() {
             const preis = pos.auftrag_position_id ? jePosition.get(pos.auftrag_position_id) : null
             return preis ? { ...pos, ...rabattFuerNeuePosition({ rabatt_pct: preis.rabatt_pct, sonderrabatt_pct: preis.sonderrabatt_pct }) } : pos
           }))
-          setAuftragHinweis(`Die Preise und Rabatte stammen aus dem Angebot zu Auftrag ${r.nummer} – bitte prüfen.`)
+          setAuftragHinweis(`Die Preise und Rabatte stammen aus dem Auftrag ${r.nummer} – bitte prüfen.`)
         }
       } catch (e) {
         setAuftragHinweis(fehlerText(e, 'Der Auftrag konnte nicht geladen werden'))

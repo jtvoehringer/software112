@@ -7,9 +7,11 @@ import { alle, inBloecken } from '@/lib/supabase/alle'
 import { LIEFERBAR_STATUS, offeneMenge } from '@/lib/auftrag/lieferung'
 import { geladen } from '@/lib/supabase/geladen'
 import { heuteWien } from '@/lib/datum/wien'
-import { fmtNum } from '@/lib/format'
-import { AUFTRAG_STATUS_LABEL, RESERVIERT_STATUS, reservierungAbgelaufen, type AuftragStatus } from '@/lib/auftrag/regeln'
+import { fmtNum, fmtEur, zahlWert } from '@/lib/format'
+import { AUFTRAG_STATUS_LABEL, RESERVIERT_STATUS, auftragErgaenzbar, auftragUnvollstaendig, reservierungAbgelaufen, type AuftragStatus } from '@/lib/auftrag/regeln'
+import { angebotRabattText, angebotSummen, angebotZeileBrutto } from '@/lib/auftrag/angebot'
 import AuftragAktionen from './AuftragAktionen'
+import AuftragErgaenzen, { type ErgaenzZeile } from './AuftragErgaenzen'
 import AuftragsbestaetigungPanel from './AuftragsbestaetigungPanel'
 import { abMoeglich } from '@/lib/auftrag/bestaetigung'
 
@@ -29,7 +31,7 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const a = geladen(await (supabase.from('auftraege') as any)
-    .select('id, nummer, datum, status, reserviert_bis, notizen, kontakt_id, firma_id, storniert_am, storno_grund, abgeschlossen_am, ab_versendet_am, ab_versendet_an, erstellt_am, angebot_id')
+    .select('id, nummer, datum, status, reserviert_bis, notizen, lieferbedingungen, kontakt_id, firma_id, storniert_am, storno_grund, abgeschlossen_am, ab_versendet_am, ab_versendet_an, erstellt_am, angebot_id')
     .eq('id', id).eq('tenant_id', tenantId).eq('art', 'auftrag').maybeSingle(), 'Auftrag') as R | null   // KAN-418 Teil 4: Angebote haben ihre eigene Seite
   if (!a) notFound()
   // KAN-418 Teil 4: Auftrag aus einem Angebot – dessen Preise sind der Vorschlag für die Lieferung
@@ -39,7 +41,7 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
 
   const [posRes, kRes, fRes, lRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    alle<R>((supabase.from('auftrag_positionen') as any).select('id, fuellung_id, name, menge, geliefert').eq('tenant_id', tenantId).eq('auftrag_id', id).order('erstellt_am').order('id')),
+    alle<R>((supabase.from('auftrag_positionen') as any).select('id, fuellung_id, name, menge, geliefert, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz').eq('tenant_id', tenantId).eq('auftrag_id', id).order('erstellt_am').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     a.kontakt_id ? (supabase.from('kontakte') as any).select('id, vorname, nachname, email').eq('id', a.kontakt_id).eq('tenant_id', tenantId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,6 +76,33 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
   const abgelaufen = reservierungAbgelaufen(a as { status: string; reserviert_bis: string | null }, heute)
   const kunde = firma?.name ?? ([kontakt?.vorname, kontakt?.nachname].filter(Boolean).join(' ') || '–')
 
+  // KAN-487: Preise und Lieferbedingungen gehören zum Auftrag. Aufträgen von früher fehlt beides (bzw. die
+  // Lieferbedingungen) – solange sie Flaschen reservieren, lässt es sich einmal ergänzen; vorher gibt es keine
+  // Auftragsbestätigung.
+  const unvollstaendig = auftragUnvollstaendig(a, positionen)
+  const ergaenzbar = unvollstaendig && darfSchreiben && auftragErgaenzbar(a as { status: string; storniert_am: string | null })
+  const mitPreisen = positionen.every(p => p.preis_brutto !== null && p.preis_brutto !== undefined)
+  const summen = mitPreisen ? angebotSummen(positionen) : null
+  let ergaenzZeilen: ErgaenzZeile[] = []
+  if (ergaenzbar) {
+    // Vorschlag wie im Auftragsformular: Verkaufspreis der Füllung und Standard-USt. des Betriebs
+    const [fpRes, eRes] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      inBloecken<R>([...new Set(positionen.map(p => p.fuellung_id as string))], b => alle<R>((supabase.from('fuellungen') as any)
+        .select('id, vk_preis_brutto').eq('tenant_id', tenantId).in('id', b).order('id'))),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('tenant_einstellungen') as any).select('ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(),
+    ])
+    const vk = new Map(((geladen(fpRes, 'Füllungen') ?? []) as R[]).map(f => [f.id as string, zahlWert(f.vk_preis_brutto)]))
+    const ust = zahlWert((geladen(eRes, 'Einstellungen') as R | null)?.ust_satz_standard) ?? 13
+    const txt = (v: unknown, sonst: string) => (v === null || v === undefined || v === '' ? sonst : String(v))
+    ergaenzZeilen = positionen.map(p => ({
+      position_id: String(p.id), name: String(p.name), menge: Number(p.menge) || 0,
+      preis_brutto: txt(p.preis_brutto, txt(vk.get(p.fuellung_id), '')),
+      rabatt_pct: txt(p.rabatt_pct, '0'), sonderrabatt_pct: txt(p.sonderrabatt_pct, '0'), ust_satz: txt(p.ust_satz, String(ust)),
+    }))
+  }
+
   return (
     <div className="max-w-3xl space-y-4">
       <nav className="flex items-center gap-2 text-sm text-s112-muted">
@@ -105,7 +134,14 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* KAN-418 Teil 3: Auftragsbestätigung (PDF für alle mit Lesezugriff, Senden mit Schreibrecht) – nicht bei Storno */}
-      {abMoeglich(a as { status: string; storniert_am: string | null }) && (
+      {ergaenzbar && <AuftragErgaenzen id={a.id} nummer={a.nummer} lieferbedingungen={String(a.lieferbedingungen ?? '')} zeilen={ergaenzZeilen} />}
+      {unvollstaendig && !ergaenzbar && abMoeglich(a as { status: string; storniert_am: string | null }) && (
+        <div role="status" className="bg-s112-bg border border-s112-border text-sm text-s112-text-2 rounded-xl px-4 py-3" data-ab-fehlt>
+          Zu diesem Auftrag gibt es keine Auftragsbestätigung: Er wurde ohne Preise bzw. Lieferbedingungen angelegt
+          {auftragErgaenzbar(a as { status: string; storniert_am: string | null }) ? ' – ergänzen kann sie, wer in der Warenwirtschaft schreiben darf.' : ' und ist nicht mehr offen.'}
+        </div>
+      )}
+      {!unvollstaendig && abMoeglich(a as { status: string; storniert_am: string | null }) && (
         <AuftragsbestaetigungPanel id={a.id} nummer={a.nummer} darfSenden={darfSchreiben}
           defaultEmail={String((firma?.email ?? kontakt?.email ?? '') || '')}
           gesendetText={a.ab_versendet_am
@@ -140,6 +176,7 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
             </dd></div>
           <div><dt className="text-xs text-s112-muted">Reserviert bis</dt><dd className={`mt-0.5 tabular-nums ${abgelaufen ? 'text-s112-err-fg font-medium' : ''}`}>{reserviert ? tag(a.reserviert_bis) : '–'}</dd></div>
           <div><dt className="text-xs text-s112-muted">Notiz</dt><dd className="mt-0.5 whitespace-pre-wrap">{a.notizen || '–'}</dd></div>
+          <div className="sm:col-span-3"><dt className="text-xs text-s112-muted">Lieferbedingungen</dt><dd className="mt-0.5 whitespace-pre-wrap">{a.lieferbedingungen || '–'}</dd></div>
         </dl>
 
         <div className="overflow-x-auto">
@@ -150,7 +187,12 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
                 <th className="py-2 px-3 font-semibold text-right">Bestellt</th>
                 <th className="py-2 px-3 font-semibold text-right">Geliefert</th>
                 <th className="py-2 px-3 font-semibold text-right">Offen</th>
-                <th className="py-2 pl-3 font-semibold text-right">Reserviert</th>
+                <th className="py-2 px-3 font-semibold text-right">Reserviert</th>
+                {mitPreisen && <>
+                  <th className="py-2 px-3 font-semibold text-right">Preis</th>
+                  <th className="py-2 px-3 font-semibold text-right">Rabatt</th>
+                  <th className="py-2 pl-3 font-semibold text-right">Betrag</th>
+                </>}
               </tr>
             </thead>
             <tbody>
@@ -160,14 +202,25 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
                   <td className="py-2 px-3 text-right tabular-nums">{fmtNum(Number(p.menge), 0)}</td>
                   <td className="py-2 px-3 text-right tabular-nums">{fmtNum(Number(p.geliefert), 0)}</td>
                   <td className="py-2 px-3 text-right tabular-nums">{fmtNum(offeneMenge(p as { menge: number; geliefert: number }), 0)}</td>
-                  <td className="py-2 pl-3 text-right tabular-nums">{fmtNum(reserviert ? Math.max(0, Number(p.menge) - Number(p.geliefert)) : 0, 0)}</td>
+                  <td className="py-2 px-3 text-right tabular-nums">{fmtNum(reserviert ? Math.max(0, Number(p.menge) - Number(p.geliefert)) : 0, 0)}</td>
+                  {mitPreisen && <>
+                    <td className="py-2 px-3 text-right tabular-nums">{fmtEur(Number(p.preis_brutto))}</td>
+                    <td className="py-2 px-3 text-right tabular-nums">{angebotRabattText(p) || '–'}</td>
+                    <td className="py-2 pl-3 text-right tabular-nums">{fmtEur(angebotZeileBrutto(p))}</td>
+                  </>}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {summen && (
+          <p className="text-sm text-right tabular-nums" data-auftrag-summe>
+            <span className="text-s112-muted">netto {fmtEur(summen.netto)} · </span>
+            <span className="font-semibold text-s112-text">Gesamt brutto {fmtEur(summen.brutto)}</span>
+          </p>
+        )}
         <p className="text-xs text-s112-muted">
-          {angebot ? `Bei der Lieferung werden die Preise aus dem Angebot ${angebot.nummer} vorgeschlagen (änderbar).` : 'Preise und Rabatte entstehen bei der Lieferung.'}
+          {mitPreisen ? 'Preise je Flasche brutto; bei der Lieferung sind sie vorbelegt und lassen sich dort noch ändern.' : 'Dieser Auftrag wurde ohne Preise angelegt.'}
           {' '}Positionen lassen sich nicht ändern – bei Bedarf den Auftrag stornieren und neu erfassen.
         </p>
       </div>

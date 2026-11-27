@@ -62,7 +62,8 @@
 "gueltig_bis",
 "angebot_id",
 "abgelehnt_am",
-"abgelehnt_grund"
+"abgelehnt_grund",
+"lieferbedingungen"
 ],
 "auftrag_lieferungen": [
 "id",

@@ -59,7 +59,7 @@ BEGIN
 
   -- Auftrag über 12 Flaschen als Mitarbeiter mit Warenwirtschaft
   PERFORM pg_temp.s112_als(v_bw);
-  v_auf := (public.s112_auftrag_anlegen(v_b, jsonb_build_object('kontakt_id', v_k), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 12))) ->> 'id')::uuid;
+  v_auf := (public.s112_auftrag_anlegen(v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 12, 'preis_brutto', '10.00', 'ust_satz', '13'))) ->> 'id')::uuid;
   PERFORM pg_temp.s112_als_postgres();
   SELECT id INTO v_pos FROM public.auftrag_positionen WHERE auftrag_id = v_auf;
 
