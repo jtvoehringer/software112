@@ -35,9 +35,9 @@ describe('KAN-418 Teil 3: Inhalt der Auftragsbestätigung', () => {
     ])
     assert.equal(abFlaschenGesamt(p), 141)
   })
-  test('KAN-487: mit Preisen – statt Reservierung und Preisvorbehalt stehen die Lieferbedingungen', () => {
+  test('KAN-487: mit Preisen – statt Reservierung und Preisvorbehalt stehen die Vereinbarungen', () => {
     // bis KAN-487 ohne Preise („Es gelten die Preise zum Zeitpunkt der Lieferung.“) – Entscheidung Jörgen 27.11.2026
-    assert.deepEqual(abHinweise('  Abholung ab Hof  '), ['Lieferbedingungen: Abholung ab Hof'])
+    assert.deepEqual(abHinweise('  Abholung ab Hof  '), ['Vereinbarungen: Abholung ab Hof'])
     assert.deepEqual(abHinweise(null), [])
     const pdf = quelle('src/lib/pdf/auftragsbestaetigungPdf.tsx')
     assert.ok(pdf.includes('AUFTRAGSBESTÄTIGUNG') && pdf.includes('Flaschen gesamt') && pdf.includes('Gesamt brutto'))
@@ -116,7 +116,7 @@ describe('KAN-418 Teil 3: Routen', () => {
     assert.equal((l.match(/\.eq\('tenant_id', tenantId\)/g) ?? []).length, 5)
     assert.ok(l.includes('[aRes.error, eRes.error, pRes.error].find(Boolean)') && l.includes('[kRes.error, fRes.error].find(Boolean)'))
     assert.ok(l.includes('if (!abMoeglich(a)) return { ok: false, status: 400'))
-    // KAN-487: Preise gehören dazu; ohne Preise bzw. Lieferbedingungen gibt es keine Auftragsbestätigung
+    // KAN-487: Preise gehören dazu; ohne Preise bzw. Vereinbarungen gibt es keine Auftragsbestätigung
     assert.ok(l.includes('if (auftragUnvollstaendig(a, zeilen)) {') && l.includes('summen: angebotSummen(zeilen)') && l.includes('hinweise: abHinweise(a.lieferbedingungen)'))
   })
 })

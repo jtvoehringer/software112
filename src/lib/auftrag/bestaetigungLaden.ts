@@ -63,9 +63,9 @@ export async function ladeAuftragsbestaetigung(supabase: any, tenantId: string, 
   const betriebName = String(einst.betrieb_name ?? einst.anzeigename ?? 'Weingut')
   const zeilen = (pRes.data ?? []) as R[]
   if (zeilen.length === 0) return { ok: false, status: 400, fehler: `Der Auftrag ${a.nummer} hat keine Positionen.` }
-  // KAN-487: ohne Preise bzw. Lieferbedingungen (Aufträge von früher) gibt es keine Auftragsbestätigung – erst ergänzen
+  // KAN-487: ohne Preise bzw. Vereinbarungen (Aufträge von früher) gibt es keine Auftragsbestätigung – erst ergänzen
   if (auftragUnvollstaendig(a, zeilen)) {
-    return { ok: false, status: 400, fehler: `Am Auftrag ${a.nummer} fehlen noch Preise bzw. Lieferbedingungen – bitte zuerst am Auftrag ergänzen.` }
+    return { ok: false, status: 400, fehler: `Am Auftrag ${a.nummer} fehlen noch Preise bzw. Vereinbarungen – bitte zuerst am Auftrag ergänzen.` }
   }
   const positionen = abPreisPositionen(zeilen)
 

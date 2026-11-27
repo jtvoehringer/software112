@@ -1,7 +1,7 @@
 'use client'
 
-// KAN-487: Einem Auftrag von früher (vor dem 27.11.2026 ohne Preise bzw. Lieferbedingungen angelegt) fehlt, was die
-// Auftragsbestätigung jetzt druckt. Hier werden Preise je Position und die Lieferbedingungen einmal nachgetragen
+// KAN-487: Einem Auftrag von früher (vor dem 27.11.2026 ohne Preise bzw. Vereinbarungen angelegt) fehlt, was die
+// Auftragsbestätigung jetzt druckt. Hier werden Preise je Position und die Vereinbarungen einmal nachgetragen
 // (RPC s112_auftrag_ergaenzen – nur solange der Auftrag Flaschen reserviert). Geprüft wie Server Action und Datenbank.
 
 import { useMemo, useState } from 'react'
@@ -22,7 +22,7 @@ export default function AuftragErgaenzen({ id, nummer, lieferbedingungen: lbStar
   id: string; nummer: string; lieferbedingungen: string; zeilen: ErgaenzZeile[]
 }) {
   const router = useRouter()
-  const [lieferbedingungen, setLieferbedingungen] = useState(lbStart)
+  const [lieferbedingungen, setVereinbarungen] = useState(lbStart)
   const [zeilen, setZeilen] = useState<ErgaenzZeile[]>(start)
   const [fehler, setFehler] = useState<string | null>(null)
   const [laeuft, setLaeuft] = useState(false)
@@ -53,9 +53,9 @@ export default function AuftragErgaenzen({ id, nummer, lieferbedingungen: lbStar
   return (
     <form data-ungespeichert onSubmit={speichern} className="card p-6 space-y-4" data-auftrag-ergaenzen>
       <div>
-        <h2 className="text-sm font-semibold text-s112-text">Preise und Lieferbedingungen ergänzen</h2>
+        <h2 className="text-sm font-semibold text-s112-text">Preise und Vereinbarungen ergänzen</h2>
         <p className="text-sm text-s112-text-2 mt-1">
-          Dieser Auftrag wurde ohne Preise bzw. Lieferbedingungen angelegt. Beides steht auf der Auftragsbestätigung – bitte einmal nachtragen.
+          Dieser Auftrag wurde ohne Preise bzw. Vereinbarungen angelegt. Beides steht auf der Auftragsbestätigung – bitte einmal nachtragen.
           Danach lassen sich die Angaben nicht mehr ändern.
         </p>
       </div>
@@ -99,11 +99,11 @@ export default function AuftragErgaenzen({ id, nummer, lieferbedingungen: lbStar
       </div>
 
       <div>
-        <label htmlFor="ergaenzen-lieferbedingungen" className="block text-xs font-medium text-s112-text-2 mb-1">Lieferbedingungen *</label>
+        <label htmlFor="ergaenzen-lieferbedingungen" className="block text-xs font-medium text-s112-text-2 mb-1">Vereinbarungen *</label>
         <textarea id="ergaenzen-lieferbedingungen" rows={2} required maxLength={LIEFERBEDINGUNGEN_MAX} value={lieferbedingungen}
-          aria-describedby="ergaenzen-lieferbedingungen-hilfe" onChange={e => setLieferbedingungen(e.target.value)} className={`${feld} resize-none`} />
+          aria-describedby="ergaenzen-lieferbedingungen-hilfe" onChange={e => setVereinbarungen(e.target.value)} className={`${feld} resize-none`} />
         <p id="ergaenzen-lieferbedingungen-hilfe" className="text-xs text-s112-muted mt-1">
-          Was mit dem Kunden vereinbart wurde, z. B. Abholung ab Hof, Lieferung frei Haus, Liefertermin.
+          Was mit dem Kunden vereinbart wurde, z. B. Abholung ab Hof, Lieferung frei Haus, Liefertermin, Zahlungsziel.
         </p>
       </div>
 

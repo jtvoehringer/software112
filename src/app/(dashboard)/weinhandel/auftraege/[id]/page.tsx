@@ -76,8 +76,8 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
   const abgelaufen = reservierungAbgelaufen(a as { status: string; reserviert_bis: string | null }, heute)
   const kunde = firma?.name ?? ([kontakt?.vorname, kontakt?.nachname].filter(Boolean).join(' ') || '–')
 
-  // KAN-487: Preise und Lieferbedingungen gehören zum Auftrag. Aufträgen von früher fehlt beides (bzw. die
-  // Lieferbedingungen) – solange sie Flaschen reservieren, lässt es sich einmal ergänzen; vorher gibt es keine
+  // KAN-487: Preise und Vereinbarungen gehören zum Auftrag. Aufträgen von früher fehlt beides (bzw. die
+  // Vereinbarungen) – solange sie Flaschen reservieren, lässt es sich einmal ergänzen; vorher gibt es keine
   // Auftragsbestätigung.
   const unvollstaendig = auftragUnvollstaendig(a, positionen)
   const ergaenzbar = unvollstaendig && darfSchreiben && auftragErgaenzbar(a as { status: string; storniert_am: string | null })
@@ -137,7 +137,7 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
       {ergaenzbar && <AuftragErgaenzen id={a.id} nummer={a.nummer} lieferbedingungen={String(a.lieferbedingungen ?? '')} zeilen={ergaenzZeilen} />}
       {unvollstaendig && !ergaenzbar && abMoeglich(a as { status: string; storniert_am: string | null }) && (
         <div role="status" className="bg-s112-bg border border-s112-border text-sm text-s112-text-2 rounded-xl px-4 py-3" data-ab-fehlt>
-          Zu diesem Auftrag gibt es keine Auftragsbestätigung: Er wurde ohne Preise bzw. Lieferbedingungen angelegt
+          Zu diesem Auftrag gibt es keine Auftragsbestätigung: Er wurde ohne Preise bzw. Vereinbarungen angelegt
           {auftragErgaenzbar(a as { status: string; storniert_am: string | null }) ? ' – ergänzen kann sie, wer in der Warenwirtschaft schreiben darf.' : ' und ist nicht mehr offen.'}
         </div>
       )}
@@ -176,7 +176,7 @@ export default async function AuftragPage({ params }: { params: Promise<{ id: st
             </dd></div>
           <div><dt className="text-xs text-s112-muted">Reserviert bis</dt><dd className={`mt-0.5 tabular-nums ${abgelaufen ? 'text-s112-err-fg font-medium' : ''}`}>{reserviert ? tag(a.reserviert_bis) : '–'}</dd></div>
           <div><dt className="text-xs text-s112-muted">Notiz</dt><dd className="mt-0.5 whitespace-pre-wrap">{a.notizen || '–'}</dd></div>
-          <div className="sm:col-span-3"><dt className="text-xs text-s112-muted">Lieferbedingungen</dt><dd className="mt-0.5 whitespace-pre-wrap">{a.lieferbedingungen || '–'}</dd></div>
+          <div className="sm:col-span-3"><dt className="text-xs text-s112-muted">Vereinbarungen</dt><dd className="mt-0.5 whitespace-pre-wrap">{a.lieferbedingungen || '–'}</dd></div>
         </dl>
 
         <div className="overflow-x-auto">
