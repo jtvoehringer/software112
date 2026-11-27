@@ -1,7 +1,7 @@
 // Auftragsbestätigung als PDF (KAN-418 Teil 3, 12.11.2026) – für Download und E-Mail-Anhang. Aufbau, Schrift und Kopf
 // wie die Verkaufsrechnung (verkaufRechnungPdf.tsx).
 // KAN-487 (27.11.2026): MIT Preisen wie das Angebot (angebotPdf.tsx) – Bruttopreis je Flasche, Rabatt, Zeilenbetrag,
-// Summe netto / USt. / brutto – und mit den Lieferbedingungen des Auftrags statt der Sätze zur Reservierung und zum
+// Summe netto / USt. / brutto – und mit den Vereinbarungen des Auftrags statt der Sätze zur Reservierung und zum
 // Preis bei Lieferung. Alle Beträge kommen fertig gerundet aus lib/auftrag – hier wird nur formatiert.
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 
@@ -20,7 +20,7 @@ export type AuftragsbestaetigungPdfProps = {
   kunde: { name: string; strasse: string | null; plzOrt: string | null }
   positionen: { name: string; sub: string | null; flaschen: number; preis: number; rabatt: string; betrag: number }[]
   summen: { brutto: number; netto: number; ust: { satz: number; netto: number; steuer: number }[]; flaschen: number }
-  /** Sätze unter den Summen (Lieferbedingungen) */
+  /** Sätze unter den Summen (Vereinbarungen) */
   hinweise: string[]
 }
 

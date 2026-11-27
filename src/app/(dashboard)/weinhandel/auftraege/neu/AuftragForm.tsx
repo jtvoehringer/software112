@@ -3,7 +3,7 @@
 // KAN-418 Teil 1: Auftrag erfassen – Kunde, Datum, Reservierungsfrist, Positionen (Füllung und Flaschen).
 // KAN-487 (27.11.2026): dazu die Preise je Position (Bruttopreis je Flasche aus der Füllung, Kunden- und Sonderrabatt aus
 // den Konditionen des Kunden, USt. des Betriebs – alles änderbar; gespeichert als Momentaufnahme wie am Angebot) und die
-// Lieferbedingungen als Pflicht-Freitext. Beides steht auf der Auftragsbestätigung. Geprüft mit denselben Regeln wie
+// Vereinbarungen als Pflicht-Freitext. Beides steht auf der Auftragsbestätigung. Geprüft mit denselben Regeln wie
 // Server Action und Datenbank.
 
 import { useMemo, useState } from 'react'
@@ -35,7 +35,7 @@ export default function AuftragForm({ fuellungen, heute, reserviertBis, ustStand
   const [kunde, setKunde] = useState(angebot?.kunde ?? '')
   const [datum, setDatum] = useState(heute)
   const [bis, setBis] = useState(reserviertBis)
-  const [lieferbedingungen, setLieferbedingungen] = useState('')
+  const [lieferbedingungen, setVereinbarungen] = useState('')
   const [notizen, setNotizen] = useState('')
   const [zeilen, setZeilen] = useState<AuftragZeileEingabe[]>(angebot?.zeilen.length ? angebot.zeilen : [leer()])
   const [rabatt, setRabatt] = useState<{ r: string; s: string }>({ r: '0', s: '0' })   // Konditionen des gewählten Kunden für neue Zeilen
@@ -180,11 +180,11 @@ export default function AuftragForm({ fuellungen, heute, reserviertBis, ustStand
       </div>
 
       <div>
-        <label htmlFor="auftrag-lieferbedingungen" className="block text-xs font-medium text-s112-text-2 mb-1">Lieferbedingungen *</label>
+        <label htmlFor="auftrag-lieferbedingungen" className="block text-xs font-medium text-s112-text-2 mb-1">Vereinbarungen *</label>
         <textarea id="auftrag-lieferbedingungen" rows={2} required maxLength={LIEFERBEDINGUNGEN_MAX} value={lieferbedingungen}
-          aria-describedby="auftrag-lieferbedingungen-hilfe" onChange={e => setLieferbedingungen(e.target.value)} className={`${feld} resize-none`} />
+          aria-describedby="auftrag-lieferbedingungen-hilfe" onChange={e => setVereinbarungen(e.target.value)} className={`${feld} resize-none`} />
         <p id="auftrag-lieferbedingungen-hilfe" className="text-xs text-s112-muted mt-1">
-          Was mit dem Kunden vereinbart wurde, z. B. Abholung ab Hof, Lieferung frei Haus, Liefertermin. Steht auf der Auftragsbestätigung.
+          Was mit dem Kunden vereinbart wurde, z. B. Abholung ab Hof, Lieferung frei Haus, Liefertermin, Zahlungsziel. Steht auf der Auftragsbestätigung.
         </p>
       </div>
 
@@ -193,7 +193,7 @@ export default function AuftragForm({ fuellungen, heute, reserviertBis, ustStand
         <textarea aria-label="Notiz" rows={2} maxLength={AUFTRAG_NOTIZ_MAX} value={notizen} onChange={e => setNotizen(e.target.value)} className={`${feld} resize-none`} />
       </div>
 
-      <p className="text-xs text-s112-muted">Preise und Lieferbedingungen stehen auf der Auftragsbestätigung. Bei der Lieferung sind die Preise vorbelegt und lassen sich dort noch ändern.</p>
+      <p className="text-xs text-s112-muted">Preise und Vereinbarungen stehen auf der Auftragsbestätigung. Bei der Lieferung sind die Preise vorbelegt und lassen sich dort noch ändern.</p>
 
       <div className="flex gap-3 pt-1">
         <button type="submit" disabled={laeuft}

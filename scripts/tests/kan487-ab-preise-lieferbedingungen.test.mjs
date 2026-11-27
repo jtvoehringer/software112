@@ -1,8 +1,8 @@
-// KAN-487 (27.11.2026): Auftragsbestätigung mit Preisen und Lieferbedingungen.
+// KAN-487 (27.11.2026): Auftragsbestätigung mit Preisen und Vereinbarungen.
 // Befund (UAT, Nebenbefund zu KAN-418): Die Auftragsbestätigung zeigte nur Flaschen; gewünscht sind die Preise, statt
 // „Die Ware ist bis … reserviert“ ein Pflichtfeld für das Vereinbarte (Arbeitstitel „Incoterms“ – ein Freitext ohne
 // Vorgabe, Entscheidung Jörgen 27.11.2026), und der Satz „Es gelten die Preise zum Zeitpunkt der Lieferung“ entfällt.
-// Dafür trägt jeder Auftrag Preise je Position (Momentaufnahme wie am Angebot) und Lieferbedingungen; Aufträge von
+// Dafür trägt jeder Auftrag Preise je Position (Momentaufnahme wie am Angebot) und Vereinbarungen; Aufträge von
 // früher werden einmal ergänzt. Die Regeln der Datenbank prüft DB-Test 98.
 //
 // Aufruf:  npm run -s test:csv
@@ -35,21 +35,29 @@ const HEUTE = '2026-11-27'
 const kopf = (mehr = {}) => ({ kunde: `kontakt:${F1}`, datum: HEUTE, reserviert_bis: '2026-12-11', lieferbedingungen: 'Abholung ab Hof', notizen: null, ...mehr })
 const pos = (mehr = {}) => ({ fuellung_id: F1, menge: 6, preis_brutto: 12.5, rabatt_pct: 0, sonderrabatt_pct: 0, ust_satz: 13, ...mehr })
 
-describe('KAN-487: Lieferbedingungen sind ein Pflicht-Freitext', () => {
+describe('KAN-487: Vereinbarungen sind ein Pflicht-Freitext', () => {
   test('leer abgelehnt, bis 300 Zeichen erlaubt – ohne Vorgabeliste', () => {
     assert.equal(LIEFERBEDINGUNGEN_MAX, 300)
-    for (const leer of ['', '   ', null, undefined, 5]) assert.match(lieferbedingungenFehler(leer), /Lieferbedingungen angeben/, String(leer))
+    for (const leer of ['', '   ', null, undefined, 5]) assert.match(lieferbedingungenFehler(leer), /Vereinbarungen angeben/, String(leer))
     for (const frei of ['Abholung ab Hof', 'EXW', 'Lieferung frei Haus bis 15.12., Zahlung bei Übergabe', 'x'.repeat(300)]) assert.equal(lieferbedingungenFehler(frei), null, frei.slice(0, 20))
     assert.match(lieferbedingungenFehler('x'.repeat(301)), /höchstens 300 Zeichen/)
   })
-  test('der Auftrag wird ohne Lieferbedingungen nicht angenommen', () => {
+  test('der Auftrag wird ohne Vereinbarungen nicht angenommen', () => {
     assert.equal(auftragFehler(kopf(), [pos()], HEUTE), null)
-    assert.match(auftragFehler(kopf({ lieferbedingungen: ' ' }), [pos()], HEUTE), /Lieferbedingungen angeben/)
+    assert.match(auftragFehler(kopf({ lieferbedingungen: ' ' }), [pos()], HEUTE), /Vereinbarungen angeben/)
     assert.match(auftragFehler(kopf({ lieferbedingungen: 'x'.repeat(301) }), [pos()], HEUTE), /höchstens 300 Zeichen/)
   })
   test('keine Auswahlliste im Formular, kein Bezug zu den Incoterms des Weinexports', () => {
     const f = quelle('src/app/(dashboard)/weinhandel/auftraege/neu/AuftragForm.tsx')
     assert.match(f, /<textarea id="auftrag-lieferbedingungen" rows=\{2\} required maxLength=\{LIEFERBEDINGUNGEN_MAX\}/)
+    // Beschriftung „Vereinbarungen“ (Entscheidung Jörgen 27.11.2026) – in Formular, Ergänzen-Schritt, Detailseite und PDF
+    assert.ok(f.includes('>Vereinbarungen *</label>'))
+    assert.ok(quelle('src/app/(dashboard)/weinhandel/auftraege/[id]/AuftragErgaenzen.tsx').includes('>Vereinbarungen *</label>'))
+    assert.ok(quelle('src/app/(dashboard)/weinhandel/auftraege/[id]/page.tsx').includes('<dt className="text-xs text-s112-muted">Vereinbarungen</dt>'))
+    for (const d of ['src/app/(dashboard)/weinhandel/auftraege/neu/AuftragForm.tsx', 'src/app/(dashboard)/weinhandel/auftraege/[id]/AuftragErgaenzen.tsx',
+      'src/app/(dashboard)/weinhandel/auftraege/[id]/page.tsx', 'src/lib/auftrag/bestaetigung.ts', 'src/lib/auftrag/bestaetigungLaden.ts']) {
+      assert.doesNotMatch(quelle(d), /Lieferbedingungen/, d)
+    }
     assert.doesNotMatch(f + quelle('src/lib/auftrag/regeln.ts') + quelle('src/lib/auftrag/bestaetigung.ts'), /INCOTERMS|auftragEingabe/)
   })
 })
@@ -74,7 +82,7 @@ describe('KAN-487: Preise je Position am Auftrag', () => {
       assert.match(auftragFehler(kopf(), auftragPositionenAus(JSON.stringify([{ fuellung_id: F1, menge: '6', preis_brutto: preis, ust_satz: '13' }])), HEUTE), /Preis je Flasche/, preis)
     }
   })
-  test('Server Action: Lieferbedingungen und Preise gehen an die RPC', () => {
+  test('Server Action: Vereinbarungen und Preise gehen an die RPC', () => {
     const a = quelle('src/app/(dashboard)/weinhandel/auftraege/actions.ts')
     assert.ok(a.includes("lieferbedingungen: String(formData.get('lieferbedingungen') ?? '').trim(),"))
     assert.ok(a.includes('notizen: kopf.notizen, lieferbedingungen: kopf.lieferbedingungen,'))
@@ -106,8 +114,8 @@ describe('KAN-487: Auftragsbestätigung', () => {
     assert.deepEqual(s.ust, [{ satz: 13, netto: 224.6, steuer: 29.2 }])
     assert.equal(s.netto, 224.6)
   })
-  test('Lieferbedingungen stehen unter den Summen', () => {
-    assert.deepEqual(abHinweise('Lieferung frei Haus bis 15.12.'), ['Lieferbedingungen: Lieferung frei Haus bis 15.12.'])
+  test('Vereinbarungen stehen unter den Summen', () => {
+    assert.deepEqual(abHinweise('Lieferung frei Haus bis 15.12.'), ['Vereinbarungen: Lieferung frei Haus bis 15.12.'])
     const pdf = quelle('src/lib/pdf/auftragsbestaetigungPdf.tsx')
     for (const t of ['Preis', 'Rabatt', 'Betrag', 'Summe netto', 'Gesamt brutto', 'Preise je Flasche in Euro inklusive Umsatzsteuer.']) assert.ok(pdf.includes(t), t)
     assert.ok(pdf.indexOf('Gesamt brutto') < pdf.indexOf('{hinweise.map('))
@@ -115,7 +123,7 @@ describe('KAN-487: Auftragsbestätigung', () => {
 })
 
 describe('KAN-487: Aufträge von früher ergänzen', () => {
-  test('unvollständig: ohne Lieferbedingungen oder mit einer Position ohne Preis bzw. Steuersatz', () => {
+  test('unvollständig: ohne Vereinbarungen oder mit einer Position ohne Preis bzw. Steuersatz', () => {
     const voll = [{ preis_brutto: 12.5, ust_satz: 13 }]
     assert.equal(auftragUnvollstaendig({ lieferbedingungen: 'Abholung' }, voll), false)
     assert.equal(auftragUnvollstaendig({ lieferbedingungen: null }, voll), true)
@@ -136,7 +144,7 @@ describe('KAN-487: Aufträge von früher ergänzen', () => {
       { position_id: P2, preis_brutto: 0, rabatt_pct: 0, sonderrabatt_pct: 0, ust_satz: 20 },
     ])
     assert.equal(ergaenzFehler('Abholung ab Hof', p), null)
-    assert.match(ergaenzFehler('', p), /Lieferbedingungen angeben/)
+    assert.match(ergaenzFehler('', p), /Vereinbarungen angeben/)
     assert.match(ergaenzFehler('Abholung', [p[0], p[0]]), /nicht gelesen/)
     assert.match(ergaenzFehler('Abholung', []), /nicht gelesen/)
     assert.match(ergaenzFehler('Abholung', [{ ...p[0], preis_brutto: NaN }]), /Position 1: Bitte einen Preis je Flasche/)
@@ -168,7 +176,7 @@ describe('KAN-487: Migration', () => {
     assert.match(sql, /ADD COLUMN lieferbedingungen text\s+CONSTRAINT auftraege_lieferbedingungen_chk\s+CHECK \(lieferbedingungen IS NULL OR \(lieferbedingungen = btrim\(lieferbedingungen\) AND char_length\(lieferbedingungen\) BETWEEN 1 AND 300\)\)/)
     assert.ok(JSON.parse(quelle('scripts/schema.json')).auftraege.includes('lieferbedingungen'))
   })
-  test('Anlegen: Lieferbedingungen und Preise sind Pflicht, die Preise werden gespeichert', () => {
+  test('Anlegen: Vereinbarungen und Preise sind Pflicht, die Preise werden gespeichert', () => {
     const anlegen = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.s112_auftrag_anlegen'), sql.indexOf('CREATE FUNCTION public.s112_auftrag_ergaenzen'))
     assert.ok(anlegen.includes("RAISE EXCEPTION 'Bitte die Lieferbedingungen angeben.' USING ERRCODE = '23514', HINT = 'lieferbedingungen';"))
     assert.ok(anlegen.includes("USING ERRCODE = '23514', HINT = 'preise';"))

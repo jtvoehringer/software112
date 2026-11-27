@@ -6,7 +6,7 @@
 // Entscheidungen Jörgen (Ticket, 11./12.11.2026): Reservierung mit Ablaufdatum, Standard 14 Tage; eine abgelaufene
 // Reservierung bleibt bestehen, bis jemand verlängert oder storniert.
 // KAN-487 (27.11.2026): Ein Auftrag trägt Preise je Position (Momentaufnahme wie am Angebot, vorbelegt und änderbar) und
-// die Lieferbedingungen als Pflicht-Freitext – beides steht auf der Auftragsbestätigung. Das löst „Preise entstehen erst
+// die Vereinbarungen als Pflicht-Freitext – beides steht auf der Auftragsbestätigung. Das löst „Preise entstehen erst
 // bei der Lieferung“ ab; bei „Liefern“ sind die Auftragspreise der Vorschlag (änderbar).
 // Dieselben Regeln in Formular, Server Action und Datenbank (s112_auftrag_anlegen). Isomorph, ohne '@/'-Importe.
 
@@ -20,7 +20,8 @@ export const RESERVIERUNG_TAGE_MAX = 365
 export const AUFTRAG_POSITIONEN_MAX = 100
 export const AUFTRAG_NOTIZ_MAX = 2000
 export const AUFTRAG_STORNO_GRUND_MIN = 10
-/** KAN-487: Lieferbedingungen – Freitext, Pflicht (CHECK auftraege_lieferbedingungen_chk) */
+/** KAN-487: Feld „Vereinbarungen“ (Spalte lieferbedingungen) – Freitext, Pflicht (CHECK auftraege_lieferbedingungen_chk).
+ *  Beschriftung laut Jörgen 27.11.2026 „Vereinbarungen“: es fasst alles, was bei der Beauftragung vereinbart wurde. */
 export const LIEFERBEDINGUNGEN_MAX = 300
 
 export type AuftragStatus = 'offen' | 'teilgeliefert' | 'geliefert' | 'abgeschlossen' | 'storniert'
@@ -55,15 +56,15 @@ export function preisFehler(p: { preis_brutto: number; rabatt_pct: number; sonde
   return null
 }
 
-/** Prüfung der Lieferbedingungen (Pflicht, Freitext); null = in Ordnung */
+/** Prüfung der Vereinbarungen (Pflicht, Freitext); null = in Ordnung */
 export function lieferbedingungenFehler(text: unknown): string | null {
   const t = typeof text === 'string' ? text.trim() : ''
-  if (!t) return 'Bitte die Lieferbedingungen angeben.'
-  if (t.length > LIEFERBEDINGUNGEN_MAX) return `Die Lieferbedingungen dürfen höchstens ${LIEFERBEDINGUNGEN_MAX} Zeichen lang sein.`
+  if (!t) return 'Bitte die Vereinbarungen angeben.'
+  if (t.length > LIEFERBEDINGUNGEN_MAX) return `Die Vereinbarungen dürfen höchstens ${LIEFERBEDINGUNGEN_MAX} Zeichen lang sein.`
   return null
 }
 
-/** Fehlt dem Auftrag etwas für die Auftragsbestätigung? (Aufträge vor KAN-487: keine Lieferbedingungen, ohne Angebot keine Preise) */
+/** Fehlt dem Auftrag etwas für die Auftragsbestätigung? (Aufträge vor KAN-487: keine Vereinbarungen, ohne Angebot keine Preise) */
 export function auftragUnvollstaendig(a: { lieferbedingungen?: unknown }, positionen: readonly { preis_brutto?: unknown; ust_satz?: unknown }[]): boolean {
   const leer = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
   return leer(a.lieferbedingungen) || positionen.some(p => leer(p.preis_brutto) || leer(p.ust_satz))

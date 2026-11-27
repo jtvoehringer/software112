@@ -76,7 +76,7 @@ export async function createAuftrag(formData: FormData): Promise<{ error?: strin
   }
 }
 
-/** KAN-487: einem Auftrag von früher die Preise und Lieferbedingungen nachtragen (einmal, solange er Flaschen reserviert) */
+/** KAN-487: einem Auftrag von früher die Preise und Vereinbarungen nachtragen (einmal, solange er Flaschen reserviert) */
 export async function ergaenzeAuftrag(formData: FormData): Promise<{ error?: string }> {
   try {
     const id = auftragIdAus(formData.get('id'))

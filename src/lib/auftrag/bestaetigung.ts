@@ -2,7 +2,7 @@
 //
 // Die Auftragsbestätigung trägt die Nummer des Auftrags (AB-JJJJ-NNNN). Entscheidungen Jörgen 12.11.2026:
 //   1A keine Preise – abgelöst durch KAN-487 (27.11.2026): Preise je Position und Summen wie am Angebot; statt der
-//      Sätze zur Reservierung und zum Preis bei Lieferung stehen die Lieferbedingungen des Auftrags (Freitext)
+//      Sätze zur Reservierung und zum Preis bei Lieferung stehen die Vereinbarungen des Auftrags (Freitext)
 //   2A fester Standardtext der Mail plus optionale Nachricht (wie bei der Rechnung)
 //   3A Versand nur auf Knopfdruck
 // Gedruckt werden die BESTELLTEN Mengen (auch nach einer Teillieferung). Ein stornierter Auftrag bekommt keine.
@@ -61,10 +61,10 @@ export function abPreisPositionen(zeilen: readonly PreisZeile[]): AbPreisPositio
   }))
 }
 
-/** Sätze unter den Summen (PDF) – KAN-487: die Lieferbedingungen des Auftrags statt Reservierung und Preisvorbehalt */
+/** Sätze unter den Summen (PDF) – KAN-487: die Vereinbarungen des Auftrags statt Reservierung und Preisvorbehalt */
 export function abHinweise(lieferbedingungen: string | null | undefined): string[] {
   const lb = (lieferbedingungen ?? '').trim()
-  return lb ? [`Lieferbedingungen: ${lb}`] : []
+  return lb ? [`Vereinbarungen: ${lb}`] : []
 }
 
 /** Dateiname des PDF – nur unkritische Zeichen */
