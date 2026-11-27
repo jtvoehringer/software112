@@ -1,11 +1,15 @@
 // ── Auftragsbestätigung (KAN-418 Teil 3, 12.11.2026) ─────────────────────────────────────────────────────────────────
 //
 // Die Auftragsbestätigung trägt die Nummer des Auftrags (AB-JJJJ-NNNN). Entscheidungen Jörgen 12.11.2026:
-//   1A keine Preise – nur Mengen und Reservierung („Es gelten die Preise zum Zeitpunkt der Lieferung.“)
+//   1A keine Preise – abgelöst durch KAN-487 (27.11.2026): Preise je Position und Summen wie am Angebot; statt der
+//      Sätze zur Reservierung und zum Preis bei Lieferung stehen die Lieferbedingungen des Auftrags (Freitext)
 //   2A fester Standardtext der Mail plus optionale Nachricht (wie bei der Rechnung)
 //   3A Versand nur auf Knopfdruck
 // Gedruckt werden die BESTELLTEN Mengen (auch nach einer Teillieferung). Ein stornierter Auftrag bekommt keine.
 // Isomorph, ohne '@/'-Importe – dieselben Texte für PDF, Mail und Tests.
+
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { angebotEinzelpreis, angebotRabattText, angebotZeileBrutto } from './angebot.ts'
 
 export const AB_NACHRICHT_MAX = 2000
 export const AB_EMPFAENGER_MAX = 320
@@ -43,13 +47,24 @@ export function abFlaschenGesamt(positionen: readonly AbPosition[]): number {
   return positionen.reduce((s, p) => s + p.flaschen, 0)
 }
 
-/** Sätze unter den Positionen (PDF) */
-export function abHinweise(reserviertBis: string | null | undefined): string[] {
-  const bis = abDatum(reserviertBis)
-  return [
-    bis ? `Die Ware ist bis ${bis} für Sie reserviert.` : 'Die Ware ist für Sie reserviert.',
-    'Es gelten die Preise zum Zeitpunkt der Lieferung.',
-  ]
+export type AbPreisPosition = AbPosition & { preis: number; rabatt: string; betrag: number }
+type PreisZeile = { name?: unknown; menge?: unknown; preis_brutto?: unknown; rabatt_pct?: unknown; sonderrabatt_pct?: unknown; ust_satz?: unknown; fuellung?: { flaschengroesse_ml?: unknown } | null }
+
+/** KAN-487: Positionen mit Preis je Flasche (brutto, vor Rabatt), Rabatttext und Zeilenbetrag – gerechnet wie am Angebot */
+export function abPreisPositionen(zeilen: readonly PreisZeile[]): AbPreisPosition[] {
+  const texte = abPositionen(zeilen)
+  return zeilen.map((z, i) => ({
+    ...texte[i],
+    preis: angebotEinzelpreis({ ...z, rabatt_pct: 0, sonderrabatt_pct: 0 }),
+    rabatt: angebotRabattText(z),
+    betrag: angebotZeileBrutto(z),
+  }))
+}
+
+/** Sätze unter den Summen (PDF) – KAN-487: die Lieferbedingungen des Auftrags statt Reservierung und Preisvorbehalt */
+export function abHinweise(lieferbedingungen: string | null | undefined): string[] {
+  const lb = (lieferbedingungen ?? '').trim()
+  return lb ? [`Lieferbedingungen: ${lb}`] : []
 }
 
 /** Dateiname des PDF – nur unkritische Zeichen */
@@ -63,13 +78,12 @@ export function abBetreff(nummer: string, betrieb: string): string {
 }
 
 /** Mailtext: Standardtext, die optionale Nachricht des Benutzers ersetzt den mittleren Absatz nicht, sondern ergänzt ihn */
-export function abMailText(p: { kundenName: string | null; nummer: string; reserviertBis: string | null | undefined; nachricht?: string | null; betrieb: string }): string {
-  const bis = abDatum(p.reserviertBis)
+export function abMailText(p: { kundenName: string | null; nummer: string; nachricht?: string | null; betrieb: string }): string {
   const nachricht = (p.nachricht ?? '').trim()
   return [
     p.kundenName ? `Sehr geehrte Damen und Herren, ${p.kundenName},` : 'Sehr geehrte Damen und Herren,',
     '',
-    `anbei erhalten Sie unsere Auftragsbestätigung ${p.nummer}.${bis ? ` Die Ware ist bis ${bis} für Sie reserviert.` : ''}`,
+    `anbei erhalten Sie unsere Auftragsbestätigung ${p.nummer}.`,   // KAN-487: ohne Satz zur Reservierung
     ...(nachricht ? ['', nachricht] : []),
     '',
     'Freundliche Grüße',

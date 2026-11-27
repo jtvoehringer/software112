@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const admin = createSupabaseAdminClient()
   const versand = await belegPerMailSenden({
     admin, tenantId, userId: user.id, an: empfaenger, betreff,
-    text: abMailText({ kundenName: d.kundenName || null, nummer: d.nummer, reserviertBis: d.reserviertBis, nachricht: typeof body.message === 'string' ? body.message : null, betrieb: d.betriebName }),
+    text: abMailText({ kundenName: d.kundenName || null, nummer: d.nummer, nachricht: typeof body.message === 'string' ? body.message : null, betrieb: d.betriebName }),
     dateiname: abDateiname(d.nummer), pdf, absenderName: d.betriebName,
   })
   if (!versand.ok) return NextResponse.json({ error: versand.fehler }, { status: versand.status })

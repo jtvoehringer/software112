@@ -10,7 +10,8 @@ import { ladeReservierungen, ladeReservierungTage } from '@/lib/auftrag/laden'
 import { reserviertBisVorschlag, verfuegbar } from '@/lib/auftrag/regeln'
 import { auftragIdAus } from '@/lib/auftrag/lieferung'
 import { angebotOffen } from '@/lib/auftrag/angebot'
-import AuftragForm from './AuftragForm'
+import { zahlWert } from '@/lib/format'
+import AuftragForm, { type AuftragZeileEingabe } from './AuftragForm'
 
 export const metadata: Metadata = { title: 'Neuer Auftrag' }
 export const dynamic = 'force-dynamic'
@@ -25,27 +26,32 @@ export default async function AuftragNeuPage({ searchParams }: { searchParams: P
   const tenantId = membership.tenantId
   const supabase = await createSupabaseServerClient()
 
-  const [fRes, reserviert, fristTage] = await Promise.all([
+  const [fRes, reserviert, fristTage, eRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('fuellungen') as any)
-      .select('id, name, jahrgang, flaschengroesse_ml, bestand_flaschen')
+      .select('id, name, jahrgang, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto')
       .eq('tenant_id', tenantId).eq('aktiv', true).is('storniert_am', null).gt('bestand_flaschen', 0).order('name').order('id')),
     ladeReservierungen(supabase, tenantId),
     ladeReservierungTage(supabase, tenantId),   // KAN-418 Teil 5: Standardfrist des Betriebs
+    // KAN-487: Standard-USt. des Betriebs als Vorschlag je Position (wie am Angebot)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('tenant_einstellungen') as any).select('ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(),
   ])
+  const ustStandard = zahlWert((geladen(eRes, 'Einstellungen') as R | null)?.ust_satz_standard) ?? 13
   const fuellungen = ((geladen(fRes, 'Füllungen') ?? []) as R[]).map(f => ({
     id: f.id as string,
     name: [f.name, f.jahrgang, f.flaschengroesse_ml ? `${f.flaschengroesse_ml} ml` : null].filter(Boolean).join(' · '),
     bestand: Number(f.bestand_flaschen) || 0,
     reserviert: reserviert.get(f.id) ?? 0,
     verfuegbar: verfuegbar(f.bestand_flaschen, reserviert.get(f.id)),
+    preis: zahlWert(f.vk_preis_brutto),   // KAN-487: Preisvorschlag
   }))
   const heute = heuteWien()
 
   // KAN-418 Teil 4: „In Auftrag übernehmen“ – Kunde und Positionen des offenen Angebots vorbelegen (Mengen änderbar);
   // erst das Speichern des Auftrags prüft den Bestand, reserviert und setzt das Angebot auf „angenommen“.
   const angebotId = auftragIdAus((await searchParams).angebot)
-  let angebot: { id: string; nummer: string; kunde: string; zeilen: { fuellung_id: string; menge: string }[] } | null = null
+  let angebot: { id: string; nummer: string; kunde: string; zeilen: AuftragZeileEingabe[] } | null = null
   let angebotHinweis: string | null = null
   if (angebotId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,11 +62,16 @@ export default async function AuftragNeuPage({ searchParams }: { searchParams: P
     else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pos = (geladen(await alle<R>((supabase.from('auftrag_positionen') as any)
-        .select('id, fuellung_id, menge').eq('tenant_id', tenantId).eq('auftrag_id', angebotId).order('erstellt_am').order('id')), 'Positionen des Angebots') ?? []) as R[]
+        .select('id, fuellung_id, menge, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz').eq('tenant_id', tenantId).eq('auftrag_id', angebotId).order('erstellt_am').order('id')), 'Positionen des Angebots') ?? []) as R[]
+      // KAN-487: die Preise des Angebots stehen im Formular (änderbar) und werden mit dem Auftrag gespeichert
+      const txt = (v: unknown, sonst: string) => (v === null || v === undefined || v === '' ? sonst : String(v))
       angebot = {
         id: String(an.id), nummer: String(an.nummer),
         kunde: an.firma_id ? `firma:${an.firma_id}` : `kontakt:${an.kontakt_id}`,
-        zeilen: pos.map(p => ({ fuellung_id: String(p.fuellung_id), menge: String(p.menge) })),
+        zeilen: pos.map(p => ({
+          fuellung_id: String(p.fuellung_id), menge: String(p.menge), preis_brutto: txt(p.preis_brutto, ''),
+          rabatt_pct: txt(p.rabatt_pct, '0'), sonderrabatt_pct: txt(p.sonderrabatt_pct, '0'), ust_satz: txt(p.ust_satz, String(ustStandard)),
+        })),
       }
     }
   }
@@ -74,7 +85,7 @@ export default async function AuftragNeuPage({ searchParams }: { searchParams: P
       </nav>
       <h1 className="text-2xl font-semibold text-s112-text">Neuer Auftrag</h1>
       {angebotHinweis && <div role="alert" className="bg-s112-warn-bg border border-s112-warn/30 text-sm text-s112-warn-fg rounded-xl px-4 py-3">{angebotHinweis}</div>}
-      <AuftragForm fuellungen={fuellungen} heute={heute} reserviertBis={reserviertBisVorschlag(heute, fristTage)} crmSchreiben={canWrite(membership, 'crm')}
+      <AuftragForm fuellungen={fuellungen} heute={heute} reserviertBis={reserviertBisVorschlag(heute, fristTage)} ustStandard={ustStandard} crmSchreiben={canWrite(membership, 'crm')}
         angebot={angebot ?? undefined} />
     </div>
   )

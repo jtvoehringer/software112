@@ -1,6 +1,8 @@
 // Auftragsbestätigung als PDF (KAN-418 Teil 3, 12.11.2026) – für Download und E-Mail-Anhang. Aufbau, Schrift und Kopf
-// wie die Verkaufsrechnung (verkaufRechnungPdf.tsx), aber ohne Preise: Der Auftrag reserviert Flaschen, Preise
-// entstehen bei der Lieferung (Entscheidung Jörgen 12.11.2026).
+// wie die Verkaufsrechnung (verkaufRechnungPdf.tsx).
+// KAN-487 (27.11.2026): MIT Preisen wie das Angebot (angebotPdf.tsx) – Bruttopreis je Flasche, Rabatt, Zeilenbetrag,
+// Summe netto / USt. / brutto – und mit den Lieferbedingungen des Auftrags statt der Sätze zur Reservierung und zum
+// Preis bei Lieferung. Alle Beträge kommen fertig gerundet aus lib/auftrag – hier wird nur formatiert.
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 
 export type AuftragsbestaetigungPdfProps = {
@@ -16,13 +18,15 @@ export type AuftragsbestaetigungPdfProps = {
   }
   auftrag: { nummer: string; datum: string }
   kunde: { name: string; strasse: string | null; plzOrt: string | null }
-  positionen: { name: string; sub: string | null; flaschen: number }[]
-  flaschenGesamt: number
-  /** Sätze unter den Positionen (Reservierung, Preise) */
+  positionen: { name: string; sub: string | null; flaschen: number; preis: number; rabatt: string; betrag: number }[]
+  summen: { brutto: number; netto: number; ust: { satz: number; netto: number; steuer: number }[]; flaschen: number }
+  /** Sätze unter den Summen (Lieferbedingungen) */
   hinweise: string[]
 }
 
 const fmtZahl = (n: number) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(n)
+const fmtEur = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n)
+const fmtSatz = (n: number) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(n)
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#222' },
@@ -42,10 +46,16 @@ const styles = StyleSheet.create({
   posName: { flex: 1, paddingRight: 6 },
   posTitle: { fontSize: 9.5, fontWeight: 700 },
   posSub: { fontSize: 8, color: '#888', marginTop: 1 },
-  qty: { width: 80, fontSize: 9.5, textAlign: 'right' },
-  totalsRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 8 },
-  totalsLabel: { fontSize: 10, fontWeight: 700, color: '#333', marginRight: 12 },
-  totalsAmount: { width: 80, fontSize: 11, fontWeight: 700, textAlign: 'right' },
+  qty: { width: 55, fontSize: 9.5, textAlign: 'right' },
+  preis: { width: 70, fontSize: 9.5, textAlign: 'right' },
+  rabatt: { width: 70, fontSize: 9.5, textAlign: 'right' },
+  betrag: { width: 80, fontSize: 9.5, textAlign: 'right' },
+  totals: { marginTop: 8, alignItems: 'flex-end' },
+  totalsRow: { flexDirection: 'row', paddingTop: 3 },
+  totalsLabel: { fontSize: 9.5, color: '#555', marginRight: 12 },
+  totalsAmount: { width: 90, fontSize: 9.5, textAlign: 'right' },
+  totalsLabelFett: { fontSize: 10.5, fontWeight: 700, color: '#222', marginRight: 12 },
+  totalsAmountFett: { width: 90, fontSize: 11, fontWeight: 700, textAlign: 'right' },
   hinweise: { marginTop: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#EDEEF1' },
   hinweis: { fontSize: 9.5, color: '#222', marginTop: 3, lineHeight: 1.4 },
   footer: {
@@ -54,9 +64,10 @@ const styles = StyleSheet.create({
   },
 })
 
-export function AuftragsbestaetigungDocument({ betrieb, auftrag, kunde, positionen, flaschenGesamt, hinweise }: AuftragsbestaetigungPdfProps) {
+export function AuftragsbestaetigungDocument({ betrieb, auftrag, kunde, positionen, summen, hinweise }: AuftragsbestaetigungPdfProps) {
   // nur Rasterbilder als Logo – SVG scheitert in react-pdf an eingebetteten Schriften (siehe verkaufRechnungPdf.tsx)
   const logoIstRasterbild = !!betrieb.logoUrl && !/\.svg(\?|$)/i.test(betrieb.logoUrl)
+  const mitRabatt = positionen.some(p => p.rabatt)
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -90,7 +101,10 @@ export function AuftragsbestaetigungDocument({ betrieb, auftrag, kunde, position
 
         <View style={styles.tableHead}>
           <Text style={[styles.th, { flex: 1 }]}>Bezeichnung</Text>
-          <Text style={[styles.th, { width: 80, textAlign: 'right' }]}>Flaschen</Text>
+          <Text style={[styles.th, { width: 55, textAlign: 'right' }]}>Flaschen</Text>
+          <Text style={[styles.th, { width: 70, textAlign: 'right' }]}>Preis</Text>
+          {mitRabatt && <Text style={[styles.th, { width: 70, textAlign: 'right' }]}>Rabatt</Text>}
+          <Text style={[styles.th, { width: 80, textAlign: 'right' }]}>Betrag</Text>
         </View>
 
         {positionen.map((pos, i) => (
@@ -100,15 +114,35 @@ export function AuftragsbestaetigungDocument({ betrieb, auftrag, kunde, position
               {pos.sub && <Text style={styles.posSub}>{pos.sub}</Text>}
             </View>
             <Text style={styles.qty}>{fmtZahl(pos.flaschen)}</Text>
+            <Text style={styles.preis}>{fmtEur(pos.preis)}</Text>
+            {mitRabatt && <Text style={styles.rabatt}>{pos.rabatt || '–'}</Text>}
+            <Text style={styles.betrag}>{fmtEur(pos.betrag)}</Text>
           </View>
         ))}
 
-        <View style={styles.totalsRow}>
-          <Text style={styles.totalsLabel}>Flaschen gesamt</Text>
-          <Text style={styles.totalsAmount}>{fmtZahl(flaschenGesamt)}</Text>
+        <View style={styles.totals} wrap={false}>
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLabel}>Flaschen gesamt</Text>
+            <Text style={styles.totalsAmount}>{fmtZahl(summen.flaschen)}</Text>
+          </View>
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLabel}>Summe netto</Text>
+            <Text style={styles.totalsAmount}>{fmtEur(summen.netto)}</Text>
+          </View>
+          {summen.ust.map(u => (
+            <View key={u.satz} style={styles.totalsRow}>
+              <Text style={styles.totalsLabel}>USt. {fmtSatz(u.satz)} %</Text>
+              <Text style={styles.totalsAmount}>{fmtEur(u.steuer)}</Text>
+            </View>
+          ))}
+          <View style={[styles.totalsRow, { paddingTop: 6 }]}>
+            <Text style={styles.totalsLabelFett}>Gesamt brutto</Text>
+            <Text style={styles.totalsAmountFett}>{fmtEur(summen.brutto)}</Text>
+          </View>
         </View>
 
         <View style={styles.hinweise}>
+          <Text style={styles.hinweis}>Preise je Flasche in Euro inklusive Umsatzsteuer.</Text>
           {hinweise.map((h, i) => <Text key={i} style={styles.hinweis}>{h}</Text>)}
         </View>
 

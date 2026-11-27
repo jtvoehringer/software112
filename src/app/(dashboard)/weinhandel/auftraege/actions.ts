@@ -11,7 +11,10 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { heuteWien } from '@/lib/datum/wien'
-import { auftragFehler, auftragPositionenAus, fristFehler, stornoGrundFehlerAuftrag } from '@/lib/auftrag/regeln'
+import {
+  auftragFehler, auftragPositionenAus, auftragPositionenFuerDb, ergaenzFehler, ergaenzPositionenAus, ergaenzPositionenFuerDb,
+  fristFehler, stornoGrundFehlerAuftrag,
+} from '@/lib/auftrag/regeln'
 import { alle } from '@/lib/supabase/alle'
 import { auftragIdAus, LIEFERBAR_STATUS, lieferVorschlag, type AuftragZeile, type LieferVorschlag } from '@/lib/auftrag/lieferung'
 
@@ -45,6 +48,7 @@ export async function createAuftrag(formData: FormData): Promise<{ error?: strin
       kunde: (kundeTyp === 'kontakt' || kundeTyp === 'firma') && /^[0-9a-f-]{36}$/i.test(kundeId ?? '') ? kunde : '',
       datum: String(formData.get('datum') ?? ''),
       reserviert_bis: String(formData.get('reserviert_bis') ?? ''),
+      lieferbedingungen: String(formData.get('lieferbedingungen') ?? '').trim(),   // KAN-487: Pflicht-Freitext
       notizen: (String(formData.get('notizen') ?? '').trim() || null),
     }
     const positionen = auftragPositionenAus(formData.get('positionen_json'))
@@ -56,17 +60,39 @@ export async function createAuftrag(formData: FormData): Promise<{ error?: strin
       p_tenant_id: tenantId,
       p_kopf: {
         kontakt_id: kundeTyp === 'kontakt' ? kundeId : null, firma_id: kundeTyp === 'firma' ? kundeId : null,
-        datum: kopf.datum, reserviert_bis: kopf.reserviert_bis, notizen: kopf.notizen,
+        datum: kopf.datum, reserviert_bis: kopf.reserviert_bis, notizen: kopf.notizen, lieferbedingungen: kopf.lieferbedingungen,
         // KAN-418 Teil 4: Übernahme aus einem Angebot (die Datenbank prüft offen, gleicher Kunde, genau einmal)
         ...(auftragIdAus(formData.get('angebot_id')) ? { angebot_id: auftragIdAus(formData.get('angebot_id')) } : {}),
       },
-      p_positionen: positionen,
+      p_positionen: auftragPositionenFuerDb(positionen),   // KAN-487: mit Preisen (Momentaufnahme)
     })
     if (error) return { error: dbFehlerText(error, 'Der Auftrag konnte nicht angelegt werden') }
     const erg = (Array.isArray(data) ? data[0] : data) as R | null
     if (!erg?.id) return { error: 'Unerwartete Antwort der Datenbank – bitte die Auftragsliste prüfen, bevor du erneut speicherst.' }
     neuLaden()
     return { id: String(erg.id), nummer: String(erg.nummer ?? '') }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+/** KAN-487: einem Auftrag von früher die Preise und Lieferbedingungen nachtragen (einmal, solange er Flaschen reserviert) */
+export async function ergaenzeAuftrag(formData: FormData): Promise<{ error?: string }> {
+  try {
+    const id = auftragIdAus(formData.get('id'))
+    if (!id) return { error: 'Auftrag nicht gefunden.' }
+    const lieferbedingungen = String(formData.get('lieferbedingungen') ?? '').trim()
+    const positionen = ergaenzPositionenAus(formData.get('positionen_json'))
+    const fehler = ergaenzFehler(lieferbedingungen, positionen)
+    if (fehler || !positionen) return { error: fehler ?? 'Die Positionen konnten nicht gelesen werden.' }
+    const { supabase, tenantId } = await getCtx()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.rpc as any)('s112_auftrag_ergaenzen', {
+      p_tenant_id: tenantId, p_auftrag_id: id, p_lieferbedingungen: lieferbedingungen, p_positionen: ergaenzPositionenFuerDb(positionen),
+    })
+    if (error) return { error: dbFehlerText(error, 'Die Angaben konnten nicht gespeichert werden') }
+    neuLaden()
+    return {}
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }

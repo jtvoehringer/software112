@@ -49,7 +49,7 @@ DECLARE
     'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 'pruefe_ea_zeitraum_offen', 'pruefe_tenant_zugriff',
     's112_angebot_aendern', 's112_angebot_anlegen', 's112_angebot_status_setzen', 's112_artikel_bewegung_stornieren',
     's112_artikel_buchen', 's112_artikel_verkauf_buchen', 's112_artikel_verkauf_stornieren', 's112_auftrag_ab_vermerken',
-    's112_auftrag_abschliessen', 's112_auftrag_anlegen', 's112_auftrag_liefern', 's112_auftrag_lieferung_zuruecknehmen',
+    's112_auftrag_abschliessen', 's112_auftrag_anlegen', 's112_auftrag_ergaenzen', 's112_auftrag_liefern', 's112_auftrag_lieferung_zuruecknehmen',
     's112_auftrag_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_darf_lesen',
     's112_ea_beleg_loesen', 's112_ea_kosten_zuordnen', 's112_ea_stornieren', 's112_elabel_umleiten',
     's112_etikettierung_stornieren', 's112_export_muster_buchen', 's112_exportauftrag_aendern', 's112_exportauftrag_status_setzen',

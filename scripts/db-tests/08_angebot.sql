@@ -137,32 +137,32 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('fremdes_angebot_aendern', split_part(pg_temp.s112_fehlertext(format(c_aend, v_b, v_anm, jsonb_build_object('kontakt_id', v_k), v_pos)), ':', 1), 'P0002');
   v_erg := v_erg || pg_temp.s112_erwarte('fremdes_angebot_status', split_part(pg_temp.s112_fehlertext(format(c_stat, v_b, v_anm, 'storniert', 'S112TEST fremdes Angebot')), ':', 1), 'P0002');
   v_erg := v_erg || pg_temp.s112_erwarte('fremdes_angebot_uebernehmen',
-    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('kontakt_id', v_k, 'angebot_id', v_anm), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1)))), ':', 1), 'P0002');
+    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k, 'angebot_id', v_anm), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1, 'preis_brutto', '10.00', 'ust_satz', '13')))), ':', 1), 'P0002');
 
   -- ── 6. Übernahme in einen Auftrag: genau einmal, gleicher Kunde, Preise wandern mit ───────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('uebernahme_anderer_kunde',
-    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('kontakt_id', v_k2, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 5)))), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k2, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 5, 'preis_brutto', '10.00', 'ust_satz', '13')))), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('uebernahme_zu_viel',   -- der Auftrag prüft den Bestand (100 − 50 verkauft = 50 verfügbar)
-    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('kontakt_id', v_k, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 51)))), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 51, 'preis_brutto', '10.00', 'ust_satz', '13')))), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('angebot_bleibt_offen', (SELECT status FROM public.auftraege WHERE id = v_an), 'offen');
-  v_r := public.s112_auftrag_anlegen(v_b, jsonb_build_object('kontakt_id', v_k, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 30)));
+  v_r := public.s112_auftrag_anlegen(v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 30, 'preis_brutto', '11.00', 'sonderrabatt_pct', '5.00', 'ust_satz', '13')));
   v_auf := (v_r ->> 'id')::uuid;
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('auftrag_aus_angebot',
     (SELECT concat_ws('/', a.art, a.nummer ~ '^AB-', a.angebot_id = v_an, (SELECT status FROM public.auftraege x WHERE x.id = v_an)) FROM public.auftraege a WHERE a.id = v_auf),
     'auftrag/t/t/angenommen');
-  v_erg := v_erg || pg_temp.s112_erwarte('preise_am_auftrag',   -- erste Angebotsposition derselben Füllung
+  v_erg := v_erg || pg_temp.s112_erwarte('preise_am_auftrag',   -- KAN-487: die Preise kommen mit der Eingabe (im Formular aus dem Angebot vorbelegt), nicht mehr per Kopie
     (SELECT concat_ws('/', menge, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz) FROM public.auftrag_positionen WHERE auftrag_id = v_auf), '30/11.00/0.00/5.00/13.00');
   v_erg := v_erg || pg_temp.s112_erwarte('auftrag_reserviert', public.s112_fuellung_reserviert(v_f), 30);
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('zweite_uebernahme',
-    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('kontakt_id', v_k, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1)))), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k, 'angebot_id', v_an), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1, 'preis_brutto', '10.00', 'ust_satz', '13')))), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('angenommen_unveraenderlich', split_part(pg_temp.s112_fehlertext(format(c_aend, v_b, v_an, jsonb_build_object('kontakt_id', v_k), v_pos)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('angenommen_nicht_ablehnbar', split_part(pg_temp.s112_fehlertext(format(c_stat, v_b, v_an, 'abgelehnt', '')), ':', 1), '23514');
-  v_r := public.s112_auftrag_anlegen(v_b, jsonb_build_object('kontakt_id', v_k), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1)));
-  v_erg := v_erg || pg_temp.s112_erwarte('auftrag_ohne_angebot_ohne_preis',   -- ein normaler Auftrag bleibt ohne Preise
-    (SELECT (p.preis_brutto IS NULL)::text FROM public.auftrag_positionen p WHERE p.auftrag_id = (v_r ->> 'id')::uuid), 'true');
+  v_r := public.s112_auftrag_anlegen(v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1, 'preis_brutto', '10.00', 'ust_satz', '13')));
+  v_erg := v_erg || pg_temp.s112_erwarte('auftrag_ohne_angebot_mit_preis',   -- KAN-487: auch ein Auftrag ohne Angebot trägt Preise
+    (SELECT p.preis_brutto::text FROM public.auftrag_positionen p WHERE p.auftrag_id = (v_r ->> 'id')::uuid), '10.00');
 
   -- ── 7. Ablehnen und Stornieren, eigener Nummernkreis ───────────────────────────────────────────────────
   v_r := public.s112_angebot_anlegen(v_b, jsonb_build_object('kontakt_id', v_k), v_pos);
@@ -171,7 +171,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('status_unbekannt', split_part(pg_temp.s112_fehlertext(format(c_stat, v_b, v_an2, 'angenommen', '')), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('ablehnen_ohne_grund', pg_temp.s112_fehlertext(format(c_stat, v_b, v_an2, 'abgelehnt', '')), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('abgelehnt_nicht_uebernehmbar',
-    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('kontakt_id', v_k, 'angebot_id', v_an2), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1)))), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_auf, v_b, jsonb_build_object('lieferbedingungen', 'S112TEST ab Hof', 'kontakt_id', v_k, 'angebot_id', v_an2), jsonb_build_array(jsonb_build_object('fuellung_id', v_f, 'menge', 1, 'preis_brutto', '10.00', 'ust_satz', '13')))), ':', 1), '23514');
   v_r := public.s112_angebot_anlegen(v_b, jsonb_build_object('kontakt_id', v_k), v_pos);
   v_an3 := (v_r ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('storno_grund_fehlt', split_part(pg_temp.s112_fehlertext(format(c_stat, v_b, v_an3, 'storniert', 'kurz')), ':', 1), '23514');

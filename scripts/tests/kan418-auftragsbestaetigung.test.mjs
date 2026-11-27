@@ -35,13 +35,13 @@ describe('KAN-418 Teil 3: Inhalt der Auftragsbestätigung', () => {
     ])
     assert.equal(abFlaschenGesamt(p), 141)
   })
-  test('keine Preise: Hinweis auf Reservierung und Preise bei Lieferung', () => {
-    assert.deepEqual(abHinweise('2026-11-26'), ['Die Ware ist bis 26.11.2026 für Sie reserviert.', 'Es gelten die Preise zum Zeitpunkt der Lieferung.'])
-    assert.deepEqual(abHinweise(null)[0], 'Die Ware ist für Sie reserviert.')
+  test('KAN-487: mit Preisen – statt Reservierung und Preisvorbehalt stehen die Lieferbedingungen', () => {
+    // bis KAN-487 ohne Preise („Es gelten die Preise zum Zeitpunkt der Lieferung.“) – Entscheidung Jörgen 27.11.2026
+    assert.deepEqual(abHinweise('  Abholung ab Hof  '), ['Lieferbedingungen: Abholung ab Hof'])
+    assert.deepEqual(abHinweise(null), [])
     const pdf = quelle('src/lib/pdf/auftragsbestaetigungPdf.tsx')
-    // das Dokument kennt keine Preisfelder (anders als die Rechnung)
-    assert.doesNotMatch(pdf, /preisBrutto|fmtEur|MwSt|Rechnungsbetrag|rabatt|€/i)
-    assert.ok(pdf.includes('AUFTRAGSBESTÄTIGUNG') && pdf.includes('Flaschen gesamt'))
+    assert.ok(pdf.includes('AUFTRAGSBESTÄTIGUNG') && pdf.includes('Flaschen gesamt') && pdf.includes('Gesamt brutto'))
+    assert.doesNotMatch(pdf + quelle('src/lib/auftrag/bestaetigung.ts').replace(/^\/\/.*$/gm, ''), /für Sie reserviert|zum Zeitpunkt der Lieferung/)
   })
   test('Datum rein auf dem Text – kein Tagesversatz durch Zeitzonen', () => {
     assert.equal(abDatum('2026-11-12'), '12.11.2026')
@@ -64,16 +64,17 @@ describe('KAN-418 Teil 3: Mail', () => {
     assert.equal(abDateiname(null), 'Auftragsbestaetigung-Auftrag.pdf')
   })
   test('Standardtext; die optionale Nachricht ergänzt ihn', () => {
-    const basis = { kundenName: 'Franz Mayer', nummer: 'AB-2026-0001', reserviertBis: '2026-11-26', betrieb: 'Weingut Musterhof' }
+    const basis = { kundenName: 'Franz Mayer', nummer: 'AB-2026-0001', betrieb: 'Weingut Musterhof' }
     assert.equal(abMailText(basis), [
       'Sehr geehrte Damen und Herren, Franz Mayer,', '',
-      'anbei erhalten Sie unsere Auftragsbestätigung AB-2026-0001. Die Ware ist bis 26.11.2026 für Sie reserviert.', '',
+      'anbei erhalten Sie unsere Auftragsbestätigung AB-2026-0001.', '',
       'Freundliche Grüße', 'Weingut Musterhof',
     ].join('\n'))
     const mit = abMailText({ ...basis, kundenName: null, nachricht: '  Abholung ab Montag möglich.  ' })
     assert.ok(mit.startsWith('Sehr geehrte Damen und Herren,\n'))
-    assert.ok(mit.includes('für Sie reserviert.\n\nAbholung ab Montag möglich.\n\nFreundliche Grüße'))
-    assert.ok(!abMailText({ ...basis, reserviertBis: null }).includes('reserviert'))
+    assert.ok(mit.includes('AB-2026-0001.\n\nAbholung ab Montag möglich.\n\nFreundliche Grüße'))
+    // KAN-487: der Satz zur Reservierung steht nicht mehr im Mailtext
+    assert.ok(!abMailText({ ...basis, reserviertBis: '2026-11-26' }).includes('reserviert'))
   })
   test('Empfänger: genau eine gültige Adresse; Nachricht begrenzt', () => {
     assert.equal(abEmpfaengerFehler(' kunde@example.at '), null)
@@ -115,14 +116,15 @@ describe('KAN-418 Teil 3: Routen', () => {
     assert.equal((l.match(/\.eq\('tenant_id', tenantId\)/g) ?? []).length, 5)
     assert.ok(l.includes('[aRes.error, eRes.error, pRes.error].find(Boolean)') && l.includes('[kRes.error, fRes.error].find(Boolean)'))
     assert.ok(l.includes('if (!abMoeglich(a)) return { ok: false, status: 400'))
-    assert.doesNotMatch(l, /preis|rabatt/i)
+    // KAN-487: Preise gehören dazu; ohne Preise bzw. Lieferbedingungen gibt es keine Auftragsbestätigung
+    assert.ok(l.includes('if (auftragUnvollstaendig(a, zeilen)) {') && l.includes('summen: angebotSummen(zeilen)') && l.includes('hinweise: abHinweise(a.lieferbedingungen)'))
   })
 })
 
 describe('KAN-418 Teil 3: Seite und Migration', () => {
   test('Auftragsdetail: Panel nur ohne Storno, Senden nur mit Schreibrecht; Liste kennzeichnet „bestätigt“', () => {
     const p = quelle('src/app/(dashboard)/weinhandel/auftraege/[id]/page.tsx')
-    assert.ok(p.includes('{abMoeglich(a as { status: string; storniert_am: string | null }) && ('))
+    assert.ok(p.includes('{!unvollstaendig && abMoeglich(a as { status: string; storniert_am: string | null }) && ('))   // KAN-487: nur bei vollständigem Auftrag
     assert.ok(p.includes('darfSenden={darfSchreiben}'))
     const panel = quelle('src/app/(dashboard)/weinhandel/auftraege/[id]/AuftragsbestaetigungPanel.tsx')
     assert.ok(panel.includes('{darfSenden && !offen && ('))

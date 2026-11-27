@@ -14,7 +14,9 @@ const quelle = p => readFileSync(path.join(WURZEL, p), 'utf8').replace(/\r\n/g, 
 const F1 = '11111111-1111-4111-8111-111111111111'
 const F2 = '22222222-2222-4222-8222-222222222222'
 const HEUTE = '2026-11-12'
-const kopf = (mehr = {}) => ({ kunde: `kontakt:${F1}`, datum: HEUTE, reserviert_bis: '2026-11-26', notizen: null, ...mehr })
+const kopf = (mehr = {}) => ({ kunde: `kontakt:${F1}`, datum: HEUTE, reserviert_bis: '2026-11-26', lieferbedingungen: 'Abholung ab Hof', notizen: null, ...mehr })
+// KAN-487: jede Position trägt Preise (Momentaufnahme wie am Angebot)
+const PREIS = { preis_brutto: 12.5, rabatt_pct: 0, sonderrabatt_pct: 0, ust_satz: 13 }
 
 // Migration: eingecheckt unter supabase/migrations/<version>_<name>.sql, vor dem Einspielen im (nicht eingecheckten) Entwurfsordner
 function migration(name) {
@@ -28,15 +30,15 @@ function migration(name) {
 
 describe('KAN-418: Positionen aus dem Formular', () => {
   test('leere Zeilen fallen weg, Mengen als Zahl oder Ziffernfolge', () => {
-    const p = auftragPositionenAus(JSON.stringify([{ fuellung_id: F1, menge: '12' }, { fuellung_id: '', menge: '' }, { fuellung_id: F2, menge: 6 }]))
-    assert.deepEqual(p, [{ fuellung_id: F1, menge: 12 }, { fuellung_id: F2, menge: 6 }])
+    const p = auftragPositionenAus(JSON.stringify([{ fuellung_id: F1, menge: '12', preis_brutto: '12.50', ust_satz: '13' }, { fuellung_id: '', menge: '', preis_brutto: '', rabatt_pct: '0', ust_satz: '13' }, { fuellung_id: F2, menge: 6, ...PREIS, rabatt_pct: '10' }]))
+    assert.deepEqual(p, [{ fuellung_id: F1, menge: 12, ...PREIS }, { fuellung_id: F2, menge: 6, ...PREIS, rabatt_pct: 10 }])
   })
   test('nicht lesbar: kein Text, kein JSON, kein Feld, keine UUID', () => {
     for (const roh of [null, undefined, 5, '{', '{}', '[1]', JSON.stringify([{ fuellung_id: 'abc', menge: 1 }])]) assert.equal(auftragPositionenAus(roh), null, String(roh))
   })
   test('Komma, Minus und Text als Menge werden nicht still zu einer Zahl', () => {
     for (const menge of ['1,5', '-3', 'zwölf', '1e3', ' ']) {
-      const p = auftragPositionenAus(JSON.stringify([{ fuellung_id: F1, menge }]))
+      const p = auftragPositionenAus(JSON.stringify([{ fuellung_id: F1, menge, ...PREIS }]))
       assert.ok(p && Number.isNaN(p[0].menge), menge)
       assert.match(auftragFehler(kopf(), p, HEUTE), /Menge ab 1 Flasche/)
     }
@@ -44,7 +46,7 @@ describe('KAN-418: Positionen aus dem Formular', () => {
 })
 
 describe('KAN-418: Prüfung des Auftrags', () => {
-  const pos = [{ fuellung_id: F1, menge: 6 }]
+  const pos = [{ fuellung_id: F1, menge: 6, ...PREIS }]
   test('gültiger Auftrag', () => assert.equal(auftragFehler(kopf(), pos, HEUTE), null))
   test('Kunde, Datum und Frist', () => {
     assert.match(auftragFehler(kopf({ kunde: '' }), pos, HEUTE), /Kunden wählen/)
@@ -59,15 +61,15 @@ describe('KAN-418: Prüfung des Auftrags', () => {
     assert.match(auftragFehler(kopf(), null, HEUTE), /nicht gelesen/)
     assert.match(auftragFehler(kopf(), [], HEUTE), /mindestens eine Position/)
     assert.match(auftragFehler(kopf(), Array.from({ length: AUFTRAG_POSITIONEN_MAX + 1 }, () => pos[0]), HEUTE), /Höchstens 100 Positionen/)
-    assert.match(auftragFehler(kopf(), [{ fuellung_id: '', menge: 3 }], HEUTE), /Füllung wählen/)
-    assert.match(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 0 }], HEUTE), /Menge ab 1 Flasche/)
-    assert.match(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 1.5 }], HEUTE), /Menge ab 1 Flasche/)
+    assert.match(auftragFehler(kopf(), [{ fuellung_id: '', menge: 3, ...PREIS }], HEUTE), /Füllung wählen/)
+    assert.match(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 0, ...PREIS }], HEUTE), /Menge ab 1 Flasche/)
+    assert.match(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 1.5, ...PREIS }], HEUTE), /Menge ab 1 Flasche/)
   })
   test('verfügbarer Bestand: Summe je Füllung über alle Positionen', () => {
     const v = new Map([[F1, { name: 'Zierfandler 2025', verfuegbar: 10 }]])
-    assert.equal(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 10 }], HEUTE, v), null)
-    assert.match(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 6 }, { fuellung_id: F1, menge: 5 }], HEUTE, v), /„Zierfandler 2025“: nur noch 10 Flaschen verfügbar, 11 angefragt/)
-    assert.match(auftragFehler(kopf(), [{ fuellung_id: F2, menge: 1 }], HEUTE, v), /gibt es nicht mehr/)
+    assert.equal(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 10, ...PREIS }], HEUTE, v), null)
+    assert.match(auftragFehler(kopf(), [{ fuellung_id: F1, menge: 6, ...PREIS }, { fuellung_id: F1, menge: 5, ...PREIS }], HEUTE, v), /„Zierfandler 2025“: nur noch 10 Flaschen verfügbar, 11 angefragt/)
+    assert.match(auftragFehler(kopf(), [{ fuellung_id: F2, menge: 1, ...PREIS }], HEUTE, v), /gibt es nicht mehr/)
     // überbuchte Füllung: nie eine negative Zahl in der Meldung
     assert.match(auftragFehler(kopf(), pos, HEUTE, new Map([[F1, { name: 'A', verfuegbar: -4 }]])), /nur noch 0 Flaschen/)
   })
